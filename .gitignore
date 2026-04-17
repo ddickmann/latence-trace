@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.coverage
+.coverage.*
+.eggs/
+.mypy_cache/
+.pytest_cache/
+.env
+.venv
+env/
+venv/
+ENV/
+build/
+dist/
+htmlcov/
+pip-wheel-metadata/
+site/
+*.egg-info/
+
+# Bench data and large checked-out corpora
+research/triangular_maxsim/external_data/
+data/
+
+# Heavy artefacts (allow only the small in-repo encoder fixtures explicitly)
+*.pt
+!research/triangular_maxsim/embeddings__*.pt
+*.bin
+*.zst
+
+# Logs and IDE
+*.log
+.idea/
+.vscode/
+wandb/
+
+# OS
+.DS_Store
