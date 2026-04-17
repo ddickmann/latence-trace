@@ -20,10 +20,9 @@ from __future__ import annotations
 import logging
 import os
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
-import numpy as np
 import torch
 
 from latence_trace.api.models import (
@@ -124,7 +123,7 @@ class ResolvedChunk:
     chunk_id: Any
     text: str
     embeddings: torch.Tensor
-    metadata: Dict[str, Any] = None  # type: ignore[assignment]
+    metadata: Optional[Dict[str, Any]] = field(default=None)
 
 
 ChunkResolver = Callable[[Sequence[Any]], List[ResolvedChunk]]

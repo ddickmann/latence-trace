@@ -26,7 +26,7 @@ from typing import Any, Dict, Iterable, List, Optional
 logger = logging.getLogger(__name__)
 
 _DEFAULT_PATH_ENV = "VOYAGER_GROUNDEDNESS_THRESHOLDS_PATH"
-_DEFAULT_FILENAME = "groundedness_thresholds.json"
+_DEFAULT_FILENAME = "thresholds.json"
 
 # Conservative fallback thresholds used when no calibration artefact is
 # available. These were sampled from the Phase F+G evaluation runs with

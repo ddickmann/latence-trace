@@ -1813,6 +1813,9 @@ def test_minimal_pairs_cover_all_strata_with_at_least_200_total() -> None:
         "negation",
         "role_swap",
         "partial",
+        "hard_compound_facts",
+        "hard_structured",
+        "hard_dialogue_distributed",
     }
     assert set(summary.keys()) == expected_strata
     for stratum, count in summary.items():
@@ -1845,6 +1848,9 @@ def test_minimal_pair_positive_and_negative_differ_within_stratum() -> None:
             "negation",
             "role_swap",
             "partial",
+            "hard_compound_facts",
+            "hard_structured",
+            "hard_dialogue_distributed",
         }
 
 
@@ -2009,6 +2015,9 @@ def test_minimal_pair_hard_family_covers_every_stratum() -> None:
         "negation",
         "role_swap",
         "partial",
+        "hard_compound_facts",
+        "hard_structured",
+        "hard_dialogue_distributed",
     }
     assert set(hard.keys()) == expected
     for stratum, count in hard.items():

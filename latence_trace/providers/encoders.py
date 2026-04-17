@@ -13,6 +13,7 @@ keeping a runtime dependency on the upstream voyager-index package:
 from __future__ import annotations
 
 import base64
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Optional
 
@@ -49,6 +50,15 @@ class VllmFactoryModernColBERTProvider:
         self.batch_size = max(1, int(batch_size))
         self.max_concurrency = max(1, int(max_concurrency))
         self._http_client: Any = None
+        self._client_lock = threading.Lock()
+        self._executor: Optional[ThreadPoolExecutor] = (
+            ThreadPoolExecutor(
+                max_workers=self.max_concurrency,
+                thread_name_prefix="latence-trace-encoder",
+            )
+            if self.max_concurrency > 1
+            else None
+        )
 
         try:
             from transformers import AutoConfig, AutoTokenizer
@@ -89,17 +99,23 @@ class VllmFactoryModernColBERTProvider:
                 "httpx is required for VllmFactoryModernColBERTProvider."
             ) from exc
 
-        limits = httpx.Limits(
-            max_connections=max(self.max_concurrency * 2, 8),
-            max_keepalive_connections=max(self.max_concurrency, 4),
-        )
-        self._http_client = httpx.Client(base_url=self.endpoint, timeout=self.timeout, limits=limits)
+        with self._client_lock:
+            if self._http_client is not None:
+                return self._http_client
+            limits = httpx.Limits(
+                max_connections=max(self.max_concurrency * 2, 8),
+                max_keepalive_connections=max(self.max_concurrency, 4),
+            )
+            self._http_client = httpx.Client(base_url=self.endpoint, timeout=self.timeout, limits=limits)
         return self._http_client
 
     def close(self) -> None:
         if self._http_client is not None:
             self._http_client.close()
             self._http_client = None
+        if self._executor is not None:
+            self._executor.shutdown(wait=False)
+            self._executor = None
 
     def healthcheck(self) -> dict[str, Any]:
         client = self._get_http_client()
@@ -223,17 +239,14 @@ class VllmFactoryModernColBERTProvider:
             return []
         is_query = bool(kwargs.get("is_query", False))
 
-        outputs: list[np.ndarray] = []
-        for start in range(0, len(texts), self.batch_size):
-            batch = texts[start : start + self.batch_size]
-            max_workers = min(self.max_concurrency, len(batch))
-            if max_workers <= 1:
-                outputs.extend(self._pool_text(text, is_query=is_query) for text in batch)
-                continue
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                futures = [executor.submit(self._pool_text, text, is_query=is_query) for text in batch]
-                outputs.extend(future.result() for future in futures)
-        return outputs
+        if self._executor is None or len(texts) <= 1:
+            return [self._pool_text(text, is_query=is_query) for text in texts]
+
+        futures = [
+            self._executor.submit(self._pool_text, text, is_query=is_query)
+            for text in texts
+        ]
+        return [future.result() for future in futures]
 
 
 def load_pylate_colbert(

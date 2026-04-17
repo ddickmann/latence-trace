@@ -1,0 +1,608 @@
+{
+  "nli_only": {
+    "baseline_path": "research/triangular_maxsim/reports/phase_j_nli.json",
+    "baseline_verdict": "feature in Beta with NLI peer, ready for evidence/QA",
+    "external": {
+      "factscore": [
+        {
+          "baseline_f1": null,
+          "baseline_precision": null,
+          "baseline_recall": null,
+          "n_baseline": null,
+          "n_post": 20,
+          "post_f1": 0.0,
+          "post_precision": 0.0,
+          "post_recall": 0.0,
+          "stratum": "biography"
+        }
+      ],
+      "halueval": [
+        {
+          "baseline_f1": 0.4000000000000001,
+          "baseline_precision": 0.4,
+          "baseline_recall": 0.4,
+          "n_baseline": 40,
+          "n_post": 40,
+          "post_f1": 0.4000000000000001,
+          "post_precision": 0.4,
+          "post_recall": 0.4,
+          "stratum": "dialogue"
+        },
+        {
+          "baseline_f1": 0.9,
+          "baseline_precision": 0.9,
+          "baseline_recall": 0.9,
+          "n_baseline": 40,
+          "n_post": 40,
+          "post_f1": 0.9,
+          "post_precision": 0.9,
+          "post_recall": 0.9,
+          "stratum": "qa"
+        },
+        {
+          "baseline_f1": 0.7,
+          "baseline_precision": 0.7,
+          "baseline_recall": 0.7,
+          "n_baseline": 40,
+          "n_post": 40,
+          "post_f1": 0.7,
+          "post_precision": 0.7,
+          "post_recall": 0.7,
+          "stratum": "summarization"
+        }
+      ],
+      "ragtruth": [
+        {
+          "baseline_f1": 0.23529411764705882,
+          "baseline_precision": 0.2,
+          "baseline_recall": 0.2857142857142857,
+          "n_baseline": 20,
+          "n_post": 20,
+          "post_f1": 0.23529411764705882,
+          "post_precision": 0.2,
+          "post_recall": 0.2857142857142857,
+          "stratum": "data2text"
+        },
+        {
+          "baseline_f1": 0.6896551724137931,
+          "baseline_precision": 1.0,
+          "baseline_recall": 0.5263157894736842,
+          "n_baseline": 20,
+          "n_post": 20,
+          "post_f1": 0.6896551724137931,
+          "post_precision": 1.0,
+          "post_recall": 0.5263157894736842,
+          "stratum": "qa"
+        },
+        {
+          "baseline_f1": 0.56,
+          "baseline_precision": 0.7,
+          "baseline_recall": 0.4666666666666667,
+          "n_baseline": 20,
+          "n_post": 20,
+          "post_f1": 0.56,
+          "post_precision": 0.7,
+          "post_recall": 0.4666666666666667,
+          "stratum": "summarization"
+        }
+      ]
+    },
+    "latency": {
+      "encode_p95_ms_baseline": 0.618456769734621,
+      "encode_p95_ms_post": 0.6267460994422435,
+      "latency_p95_ms_baseline": 102.3622043430805,
+      "latency_p95_ms_post": 102.95752938836813,
+      "score_p95_ms_baseline": 101.75154898315665,
+      "score_p95_ms_post": 102.48401975259185
+    },
+    "max_external_per_stratum": 20,
+    "minimal_pairs": [
+      {
+        "baseline_acc": 1.0,
+        "baseline_ci_lower": 1.0,
+        "delta": 0.0,
+        "n": 20,
+        "post_acc": 1.0,
+        "post_ci_lower": 1.0,
+        "stratum": "date_swap"
+      },
+      {
+        "baseline_acc": 0.95,
+        "baseline_ci_lower": 0.85,
+        "delta": 0.0,
+        "n": 20,
+        "post_acc": 0.95,
+        "post_ci_lower": 0.85,
+        "stratum": "entity_swap"
+      },
+      {
+        "baseline_acc": 1.0,
+        "baseline_ci_lower": 1.0,
+        "delta": 0.0,
+        "n": 20,
+        "post_acc": 1.0,
+        "post_ci_lower": 1.0,
+        "stratum": "hard_compound_facts"
+      },
+      {
+        "baseline_acc": 1.0,
+        "baseline_ci_lower": 1.0,
+        "delta": 0.0,
+        "n": 20,
+        "post_acc": 1.0,
+        "post_ci_lower": 1.0,
+        "stratum": "hard_dialogue_distributed"
+      },
+      {
+        "baseline_acc": 0.8,
+        "baseline_ci_lower": 0.65,
+        "delta": 0.0,
+        "n": 20,
+        "post_acc": 0.8,
+        "post_ci_lower": 0.65,
+        "stratum": "hard_structured"
+      },
+      {
+        "baseline_acc": 1.0,
+        "baseline_ci_lower": 1.0,
+        "delta": 0.0,
+        "n": 20,
+        "post_acc": 1.0,
+        "post_ci_lower": 1.0,
+        "stratum": "negation"
+      },
+      {
+        "baseline_acc": 1.0,
+        "baseline_ci_lower": 1.0,
+        "delta": 0.0,
+        "n": 20,
+        "post_acc": 1.0,
+        "post_ci_lower": 1.0,
+        "stratum": "number_swap"
+      },
+      {
+        "baseline_acc": 1.0,
+        "baseline_ci_lower": 1.0,
+        "delta": 0.0,
+        "n": 20,
+        "post_acc": 1.0,
+        "post_ci_lower": 1.0,
+        "stratum": "partial"
+      },
+      {
+        "baseline_acc": 1.0,
+        "baseline_ci_lower": 1.0,
+        "delta": 0.0,
+        "n": 20,
+        "post_acc": 1.0,
+        "post_ci_lower": 1.0,
+        "stratum": "role_swap"
+      },
+      {
+        "baseline_acc": 1.0,
+        "baseline_ci_lower": 1.0,
+        "delta": 0.0,
+        "n": 20,
+        "post_acc": 1.0,
+        "post_ci_lower": 1.0,
+        "stratum": "unit_swap"
+      },
+      {
+        "baseline_acc": 0.975,
+        "baseline_ci_lower": null,
+        "delta": 0.0,
+        "n": 200,
+        "post_acc": 0.975,
+        "post_ci_lower": null,
+        "stratum": "OVERALL"
+      }
+    ],
+    "pairs_per_stratum": 20,
+    "post_path": "research/triangular_maxsim/parity_artifacts/post_extraction__phase_j_nli.json",
+    "post_verdict": "feature in Beta with NLI peer, ready for evidence/QA"
+  },
+  "nli_plus_semantic_entropy": {
+    "baseline_path": "research/triangular_maxsim/reports/phase_j_nli_sem.json",
+    "baseline_verdict": "feature in Beta with NLI peer, ready for evidence/QA",
+    "external": {
+      "factscore": [
+        {
+          "baseline_f1": null,
+          "baseline_precision": null,
+          "baseline_recall": null,
+          "n_baseline": null,
+          "n_post": 10,
+          "post_f1": 0.0,
+          "post_precision": 0.0,
+          "post_recall": 0.0,
+          "stratum": "biography"
+        }
+      ],
+      "halueval": [
+        {
+          "baseline_f1": 0.4000000000000001,
+          "baseline_precision": 0.4,
+          "baseline_recall": 0.4,
+          "n_baseline": 20,
+          "n_post": 20,
+          "post_f1": 0.4000000000000001,
+          "post_precision": 0.4,
+          "post_recall": 0.4,
+          "stratum": "dialogue"
+        },
+        {
+          "baseline_f1": 0.8000000000000002,
+          "baseline_precision": 0.8,
+          "baseline_recall": 0.8,
+          "n_baseline": 20,
+          "n_post": 20,
+          "post_f1": 0.8000000000000002,
+          "post_precision": 0.8,
+          "post_recall": 0.8,
+          "stratum": "qa"
+        },
+        {
+          "baseline_f1": 0.5,
+          "baseline_precision": 0.5,
+          "baseline_recall": 0.5,
+          "n_baseline": 20,
+          "n_post": 20,
+          "post_f1": 0.5,
+          "post_precision": 0.5,
+          "post_recall": 0.5,
+          "stratum": "summarization"
+        }
+      ],
+      "ragtruth": [
+        {
+          "baseline_f1": 0.25,
+          "baseline_precision": 0.2,
+          "baseline_recall": 0.3333333333333333,
+          "n_baseline": 10,
+          "n_post": 10,
+          "post_f1": 0.25,
+          "post_precision": 0.2,
+          "post_recall": 0.3333333333333333,
+          "stratum": "data2text"
+        },
+        {
+          "baseline_f1": 0.7142857142857143,
+          "baseline_precision": 1.0,
+          "baseline_recall": 0.5555555555555556,
+          "n_baseline": 10,
+          "n_post": 10,
+          "post_f1": 0.7142857142857143,
+          "post_precision": 1.0,
+          "post_recall": 0.5555555555555556,
+          "stratum": "qa"
+        },
+        {
+          "baseline_f1": 0.8333333333333333,
+          "baseline_precision": 1.0,
+          "baseline_recall": 0.7142857142857143,
+          "n_baseline": 10,
+          "n_post": 10,
+          "post_f1": 0.8333333333333333,
+          "post_precision": 1.0,
+          "post_recall": 0.7142857142857143,
+          "stratum": "summarization"
+        }
+      ]
+    },
+    "latency": {
+      "encode_p95_ms_baseline": 0.6742835976183417,
+      "encode_p95_ms_post": 0.6125287152826787,
+      "latency_p95_ms_baseline": 124.9506745487454,
+      "latency_p95_ms_post": 157.8460767865181,
+      "score_p95_ms_baseline": 124.40552348271036,
+      "score_p95_ms_post": 157.49567598104477
+    },
+    "max_external_per_stratum": 10,
+    "minimal_pairs": [
+      {
+        "baseline_acc": 1.0,
+        "baseline_ci_lower": 1.0,
+        "delta": 0.0,
+        "n": 15,
+        "post_acc": 1.0,
+        "post_ci_lower": 1.0,
+        "stratum": "date_swap"
+      },
+      {
+        "baseline_acc": 0.9333333333333333,
+        "baseline_ci_lower": 0.8,
+        "delta": 0.0,
+        "n": 15,
+        "post_acc": 0.9333333333333333,
+        "post_ci_lower": 0.8,
+        "stratum": "entity_swap"
+      },
+      {
+        "baseline_acc": 1.0,
+        "baseline_ci_lower": 1.0,
+        "delta": 0.0,
+        "n": 15,
+        "post_acc": 1.0,
+        "post_ci_lower": 1.0,
+        "stratum": "hard_compound_facts"
+      },
+      {
+        "baseline_acc": 0.8666666666666667,
+        "baseline_ci_lower": 0.6666666666666666,
+        "delta": 0.1333333333333333,
+        "n": 15,
+        "post_acc": 1.0,
+        "post_ci_lower": 1.0,
+        "stratum": "hard_dialogue_distributed"
+      },
+      {
+        "baseline_acc": 0.7333333333333333,
+        "baseline_ci_lower": 0.4666666666666667,
+        "delta": 0.0,
+        "n": 15,
+        "post_acc": 0.7333333333333333,
+        "post_ci_lower": 0.4666666666666667,
+        "stratum": "hard_structured"
+      },
+      {
+        "baseline_acc": 1.0,
+        "baseline_ci_lower": 1.0,
+        "delta": 0.0,
+        "n": 15,
+        "post_acc": 1.0,
+        "post_ci_lower": 1.0,
+        "stratum": "negation"
+      },
+      {
+        "baseline_acc": 1.0,
+        "baseline_ci_lower": 1.0,
+        "delta": 0.0,
+        "n": 15,
+        "post_acc": 1.0,
+        "post_ci_lower": 1.0,
+        "stratum": "number_swap"
+      },
+      {
+        "baseline_acc": 1.0,
+        "baseline_ci_lower": 1.0,
+        "delta": 0.0,
+        "n": 15,
+        "post_acc": 1.0,
+        "post_ci_lower": 1.0,
+        "stratum": "partial"
+      },
+      {
+        "baseline_acc": 1.0,
+        "baseline_ci_lower": 1.0,
+        "delta": 0.0,
+        "n": 15,
+        "post_acc": 1.0,
+        "post_ci_lower": 1.0,
+        "stratum": "role_swap"
+      },
+      {
+        "baseline_acc": 1.0,
+        "baseline_ci_lower": 1.0,
+        "delta": 0.0,
+        "n": 15,
+        "post_acc": 1.0,
+        "post_ci_lower": 1.0,
+        "stratum": "unit_swap"
+      },
+      {
+        "baseline_acc": 0.9533333333333334,
+        "baseline_ci_lower": null,
+        "delta": 0.013333333333333308,
+        "n": 150,
+        "post_acc": 0.9666666666666667,
+        "post_ci_lower": null,
+        "stratum": "OVERALL"
+      }
+    ],
+    "pairs_per_stratum": 15,
+    "post_path": "research/triangular_maxsim/parity_artifacts/post_extraction__phase_j_nli_sem.json",
+    "post_verdict": "feature in Beta with NLI peer, ready for evidence/QA"
+  },
+  "score_only_no_nli": {
+    "baseline_path": "research/triangular_maxsim/reports/phase_j_no_nli.json",
+    "baseline_verdict": "feature in Beta with caveats; see per-stratum table",
+    "external": {
+      "factscore": [
+        {
+          "baseline_f1": null,
+          "baseline_precision": null,
+          "baseline_recall": null,
+          "n_baseline": null,
+          "n_post": 20,
+          "post_f1": 0.0,
+          "post_precision": 0.0,
+          "post_recall": 0.0,
+          "stratum": "biography"
+        }
+      ],
+      "halueval": [
+        {
+          "baseline_f1": 0.35,
+          "baseline_precision": 0.35,
+          "baseline_recall": 0.35,
+          "n_baseline": 40,
+          "n_post": 40,
+          "post_f1": 0.35,
+          "post_precision": 0.35,
+          "post_recall": 0.35,
+          "stratum": "dialogue"
+        },
+        {
+          "baseline_f1": 0.85,
+          "baseline_precision": 0.85,
+          "baseline_recall": 0.85,
+          "n_baseline": 40,
+          "n_post": 40,
+          "post_f1": 0.85,
+          "post_precision": 0.85,
+          "post_recall": 0.85,
+          "stratum": "qa"
+        },
+        {
+          "baseline_f1": 0.7,
+          "baseline_precision": 0.7,
+          "baseline_recall": 0.7,
+          "n_baseline": 40,
+          "n_post": 40,
+          "post_f1": 0.7,
+          "post_precision": 0.7,
+          "post_recall": 0.7,
+          "stratum": "summarization"
+        }
+      ],
+      "ragtruth": [
+        {
+          "baseline_f1": 0.23529411764705882,
+          "baseline_precision": 0.2,
+          "baseline_recall": 0.2857142857142857,
+          "n_baseline": 20,
+          "n_post": 20,
+          "post_f1": 0.23529411764705882,
+          "post_precision": 0.2,
+          "post_recall": 0.2857142857142857,
+          "stratum": "data2text"
+        },
+        {
+          "baseline_f1": 0.6896551724137931,
+          "baseline_precision": 1.0,
+          "baseline_recall": 0.5263157894736842,
+          "n_baseline": 20,
+          "n_post": 20,
+          "post_f1": 0.6896551724137931,
+          "post_precision": 1.0,
+          "post_recall": 0.5263157894736842,
+          "stratum": "qa"
+        },
+        {
+          "baseline_f1": 0.64,
+          "baseline_precision": 0.8,
+          "baseline_recall": 0.5333333333333333,
+          "n_baseline": 20,
+          "n_post": 20,
+          "post_f1": 0.64,
+          "post_precision": 0.8,
+          "post_recall": 0.5333333333333333,
+          "stratum": "summarization"
+        }
+      ]
+    },
+    "latency": {
+      "encode_p95_ms_baseline": 0.7676376961171626,
+      "encode_p95_ms_post": 0.7816746830940245,
+      "latency_p95_ms_baseline": 92.10219411179423,
+      "latency_p95_ms_post": 92.14759925380349,
+      "score_p95_ms_baseline": 91.49004984647036,
+      "score_p95_ms_post": 91.54612449929118
+    },
+    "max_external_per_stratum": 20,
+    "minimal_pairs": [
+      {
+        "baseline_acc": 1.0,
+        "baseline_ci_lower": 1.0,
+        "delta": 0.0,
+        "n": 20,
+        "post_acc": 1.0,
+        "post_ci_lower": 1.0,
+        "stratum": "date_swap"
+      },
+      {
+        "baseline_acc": 0.9,
+        "baseline_ci_lower": 0.75,
+        "delta": 0.0,
+        "n": 20,
+        "post_acc": 0.9,
+        "post_ci_lower": 0.75,
+        "stratum": "entity_swap"
+      },
+      {
+        "baseline_acc": 0.55,
+        "baseline_ci_lower": 0.35,
+        "delta": 0.0,
+        "n": 20,
+        "post_acc": 0.55,
+        "post_ci_lower": 0.35,
+        "stratum": "hard_compound_facts"
+      },
+      {
+        "baseline_acc": 0.25,
+        "baseline_ci_lower": 0.1,
+        "delta": 0.0,
+        "n": 20,
+        "post_acc": 0.25,
+        "post_ci_lower": 0.1,
+        "stratum": "hard_dialogue_distributed"
+      },
+      {
+        "baseline_acc": 0.65,
+        "baseline_ci_lower": 0.4,
+        "delta": 0.0,
+        "n": 20,
+        "post_acc": 0.65,
+        "post_ci_lower": 0.4,
+        "stratum": "hard_structured"
+      },
+      {
+        "baseline_acc": 0.85,
+        "baseline_ci_lower": 0.7,
+        "delta": 0.0,
+        "n": 20,
+        "post_acc": 0.85,
+        "post_ci_lower": 0.7,
+        "stratum": "negation"
+      },
+      {
+        "baseline_acc": 0.7,
+        "baseline_ci_lower": 0.5,
+        "delta": 0.0,
+        "n": 20,
+        "post_acc": 0.7,
+        "post_ci_lower": 0.5,
+        "stratum": "number_swap"
+      },
+      {
+        "baseline_acc": 0.95,
+        "baseline_ci_lower": 0.85,
+        "delta": 0.0,
+        "n": 20,
+        "post_acc": 0.95,
+        "post_ci_lower": 0.85,
+        "stratum": "partial"
+      },
+      {
+        "baseline_acc": 0.1,
+        "baseline_ci_lower": 0.0,
+        "delta": 0.0,
+        "n": 20,
+        "post_acc": 0.1,
+        "post_ci_lower": 0.0,
+        "stratum": "role_swap"
+      },
+      {
+        "baseline_acc": 0.85,
+        "baseline_ci_lower": 0.7,
+        "delta": 0.0,
+        "n": 20,
+        "post_acc": 0.85,
+        "post_ci_lower": 0.7,
+        "stratum": "unit_swap"
+      },
+      {
+        "baseline_acc": 0.68,
+        "baseline_ci_lower": null,
+        "delta": 0.0,
+        "n": 200,
+        "post_acc": 0.68,
+        "post_ci_lower": null,
+        "stratum": "OVERALL"
+      }
+    ],
+    "pairs_per_stratum": 20,
+    "post_path": "research/triangular_maxsim/parity_artifacts/post_extraction__phase_j_no_nli.json",
+    "post_verdict": "feature in Beta with caveats; see per-stratum table"
+  }
+}
