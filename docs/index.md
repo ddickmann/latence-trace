@@ -4,9 +4,11 @@
 sidecar in the latence.ai product family. It scores how well an LLM response
 is grounded in its supporting context, returns auditable per-claim evidence,
 and classifies every output into a calibrated `green` / `amber` / `red`
-risk band.
+risk band. It is **multilingual: English + German** out of the box.
 
 - **Product overview:** [`guides/beta-overview.md`](guides/beta-overview.md)
+- **Multilingual configuration (EN + DE):**
+  [`guides/multilingual.md`](guides/multilingual.md)
 - **Benchmarks:** [`benchmarks.md`](benchmarks.md)
 - **Algorithm audit (per-channel ablations and verdict):**
   [`algorithm-audit.md`](algorithm-audit.md)

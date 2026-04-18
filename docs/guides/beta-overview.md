@@ -160,21 +160,37 @@ Use this when chunk IDs are unavailable.
 ## Encoder Requirement
 
 For text collections, the service needs an encoder available at runtime so it
-can encode the response and optional query:
+can encode the response and optional query. The shipped default is the
+multilingual `VAGOsolutions/SauerkrautLM-Multi-Reason-ModernColBERT`
+ModernColBERT checkpoint loaded in `bf16`, which covers English and German out
+of the box. Override either via the standard env knobs:
 
 ```bash
-VOYAGER_GROUNDEDNESS_MODEL=lightonai/GTE-ModernColBERT-v1 voyager-index-server
+# Use the default multilingual model in bf16 (no env vars needed)
+latence-trace-server
+
+# Pin a specific model and dtype
+VOYAGER_GROUNDEDNESS_MODEL=VAGOsolutions/SauerkrautLM-Multi-Reason-ModernColBERT \
+VOYAGER_GROUNDEDNESS_TORCH_DTYPE=bfloat16 \
+latence-trace-server
 ```
 
 `VOYAGER_ENCODE_MODEL` can also act as the fallback encoder source.
+`VOYAGER_GROUNDEDNESS_TORCH_DTYPE` accepts `bfloat16`, `float16`, `float32`,
+or `default` (let pylate decide).
 
 For a remote production setup with `vllm-factory` ModernColBERT:
 
 ```bash
 VOYAGER_GROUNDEDNESS_VLLM_ENDPOINT=http://127.0.0.1:8000 \
 VOYAGER_GROUNDEDNESS_VLLM_MODEL=VAGOsolutions/SauerkrautLM-Multi-Reason-ModernColBERT \
-voyager-index-server
+latence-trace-server
 ```
+
+For the full multilingual configuration matrix (NLI defaults, atomic-claim
+spaCy pipelines, literal regex coverage, calibration null bank, and
+instructions for adding more languages) see
+[`multilingual.md`](multilingual.md).
 
 Tune the remote path with:
 

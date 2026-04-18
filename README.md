@@ -1,7 +1,8 @@
 # latence-trace
 
 > Calibrated, auditable groundedness scoring for RAG and evidence-bearing LLM
-> outputs. Part of the latence.ai product family.
+> outputs. **Multilingual: English + German out of the box.** Part of the
+> latence.ai product family.
 
 `latence-trace` is the standalone Groundedness Tracker (Beta) extracted from
 the `voyager-index` retrieval engine. It scores how well an LLM response is
@@ -58,7 +59,13 @@ pip install -e ".[dev]"
 latence-trace-server --host 0.0.0.0 --port 8090
 ```
 
+The default encoder is the multilingual
+[`VAGOsolutions/SauerkrautLM-Multi-Reason-ModernColBERT`](https://huggingface.co/VAGOsolutions/SauerkrautLM-Multi-Reason-ModernColBERT)
+ModernColBERT checkpoint loaded in `bf16`. Override either with
+`VOYAGER_GROUNDEDNESS_MODEL` and `VOYAGER_GROUNDEDNESS_TORCH_DTYPE`.
+
 ```bash
+# English
 curl -X POST http://127.0.0.1:8090/groundedness \
   -H "Content-Type: application/json" \
   -d '{
@@ -66,10 +73,39 @@ curl -X POST http://127.0.0.1:8090/groundedness \
     "query_text": "What is the capital of France?",
     "response_text": "The capital of France is Paris."
   }'
+
+# German
+curl -X POST http://127.0.0.1:8090/groundedness \
+  -H "Content-Type: application/json" \
+  -d '{
+    "raw_context": "Berlin ist die Hauptstadt Deutschlands seit 1990.",
+    "query_text": "Was ist die Hauptstadt Deutschlands?",
+    "response_text": "Die Hauptstadt Deutschlands ist Berlin."
+  }'
 ```
 
 The service returns `scores`, `risk_band`, per-token heatmaps,
-`literal_diagnostics`, `structured_diagnostics`, and per-claim NLI evidence.
+`literal_diagnostics`, `structured_diagnostics`, and per-claim NLI evidence
+for both languages with the same response schema.
+
+## Multilingual support (English + German)
+
+The default models, regex guardrails, stopwords, conjunction splits, and
+calibration null bank are all bilingual EN+DE out of the box, so a German
+request like the example above works without any per-request flag:
+
+| Component | Default | Coverage |
+|---|---|---|
+| ColBERT encoder | `VAGOsolutions/SauerkrautLM-Multi-Reason-ModernColBERT` (bf16) | EN + DE multilingual |
+| NLI peer | `MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7` | EN + DE + 100 langs |
+| Cross-encoder reranker | `BAAI/bge-reranker-v2-m3` (opt-in) | Multilingual |
+| Atomic-claim splitter | spaCy auto-routes `en_core_web_sm` / `de_core_news_sm` | EN + DE |
+| Literal guardrails | Date / number / currency / percent / measurement regex | EN + DE formats |
+| Calibration null bank | 16 EN + 16 DE diverse sentences | EN + DE |
+
+See [`docs/guides/multilingual.md`](docs/guides/multilingual.md) for the
+full configuration matrix, environment overrides, and notes on adding more
+languages.
 
 ## Layout
 

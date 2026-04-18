@@ -58,7 +58,13 @@ _SPECIAL_TOKENS = {
     "<bos>",
     "<eos>",
 }
+# Stopwords are unioned across English and German so the same content-token
+# mask works for monolingual EN, monolingual DE, and mixed-language responses
+# without having to detect language first. Adding more languages is purely
+# additive: any token whose lowercased form is in this set contributes 0
+# weight to the headline reverse-context score.
 _STOPWORDS = {
+    # English function words
     "a",
     "an",
     "and",
@@ -81,6 +87,105 @@ _STOPWORDS = {
     "was",
     "were",
     "with",
+    # German function words: articles, common prepositions, copulas,
+    # conjunctions, common pronouns. Lower-cased forms only - the
+    # _is_content_token path lowercases before lookup.
+    "der",
+    "die",
+    "das",
+    "den",
+    "dem",
+    "des",
+    "ein",
+    "eine",
+    "einen",
+    "einem",
+    "einer",
+    "eines",
+    "und",
+    "oder",
+    "aber",
+    "doch",
+    "sondern",
+    "weil",
+    "dass",
+    "wenn",
+    "als",
+    "wie",
+    "von",
+    "vom",
+    "zu",
+    "zum",
+    "zur",
+    "im",
+    "in",
+    "an",
+    "am",
+    "auf",
+    "aus",
+    "bei",
+    "mit",
+    "nach",
+    "\u00fcber",
+    "unter",
+    "vor",
+    "hinter",
+    "neben",
+    "zwischen",
+    "f\u00fcr",
+    "ohne",
+    "gegen",
+    "ist",
+    "sind",
+    "war",
+    "waren",
+    "wird",
+    "werden",
+    "wurde",
+    "wurden",
+    "hat",
+    "hatte",
+    "haben",
+    "hatten",
+    "sein",
+    "seine",
+    "ihre",
+    "ihr",
+    "ihn",
+    "ihm",
+    "es",
+    "er",
+    "sie",
+    "wir",
+    "ihr",
+    "uns",
+    "euch",
+    "mich",
+    "dich",
+    "mir",
+    "dir",
+    "nicht",
+    "kein",
+    "keine",
+    "keinen",
+    "keinem",
+    "keiner",
+    "keines",
+    "auch",
+    "noch",
+    "nur",
+    "schon",
+    "sehr",
+    "mehr",
+    "denn",
+    "daher",
+    "dadurch",
+    "dabei",
+    "damit",
+    "darum",
+    "hier",
+    "dort",
+    "so",
 }
 _MAX_DEBUG_MATRIX_ELEMENTS = 32_768
 _DEFAULT_CHUNK_TOKEN_BUDGET = 256
@@ -94,9 +199,13 @@ _CALIBRATION_TEMPERATURE = 1.0
 
 # Diverse, short, topically unrelated text spans used to build the null
 # distribution for per-token calibration. Mixing domains (history, science,
-# geography, biology) keeps the bank from being adversarially close to any
-# single response and gives a stable mean/std per response token.
+# geography, biology) and languages (English + German) keeps the bank from
+# being adversarially close to any single response and gives a stable
+# mean/std per response token regardless of input language. Adding more
+# languages is purely additive - the calibrated z-score per response token
+# only depends on the max similarity across the whole bank.
 DEFAULT_NULL_BANK_TEXTS: Tuple[str, ...] = (
+    # English null sentences
     "The cat sat on the mat by the window.",
     "In 1492 Christopher Columbus sailed across the Atlantic Ocean.",
     "Photosynthesis converts sunlight into chemical energy stored in glucose.",
@@ -113,6 +222,23 @@ DEFAULT_NULL_BANK_TEXTS: Tuple[str, ...] = (
     "The Pacific Ocean covers more surface area than all of Earth's continents combined.",
     "Penicillin was discovered by Alexander Fleming in 1928 from a stray mould.",
     "The Nile River flows northward through northeastern Africa for over six thousand kilometers.",
+    # German null sentences spanning history, geography, science, culture
+    "Die Katze sa\u00df am Fenster und beobachtete die Tauben auf dem Dach.",
+    "Im Jahr 1492 segelte Christoph Kolumbus \u00fcber den Atlantischen Ozean.",
+    "Die Photosynthese wandelt Sonnenlicht in chemische Energie um, die als Glukose gespeichert wird.",
+    "Der Eiffelturm wurde 1889 auf dem Marsfeld in Paris fertiggestellt.",
+    "Wasser kocht bei einhundert Grad Celsius auf normaler Meeresh\u00f6he.",
+    "Wolfgang Amadeus Mozart komponierte mehr als sechshundert Werke in seinem kurzen Leben.",
+    "Die Berliner Mauer fiel am neunten November 1989 nach achtundzwanzig Jahren.",
+    "Albert Einstein ver\u00f6ffentlichte 1905 die spezielle Relativit\u00e4tstheorie in Bern.",
+    "Der Rhein flie\u00dft \u00fcber tausenddreihundert Kilometer von den Alpen bis in die Nordsee.",
+    "Die deutsche Wiedervereinigung wurde am dritten Oktober 1990 offiziell vollzogen.",
+    "Goethe schrieb den ersten Teil des Faust \u00fcber mehrere Jahrzehnte hinweg.",
+    "Magnesium verbrennt mit einer hellen wei\u00dfen Flamme in Gegenwart von Sauerstoff.",
+    "Penicillin wurde 1928 von Alexander Fleming durch einen zuf\u00e4lligen Schimmelpilz entdeckt.",
+    "Die Zugspitze ist mit zweitausendneunhundertzweiundsechzig Metern der h\u00f6chste Berg Deutschlands.",
+    "Bach komponierte das Wohltemperierte Klavier in zwei B\u00e4nden \u00fcber etwa zwanzig Jahre verteilt.",
+    "Die Europ\u00e4ische Zentralbank hat ihren Sitz in Frankfurt am Main seit 1998.",
 )
 
 
@@ -741,49 +867,105 @@ _LITERAL_PENALTY_FLOOR = 0.0
 # Identity literals like "GTE-3.5-Turbo" or product codes mix letters and
 # digits; URLs must end on a non-punctuation character to avoid trailing
 # commas/periods leaking into the literal.
+# English month name alternation, kept as a small constant so we can reuse
+# it in two patterns without copy/paste drift.
+_EN_MONTHS = (
+    r"(?:January|February|March|April|May|June|July|August|"
+    r"September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|"
+    r"Aug|Sep|Sept|Oct|Nov|Dec)"
+)
+
+# German month name alternation. ``M\u00e4rz`` and its abbreviation ``M\u00e4r``
+# carry the umlaut explicitly; the regex runs case-insensitively so capitalized
+# and lowercased forms both match.
+_DE_MONTHS = (
+    r"(?:Januar|Februar|M\u00e4rz|April|Mai|Juni|Juli|August|"
+    r"September|Oktober|November|Dezember|Jan|Feb|M\u00e4r|Mar|"
+    r"Apr|Mai|Jun|Jul|Aug|Sep|Sept|Okt|Nov|Dez)"
+)
+
 _LITERAL_PATTERNS: Tuple[Tuple[str, "re.Pattern[str]"], ...] = (
     # ISO date YYYY-MM-DD
     ("date", re.compile(r"\b\d{4}-\d{2}-\d{2}\b")),
+    # German numeric date DD.MM.YYYY (e.g. "20.07.1981"). Registered before
+    # the English number pattern so the longer date span wins the
+    # length-based conflict resolution.
+    ("date", re.compile(r"\b\d{1,2}\.\d{1,2}\.\d{2,4}\b")),
     # Numeric date DD/MM/YYYY or MM/DD/YYYY
     ("date", re.compile(r"\b\d{1,2}/\d{1,2}/\d{2,4}\b")),
-    # Long-form date "20 July 1981" / "20 Jul 1981"
+    # English long-form date "20 July 1981" / "20 Jul 1981"
     (
         "date",
         re.compile(
-            r"\b\d{1,2}\s+(?:January|February|March|April|May|June|July|August|"
-            r"September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|"
-            r"Aug|Sep|Sept|Oct|Nov|Dec)\s+\d{2,4}\b",
+            r"\b\d{1,2}\s+" + _EN_MONTHS + r"\s+\d{2,4}\b",
             re.IGNORECASE,
         ),
     ),
-    # "July 20, 1981" / "Jul 20 1981"
+    # English month-leading date "July 20, 1981" / "Jul 20 1981"
     (
         "date",
         re.compile(
-            r"\b(?:January|February|March|April|May|June|July|August|"
-            r"September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|"
-            r"Aug|Sep|Sept|Oct|Nov|Dec)\s+\d{1,2}(?:,)?\s+\d{2,4}\b",
+            r"\b" + _EN_MONTHS + r"\s+\d{1,2}(?:,)?\s+\d{2,4}\b",
+            re.IGNORECASE,
+        ),
+    ),
+    # German long-form date with ordinal dot: "20. Juli 1981", "3. Oktober 1990".
+    (
+        "date",
+        re.compile(
+            r"\b\d{1,2}\.\s*" + _DE_MONTHS + r"\s+\d{2,4}\b",
+            re.IGNORECASE,
+        ),
+    ),
+    # German month-leading date "Juli 20, 1981" - rare but accepted for symmetry.
+    (
+        "date",
+        re.compile(
+            r"\b" + _DE_MONTHS + r"\s+\d{1,2}(?:,)?\s+\d{2,4}\b",
             re.IGNORECASE,
         ),
     ),
     # Bare 4-digit year (filtered later if also captured by another pattern).
     ("year", re.compile(r"\b(?:1[5-9]\d{2}|20\d{2}|21\d{2})\b")),
-    # Currency amounts with $/€/£ prefix and optional decimals/commas.
-    ("currency", re.compile(r"(?:\$|€|£)\s?\d{1,3}(?:[,\s]\d{3})*(?:\.\d+)?")),
-    # Percentages.
-    ("percent", re.compile(r"\b\d{1,3}(?:\.\d+)?\s?%")),
-    # Numeric measurements with common units.
+    # Currency amounts with $/\u20ac/\u00a3 prefix and optional decimals/commas.
+    ("currency", re.compile(r"(?:\$|\u20ac|\u00a3)\s?\d{1,3}(?:[,\s\.]\d{3})*(?:[\.,]\d+)?")),
+    # German-style trailing currency: "5,99 \u20ac" / "1.234,50 EUR".
+    ("currency", re.compile(r"\b\d{1,3}(?:\.\d{3})*(?:,\d+)?\s?(?:\u20ac|EUR|CHF)\b")),
+    # English percent ("20%", "5.5%") and German percent ("20,5%").
+    ("percent", re.compile(r"\b\d{1,3}(?:[\.,]\d+)?\s?%")),
+    # Numeric measurements with common English units.
     (
         "measurement",
         re.compile(
             r"\b\d{1,4}(?:\.\d+)?\s?(?:kg|g|mg|km|m|cm|mm|mph|kph|kmh|hours?|"
             r"minutes?|seconds?|days?|years?|months?|weeks?|MB|GB|TB|KB|"
             r"liters?|litres?|ml|gallons?|miles?|feet|inches?|in|ft|lb|lbs|"
-            r"oz|°C|°F)\b",
+            r"oz|\u00b0C|\u00b0F)\b",
             re.IGNORECASE,
         ),
     ),
-    # Standalone numbers (integers / decimals / thousands separators).
+    # Numeric measurements with common German unit words.
+    (
+        "measurement",
+        re.compile(
+            r"\b\d{1,4}(?:[\.,]\d+)?\s?(?:Stunden?|Minuten?|Sekunden?|Tagen?|"
+            r"Wochen?|Monaten?|Jahren?|Kilometern?|Metern?|Zentimetern?|"
+            r"Millimetern?|Litern?|Milliliter|Pfund|Kilogramm|Gramm|"
+            r"Tonnen?|Liter|kg|g|mg|km|m|cm|mm|t)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    # German number with thousands separator and decimal comma:
+    # "1.234,56", "1.234.567,89", "1.234.567". Registered before the
+    # English bare-number pattern so the longer DE-formatted span wins
+    # length-based conflict resolution.
+    (
+        "number",
+        re.compile(
+            r"\b\d{1,3}(?:\.\d{3})+(?:,\d+)?\b|\b\d{1,3}(?:\.\d{3})+\b"
+        ),
+    ),
+    # Standalone English numbers (integers / decimals / thousands separators).
     ("number", re.compile(r"\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b|\b\d+(?:\.\d+)?\b")),
     # URLs (HTTP(S)).
     ("url", re.compile(r"https?://[^\s<>\"']+[^\s<>\"'.,;:!?]")),
@@ -799,21 +981,97 @@ _LITERAL_PATTERNS: Tuple[Tuple[str, "re.Pattern[str]"], ...] = (
 )
 
 
+def _canonicalize_decimal(text: str) -> str:
+    """Normalize a numeric literal (English or German) to a canonical decimal form.
+
+    Heuristics:
+
+    - Mixed ``.`` and ``,``: the rightmost punctuation is the decimal mark
+      (``1.234,56`` -> ``1234.56`` German; ``1,234.56`` -> ``1234.56``
+      English). Thousands separators on the other side are stripped.
+    - Only ``,``: treated as a decimal mark when there's a single comma
+      followed by a non-3-digit run (``42,5`` -> ``42.5``); otherwise as
+      thousands separators (``1,234`` -> ``1234``).
+    - Only ``.``: a single dot stays as the decimal mark (``42.5``); two
+      or more dots are German thousands separators and are stripped
+      (``1.234.567`` -> ``1234567``).
+
+    Inputs that don't contain ``.`` or ``,`` are returned unchanged.
+    """
+
+    if not text:
+        return text
+    has_dot = "." in text
+    has_comma = "," in text
+
+    if has_dot and has_comma:
+        if text.rfind(",") > text.rfind("."):
+            # German: dot = thousands, comma = decimal.
+            return text.replace(".", "").replace(",", ".")
+        # English: comma = thousands, dot = decimal.
+        return text.replace(",", "")
+    if has_comma:
+        if text.count(",") == 1:
+            tail = text.split(",", 1)[1]
+            # A 3-digit tail with no further punctuation could be either a
+            # German decimal ("1,234") or an English thousands separator
+            # ("1,234"). When ambiguous, treat as English thousands - the
+            # German formats this codebase has to handle in practice ship
+            # with ``.`` thousands grouping, so the safer default is to
+            # strip the comma rather than promote it.
+            if len(tail) == 3 and tail.isdigit():
+                return text.replace(",", "")
+            return text.replace(",", ".")
+        # Multiple commas with no dot - English thousands.
+        return text.replace(",", "")
+    if has_dot and text.count(".") >= 2:
+        return text.replace(".", "")
+    return text
+
+
+# Back-compat alias - older internal callers used the German-specific name.
+_normalize_german_number = _canonicalize_decimal
+
+
 def _normalize_literal_value(kind: str, value: str) -> str:
     """Canonicalize a literal so equivalent surface forms collide on a hash."""
 
     text = value.strip().lower()
     if kind == "currency":
         text = text.replace(" ", "")
+        # Map trailing-EUR spellings to the leading-symbol form so
+        # "5,99\u20ac" collides with "\u20ac5.99".
+        for tail in ("eur", "chf", "\u20ac"):
+            if text.endswith(tail):
+                text = "\u20ac" + text[: -len(tail)]
+                break
+        # Apply German -> canonical decimal normalization to any remaining
+        # numeric body so 5,99 and 5.99 collide.
+        prefix = ""
+        body = text
+        for sym in ("\u20ac", "$", "\u00a3"):
+            if body.startswith(sym):
+                prefix = sym
+                body = body[len(sym):]
+                break
+        body = _canonicalize_decimal(body)
+        text = prefix + body
     if kind == "percent":
         text = text.replace(" ", "")
+        if text.endswith("%"):
+            text = _canonicalize_decimal(text[:-1]) + "%"
     if kind == "measurement":
         text = re.sub(r"\s+", " ", text)
+        # Split numeric prefix from unit so 1.234,5 km and 1234.5 km collide.
+        match = re.match(r"^(\d[\d\.,]*)\s?(.+)$", text)
+        if match:
+            head, tail = match.group(1), match.group(2)
+            text = _canonicalize_decimal(head) + " " + tail.strip()
     if kind == "date":
         text = re.sub(r"[,]", "", text)
         text = re.sub(r"\s+", " ", text)
     if kind == "number":
-        text = text.replace(",", "")
+        text = _canonicalize_decimal(text)
     return text
 
 

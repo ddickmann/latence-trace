@@ -516,6 +516,47 @@ class GroundednessService:
 # ---------------------------------------------------------------------------
 
 
+# Multilingual ModernColBERT default. SauerkrautLM-Multi-Reason-ModernColBERT
+# is a German+English ColBERT fine-tune that keeps the standard ModernColBERT
+# tokenizer and IO contract, so it is a drop-in replacement for the previous
+# English-only GTE-ModernColBERT-v1 default. We load it in bf16 by default to
+# halve VRAM with negligible quality impact on cosine MaxSim. Override at
+# runtime with VOYAGER_GROUNDEDNESS_MODEL or per-request ``model``.
+DEFAULT_GROUNDEDNESS_MODEL = "VAGOsolutions/SauerkrautLM-Multi-Reason-ModernColBERT"
+DEFAULT_GROUNDEDNESS_TORCH_DTYPE = "bfloat16"
+
+
+def _resolve_torch_dtype(name: Optional[str]) -> Optional[Any]:
+    """Map a string dtype to a real ``torch.dtype`` or ``None``.
+
+    Returns ``None`` when ``name`` is empty or ``"default"``/``"none"``,
+    which lets pylate pick the model card's preferred precision (typically
+    fp32 on CPU and fp16/bf16 on GPU per the model config).
+    """
+
+    if not name:
+        return None
+    label = name.strip().lower()
+    if label in {"", "default", "none", "auto"}:
+        return None
+    mapping = {
+        "bf16": torch.bfloat16,
+        "bfloat16": torch.bfloat16,
+        "fp16": torch.float16,
+        "float16": torch.float16,
+        "half": torch.float16,
+        "fp32": torch.float32,
+        "float32": torch.float32,
+        "full": torch.float32,
+    }
+    if label not in mapping:
+        raise ValidationError(
+            f"Unsupported VOYAGER_GROUNDEDNESS_TORCH_DTYPE='{name}'. "
+            "Use one of bfloat16, float16, float32, or 'default'."
+        )
+    return mapping[label]
+
+
 def _default_encoder_factory(device: str) -> Callable[[Optional[str]], Any]:
     cache: Dict[str, Any] = {}
 
@@ -527,13 +568,8 @@ def _default_encoder_factory(device: str) -> Callable[[Optional[str]], Any]:
                 or os.environ.get("VOYAGER_GROUNDEDNESS_VLLM_MODEL")
                 or os.environ.get("VOYAGER_GROUNDEDNESS_MODEL")
                 or os.environ.get("VOYAGER_ENCODE_MODEL")
+                or DEFAULT_GROUNDEDNESS_MODEL
             )
-            if not resolved_model_name:
-                raise ValidationError(
-                    "VOYAGER_GROUNDEDNESS_VLLM_ENDPOINT is set but no model id was provided. "
-                    "Set VOYAGER_GROUNDEDNESS_VLLM_MODEL, VOYAGER_GROUNDEDNESS_MODEL, "
-                    "VOYAGER_ENCODE_MODEL, or pass request.model."
-                )
             cache_key = f"vllm_factory:{vllm_endpoint}:{resolved_model_name}"
             cached = cache.get(cache_key)
             if cached is not None:
@@ -561,12 +597,16 @@ def _default_encoder_factory(device: str) -> Callable[[Optional[str]], Any]:
             cache[cache_key] = provider
             return provider
 
-        resolved = model_name or os.environ.get("VOYAGER_GROUNDEDNESS_MODEL") or os.environ.get("VOYAGER_ENCODE_MODEL")
-        if not resolved:
-            raise ValidationError(
-                "No groundedness encoder configured. Set VOYAGER_GROUNDEDNESS_MODEL or pass request.model."
-            )
-        cached = cache.get(resolved)
+        resolved = (
+            model_name
+            or os.environ.get("VOYAGER_GROUNDEDNESS_MODEL")
+            or os.environ.get("VOYAGER_ENCODE_MODEL")
+            or DEFAULT_GROUNDEDNESS_MODEL
+        )
+        dtype_name = os.environ.get("VOYAGER_GROUNDEDNESS_TORCH_DTYPE", DEFAULT_GROUNDEDNESS_TORCH_DTYPE)
+        torch_dtype = _resolve_torch_dtype(dtype_name)
+        cache_key = f"local:{resolved}:{dtype_name}"
+        cached = cache.get(cache_key)
         if cached is not None:
             return cached
         try:
@@ -575,15 +615,31 @@ def _default_encoder_factory(device: str) -> Callable[[Optional[str]], Any]:
             raise ValidationError(
                 "Local groundedness encoder requires pylate. Install pylate or set VOYAGER_GROUNDEDNESS_VLLM_ENDPOINT."
             ) from exc
+        model_kwargs: Dict[str, Any] = {}
+        if torch_dtype is not None:
+            model_kwargs["torch_dtype"] = torch_dtype
         try:
             provider = models.ColBERT(
                 model_name_or_path=resolved,
                 device=device,
                 do_query_expansion=False,
+                trust_remote_code=True,
+                model_kwargs=model_kwargs or None,
             )
+        except TypeError:
+            # Older pylate releases without model_kwargs / trust_remote_code
+            # kwargs - fall back to the minimal signature.
+            try:
+                provider = models.ColBERT(
+                    model_name_or_path=resolved,
+                    device=device,
+                    do_query_expansion=False,
+                )
+            except Exception as exc:
+                raise ValidationError(f"Failed to load groundedness model '{resolved}': {exc}") from exc
         except Exception as exc:
             raise ValidationError(f"Failed to load groundedness model '{resolved}': {exc}") from exc
-        cache[resolved] = provider
+        cache[cache_key] = provider
         return provider
 
     return factory
@@ -591,6 +647,8 @@ def _default_encoder_factory(device: str) -> Callable[[Optional[str]], Any]:
 
 __all__ = [
     "ChunkResolver",
+    "DEFAULT_GROUNDEDNESS_MODEL",
+    "DEFAULT_GROUNDEDNESS_TORCH_DTYPE",
     "GroundednessService",
     "NotFoundError",
     "ResolvedChunk",

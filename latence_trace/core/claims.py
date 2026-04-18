@@ -2,20 +2,26 @@
 
 This module provides a deterministic, rule-based atomic-claim splitter that
 breaks a sentence into single-predicate atomic propositions. The splitter
-prefers spaCy dependency parsing when ``en_core_web_sm`` is available and
-falls back to a regex-based approximation otherwise.
+prefers spaCy dependency parsing when an installed pipeline is available
+(``en_core_web_sm`` for English, ``de_core_news_sm`` for German) and falls
+back to a multilingual regex-based approximation otherwise.
 
 Design principles:
 
 - **Deterministic.** Two calls on the same input always produce the same
   atomic sequence, so harness reports stay reproducible.
 - **Conservative.** When in doubt, emit the original sentence as a single
-  atom — atomic decomposition that drops content is worse than no
+  atom - atomic decomposition that drops content is worse than no
   decomposition at all.
 - **Offset-preserving.** Each atom keeps its character offsets in the
   source text so per-token NLI projection remains correct.
-- **No trained weights.** Pure dependency / regex rules. Optional spaCy
-  pipeline is the off-the-shelf ``en_core_web_sm`` checkpoint.
+- **No trained weights.** Pure dependency / regex rules. The optional
+  spaCy pipeline is the off-the-shelf English / German small checkpoint.
+- **Multilingual.** Coordinator regex includes English (and, but, while,
+  whereas) and German (und, aber, sondern, w\u00e4hrend, jedoch, doch)
+  coordinations. spaCy auto-detects English vs German via a fast
+  function-word heuristic and loads the matching pipeline; both are
+  cached after first load.
 """
 
 from __future__ import annotations
@@ -25,7 +31,7 @@ import os
 import re
 import threading
 from dataclasses import dataclass
-from typing import List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -53,26 +59,41 @@ class AtomicClaim:
 # intentionally conservative: only conjunctions clearly separating two
 # independent assertions are honored. We keep "or" and short clauses
 # attached to avoid over-splitting numeric ranges or alternatives.
+# Coordinations honored by the regex splitter. Mixes English (and, but,
+# while, whereas) and German (und, aber, sondern, w\u00e4hrend, jedoch, doch)
+# function words so the same regex works for monolingual EN, monolingual DE,
+# and code-switched mixed responses without language detection.
 _COORD_PATTERN = re.compile(
-    r"\s*(?:,\s+(?:and|but|while|whereas)\s+|;\s+|\s+(?:and|but|while|whereas)\s+)",
+    r"\s*(?:"
+    r",\s+(?:and|but|while|whereas|und|aber|sondern|w\u00e4hrend|jedoch|doch)\s+"
+    r"|;\s+"
+    r"|\s+(?:and|but|while|whereas|und|aber|sondern|w\u00e4hrend|jedoch|doch)\s+"
+    r")",
     re.IGNORECASE,
 )
 
 # Relative-clause introducers we will optionally split on when the parent
 # clause is otherwise complete. We avoid restrictive "that"-clauses to keep
-# noun-phrase modifiers attached.
+# noun-phrase modifiers attached. German relative pronouns (der/die/das)
+# are intentionally NOT split on - they double as articles and would
+# over-split prose.
 _RELATIVE_PATTERN = re.compile(
-    r",\s+(?:which|who|where|when)\s+",
+    r",\s+(?:which|who|where|when|welche[srnm]?|wobei|woher|wohin)\s+",
     re.IGNORECASE,
 )
 
-# Parenthetical insertions ", X, " that look appositive — heuristic split.
+# Parenthetical insertions ", X, " that look appositive - heuristic split.
 _APPOSITIVE_PATTERN = re.compile(
-    r",\s+(?:also\s+known\s+as|aka|i\.e\.,?|e\.g\.,?)\s+",
+    r",\s+(?:also\s+known\s+as|aka|auch\s+bekannt\s+als|i\.e\.,?|e\.g\.,?|"
+    r"d\.h\.,?|z\.b\.,?)\s+",
     re.IGNORECASE,
 )
 
-_SUBJECT_HINT_RE = re.compile(r"^(?:and|but|while|whereas|which|who|where|when)\s+", re.IGNORECASE)
+_SUBJECT_HINT_RE = re.compile(
+    r"^(?:and|but|while|whereas|which|who|where|when|"
+    r"und|aber|sondern|w\u00e4hrend|jedoch|doch|welche[srnm]?|wobei|woher|wohin)\s+",
+    re.IGNORECASE,
+)
 _MIN_ATOM_LEN = 8
 
 
@@ -280,16 +301,86 @@ class _SpacySplitter:
         return atoms
 
 
-_SPACY_SPLITTER: Optional[_SpacySplitter] = None
+# Language detection for the splitter is intentionally cheap: we count how
+# often a small set of high-frequency German function words appears in the
+# sentence and route to the German pipeline when the count clears a low
+# threshold. Misroutes degrade to the regex fallback - they never crash.
+_DE_FUNCTION_WORDS = (
+    " der ",
+    " die ",
+    " das ",
+    " den ",
+    " dem ",
+    " des ",
+    " ein ",
+    " eine ",
+    " und ",
+    " ist ",
+    " sind ",
+    " war ",
+    " wurde ",
+    " wurden ",
+    " mit ",
+    " von ",
+    " auf ",
+    " nicht ",
+    " auch ",
+    " sich ",
+    " als ",
+    " im ",
+    " am ",
+    " zu ",
+    " zur ",
+    " zum ",
+    " f\u00fcr ",
+    " \u00fcber ",
+)
 
 
-def _get_spacy_splitter() -> Optional[_SpacySplitter]:
-    global _SPACY_SPLITTER
-    if _SPACY_SPLITTER is not None:
-        return _SPACY_SPLITTER
-    model_name = os.environ.get("VOYAGER_GROUNDEDNESS_NLI_SPACY_MODEL", "en_core_web_sm")
-    _SPACY_SPLITTER = _SpacySplitter(model_name)
-    return _SPACY_SPLITTER
+def _looks_german(text: str) -> bool:
+    if not text:
+        return False
+    # NFC-normalize so combining-diaeresis sequences (``M\u0075\u0308nchen``)
+    # collapse to the precomposed umlaut (``M\u00fcnchen``) before we count.
+    import unicodedata
+
+    nfc = unicodedata.normalize("NFC", text)
+    haystack = " " + nfc.lower() + " "
+    hits = sum(haystack.count(token) for token in _DE_FUNCTION_WORDS)
+    if hits >= 2:
+        return True
+    # Strong signal: any precomposed umlaut or eszett is present.
+    return any(ch in nfc for ch in ("\u00e4", "\u00f6", "\u00fc", "\u00df"))
+
+
+_SPACY_SPLITTERS: Dict[str, _SpacySplitter] = {}
+
+
+def _spacy_model_for(lang: str) -> str:
+    if lang == "de":
+        return os.environ.get("VOYAGER_GROUNDEDNESS_NLI_SPACY_MODEL_DE", "de_core_news_sm")
+    return os.environ.get("VOYAGER_GROUNDEDNESS_NLI_SPACY_MODEL", "en_core_web_sm")
+
+
+def _get_spacy_splitter(language: Optional[str] = None) -> Optional[_SpacySplitter]:
+    """Return a cached spaCy splitter for ``language`` ("en" or "de").
+
+    The English pipeline is the default - callers that pass ``None`` get the
+    English splitter. ``_get_spacy_splitter("de")`` returns the German
+    pipeline (``de_core_news_sm`` by default; override via
+    ``VOYAGER_GROUNDEDNESS_NLI_SPACY_MODEL_DE``). Both pipelines are cached
+    after first load so the second call is O(1).
+    """
+
+    lang = (language or "en").lower()
+    if lang not in {"en", "de"}:
+        lang = "en"
+    cached = _SPACY_SPLITTERS.get(lang)
+    if cached is not None:
+        return cached
+    splitter = _SpacySplitter(_spacy_model_for(lang))
+    _SPACY_SPLITTERS[lang] = splitter
+    return splitter
 
 
 # ----------------------------------------------------------------------
@@ -324,9 +415,17 @@ def decompose_sentence_into_atoms(
 
     pieces: List[Tuple[int, int, str]] = []
     if use_spacy:
-        splitter = _get_spacy_splitter()
+        language = "de" if _looks_german(sentence) else "en"
+        splitter = _get_spacy_splitter(language)
         if splitter is not None:
             pieces = splitter.split(sentence, parent_start)
+        # If the language-specific pipeline failed to load (e.g.
+        # de_core_news_sm not installed), retry with English which is the
+        # most likely globally-available pipeline.
+        if not pieces and language == "de":
+            splitter = _get_spacy_splitter("en")
+            if splitter is not None:
+                pieces = splitter.split(sentence, parent_start)
     if not pieces:
         pieces = _regex_split(sentence, parent_start)
 

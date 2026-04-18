@@ -1029,9 +1029,13 @@ def resolve_default_provider() -> Optional[NLIProvider]:
 
     if not is_enabled():
         return None
+    # Multilingual mDeBERTa default - covers English, German, and 100+ other
+    # languages with the same 3-class entail/neutral/contradict head shape as
+    # the English-only DeBERTa-MNLI we previously defaulted to. Keeps the
+    # NLI lane working unchanged for English while also handling German.
     model_id = os.environ.get(
         "VOYAGER_GROUNDEDNESS_NLI_MODEL",
-        "MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli",
+        "MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7",
     )
     try:
         return HuggingFaceNLIProvider(
