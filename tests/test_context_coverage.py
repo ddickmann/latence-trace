@@ -122,6 +122,37 @@ def test_compute_unit_coverage_handles_empty_matrix() -> None:
     assert coverage_zero_response["coverage_ratio"] == 0.0
 
 
+def test_compute_unit_coverage_clamps_non_finite_to_zero_with_used_false() -> None:
+    """0-token / numerically-degenerate units must not leak negative scores
+    into the API response, and must never count as ``used`` regardless of
+    the threshold the operator picks (including ``threshold = 0.0``).
+    """
+
+    matrix = torch.tensor(
+        [
+            [0.9, float("-inf"), float("nan"), 0.7],
+            [0.8, float("-inf"), float("nan"), 0.6],
+        ],
+        dtype=torch.float32,
+    )
+
+    coverage = compute_unit_coverage(matrix, threshold=0.0)
+
+    per_unit = coverage["per_unit_max"]
+    used_mask = coverage["used_mask"]
+
+    assert per_unit[0] == pytest.approx(0.9)
+    assert per_unit[1] == 0.0
+    assert per_unit[2] == 0.0
+    assert per_unit[3] == pytest.approx(0.7)
+    for value in per_unit:
+        assert value >= 0.0, "coverage_score must stay in the [0, 1] similarity range"
+
+    assert used_mask == [True, False, False, True]
+    assert coverage["used_count"] == 2
+    assert coverage["coverage_ratio"] == pytest.approx(0.5)
+
+
 def test_compute_unit_coverage_threshold_only_changes_used_flags() -> None:
     matrix = torch.tensor([[0.9, 0.2, 0.55, 0.4]], dtype=torch.float32)
 
@@ -324,8 +355,21 @@ def test_coverage_is_invariant_to_response_chunking() -> None:
     assert one["scores"]["support_units_total"] == many["scores"]["support_units_total"]
 
 
-def test_attribution_ratio_is_at_most_coverage_ratio() -> None:
-    """Argmax-based attribution is a stricter signal than threshold-based coverage."""
+def test_coverage_and_attribution_are_independent_signals() -> None:
+    """Coverage and attribution measure different things and neither dominates.
+
+    - coverage_used_count = # units whose strongest token-match crossed
+      ``coverage_threshold`` (absolute strength signal).
+    - attribution_used_count = # units that won the argmax for at least
+      one response token (competitive signal — winning depends on
+      sibling units).
+
+    With a tight threshold, a unit can win argmax for some token (so
+    ``matched_response_tokens > 0``) yet its strongest similarity stays
+    below threshold. Conversely, a unit can have a high coverage_score
+    but lose every argmax to a sibling unit. We assert the two scalars
+    move independently and that both stay in ``[0, 1]``.
+    """
 
     provider = _OrthoStubProvider()
     support_texts = [
@@ -345,7 +389,7 @@ def test_attribution_ratio_is_at_most_coverage_ratio() -> None:
         encode_fn=encode_texts,
     )
 
-    result = score_groundedness_response_chunked(
+    permissive = score_groundedness_response_chunked(
         response_chunks=chunks,
         support_batches=support_batches,
         response_text=response_text,
@@ -353,7 +397,25 @@ def test_attribution_ratio_is_at_most_coverage_ratio() -> None:
         primary_metric="reverse_context",
         coverage_threshold=0.0,
     )
+    permissive_scores = permissive["scores"]
+    # At threshold 0.0 every finite-similarity unit is "used", which is
+    # the upper bound; attribution by definition lies in [0, total].
+    assert permissive_scores["context_coverage_ratio"] <= 1.0 + 1e-9
+    assert permissive_scores["context_attribution_ratio"] <= 1.0 + 1e-9
 
-    scores = result["scores"]
-    assert scores["context_attribution_ratio"] <= scores["context_coverage_ratio"] + 1e-9
-    assert scores["context_attribution_used_count"] <= scores["support_units_used"]
+    strict = score_groundedness_response_chunked(
+        response_chunks=chunks,
+        support_batches=support_batches,
+        response_text=response_text,
+        evidence_limit=16,
+        primary_metric="reverse_context",
+        coverage_threshold=0.999,
+    )
+    strict_scores = strict["scores"]
+    # Tightening the threshold only lowers coverage_used_count; the
+    # attribution_used_count is independent of the threshold.
+    assert strict_scores["support_units_used"] <= permissive_scores["support_units_used"]
+    assert (
+        strict_scores["context_attribution_used_count"]
+        == permissive_scores["context_attribution_used_count"]
+    )

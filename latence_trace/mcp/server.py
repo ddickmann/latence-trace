@@ -111,6 +111,18 @@ def _tool_descriptor() -> Dict[str, Any]:
                     "type": "string",
                     "enum": ["reverse_context", "triangular"],
                 },
+                "coverage_threshold": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 1.0,
+                    "description": (
+                        "Threshold on per-support-unit reverse-context similarity "
+                        "used to flag a unit as 'used' in the retrieval-efficiency "
+                        "observability signal. Default 0.5. Response carries "
+                        "scores.context_coverage_ratio and per-unit coverage_score "
+                        "/ used so callers can identify dead-weight retrieval."
+                    ),
+                },
             },
             "required": ["response_text"],
         },

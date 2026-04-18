@@ -816,13 +816,25 @@ def compute_unit_coverage(
         coverage_score[u] = max over response tokens t of m[t, u]
 
     A unit is considered "used" when its coverage score crosses
-    ``threshold`` (default 0.5 — a conservative cutoff on raw cosine
-    similarity that separates "weak match" from "strong match" for ColBERT-
-    style normalized embeddings). The global ``coverage_ratio`` is the
-    fraction of units with ``used == True`` and is the headline retrieval-
-    efficiency observability metric: a ratio of 0.4 means 60% of the
-    retrieved chunks contributed nothing strong to the response and the
-    retriever is pulling too much dead weight.
+    ``threshold`` (inclusive ``>=`` semantics; default 0.5 — a conservative
+    cutoff on raw cosine similarity that separates "weak match" from
+    "strong match" for ColBERT-style normalized embeddings). The global
+    ``coverage_ratio`` is the fraction of units with ``used == True`` and
+    is the headline retrieval-efficiency observability metric: a ratio of
+    0.4 means 60% of the retrieved chunks contributed nothing strong to
+    the response and the retriever is pulling too much dead weight.
+
+    Robustness guarantees:
+
+    - 0-token support units (whose per-unit maxima are ``-inf`` from the
+      scorer) are reported with ``coverage_score = 0.0`` and
+      ``used = False`` regardless of the threshold value. This keeps the
+      visible score within the ``[0, 1]`` similarity range callers expect
+      and prevents a degenerate unit from ever counting as "used".
+    - Non-finite values that arise from numerical instability (NaN, Inf)
+      are treated identically to 0-token units.
+    - Empty matrices (no units, or no response tokens) return a zero-
+      filled payload with ``coverage_ratio = 0.0`` instead of raising.
 
     The function is pure (no I/O, no provider state) and runs in O(R * U)
     elementary ops, the same order as the existing per-unit reductions, so
@@ -840,12 +852,22 @@ def compute_unit_coverage(
         }
     per_unit_max = reverse_context_unit_values.max(dim=0).values
     finite_mask = torch.isfinite(per_unit_max)
+    # Visible coverage_score is clamped to 0.0 when a unit is degenerate
+    # (0 tokens → -inf) or numerically unstable (NaN). Returning a
+    # negative number here would leak outside the documented [0, 1]
+    # similarity range and confuse callers that derive UI states from
+    # coverage_score directly.
     safe_per_unit_max = torch.where(
         finite_mask,
         per_unit_max,
-        torch.full_like(per_unit_max, -1.0),
+        torch.zeros_like(per_unit_max),
     )
-    used_mask = safe_per_unit_max >= float(threshold)
+    # `used` requires the value to be both finite AND above threshold so a
+    # 0-token unit cannot accidentally flip to used=True when the operator
+    # sets ``threshold = 0.0`` (a legal call meaning "report attribution
+    # alongside the trivial 'every unit is used' baseline").
+    above_threshold = safe_per_unit_max >= float(threshold)
+    used_mask = torch.logical_and(finite_mask, above_threshold)
     used_count = int(used_mask.sum().item())
     total_count = int(safe_per_unit_max.shape[0])
     return {
@@ -3331,8 +3353,16 @@ def score_groundedness_response_chunked(
     # u is therefore the max over chunks of chunk_k.support_units[u].
     # coverage_score. This is mathematically exact — partitioning the
     # response axis cannot change the maximum, only how it is computed.
+    #
+    # We use sentinel ``None`` (instead of -inf) for "no chunk reported a
+    # value" so the downstream "used" derivation can short-circuit
+    # degenerate units (0 tokens) to ``used=False`` consistently with the
+    # ``compute_unit_coverage`` helper. This matches the semantics of the
+    # single-chunk and chunked paths bit-for-bit so chunked / unchunked
+    # parity holds for ``coverage_score`` and ``used`` as well as for the
+    # headline scalar.
     unit_count = len(flat_support_units)
-    coverage_per_unit_global: List[float] = [float("-inf")] * unit_count
+    coverage_per_unit_global: List[Optional[float]] = [None] * unit_count
     for chunk_result in chunk_results:
         for chunk_unit in chunk_result.get("support_units", []):
             unit_idx = int(chunk_unit.get("index", -1))
@@ -3342,14 +3372,19 @@ def score_groundedness_response_chunked(
             if chunk_cov is None:
                 continue
             chunk_cov_value = float(chunk_cov)
-            if chunk_cov_value > coverage_per_unit_global[unit_idx]:
+            current = coverage_per_unit_global[unit_idx]
+            if current is None or chunk_cov_value > current:
                 coverage_per_unit_global[unit_idx] = chunk_cov_value
+    threshold_value = float(coverage_threshold)
     for unit_idx, payload in enumerate(support_units_payload):
         cov = coverage_per_unit_global[unit_idx]
-        if cov == float("-inf"):
-            cov = 0.0
-        payload["coverage_score"] = float(cov)
-        payload["used"] = bool(cov >= float(coverage_threshold))
+        if cov is None:
+            payload["coverage_score"] = 0.0
+            payload["used"] = False
+            continue
+        cov_value = float(cov)
+        payload["coverage_score"] = cov_value
+        payload["used"] = bool(cov_value >= threshold_value)
 
     coverage_used_count = sum(1 for payload in support_units_payload if payload["used"])
     coverage_attribution_used_count = sum(

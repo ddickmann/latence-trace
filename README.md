@@ -9,6 +9,12 @@ the `voyager-index` retrieval engine. It scores how well an LLM response is
 grounded in its supporting context, returns auditable per-claim evidence, and
 classifies every output into a calibrated `green` / `amber` / `red` risk band.
 
+> **New here?** Start with the end-to-end tutorial:
+> [`docs/guides/tutorial.md`](docs/guides/tutorial.md) — covers boot,
+> first request, the three premise lanes, the per-token heatmap, the
+> retrieval-coverage observability metric, profiles, and integrations
+> (HTTP / Python SDK / MCP / OpenAI tools).
+
 ## Why
 
 Open-source LLM observability tools either
@@ -98,15 +104,38 @@ scoring engine into a feedback channel for your retriever:
 
 | Field | Where | What it tells you |
 |---|---|---|
-| `scores.context_coverage_ratio` | global | Fraction of fetched support units whose `coverage_score` crossed `coverage_threshold` (default 0.5). Range `[0, 1]`. **`0.4` means 60% of the chunks the retriever pulled were dead weight.** |
-| `scores.context_attribution_ratio` | global | Strictly stricter signal: fraction of units that were the argmax support for at least one response token. Always `<= context_coverage_ratio`. The gap is "semantically relevant but lost to a sibling chunk" — candidates for retrieval dedup. |
-| `support_units[i].coverage_score` | per-unit | Max reverse-context similarity any response token had to this unit. Independent of argmax. |
+| `scores.context_coverage_ratio` | global | **Absolute-strength signal.** Fraction of fetched support units whose `coverage_score` crossed `coverage_threshold` (default 0.5). Range `[0, 1]`. **`0.4` means 60% of the chunks the retriever pulled were dead weight.** Tune the threshold via `coverage_threshold`. |
+| `scores.context_attribution_ratio` | global | **Competitive-placement signal.** Fraction of units that won the argmax for at least one response token. Independent of `coverage_threshold`. Useful for dedup-style questions ("which chunks dominated for some span?"). |
+| `support_units[i].coverage_score` | per-unit | Max reverse-context similarity any response token had to this unit. Independent of argmax and of threshold. Range `[0, 1]`. |
 | `support_units[i].used` | per-unit | `True` when `coverage_score >= coverage_threshold`. Filter `used == False` to surface dead-weight chunks. |
 
-Cost: one `max(dim=0)` reduction over the already-computed
-`(R, U)` per-unit similarity matrix. No extra encoder calls, no extra
-Triton kernels, no detectable latency overhead. Tune the threshold per
-request via `coverage_threshold` (range `[0, 1]`, default `0.5`).
+Coverage and attribution are **independent observability axes** — neither
+strictly dominates the other. A unit can lose every argmax (low
+attribution) yet still have one strong match (high coverage), and
+under tight thresholds the reverse holds. Pick the one that maps to
+your retrieval-tuning question:
+
+- *"Is the retriever pulling dead weight?"* → `context_coverage_ratio`.
+- *"Are sibling chunks crowding each other out for the same spans?"* →
+  watch units with `matched_response_tokens > 0` but `used == False`.
+
+Cost: one `max(dim=0)` reduction over the already-computed `(R, U)`
+per-unit similarity matrix. Microbench (CPU) shows median ≤ 0.3 ms even
+at 4096 response tokens × 256 support units — well below the per-request
+encoder/scorer baseline. No extra encoder calls, no extra Triton kernels.
+
+Empirical signal on real HaluEval-QA data
+([`scripts/bench_context_coverage.py`](scripts/bench_context_coverage.py)):
+
+| Scenario                                       | `coverage_ratio` (median) | `support_units_used` (median) |
+|------------------------------------------------|---------------------------|-------------------------------|
+| Grounded response, 1 retrieved chunk           | 1.000                     | 1 / 1                         |
+| Grounded response, 1 relevant + 4 distractors  | **0.117**                 | **1.5 / 12**                  |
+
+The signal collapses from 1.0 to ~0.12 when the retriever over-fetches
+— exactly the diagnostic we want. Range invariant `0 ≤ ratio ≤ 1` held
+for **400 / 400** real samples; reproduction in
+[`docs/guides/tutorial.md`](docs/guides/tutorial.md) §5b.
 
 ### Long contexts and long responses
 

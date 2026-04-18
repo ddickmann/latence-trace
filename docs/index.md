@@ -6,6 +6,10 @@ is grounded in its supporting context, returns auditable per-claim evidence,
 and classifies every output into a calibrated `green` / `amber` / `red`
 risk band. It is **multilingual: English + German** out of the box.
 
+- **End-to-end tutorial (recommended starting point):**
+  [`guides/tutorial.md`](guides/tutorial.md)
+- **API reference (every field, every endpoint):**
+  [`api-reference.md`](api-reference.md)
 - **Product overview:** [`guides/beta-overview.md`](guides/beta-overview.md)
 - **Pareto-optimal default profiles (`fast` / `balanced` / `quality`):**
   [`guides/profiles.md`](guides/profiles.md)

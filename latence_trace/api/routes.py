@@ -295,6 +295,34 @@ def create_router(service_provider: Callable[[], GroundednessService]) -> APIRou
                     "max_inflight": _inflight_limit,
                     "max_inflight_env": "LATENCE_TRACE_MAX_INFLIGHT",
                 },
+                "observability": {
+                    "context_coverage": {
+                        "request_field": "coverage_threshold",
+                        "default": 0.5,
+                        "range": [0.0, 1.0],
+                        "response_globals": [
+                            "scores.context_coverage_ratio",
+                            "scores.context_coverage_threshold",
+                            "scores.support_units_used",
+                            "scores.support_units_total",
+                            "scores.context_attribution_ratio",
+                            "scores.context_attribution_used_count",
+                        ],
+                        "response_per_unit": [
+                            "support_units[*].coverage_score",
+                            "support_units[*].used",
+                        ],
+                        "description": (
+                            "Retrieval-efficiency observability. Per-unit "
+                            "coverage_score is the max similarity any response "
+                            "token had to that unit; used=False flags chunks the "
+                            "retriever pulled but the response did not lean on. "
+                            "context_coverage_ratio is used_count/total — a "
+                            "ratio of 0.4 means 60% of the retrieved chunks were "
+                            "dead weight."
+                        ),
+                    },
+                },
                 "docs_url": "https://latence.ai/trace/docs",
             },
         )

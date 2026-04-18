@@ -72,8 +72,20 @@ coverage_u   = max_t m_{t,u}                       # max over response tokens
 used_u       = 1[coverage_u >= coverage_threshold]  # default threshold = 0.5
 context_coverage_ratio = (sum_u used_u) / |U|       # in [0, 1]
 context_attribution_ratio =
-    |{u : exists t, argmax_v m_{t,v} = u}| / |U|    # stricter, argmax-based
+    |{u : exists t, argmax_v m_{t,v} = u}| / |U|    # argmax-based, threshold-free
 ```
+
+**Independence of the two ratios.** `coverage_u` measures the absolute
+strength of unit `u` (max similarity across response tokens), while the
+attribution count measures competitive placement (was `u` the strongest
+unit for some response token?). The two scalars are not strictly
+ordered: a unit can win argmax for some token even when its
+`coverage_u` lies below the threshold (so `coverage_used_count` excludes
+it but `attribution_used_count` includes it), and conversely a unit can
+clear the threshold yet lose every argmax to a sibling unit. Both are
+exposed because they answer different operational questions —
+"is the retriever pulling dead weight?" (coverage) versus "are sibling
+chunks crowding each other out?" (attribution).
 
 `coverage_u` is partition-invariant in two senses:
 
@@ -89,6 +101,19 @@ context_attribution_ratio =
 `context_coverage_ratio` is therefore deterministic regardless of how
 the work is dispatched. Both ratios are independent of token weights,
 calibration, NLI, and primary-metric selection.
+
+Edge cases the implementation handles defensively:
+
+- **0-token support unit** (degenerate input): the per-unit max is
+  ``-inf`` from the kernel; `compute_unit_coverage` clamps the visible
+  `coverage_score` to `0.0` so it stays inside the documented `[0, 1]`
+  similarity range, and forces `used = False` regardless of threshold.
+  This guarantees a degenerate unit cannot accidentally count as "used"
+  even when the operator picks `coverage_threshold = 0.0`.
+- **NaN / Inf** values that can arise from numerical instability are
+  treated identically to 0-token units.
+- **Empty support set** (no batches, no units): both global ratios are
+  reported as `0.0` instead of raising.
 
 Secondary breadth diagnostics use the per-support-unit maxima `m_{t,u}`:
 
