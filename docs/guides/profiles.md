@@ -123,8 +123,8 @@ VOYAGER_GROUNDEDNESS_NLI_PREMISE_CONCAT=1
 VOYAGER_GROUNDEDNESS_NLI_PREMISE_RERANKER_MODEL=BAAI/bge-reranker-v2-m3
 VOYAGER_GROUNDEDNESS_FUSION_W_CALIBRATED=0.0
 VOYAGER_GROUNDEDNESS_FUSION_W_LITERAL=0.2
-VOYAGER_GROUNDEDNESS_FUSION_W_NLI=0.7
-VOYAGER_GROUNDEDNESS_FUSION_W_SEMANTIC_ENTROPY=0.1
+VOYAGER_GROUNDEDNESS_FUSION_W_NLI=0.8
+VOYAGER_GROUNDEDNESS_FUSION_W_SEMANTIC_ENTROPY=0.0
 VOYAGER_GROUNDEDNESS_FUSION_W_STRUCTURED=0.0
 VOYAGER_GROUNDEDNESS_THRESHOLDS_PATH=…/thresholds.quality.json
 ```
@@ -133,16 +133,24 @@ Use when:
 - Compliance / high-stakes outputs
 - Long multi-premise contexts where atomic decomposition + concat
   earn their keep
-- You can run an LLM ensemble (typically via vLLM-factory) and pass
-  multiple `verification_samples` to the request
+- You can run an LLM ensemble (typically via vLLM-factory) and want
+  to opt into the SE channel by overriding the env weight after
+  re-running calibration with your ensemble provider attached
 
-Semantic entropy gets a small `0.1` weight: when callers supply
-ensemble samples, SE contributes its full share; when they do not,
-`fuse_groundedness_v2` drops the SE channel and renormalises so the
-headline stays well-defined. The synthetic harness underrates SE on
-purpose (its "ensemble" is `[positive, negative, positive, negative]`),
-which is why `quality` looks ~2 F1 points below `balanced` offline.
-In production, SE earns its weight back on miscalibrated generations.
+The fusion weights match the L7 sweep winner exactly
+(`literal=0.2 / nli=0.8`), so the per-stratum F1 numbers in
+[`fusion_weights.quality.json`](../../latence_trace/data/fusion_weights.quality.json)
+apply to what the runtime actually ships. Semantic entropy ships at
+`0.0` because the L7 sweep ran with `include_semantic_entropy=False`
+on a synthetic ensemble that underrates SE; opting in is a deliberate
+operator decision that requires re-calibration with your real LLM
+ensemble (see "Reproducing the picks" below). The fuse helper
+renormalises cleanly either way (`fuse_groundedness_v2`).
+
+A regression guard
+(`tests/test_profiles.py::test_preset_weights_match_calibration_artefacts`)
+locks the runtime preset, the threshold artefact, and the fusion
+sweep artefact in sync so any future drift fails CI immediately.
 
 ## Methodology
 

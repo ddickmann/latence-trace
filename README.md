@@ -43,7 +43,7 @@ the operator already exported, so you keep full override control.
 |---|---|---|---|---|---|---|---|---|---|
 | `fast` | sub-200 ms p95 SLO; cheap "is it grounded at all?" check | off | off | off | off | 0.66 | 100% (literal-only) | ~160 ms | ~3.7 GB |
 | `balanced` (default) | typical RAG QA serving | on (mDeBERTa) | off | off | off | **0.89** | **92%** | ~190 ms | ~4.2 GB |
-| `quality` | high-stakes outputs; opt-in semantic-entropy ensemble | on (mDeBERTa) | on (bge v2-m3) | on | on (caller-supplied samples) | 0.87 | 87% | ~195 ms | ~4.5 GB |
+| `quality` | high-stakes outputs; long multi-premise contexts | on (mDeBERTa) | on (bge v2-m3) | on | off (opt-in via env, requires recalibration) | 0.87 | 87% | ~195 ms | ~4.5 GB |
 
 Numbers are from the per-profile sweep in
 [`research/triangular_maxsim/reports/profile_pareto.md`](research/triangular_maxsim/reports/profile_pareto.md);
@@ -130,6 +130,19 @@ curl -X POST http://127.0.0.1:8090/groundedness \
 The service returns `scores`, `risk_band`, per-token heatmaps,
 `literal_diagnostics`, `structured_diagnostics`, and per-claim NLI evidence
 for both languages with the same response schema.
+
+Agents and humans can self-discover the request shape, active profile, and
+all sibling endpoints in a single GET:
+
+```bash
+curl http://127.0.0.1:8090/agent-help            # canonical request shape, profiles block, endpoint map
+curl http://127.0.0.1:8090/.well-known/ai-plugin.json  # ChatGPT-style plugin descriptor
+curl http://127.0.0.1:8090/openapi.json          # OpenAPI 3.1 schema
+```
+
+Validation errors and service errors share a single structured envelope
+(`code`, `message`, `hint`, `docs_url`), so retry / repair loops do not
+need to special-case 4xx vs 5xx parsing.
 
 ## Multilingual support (English + German)
 
