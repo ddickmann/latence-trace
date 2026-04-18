@@ -1,12 +1,29 @@
 """PA3: profile-driven hot-path identification.
 
 Runs ``cProfile`` against a representative groundedness scoring loop
-(deterministic encoder, no GPU, 100 iterations at the ``balanced``
-profile shape) and dumps the top sample-attributed Python functions to
+(deterministic encoder, no GPU) and dumps the top sample-attributed
+Python functions plus per-request mean latency to
 ``research/triangular_maxsim/reports/hot_path_profile.json``.
 
 Usage:
     python scripts/profile_hot_paths.py [--iterations 100] [--profile balanced]
+
+Profile semantics:
+
+- ``--profile`` is forwarded to :func:`apply_profile` so the
+  fusion-weight / threshold / NLI env keys are set exactly the same way
+  the production server would set them. The ``effective_settings``
+  block in the output JSON records the env state the bench actually ran
+  under, so the report is auditable.
+- The deterministic stub encoder cannot drive the HF NLI / cross-encoder
+  lanes (no real embedding space), so this bench forces the NLI
+  channels off after applying the profile. The override is recorded in
+  ``stub_overrides`` so consumers know which keys were neutralised. The
+  measurement reported here is therefore the *Python orchestration
+  overhead common to all three profiles*, not the end-to-end latency
+  including HF model inference.
+- For end-to-end latency including NLI use the multilingual benchmark
+  harness in ``research/triangular_maxsim`` against a real encoder.
 
 The output JSON drives the PA3 decision rules in
 ``docs/perf/hot_path_decisions.md``:
@@ -42,7 +59,11 @@ _HERE = Path(__file__).resolve()
 sys.path.insert(0, str(_HERE.parent.parent))
 
 from latence_trace.api.models import GroundednessRequest  # noqa: E402
-from latence_trace.api.service import GroundednessService  # noqa: E402
+from latence_trace.api.service import (  # noqa: E402
+    PROFILE_ENV_PRESETS,
+    GroundednessService,
+    apply_profile,
+)
 
 _TOKEN_RE = re.compile(r"\w+|[^\w\s]", re.UNICODE)
 
@@ -150,9 +171,21 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    # Disable NLI for the orchestration-only profile - we want to see
-    # the latence-trace Python overhead, not HF transformers.
-    os.environ.setdefault("VOYAGER_GROUNDEDNESS_NLI_ENABLED", "0")
+    # Apply the requested Pareto profile so the env (fusion weights,
+    # threshold artefact, NLI/reranker toggles) matches what the user
+    # asked for. Without this, every bench would measure the same
+    # orchestration path regardless of --profile.
+    profile_application = apply_profile(args.profile, refresh_thresholds=True)
+
+    # The deterministic stub encoder cannot drive the HF NLI module
+    # (no real embedding space), so force the NLI lane off after the
+    # preset is applied. We record the override in the output JSON so
+    # the profile report stays auditable.
+    nli_was_enabled = os.environ.get("VOYAGER_GROUNDEDNESS_NLI_ENABLED") == "1"
+    os.environ["VOYAGER_GROUNDEDNESS_NLI_ENABLED"] = "0"
+    os.environ["VOYAGER_GROUNDEDNESS_NLI_ATOMIC_CLAIMS"] = "0"
+    os.environ["VOYAGER_GROUNDEDNESS_NLI_PREMISE_CONCAT"] = "0"
+    os.environ["VOYAGER_GROUNDEDNESS_NLI_PREMISE_RERANKER_MODEL"] = ""
 
     encoder = _DeterministicEncoder()
     service = GroundednessService(encoder_factory=lambda _name: encoder)
@@ -166,8 +199,15 @@ def main() -> None:
     total_ms = _run_iterations(service, args.iterations)
     pr.disable()
 
+    preset_keys = sorted(PROFILE_ENV_PRESETS.get(args.profile, {}).keys())
+    effective_settings = {
+        key: os.environ.get(key, "")
+        for key in preset_keys
+    }
+
     summary = {
-        "schema_version": 1,
+        "schema_version": 2,
+        "requested_profile": args.profile,
         "profile": args.profile,
         "iterations": args.iterations,
         "total_ms": round(total_ms, 2),
@@ -175,6 +215,20 @@ def main() -> None:
         "top_functions": _summarize(pr, top_k=40),
         "encoder": "deterministic-stub",
         "torch_version": torch.__version__,
+        "profile_application": profile_application.as_dict(),
+        "effective_settings": effective_settings,
+        "stub_overrides": {
+            # Why these are forced off even when the profile preset
+            # asks for them: the deterministic hash-based encoder used
+            # by this bench does not produce embeddings the NLI / cross
+            # encoder lanes can interpret. The orchestration overhead
+            # is what we measure here.
+            "VOYAGER_GROUNDEDNESS_NLI_ENABLED": "0",
+            "VOYAGER_GROUNDEDNESS_NLI_ATOMIC_CLAIMS": "0",
+            "VOYAGER_GROUNDEDNESS_NLI_PREMISE_CONCAT": "0",
+            "VOYAGER_GROUNDEDNESS_NLI_PREMISE_RERANKER_MODEL": "",
+            "_nli_was_enabled_by_profile": nli_was_enabled,
+        },
     }
 
     out_path = Path(args.output)

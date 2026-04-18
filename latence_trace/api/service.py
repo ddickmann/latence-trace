@@ -208,21 +208,26 @@ PROFILE_ENV_PRESETS: Dict[str, Dict[str, str]] = {
     },
     "quality": {
         # Full stack: NLI + cross-encoder reranker + atomic-claim
-        # decomposition + multi-premise concatenation + semantic entropy
-        # peer (when callers pass ensemble samples). The fusion weights
-        # follow the sweep winner ``literal=0.2 / nli=0.7`` with a small
-        # ``semantic_entropy=0.1`` head-room so SE contributes whenever
-        # ensemble samples are available; the renormalisation step in
-        # ``fuse_groundedness_v2`` cleanly drops SE when callers do not
-        # opt in.
+        # decomposition + multi-premise concatenation. Fusion weights
+        # follow the L7 sweep winner exactly (``literal=0.2 / nli=0.8``)
+        # so the per-stratum F1 numbers in
+        # ``latence_trace/data/fusion_weights.quality.json`` apply to
+        # what the runtime actually ships. Semantic entropy is left at
+        # zero by default because the L7 sweep ran with
+        # ``include_semantic_entropy=False`` - operators who want a SE
+        # channel should re-run the sweep with their LLM ensemble
+        # provider attached and override
+        # ``VOYAGER_GROUNDEDNESS_FUSION_W_SEMANTIC_ENTROPY`` from the
+        # resulting calibration artefact. The fuse helper renormalises
+        # cleanly either way (see ``fuse_groundedness_v2``).
         "VOYAGER_GROUNDEDNESS_NLI_ENABLED": "1",
         "VOYAGER_GROUNDEDNESS_NLI_ATOMIC_CLAIMS": "1",
         "VOYAGER_GROUNDEDNESS_NLI_PREMISE_CONCAT": "1",
         "VOYAGER_GROUNDEDNESS_NLI_PREMISE_RERANKER_MODEL": "BAAI/bge-reranker-v2-m3",
         "VOYAGER_GROUNDEDNESS_FUSION_W_CALIBRATED": "0.0",
         "VOYAGER_GROUNDEDNESS_FUSION_W_LITERAL": "0.2",
-        "VOYAGER_GROUNDEDNESS_FUSION_W_NLI": "0.7",
-        "VOYAGER_GROUNDEDNESS_FUSION_W_SEMANTIC_ENTROPY": "0.1",
+        "VOYAGER_GROUNDEDNESS_FUSION_W_NLI": "0.8",
+        "VOYAGER_GROUNDEDNESS_FUSION_W_SEMANTIC_ENTROPY": "0.0",
         "VOYAGER_GROUNDEDNESS_FUSION_W_STRUCTURED": "0.0",
         "VOYAGER_GROUNDEDNESS_THRESHOLDS_PATH": _profile_data_path("thresholds.quality.json"),
     },

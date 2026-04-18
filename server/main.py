@@ -27,7 +27,9 @@ import os
 import threading
 from typing import Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 from latence_trace.api.routes import create_router
 from latence_trace.api.service import (
@@ -168,6 +170,61 @@ def create_app(profile: Optional[str] = None) -> FastAPI:
         },
     )
     app.include_router(create_router(_get_service))
+
+    # PA7 polish: coerce FastAPI's default 422 validation responses into
+    # the same {code, message, hint, docs_url} envelope that runtime
+    # service errors use. Without this, agents have to handle two
+    # different error shapes (the FastAPI list-of-pydantic-errors at the
+    # schema layer, and our envelope at the service layer). Returning
+    # one shape across the board keeps the agent contract honest.
+    def _safe_validation_errors(raw_errors: list) -> list:
+        """Strip non-JSON-serialisable members (e.g. ``ValueError`` instances
+        in pydantic's ``ctx`` block) so the structured envelope can survive
+        ``json.dumps`` no matter what the validator put in there."""
+
+        cleaned: list = []
+        for entry in raw_errors:
+            safe_entry: dict = {}
+            for key, value in entry.items():
+                if key == "ctx" and isinstance(value, dict):
+                    safe_entry[key] = {
+                        ck: (str(cv) if isinstance(cv, BaseException) else cv)
+                        for ck, cv in value.items()
+                    }
+                elif isinstance(value, BaseException):
+                    safe_entry[key] = str(value)
+                else:
+                    safe_entry[key] = value
+            cleaned.append(safe_entry)
+        return cleaned
+
+    @app.exception_handler(RequestValidationError)
+    async def _handle_request_validation_error(
+        _request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        raw_errors = exc.errors()
+        primary = raw_errors[0] if raw_errors else {}
+        message = primary.get("msg") or "Request validation failed"
+        loc = primary.get("loc") or []
+        loc_str = ".".join(str(part) for part in loc if part not in ("body",))
+        if loc_str:
+            message = f"{loc_str}: {message}"
+        return JSONResponse(
+            status_code=422,
+            content={
+                "detail": {
+                    "code": "validation_error",
+                    "message": message,
+                    "hint": (
+                        "Inspect /agent-help or the OpenAPI schema for the "
+                        "canonical request shape; every field is documented "
+                        "with the value range it accepts."
+                    ),
+                    "docs_url": "https://latence.ai/trace/docs",
+                    "errors": _safe_validation_errors(raw_errors),
+                }
+            },
+        )
 
     # Kick off Triton warmup right after the router is mounted so the
     # /readyz gate goes green as soon as the JIT cache is hot. Keep it

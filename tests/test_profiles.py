@@ -252,11 +252,13 @@ def test_balanced_profile_uses_nli_when_only_nli_is_available():
     assert fused == pytest.approx(0.83)
 
 
-def test_quality_profile_renormalises_when_semantic_entropy_unavailable():
-    """The quality preset gives semantic_entropy a small weight but
-    most callers will not provide ensemble samples. The fuse helper
-    must drop SE and renormalise the remaining channels so the
-    headline score stays well-defined."""
+def test_quality_profile_uses_only_calibrated_channels_by_default():
+    """The quality preset zeros every channel except literal and NLI,
+    matching the L7 sweep winner exactly. With both contributing the
+    fused score is the weighted sum without renormalisation - SE is
+    not in the preset so there is nothing to drop or rescale by
+    default. This preserves the audit trail: the per-stratum F1 in
+    fusion_weights.quality.json applies to what ships."""
 
     weights = _profile_weights("quality")
     fused = fuse_groundedness_v2(
@@ -267,16 +269,16 @@ def test_quality_profile_renormalises_when_semantic_entropy_unavailable():
         structured_source_guarded=None,
         weights=weights,
     )
-    # quality preset weights: literal=0.2, nli=0.7 (calibrated/SE/struct=0).
-    # With SE absent the contributing weight sum is 0.9, so the
-    # renormalised fusion is (0.2/0.9)*0.9 + (0.7/0.9)*0.8.
-    expected = (0.2 / 0.9) * 0.9 + (0.7 / 0.9) * 0.8
+    expected = 0.2 * 0.9 + 0.8 * 0.8
     assert fused == pytest.approx(expected)
 
 
 def test_quality_profile_includes_semantic_entropy_when_provided():
     """When the caller passes ensemble samples we expect SE to
-    contribute its full preset weight (no renormalisation)."""
+    contribute proportionally - the quality preset zeros SE by default
+    so the renormalisation yields literal=0.2/(0.2+0.8) and
+    nli=0.8/(0.2+0.8) on the contributing channels. SE shows up only
+    when the operator explicitly opts in via env override."""
 
     weights = _profile_weights("quality")
     fused = fuse_groundedness_v2(
@@ -287,5 +289,49 @@ def test_quality_profile_includes_semantic_entropy_when_provided():
         structured_source_guarded=None,
         weights=weights,
     )
-    expected = 0.2 * 0.9 + 0.7 * 0.8 + 0.1 * 0.7
+    expected = 0.2 * 0.9 + 0.8 * 0.8
     assert fused == pytest.approx(expected)
+
+
+@pytest.mark.parametrize("profile", list(PROFILE_NAMES))
+def test_preset_weights_match_calibration_artefacts(profile):
+    """Lock the runtime preset, the threshold artefact, and the fusion
+    sweep artefact in sync.
+
+    If any of the three drifts the runtime can no longer claim the
+    per-stratum F1 numbers from the calibration report apply to what
+    actually ships. This test catches that the moment it happens.
+    """
+
+    preset = PROFILE_ENV_PRESETS[profile]
+    preset_weights = {
+        "calibrated": float(preset["VOYAGER_GROUNDEDNESS_FUSION_W_CALIBRATED"]),
+        "literal": float(preset["VOYAGER_GROUNDEDNESS_FUSION_W_LITERAL"]),
+        "nli": float(preset["VOYAGER_GROUNDEDNESS_FUSION_W_NLI"]),
+        "semantic_entropy": float(
+            preset["VOYAGER_GROUNDEDNESS_FUSION_W_SEMANTIC_ENTROPY"]
+        ),
+        "structured": float(preset["VOYAGER_GROUNDEDNESS_FUSION_W_STRUCTURED"]),
+    }
+
+    th_path = _DATA_DIR / "thresholds.{0}.json".format(profile)
+    th = json.loads(th_path.read_text(encoding="utf-8"))
+    assert "fusion_weights" in th, (
+        "Threshold artefact for '{0}' is missing the self-describing "
+        "fusion_weights block.".format(profile)
+    )
+    th_weights = {k: float(v) for k, v in th["fusion_weights"].items()}
+    assert th_weights == preset_weights, (
+        "Threshold artefact disagrees with PROFILE_ENV_PRESETS for "
+        "'{0}'. Re-run scripts/calibrate_thresholds.py with the "
+        "current preset env vars exported.".format(profile)
+    )
+
+    fw_path = _DATA_DIR / "fusion_weights.{0}.json".format(profile)
+    fw = json.loads(fw_path.read_text(encoding="utf-8"))
+    fw_weights = {k: float(v) for k, v in fw["best"]["weights"].items()}
+    assert fw_weights == preset_weights, (
+        "Fusion-sweep winner for '{0}' (artefact) disagrees with "
+        "PROFILE_ENV_PRESETS. Either the preset is wrong or the sweep "
+        "needs to be re-run.".format(profile)
+    )

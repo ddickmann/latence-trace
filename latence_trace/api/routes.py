@@ -23,6 +23,8 @@ from fastapi.responses import JSONResponse
 
 from latence_trace.api.models import GroundednessRequest, GroundednessResponse
 from latence_trace.api.service import (
+    DEFAULT_PROFILE,
+    PROFILE_NAMES,
     GroundednessService,
     NotFoundError,
     ServiceError,
@@ -199,6 +201,11 @@ def create_router(service_provider: Callable[[], GroundednessService]) -> APIRou
         ),
     )
     async def agent_help() -> JSONResponse:
+        active_profile = (
+            os.environ.get("LATENCE_TRACE_ACTIVE_PROFILE")
+            or os.environ.get("LATENCE_TRACE_PROFILE")
+            or DEFAULT_PROFILE
+        )
         return JSONResponse(
             status_code=200,
             content={
@@ -215,6 +222,11 @@ def create_router(service_provider: Callable[[], GroundednessService]) -> APIRou
                         "method": "POST",
                         "path": "/groundedness",
                         "operation_id": "score_groundedness",
+                    },
+                    "agent_help": {"method": "GET", "path": "/agent-help"},
+                    "ai_plugin": {
+                        "method": "GET",
+                        "path": "/.well-known/ai-plugin.json",
                     },
                     "openapi": {"method": "GET", "path": "/openapi.json"},
                     "docs": {"method": "GET", "path": "/docs"},
@@ -252,6 +264,17 @@ def create_router(service_provider: Callable[[], GroundednessService]) -> APIRou
                         ),
                     },
                 ],
+                "profiles": {
+                    "active": active_profile,
+                    "default": DEFAULT_PROFILE,
+                    "available": list(PROFILE_NAMES),
+                    "selection_env": "LATENCE_TRACE_PROFILE",
+                    "description": (
+                        "Pareto-optimal default presets. Override the env var "
+                        "before starting the server, or pass --profile to "
+                        "`latence-trace serve` / `latence-trace score`."
+                    ),
+                },
                 "error_envelope": {
                     "code": "machine-readable error code (e.g. 'validation_error')",
                     "message": "human-readable description of what went wrong",

@@ -268,6 +268,17 @@ def main(argv: Optional[List[str]] = None) -> int:
         default=Path(__file__).resolve().parent.parent.parent
         / "latence_trace/core/thresholds.json",
     )
+    parser.add_argument(
+        "--profile",
+        choices=["fast", "balanced", "quality"],
+        default=None,
+        help=(
+            "Stamp the calibration artefact with the named profile so the "
+            "runtime loader and the per-profile audit checks know which "
+            "preset this file backs. The active fusion weights are read "
+            "from os.environ at calibration time."
+        ),
+    )
     args = parser.parse_args(argv)
 
     provider = _load_provider(args.model)
@@ -286,6 +297,30 @@ def main(argv: Optional[List[str]] = None) -> int:
         nli_use_atomic_claims=args.atomic_claims,
         precision_target=args.precision_target,
     )
+
+    # Capture the fusion weights and profile metadata so the artefact
+    # is self-describing. The runtime audit (see test_profiles.py and
+    # the periodic preset/threshold sync check) compares these fields
+    # against ``PROFILE_ENV_PRESETS`` so silent drift is impossible.
+    report["fusion_weights"] = {
+        "calibrated": float(os.environ.get("VOYAGER_GROUNDEDNESS_FUSION_W_CALIBRATED", 0.0)),
+        "literal": float(os.environ.get("VOYAGER_GROUNDEDNESS_FUSION_W_LITERAL", 0.0)),
+        "nli": float(os.environ.get("VOYAGER_GROUNDEDNESS_FUSION_W_NLI", 0.0)),
+        "semantic_entropy": float(
+            os.environ.get("VOYAGER_GROUNDEDNESS_FUSION_W_SEMANTIC_ENTROPY", 0.0)
+        ),
+        "structured": float(os.environ.get("VOYAGER_GROUNDEDNESS_FUSION_W_STRUCTURED", 0.0)),
+    }
+    if args.profile:
+        report["profile"] = args.profile
+        report["profile_spec"] = {
+            "atomic": bool(args.atomic_claims),
+            "concat": bool(args.concat_premises),
+            "fusion_weights": report["fusion_weights"],
+            "use_nli": bool(args.enable_nli),
+            "use_reranker": bool(args.reranker_model),
+        }
+
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
     print(

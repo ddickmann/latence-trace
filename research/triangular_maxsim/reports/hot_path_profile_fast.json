@@ -1,0 +1,367 @@
+{
+  "schema_version": 2,
+  "requested_profile": "fast",
+  "profile": "fast",
+  "iterations": 200,
+  "total_ms": 12595.37,
+  "mean_per_request_ms": 62.977,
+  "top_functions": [
+    {
+      "function": "_run_iterations",
+      "file": "/workspace/latence-trace/scripts/profile_hot_paths.py",
+      "line": 113,
+      "ncalls": 1,
+      "tottime_ms": 6.303,
+      "cumtime_ms": 12595.394
+    },
+    {
+      "function": "groundedness",
+      "file": "latence_trace/api/service.py",
+      "line": 598,
+      "ncalls": 200,
+      "tottime_ms": 9.801,
+      "cumtime_ms": 12589.071
+    },
+    {
+      "function": "score_groundedness_chunked",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 2028,
+      "ncalls": 200,
+      "tottime_ms": 4.012,
+      "cumtime_ms": 11101.218
+    },
+    {
+      "function": "score_groundedness",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 1337,
+      "ncalls": 200,
+      "tottime_ms": 6124.118,
+      "cumtime_ms": 11097.068
+    },
+    {
+      "function": "triangular_maxsim",
+      "file": "latence_trace/kernels/triton_triangular_maxsim.py",
+      "line": 326,
+      "ncalls": 200,
+      "tottime_ms": 2.047,
+      "cumtime_ms": 4105.383
+    },
+    {
+      "function": "triangular_maxsim_reference",
+      "file": "latence_trace/kernels/triton_triangular_maxsim.py",
+      "line": 260,
+      "ncalls": 200,
+      "tottime_ms": 2275.536,
+      "cumtime_ms": 4103.212
+    },
+    {
+      "function": "<method 'max' of 'torch._C.TensorBase' objects>",
+      "file": "~",
+      "line": 0,
+      "ncalls": 1400,
+      "tottime_ms": 1820.462,
+      "cumtime_ms": 1820.462
+    },
+    {
+      "function": "encode_texts",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 556,
+      "ncalls": 600,
+      "tottime_ms": 3.152,
+      "cumtime_ms": 1303.137
+    },
+    {
+      "function": "encode",
+      "file": "/workspace/latence-trace/scripts/profile_hot_paths.py",
+      "line": 88,
+      "ncalls": 600,
+      "tottime_ms": 4.781,
+      "cumtime_ms": 1289.193
+    },
+    {
+      "function": "<listcomp>",
+      "file": "/workspace/latence-trace/scripts/profile_hot_paths.py",
+      "line": 97,
+      "ncalls": 600,
+      "tottime_ms": 95.377,
+      "cumtime_ms": 1251.96
+    },
+    {
+      "function": "_vec",
+      "file": "/workspace/latence-trace/scripts/profile_hot_paths.py",
+      "line": 78,
+      "ncalls": 18600,
+      "tottime_ms": 561.498,
+      "cumtime_ms": 1156.583
+    },
+    {
+      "function": "norm",
+      "file": "/usr/local/lib/python3.11/dist-packages/numpy/linalg/_linalg.py",
+      "line": 2575,
+      "ncalls": 18600,
+      "tottime_ms": 151.715,
+      "cumtime_ms": 279.688
+    },
+    {
+      "function": "inner",
+      "file": "/usr/local/lib/python3.11/dist-packages/numpy/_core/_ufunc_config.py",
+      "line": 464,
+      "ncalls": 18600,
+      "tottime_ms": 255.493,
+      "cumtime_ms": 272.978
+    },
+    {
+      "function": "compute_null_distribution",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 861,
+      "ncalls": 200,
+      "tottime_ms": 101.196,
+      "cumtime_ms": 224.543
+    },
+    {
+      "function": "naive_reverse_maxsim_qc",
+      "file": "latence_trace/kernels/triton_triangular_maxsim.py",
+      "line": 485,
+      "ncalls": 200,
+      "tottime_ms": 13.866,
+      "cumtime_ms": 209.501
+    },
+    {
+      "function": "segment_text",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 699,
+      "ncalls": 200,
+      "tottime_ms": 0.539,
+      "cumtime_ms": 112.748
+    },
+    {
+      "function": "_pack_sentence_spans",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 653,
+      "ncalls": 200,
+      "tottime_ms": 1.38,
+      "cumtime_ms": 107.926
+    },
+    {
+      "function": "count_text_tokens",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 429,
+      "ncalls": 600,
+      "tottime_ms": 90.382,
+      "cumtime_ms": 105.8
+    },
+    {
+      "function": "diff_literals",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 1232,
+      "ncalls": 200,
+      "tottime_ms": 1.016,
+      "cumtime_ms": 104.993
+    },
+    {
+      "function": "<built-in method torch.where>",
+      "file": "~",
+      "line": 0,
+      "ncalls": 2000,
+      "tottime_ms": 104.699,
+      "cumtime_ms": 104.699
+    },
+    {
+      "function": "extract_literals",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 1179,
+      "ncalls": 400,
+      "tottime_ms": 77.969,
+      "cumtime_ms": 102.462
+    },
+    {
+      "function": "<method 'mean' of 'torch._C.TensorBase' objects>",
+      "file": "~",
+      "line": 0,
+      "ncalls": 400,
+      "tottime_ms": 95.477,
+      "cumtime_ms": 95.477
+    },
+    {
+      "function": "<method 'ravel' of 'numpy.ndarray' objects>",
+      "file": "~",
+      "line": 0,
+      "ncalls": 18600,
+      "tottime_ms": 93.232,
+      "cumtime_ms": 93.232
+    },
+    {
+      "function": "<built-in method torch.ones>",
+      "file": "~",
+      "line": 0,
+      "ncalls": 1000,
+      "tottime_ms": 87.11,
+      "cumtime_ms": 87.11
+    },
+    {
+      "function": "collect_support_literal_set",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 1221,
+      "ncalls": 200,
+      "tottime_ms": 1.044,
+      "cumtime_ms": 62.485
+    },
+    {
+      "function": "<method 'item' of 'torch._C.TensorBase' objects>",
+      "file": "~",
+      "line": 0,
+      "ncalls": 114200,
+      "tottime_ms": 58.137,
+      "cumtime_ms": 58.137
+    },
+    {
+      "function": "support_content_mask",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 314,
+      "ncalls": 200,
+      "tottime_ms": 0.504,
+      "cumtime_ms": 56.501
+    },
+    {
+      "function": "_consensus_statistics",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 1289,
+      "ncalls": 200,
+      "tottime_ms": 22.712,
+      "cumtime_ms": 51.463
+    },
+    {
+      "function": "<listcomp>",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 325,
+      "ncalls": 200,
+      "tottime_ms": 3.563,
+      "cumtime_ms": 51.189
+    },
+    {
+      "function": "_is_content_token",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 294,
+      "ncalls": 11000,
+      "tottime_ms": 20.674,
+      "cumtime_ms": 47.626
+    },
+    {
+      "function": "token_weights",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 328,
+      "ncalls": 200,
+      "tottime_ms": 14.078,
+      "cumtime_ms": 42.348
+    },
+    {
+      "function": "tokenize",
+      "file": "/workspace/latence-trace/scripts/profile_hot_paths.py",
+      "line": 85,
+      "ncalls": 1800,
+      "tottime_ms": 1.918,
+      "cumtime_ms": 32.175
+    },
+    {
+      "function": "weighted_groundedness",
+      "file": "latence_trace/kernels/triton_triangular_maxsim.py",
+      "line": 462,
+      "ncalls": 1200,
+      "tottime_ms": 10.551,
+      "cumtime_ms": 31.632
+    },
+    {
+      "function": "_normalize",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 280,
+      "ncalls": 800,
+      "tottime_ms": 2.558,
+      "cumtime_ms": 30.229
+    },
+    {
+      "function": "normalize",
+      "file": "/usr/local/lib/python3.11/dist-packages/torch/nn/functional.py",
+      "line": 5541,
+      "ncalls": 800,
+      "tottime_ms": 7.411,
+      "cumtime_ms": 27.296
+    },
+    {
+      "function": "tokenize_text",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 386,
+      "ncalls": 600,
+      "tottime_ms": 2.475,
+      "cumtime_ms": 27.257
+    },
+    {
+      "function": "<built-in method builtins.all>",
+      "file": "~",
+      "line": 0,
+      "ncalls": 18400,
+      "tottime_ms": 9.457,
+      "cumtime_ms": 26.414
+    },
+    {
+      "function": "__init__",
+      "file": "/usr/local/lib/python3.11/dist-packages/pydantic/main.py",
+      "line": 253,
+      "ncalls": 401,
+      "tottime_ms": 0.532,
+      "cumtime_ms": 25.921
+    },
+    {
+      "function": "<method 'validate_python' of 'pydantic_core._pydantic_core.SchemaValidator' objects>",
+      "file": "~",
+      "line": 0,
+      "ncalls": 401,
+      "tottime_ms": 25.384,
+      "cumtime_ms": 25.39
+    },
+    {
+      "function": "_strip_marker",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 284,
+      "ncalls": 16600,
+      "tottime_ms": 14.934,
+      "cumtime_ms": 24.75
+    }
+  ],
+  "encoder": "deterministic-stub",
+  "torch_version": "2.9.0+cu128",
+  "profile_application": {
+    "profile": "fast",
+    "applied": {
+      "VOYAGER_GROUNDEDNESS_NLI_ENABLED": "0",
+      "VOYAGER_GROUNDEDNESS_NLI_ATOMIC_CLAIMS": "0",
+      "VOYAGER_GROUNDEDNESS_NLI_PREMISE_CONCAT": "0",
+      "VOYAGER_GROUNDEDNESS_NLI_PREMISE_RERANKER_MODEL": "",
+      "VOYAGER_GROUNDEDNESS_FUSION_W_CALIBRATED": "0.0",
+      "VOYAGER_GROUNDEDNESS_FUSION_W_LITERAL": "1.0",
+      "VOYAGER_GROUNDEDNESS_FUSION_W_NLI": "0.0",
+      "VOYAGER_GROUNDEDNESS_FUSION_W_SEMANTIC_ENTROPY": "0.0",
+      "VOYAGER_GROUNDEDNESS_FUSION_W_STRUCTURED": "0.0",
+      "VOYAGER_GROUNDEDNESS_THRESHOLDS_PATH": "/workspace/latence-trace/latence_trace/data/thresholds.fast.json"
+    },
+    "skipped": {}
+  },
+  "effective_settings": {
+    "VOYAGER_GROUNDEDNESS_FUSION_W_CALIBRATED": "0.0",
+    "VOYAGER_GROUNDEDNESS_FUSION_W_LITERAL": "1.0",
+    "VOYAGER_GROUNDEDNESS_FUSION_W_NLI": "0.0",
+    "VOYAGER_GROUNDEDNESS_FUSION_W_SEMANTIC_ENTROPY": "0.0",
+    "VOYAGER_GROUNDEDNESS_FUSION_W_STRUCTURED": "0.0",
+    "VOYAGER_GROUNDEDNESS_NLI_ATOMIC_CLAIMS": "0",
+    "VOYAGER_GROUNDEDNESS_NLI_ENABLED": "0",
+    "VOYAGER_GROUNDEDNESS_NLI_PREMISE_CONCAT": "0",
+    "VOYAGER_GROUNDEDNESS_NLI_PREMISE_RERANKER_MODEL": "",
+    "VOYAGER_GROUNDEDNESS_THRESHOLDS_PATH": "/workspace/latence-trace/latence_trace/data/thresholds.fast.json"
+  },
+  "stub_overrides": {
+    "VOYAGER_GROUNDEDNESS_NLI_ENABLED": "0",
+    "VOYAGER_GROUNDEDNESS_NLI_ATOMIC_CLAIMS": "0",
+    "VOYAGER_GROUNDEDNESS_NLI_PREMISE_CONCAT": "0",
+    "VOYAGER_GROUNDEDNESS_NLI_PREMISE_RERANKER_MODEL": "",
+    "_nli_was_enabled_by_profile": false
+  }
+}

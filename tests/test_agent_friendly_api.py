@@ -87,6 +87,21 @@ async def test_agent_help_describes_premise_lanes_and_attribution_modes():
     assert "max_inflight" in body["limits"]
     assert body["endpoints"]["score"]["operation_id"] == "score_groundedness"
 
+    # PA7 polish: agent-help must point agents at every other discovery
+    # surface so they can crawl one URL and find the rest.
+    for key in ("agent_help", "ai_plugin", "openapi", "docs", "healthz", "readyz"):
+        assert key in body["endpoints"], (
+            f"agent-help endpoints map missing '{key}' so agents have to guess"
+        )
+
+    # The profiles block lets agents adjust expectations for latency vs
+    # accuracy without scraping the docs.
+    profiles = body["profiles"]
+    assert profiles["default"] == "balanced"
+    assert set(profiles["available"]) == {"fast", "balanced", "quality"}
+    assert profiles["active"] in profiles["available"]
+    assert profiles["selection_env"] == "LATENCE_TRACE_PROFILE"
+
 
 @pytest.mark.anyio("asyncio")
 async def test_well_known_ai_plugin_descriptor_is_self_consistent():
@@ -103,13 +118,25 @@ async def test_well_known_ai_plugin_descriptor_is_self_consistent():
     assert body["auth"]["type"] == "none"
 
 
+def _build_full_app() -> FastAPI:
+    """Build the app via ``server.main.create_app`` so the global
+    RequestValidationError handler is registered."""
+
+    os.environ["VOYAGER_GROUNDEDNESS_NLI_ENABLED"] = "0"
+    from server.main import create_app  # noqa: PLC0415
+
+    return create_app()
+
+
 @pytest.mark.anyio("asyncio")
 async def test_validation_error_returns_structured_envelope():
-    app = _build_app()
+    app = _build_full_app()
     async with _client(app) as client:
         # primary_metric=triangular requires query_text; sending an empty
-        # string trips the model validator and surfaces a structured
-        # service-error envelope.
+        # string trips the model validator. The full server registers a
+        # global RequestValidationError handler that coerces FastAPI's
+        # default 422 list-of-pydantic-errors into our structured
+        # envelope so every error class has the same shape.
         r = await client.post(
             "/groundedness",
             json={
@@ -119,12 +146,17 @@ async def test_validation_error_returns_structured_envelope():
                 "query_text": "",
             },
         )
-    # FastAPI surfaces request-body validation as 422; the structured
-    # envelope is exercised via the service-error helper for runtime
-    # service errors. We assert the schema-level error here by checking
-    # the well-known FastAPI shape and switch to a service-error trigger
-    # below for the structured-envelope guarantee.
     assert r.status_code == 422
+    detail = r.json().get("detail")
+    assert isinstance(detail, dict), (
+        f"schema-level 422 must use the structured envelope, got {detail!r}"
+    )
+    for key in ("code", "message", "hint", "docs_url"):
+        assert key in detail, f"validation envelope missing '{key}'"
+    assert detail["code"] == "validation_error"
+    # The raw pydantic error list is preserved under `errors` for
+    # callers that want the full debug trail.
+    assert isinstance(detail["errors"], list) and detail["errors"]
 
 
 @pytest.mark.anyio("asyncio")
