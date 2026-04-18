@@ -383,6 +383,84 @@ def align_tokens(tokens: Sequence[str], expected_len: int) -> List[str]:
     return base
 
 
+def tokenize_with_offsets(
+    provider: Any,
+    text: str,
+    *,
+    expected_len: Optional[int] = None,
+    is_query: bool = False,
+) -> Tuple[List[str], List[Optional[Tuple[int, int]]]]:
+    """Tokenize ``text`` and return per-token char offsets when available.
+
+    Best-effort: when the provider's tokenizer is a HuggingFace fast tokenizer
+    (exposes ``return_offsets_mapping``) the per-token ``(start, end)`` spans
+    are returned alongside the token strings. Otherwise the offset list is
+    populated with ``None`` for each token. The caller is expected to add a
+    base offset (the chunk's start in the original ``response_text``) when
+    surfacing offsets for chunked responses.
+
+    Always returns ``len(tokens) == len(offsets) == expected_len`` (after
+    alignment when ``expected_len`` is provided), so downstream code can zip
+    the two lists without index gymnastics.
+    """
+
+    tokens: List[str] = []
+    offsets: List[Optional[Tuple[int, int]]] = []
+
+    tokenizer = getattr(provider, "tokenizer", None)
+    if tokenizer is not None:
+        try:
+            encoded = tokenizer(
+                text,
+                add_special_tokens=True,
+                return_offsets_mapping=True,
+                truncation=False,
+            )
+            input_ids = encoded["input_ids"]
+            offset_mapping = encoded.get("offset_mapping")
+            if input_ids and isinstance(input_ids[0], list):
+                input_ids = input_ids[0]
+            if offset_mapping and isinstance(offset_mapping[0], list) and offset_mapping[0] and isinstance(offset_mapping[0][0], (list, tuple)):
+                offset_mapping = offset_mapping[0]
+            if hasattr(tokenizer, "convert_ids_to_tokens"):
+                tokens = list(tokenizer.convert_ids_to_tokens(input_ids))
+            else:
+                tokens = [str(item) for item in input_ids]
+            if offset_mapping is not None and len(offset_mapping) == len(tokens):
+                for span in offset_mapping:
+                    if isinstance(span, (list, tuple)) and len(span) == 2:
+                        start, end = int(span[0]), int(span[1])
+                        if end > start:
+                            offsets.append((start, end))
+                        else:
+                            offsets.append(None)
+                    else:
+                        offsets.append(None)
+        except (TypeError, KeyError):
+            tokens = []
+            offsets = []
+        except Exception:
+            tokens = []
+            offsets = []
+
+    if not tokens:
+        # Fall back to provider.tokenize / fallback path; offsets unavailable.
+        tokens = tokenize_text(provider, text, expected_len=None, is_query=is_query)
+        offsets = [None] * len(tokens)
+
+    if not offsets or len(offsets) != len(tokens):
+        offsets = [None] * len(tokens)
+
+    if expected_len is not None:
+        aligned_tokens = align_tokens(tokens, expected_len)
+        if len(aligned_tokens) > len(offsets):
+            offsets = list(offsets) + [None] * (len(aligned_tokens) - len(offsets))
+        elif len(aligned_tokens) < len(offsets):
+            offsets = list(offsets[: len(aligned_tokens)])
+        tokens = aligned_tokens
+    return tokens, offsets
+
+
 def tokenize_text(
     provider: Any,
     text: str,
@@ -2600,5 +2678,621 @@ def score_groundedness_chunked(
             "null_std": null_std_tensor,
             "null_bank_size": null_bank_size,
         },
+    }
+
+
+@dataclass(frozen=True)
+class ResponseChunkInput:
+    """Encoded response window for the chunked-response scoring path.
+
+    A ``ResponseChunkInput`` represents one packed window of the original
+    ``response_text``: its embeddings, the aligned token strings, optional
+    per-token char offsets within the original ``response_text`` (best-effort
+    when the encoder's tokenizer exposes ``offset_mapping``), and the chunk's
+    ``offset_start`` / ``offset_end`` within the original ``response_text``.
+
+    The orchestrator stitches these chunks together so per-token scores can
+    be re-keyed to their global positions for client-side heatmaps without
+    UI-side re-tokenization.
+    """
+
+    text: str
+    embeddings: torch.Tensor
+    tokens: List[str]
+    offset_start: int
+    offset_end: int
+    token_char_spans: Optional[List[Optional[Tuple[int, int]]]] = None
+
+
+def _build_response_chunks(
+    response_text: str,
+    *,
+    provider: Any,
+    chunk_token_budget: int,
+    encode_fn: Any,
+    document_prompt_name: Optional[str] = None,
+) -> List[ResponseChunkInput]:
+    """Segment ``response_text`` into packed windows and encode each one.
+
+    The chunker reuses ``segment_text(mode="sentence_packed")`` so the response
+    is split on sentence boundaries with the same token-budget semantics as the
+    raw_context path. All chunks are sent through a single batched
+    ``encode_fn`` call so the provider can dispatch them as one GPU batch
+    (PA4-aligned). Returns an empty list when ``response_text`` is empty.
+    """
+
+    if not response_text or not response_text.strip():
+        return []
+
+    if chunk_token_budget <= 0:
+        raise ValueError("chunk_token_budget must be positive")
+
+    spans = segment_text(
+        response_text,
+        mode="sentence_packed",
+        provider=provider,
+        chunk_token_budget=chunk_token_budget,
+    )
+    if not spans:
+        return []
+
+    chunk_texts = [str(span["text"]) for span in spans]
+    embeddings_list = encode_fn(
+        provider,
+        chunk_texts,
+        is_query=False,
+        prompt_name=document_prompt_name,
+    )
+
+    chunks: List[ResponseChunkInput] = []
+    for span, chunk_text, chunk_emb in zip(spans, chunk_texts, embeddings_list):
+        expected_len = int(chunk_emb.shape[0])
+        tokens, offsets = tokenize_with_offsets(
+            provider,
+            chunk_text,
+            expected_len=expected_len,
+            is_query=False,
+        )
+        chunks.append(
+            ResponseChunkInput(
+                text=chunk_text,
+                embeddings=chunk_emb,
+                tokens=tokens,
+                offset_start=int(span["offset_start"]),
+                offset_end=int(span["offset_end"]),
+                token_char_spans=offsets,
+            )
+        )
+    return chunks
+
+
+def _shifted_token_char_spans(
+    chunk: ResponseChunkInput,
+) -> List[Tuple[Optional[int], Optional[int]]]:
+    """Translate per-token char spans from chunk-local to ``response_text``-global."""
+
+    if not chunk.token_char_spans:
+        return [(None, None)] * len(chunk.tokens)
+    base = int(chunk.offset_start)
+    out: List[Tuple[Optional[int], Optional[int]]] = []
+    for span in chunk.token_char_spans:
+        if span is None:
+            out.append((None, None))
+            continue
+        start, end = span
+        out.append((base + int(start), base + int(end)))
+    return out
+
+
+def score_groundedness_response_chunked(
+    *,
+    response_chunks: Sequence[ResponseChunkInput],
+    support_batches: Sequence[Sequence[SupportUnitInput]],
+    response_text: str,
+    query_embeddings: Optional[torch.Tensor] = None,
+    query_tokens: Optional[Sequence[str]] = None,
+    evidence_limit: int = 8,
+    primary_metric: str = "reverse_context",
+    debug_dense_matrices: bool = False,
+    null_bank_embeddings: Optional[Sequence[torch.Tensor] | _NullBankPack] = None,
+    nli_provider: Optional[NLIProvider] = None,
+    nli_max_claims: Optional[int] = None,
+    nli_top_k_premises: Optional[int] = None,
+    nli_max_batch: Optional[int] = None,
+    nli_max_latency_ms: Optional[float] = None,
+    nli_reranker: Optional[PremiseReranker] = None,
+    nli_concat_premises: Optional[bool] = None,
+    nli_premise_concat_word_budget: Optional[int] = None,
+    nli_use_atomic_claims: Optional[bool] = None,
+    verification_samples: Optional[Sequence[str]] = None,
+    semantic_entropy_enabled: Optional[bool] = None,
+    fusion_weights: Optional[Dict[str, float]] = None,
+    risk_band_stratum: Optional[str] = None,
+    content_type: Optional[str] = None,
+    structured_enabled: Optional[bool] = None,
+    structured_support_text: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Score response groundedness across one or more response chunks.
+
+    Parity guarantee: when ``len(response_chunks) == 1`` this is a thin
+    wrapper around :func:`score_groundedness_chunked` plus per-token char
+    offset stamping. Per-token reverse-context, calibrated, triangular,
+    echo, support attribution, and headline weighted aggregates are
+    bitwise-identical (modulo float reduction order) to the unchunked path
+    on the same input — see ``tests/test_response_chunking_parity.py``.
+
+    For ``len(response_chunks) > 1`` the orchestrator scores each chunk
+    against the full ``support_batches``, stitches per-token rows by
+    re-mapping chunk-local indices to global positions, and recomputes
+    weighted aggregates and risk bands on the concatenated global vectors.
+    The math is exact because ``g_t = max_u m_{t,u}`` is row-independent and
+    the global ``Σ w_t g_t / Σ w_t`` is computed once on the merged vectors,
+    not as a per-chunk weighted average. NLI / literal / semantic-entropy /
+    structured-source channels run exactly once on the full
+    ``response_text`` (chunk 0 invocation) and are reused verbatim because
+    they are text-level, not embedding-level.
+    """
+
+    if not response_chunks:
+        raise ValueError("At least one response chunk is required")
+
+    flat_response_tokens: List[str] = []
+    chunk_token_offsets: List[int] = []
+    chunk_token_spans: List[List[Tuple[Optional[int], Optional[int]]]] = []
+    for chunk in response_chunks:
+        chunk_token_offsets.append(len(flat_response_tokens))
+        aligned = align_tokens(chunk.tokens, int(chunk.embeddings.shape[0]))
+        flat_response_tokens.extend(aligned)
+        chunk_token_spans.append(_shifted_token_char_spans(chunk))
+
+    if not flat_response_tokens:
+        raise ValueError("Response chunks produced an empty token sequence")
+
+    # Single-chunk fast path — by construction parity with the unchunked
+    # path. We still stamp char offsets on the returned tokens.
+    if len(response_chunks) == 1:
+        chunk = response_chunks[0]
+        result = score_groundedness_chunked(
+            support_batches=support_batches,
+            response_embeddings=chunk.embeddings,
+            response_tokens=chunk.tokens,
+            query_embeddings=query_embeddings,
+            query_tokens=query_tokens,
+            evidence_limit=evidence_limit,
+            primary_metric=primary_metric,
+            debug_dense_matrices=debug_dense_matrices,
+            null_bank_embeddings=null_bank_embeddings,
+            response_text=response_text,
+            nli_provider=nli_provider,
+            nli_max_claims=nli_max_claims,
+            nli_top_k_premises=nli_top_k_premises,
+            nli_max_batch=nli_max_batch,
+            nli_max_latency_ms=nli_max_latency_ms,
+            nli_reranker=nli_reranker,
+            nli_concat_premises=nli_concat_premises,
+            nli_premise_concat_word_budget=nli_premise_concat_word_budget,
+            nli_use_atomic_claims=nli_use_atomic_claims,
+            verification_samples=verification_samples,
+            semantic_entropy_enabled=semantic_entropy_enabled,
+            fusion_weights=fusion_weights,
+            risk_band_stratum=risk_band_stratum,
+            content_type=content_type,
+            structured_enabled=structured_enabled,
+            structured_support_text=structured_support_text,
+        )
+        spans = chunk_token_spans[0]
+        for row in result["response_tokens"]:
+            idx = int(row["index"])
+            if 0 <= idx < len(spans):
+                start, end = spans[idx]
+                row["char_start"] = start
+                row["char_end"] = end
+                row["response_chunk_index"] = None
+        return result
+
+    # Multi-chunk path. Score each response chunk against the full support
+    # set; then stitch per-token rows and recompute global aggregates.
+    chunk_results: List[Dict[str, Any]] = []
+    warnings: List[str] = []
+    for chunk_idx, chunk in enumerate(response_chunks):
+        is_first = chunk_idx == 0
+        chunk_result = score_groundedness_chunked(
+            support_batches=support_batches,
+            response_embeddings=chunk.embeddings,
+            response_tokens=chunk.tokens,
+            query_embeddings=query_embeddings,
+            query_tokens=query_tokens,
+            evidence_limit=evidence_limit,
+            primary_metric=primary_metric,
+            debug_dense_matrices=debug_dense_matrices,
+            null_bank_embeddings=null_bank_embeddings,
+            # Text-level channels (NLI / literal / SE / structured) only on
+            # the first chunk so the global response_text is scored exactly
+            # once and not re-scored per chunk.
+            response_text=response_text if is_first else None,
+            nli_provider=nli_provider if is_first else None,
+            nli_max_claims=nli_max_claims if is_first else None,
+            nli_top_k_premises=nli_top_k_premises if is_first else None,
+            nli_max_batch=nli_max_batch if is_first else None,
+            nli_max_latency_ms=nli_max_latency_ms if is_first else None,
+            nli_reranker=nli_reranker if is_first else None,
+            nli_concat_premises=nli_concat_premises if is_first else None,
+            nli_premise_concat_word_budget=(
+                nli_premise_concat_word_budget if is_first else None
+            ),
+            nli_use_atomic_claims=nli_use_atomic_claims if is_first else None,
+            verification_samples=verification_samples if is_first else None,
+            semantic_entropy_enabled=semantic_entropy_enabled if is_first else None,
+            fusion_weights=fusion_weights,
+            risk_band_stratum=risk_band_stratum,
+            content_type=content_type,
+            structured_enabled=structured_enabled if is_first else None,
+            structured_support_text=structured_support_text if is_first else None,
+        )
+        chunk_results.append(chunk_result)
+        for warning_msg in chunk_result.get("warnings", []):
+            warnings.append(warning_msg)
+
+    base = chunk_results[0]
+    flat_support_units = [unit for batch in support_batches for unit in batch]
+    weights = token_weights(flat_response_tokens).to(dtype=torch.float32)
+    token_count = len(flat_response_tokens)
+
+    # Stitch per-token rows from each chunk into a single global list,
+    # re-mapping chunk-local index -> global index.
+    global_response_rows: List[Optional[Dict[str, Any]]] = [None] * token_count
+    for chunk_idx, chunk_result in enumerate(chunk_results):
+        offset = chunk_token_offsets[chunk_idx]
+        spans = chunk_token_spans[chunk_idx]
+        for row in chunk_result["response_tokens"]:
+            local_idx = int(row["index"])
+            global_idx = offset + local_idx
+            if global_idx >= token_count:
+                continue
+            row = dict(row)
+            row["index"] = global_idx
+            row["weight"] = float(weights[global_idx].item())
+            row["response_chunk_index"] = chunk_idx
+            if 0 <= local_idx < len(spans):
+                start, end = spans[local_idx]
+                row["char_start"] = start
+                row["char_end"] = end
+            else:
+                row["char_start"] = None
+                row["char_end"] = None
+            global_response_rows[global_idx] = row
+
+    # Replace any positions that never received a row (defensive — should
+    # not happen because chunks partition the response by construction).
+    for idx in range(token_count):
+        if global_response_rows[idx] is None:
+            global_response_rows[idx] = {
+                "index": idx,
+                "token": flat_response_tokens[idx],
+                "weight": float(weights[idx].item()),
+                "reverse_context": 0.0,
+                "reverse_context_calibrated": None,
+                "reverse_context_z": None,
+                "null_mean": None,
+                "null_std": None,
+                "consensus_hardened": 0.0,
+                "support_unit_hits_above_threshold": 0,
+                "support_unit_soft_breadth": 0.0,
+                "effective_support_units": 0.0,
+                "reverse_query_context": None,
+                "triangular": None,
+                "echo": None,
+                "support_unit_index": None,
+                "support_token_index": None,
+                "support_token": None,
+                "chunk_id": None,
+                "heatmap_score": 0.0,
+                "char_start": None,
+                "char_end": None,
+                "response_chunk_index": None,
+                "nli_score": None,
+            }
+
+    response_token_rows: List[Dict[str, Any]] = [row for row in global_response_rows if row is not None]
+
+    def _gather(field_name: str) -> List[Optional[float]]:
+        return [
+            (row.get(field_name) if row is not None else None)
+            for row in response_token_rows
+        ]
+
+    rc_global = torch.tensor(
+        [float(row["reverse_context"]) for row in response_token_rows],
+        dtype=torch.float32,
+    )
+    reverse_context_score = weighted_groundedness(rc_global, weights)
+
+    null_mean_global_values = _gather("null_mean")
+    p_grounded_values_list = _gather("reverse_context_calibrated")
+    have_calibration = all(value is not None for value in null_mean_global_values) and bool(null_mean_global_values)
+    if have_calibration and all(value is not None for value in p_grounded_values_list):
+        p_grounded_global = torch.tensor(
+            [float(value) for value in p_grounded_values_list],
+            dtype=torch.float32,
+        )
+        reverse_context_calibrated_score: Optional[float] = float(
+            weighted_groundedness(p_grounded_global, weights)
+        )
+        null_bank_size = int(base["scores"].get("null_bank_size", 0) or 0)
+    else:
+        reverse_context_calibrated_score = None
+        null_bank_size = 0
+
+    triangular_global = None
+    triangular_global_score: Optional[float] = None
+    triangular_present = all(row.get("triangular") is not None for row in response_token_rows)
+    if triangular_present:
+        triangular_global = torch.tensor(
+            [float(row["triangular"]) for row in response_token_rows],
+            dtype=torch.float32,
+        )
+        triangular_global_score = float(weighted_groundedness(triangular_global, weights))
+
+    echo_global = None
+    echo_mean_global: Optional[float] = None
+    echo_present = all(row.get("echo") is not None for row in response_token_rows)
+    if echo_present:
+        echo_global = torch.tensor(
+            [float(row["echo"]) for row in response_token_rows],
+            dtype=torch.float32,
+        )
+        echo_mean_global = float(weighted_groundedness(echo_global, weights))
+
+    reverse_query_context_global_score: Optional[float] = None
+    rqc_present = all(row.get("reverse_query_context") is not None for row in response_token_rows)
+    if rqc_present:
+        rqc_global = torch.tensor(
+            [float(row["reverse_query_context"]) for row in response_token_rows],
+            dtype=torch.float32,
+        )
+        reverse_query_context_global_score = float(weighted_groundedness(rqc_global, weights))
+
+    consensus_global = torch.tensor(
+        [float(row["consensus_hardened"]) for row in response_token_rows],
+        dtype=torch.float32,
+    )
+    consensus_hardened_score = float(weighted_groundedness(consensus_global, weights))
+
+    base_scores = base["scores"]
+    base_groundedness_v2 = base_scores.get("groundedness_v2")
+    base_literal_guarded = base_scores.get("literal_guarded")
+    nli_aggregate = base_scores.get("nli_aggregate")
+    semantic_entropy_aggregate = base_scores.get("semantic_entropy_aggregate")
+    structured_aggregate = base_scores.get("structured_source_guarded")
+
+    # Refuse the v2 fusion on the global vectors so the headline reflects
+    # the full response, not just the first chunk's support coverage.
+    fused = fuse_groundedness_v2(
+        reverse_context_calibrated=(
+            float(reverse_context_calibrated_score)
+            if reverse_context_calibrated_score is not None
+            else float(reverse_context_score)
+        ),
+        literal_guarded=float(base_literal_guarded) if base_literal_guarded is not None else float(reverse_context_score),
+        nli_aggregate=nli_aggregate,
+        semantic_entropy=semantic_entropy_aggregate,
+        structured_source_guarded=structured_aggregate,
+        weights=fusion_weights,
+    )
+    groundedness_v2 = fused if fused is not None else base_groundedness_v2
+
+    headline_for_band = _resolve_headline_for_risk_band(
+        groundedness_v2=groundedness_v2,
+        reverse_context_calibrated=(
+            float(reverse_context_calibrated_score)
+            if reverse_context_calibrated_score is not None
+            else None
+        ),
+        reverse_context=float(reverse_context_score),
+    )
+    risk_band = classify_risk_band(headline_for_band, stratum=risk_band_stratum)
+
+    # Re-derive support_units payload (token_scores, score, matched counts)
+    # from the global per-token rows so support-side heatmaps reflect the
+    # full response, not just chunk-0.
+    support_units_payload: List[Dict[str, Any]] = []
+    support_token_scores: List[List[float]] = []
+    for unit_idx, unit in enumerate(flat_support_units):
+        tokens = align_tokens(unit.tokens, int(unit.embeddings.shape[0]))
+        support_units_payload.append(
+            {
+                "index": unit_idx,
+                "support_id": unit.support_id,
+                "chunk_id": unit.chunk_id,
+                "source_mode": unit.source_mode,
+                "text": unit.text,
+                "offset_start": unit.offset_start,
+                "offset_end": unit.offset_end,
+                "token_count": len(tokens),
+                "tokens": tokens,
+                "token_scores": [0.0] * len(tokens),
+                "score": 0.0,
+                "matched_response_tokens": 0,
+                "source_id": unit.source_id,
+                "speaker": unit.speaker,
+                "timestamp": unit.timestamp,
+                "metadata": dict(unit.metadata) if unit.metadata else None,
+            }
+        )
+        support_token_scores.append([0.0] * len(tokens))
+
+    support_score_numerators = [0.0 for _ in flat_support_units]
+    support_score_denominators = [0.0 for _ in flat_support_units]
+    evidence_candidates: List[Dict[str, Any]] = []
+    metric_name = primary_metric
+    metric_values = (
+        triangular_global if (metric_name == "triangular" and triangular_global is not None) else rc_global
+    )
+
+    for token_idx, row in enumerate(response_token_rows):
+        support_unit_idx = row.get("support_unit_index")
+        support_token_idx = row.get("support_token_index")
+        support_token = row.get("support_token")
+        chunk_id = row.get("chunk_id")
+        score_value = float(metric_values[token_idx].item())
+        weight_value = float(weights[token_idx].item())
+        if support_unit_idx is not None and 0 <= int(support_unit_idx) < len(flat_support_units):
+            unit_idx = int(support_unit_idx)
+            if support_token_idx is not None and 0 <= int(support_token_idx) < len(support_token_scores[unit_idx]):
+                tok_idx = int(support_token_idx)
+                support_token_scores[unit_idx][tok_idx] = max(
+                    support_token_scores[unit_idx][tok_idx],
+                    score_value,
+                )
+            support_score_numerators[unit_idx] += weight_value * score_value
+            support_score_denominators[unit_idx] += weight_value
+            support_units_payload[unit_idx]["matched_response_tokens"] += 1
+            if weight_value > 0:
+                evidence_candidates.append(
+                    {
+                        "response_token_index": token_idx,
+                        "response_token": row["token"],
+                        "support_unit_index": unit_idx,
+                        "support_token_index": int(support_token_idx) if support_token_idx is not None else None,
+                        "support_token": support_token,
+                        "chunk_id": chunk_id,
+                        "metric": metric_name,
+                        "score": score_value,
+                        "_rank": weight_value * score_value,
+                    }
+                )
+        # heatmap_score already set per chunk; refresh to use the (possibly
+        # primary-metric overridden) score so heatmaps stay consistent.
+        row["heatmap_score"] = score_value
+
+    for unit_idx, payload in enumerate(support_units_payload):
+        payload["token_scores"] = support_token_scores[unit_idx]
+        denom = max(support_score_denominators[unit_idx], 1e-9)
+        payload["score"] = (
+            float(support_score_numerators[unit_idx] / denom)
+            if support_score_denominators[unit_idx] else 0.0
+        )
+
+    evidence_candidates.sort(key=lambda item: item["_rank"], reverse=True)
+    top_evidence = [
+        {key: value for key, value in evidence.items() if key != "_rank"}
+        for evidence in evidence_candidates[: max(1, evidence_limit)]
+    ]
+
+    # Aggregate query-side coverage by per-query-token max across chunks.
+    query_token_rows: Optional[List[Dict[str, Any]]] = None
+    base_query_rows = base.get("query_tokens")
+    if base_query_rows:
+        query_count = len(base_query_rows)
+        query_tokens_strs = [str(row["token"]) for row in base_query_rows]
+        merged_coverage = [float("-inf")] * query_count
+        for chunk_result in chunk_results:
+            chunk_query_rows = chunk_result.get("query_tokens") or []
+            for q_row in chunk_query_rows:
+                q_idx = int(q_row["index"])
+                if q_idx >= query_count:
+                    continue
+                value = float(q_row["coverage"])
+                if value > merged_coverage[q_idx]:
+                    merged_coverage[q_idx] = value
+        query_token_rows = [
+            {
+                "index": idx,
+                "token": query_tokens_strs[idx],
+                "coverage": merged_coverage[idx] if merged_coverage[idx] != float("-inf") else 0.0,
+            }
+            for idx in range(query_count)
+        ]
+        coverage_tensor = torch.tensor(
+            [row["coverage"] for row in query_token_rows], dtype=torch.float32
+        )
+        grounded_coverage_score: Optional[float] = float(grounded_coverage(coverage_tensor))
+    else:
+        grounded_coverage_score = None
+
+    debug_payload: Optional[Dict[str, Any]] = None
+    if debug_dense_matrices:
+        # Stitch dense matrices vertically across response chunks so the
+        # client gets a single (R_total × C_total) matrix matching the
+        # global per-token order. Skip when any chunk is missing a debug
+        # payload (defensive — happens when debug requests exceed the
+        # internal size guard).
+        rs_parts: List[np.ndarray] = []
+        tg_parts: List[np.ndarray] = []
+        rq_first: Optional[Any] = None
+        ok_rs = True
+        ok_tg = True
+        for chunk_result in chunk_results:
+            chunk_debug = chunk_result.get("debug") or {}
+            chunk_rs = chunk_debug.get("response_to_support")
+            if chunk_rs is None:
+                ok_rs = False
+            elif ok_rs:
+                rs_parts.append(np.asarray(chunk_rs, dtype=np.float32))
+            chunk_tg = chunk_debug.get("triangular_gated")
+            if chunk_tg is None:
+                ok_tg = False
+            elif ok_tg:
+                tg_parts.append(np.asarray(chunk_tg, dtype=np.float32))
+            if rq_first is None and chunk_debug.get("response_to_query") is not None:
+                rq_first = chunk_debug["response_to_query"]
+        debug_payload = {}
+        if ok_rs and rs_parts:
+            merged_rs = np.concatenate(rs_parts, axis=0)
+            if merged_rs.size <= _MAX_DEBUG_MATRIX_ELEMENTS:
+                debug_payload["response_to_support"] = merged_rs.tolist()
+            else:
+                warnings.append(
+                    "response_to_support matrix omitted because the merged debug matrix exceeds the size limit"
+                )
+        if ok_tg and tg_parts:
+            merged_tg = np.concatenate(tg_parts, axis=0)
+            if merged_tg.size <= _MAX_DEBUG_MATRIX_ELEMENTS:
+                debug_payload["triangular_gated"] = merged_tg.tolist()
+            else:
+                warnings.append(
+                    "triangular_gated matrix omitted because the merged debug matrix exceeds the size limit"
+                )
+        if rq_first is not None:
+            debug_payload["response_to_query"] = rq_first
+        if not debug_payload:
+            debug_payload = None
+
+    scores = dict(base_scores)
+    scores["primary_name"] = metric_name
+    scores["primary_score"] = float(
+        triangular_global_score
+        if (metric_name == "triangular" and triangular_global_score is not None)
+        else reverse_context_score
+    )
+    scores["reverse_context"] = float(reverse_context_score)
+    scores["reverse_context_calibrated"] = (
+        float(reverse_context_calibrated_score)
+        if reverse_context_calibrated_score is not None
+        else None
+    )
+    scores["consensus_hardened"] = consensus_hardened_score
+    scores["reverse_query_context"] = reverse_query_context_global_score
+    scores["triangular"] = triangular_global_score
+    scores["echo_mean"] = echo_mean_global
+    scores["grounded_coverage"] = grounded_coverage_score
+    scores["null_bank_size"] = null_bank_size
+    scores["groundedness_v2"] = float(groundedness_v2) if groundedness_v2 is not None else None
+    scores["risk_band"] = risk_band
+
+    return {
+        "scores": scores,
+        "response_tokens": response_token_rows,
+        "support_units": support_units_payload,
+        "top_evidence": top_evidence,
+        "query_tokens": query_token_rows,
+        "debug": debug_payload,
+        "warnings": list(dict.fromkeys(warnings)),
+        "literal_diagnostics": base.get("literal_diagnostics"),
+        "nli_diagnostics": base.get("nli_diagnostics"),
+        "semantic_entropy_diagnostics": base.get("semantic_entropy_diagnostics"),
+        "structured_diagnostics": base.get("structured_diagnostics"),
+        "_internals": base.get("_internals"),
+        "_response_chunk_count": len(response_chunks),
     }
 

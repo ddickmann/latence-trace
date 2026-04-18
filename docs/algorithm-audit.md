@@ -181,7 +181,18 @@ Notes:
 
 - Sentence-packed `raw_context` chunking preserves sentence boundaries and
   stable offsets; overflow sentences move to the next packed unit intact.
+- Sentence-packed `response_text` chunking preserves the same property on
+  the response side. Each response window is encoded independently, scored
+  against the full support set, and per-token scores are stitched back to
+  global response positions. Token weighting and null-bank calibration are
+  computed once on the merged global vector, never per-window-then-averaged.
 - `reverse_context` merge across grouped support batches is exact.
+- `reverse_context` merge across grouped response batches is exact, because
+  `g_t = max_u m_{t,u}` is row-independent: partitioning the response token
+  axis cannot change any per-token score, only how the work is dispatched.
+  See [`tests/test_response_chunking_parity.py`](../tests/test_response_chunking_parity.py)
+  for the bitwise-parity test (chunked vs unchunked → identical headline,
+  identical per-token reverse-context, identical attribution).
 - Evidence attribution remains exact for the winning support token after merge.
 - `consensus_hardened` merge is exact because it is computed from the full
   concatenated matrix of per-support-unit maxima `m_{t,u}`, not from lossy

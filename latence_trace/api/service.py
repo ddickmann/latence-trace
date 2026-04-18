@@ -47,12 +47,12 @@ from latence_trace.api.models import (
 from latence_trace.core.groundedness import (
     SupportUnitInput,
     _build_null_bank_pack,
+    _build_response_chunks,
     default_null_bank_texts,
     encode_texts,
     partition_support_units,
     provider_token_limit,
-    score_groundedness,
-    score_groundedness_chunked,
+    score_groundedness_response_chunked,
     segment_text,
     tokenize_text,
 )
@@ -749,18 +749,32 @@ class GroundednessService:
                     )
                 )
 
-        response_embeddings = encode_texts(
-            provider,
-            [request.response_text],
-            is_query=False,
-            prompt_name=request.document_prompt_name,
-        )[0]
-        response_tokens = tokenize_text(
-            provider,
+        # Sentence-pack the response into windows that fit the encoder's
+        # max sequence length. The orchestrator auto-bypasses chunking when
+        # the response fits in one window (parity-preserving fast path) and
+        # otherwise scores each window against the full support set,
+        # stitching per-token rows back to global positions.
+        encoder_token_limit_doc = provider_token_limit(provider, is_query=False)
+        if (
+            encoder_token_limit_doc is not None
+            and request.response_chunk_tokens > encoder_token_limit_doc
+        ):
+            warnings.append(
+                "response_chunk_tokens={} exceeds the groundedness encoder token limit {}; "
+                "response windows may be truncated during encoding. Lower the budget or use a longer-context encoder.".format(
+                    request.response_chunk_tokens,
+                    encoder_token_limit_doc,
+                )
+            )
+        response_chunks = _build_response_chunks(
             request.response_text,
-            expected_len=int(response_embeddings.shape[0]),
-            is_query=False,
+            provider=provider,
+            chunk_token_budget=request.response_chunk_tokens,
+            encode_fn=encode_texts,
+            document_prompt_name=request.document_prompt_name,
         )
+        if not response_chunks:
+            raise ValidationError("response_text did not produce any embeddings")
 
         include_triangular = bool(
             request.include_triangular_diagnostics and (request.query_text or "").strip()
@@ -827,19 +841,11 @@ class GroundednessService:
             nli_kwargs["structured_support_text"] = request.raw_context
 
         if request.chunk_ids:
-            scored = score_groundedness(
-                support_units=support_units,
-                response_embeddings=response_embeddings,
-                response_tokens=response_tokens,
-                query_embeddings=query_embeddings,
-                query_tokens=query_tokens,
-                evidence_limit=request.evidence_limit,
-                primary_metric=request.primary_metric.value,
-                debug_dense_matrices=request.debug_dense_matrices,
-                null_bank_embeddings=null_bank_embeddings or None,
-                response_text=request.response_text,
-                **nli_kwargs,
-            )
+            # chunk_ids path: single support batch (caller-supplied
+            # embeddings), routed through the response-chunked orchestrator
+            # so long responses still get the chunked path while short
+            # responses hit the single-chunk parity fast path.
+            support_batches = [list(support_units)]
         else:
             # Both raw_context and support_units share the chunked scoring
             # path so very large inputs (e.g. a transcript of dozens of
@@ -849,19 +855,26 @@ class GroundednessService:
                 support_units,
                 batch_size=_env_int("VOYAGER_GROUNDEDNESS_SCORE_BATCH_UNITS", 64),
             )
-            scored = score_groundedness_chunked(
-                support_batches=support_batches,
-                response_embeddings=response_embeddings,
-                response_tokens=response_tokens,
-                query_embeddings=query_embeddings,
-                query_tokens=query_tokens,
-                evidence_limit=request.evidence_limit,
-                primary_metric=request.primary_metric.value,
-                debug_dense_matrices=request.debug_dense_matrices,
-                null_bank_embeddings=null_bank_embeddings or None,
-                response_text=request.response_text,
-                **nli_kwargs,
+        scored = score_groundedness_response_chunked(
+            response_chunks=response_chunks,
+            support_batches=support_batches,
+            response_text=request.response_text,
+            query_embeddings=query_embeddings,
+            query_tokens=query_tokens,
+            evidence_limit=request.evidence_limit,
+            primary_metric=request.primary_metric.value,
+            debug_dense_matrices=request.debug_dense_matrices,
+            null_bank_embeddings=null_bank_embeddings or None,
+            **nli_kwargs,
+        )
+        if scored.get("_response_chunk_count", 1) > 1:
+            warnings.append(
+                "response_chunked: response_text was sentence-packed into {} windows of <= {} tokens; per-token scores stitched back to global positions.".format(
+                    int(scored["_response_chunk_count"]),
+                    int(request.response_chunk_tokens),
+                )
             )
+        scored.pop("_response_chunk_count", None)
         warnings.extend(scored.pop("warnings", []))
         warnings = list(dict.fromkeys(warnings))
 

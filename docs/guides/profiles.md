@@ -220,6 +220,24 @@ service = GroundednessService(device="cuda")
 process already set is left untouched and surfaced via the returned
 `ProfileApplication.skipped` map for diagnostics.
 
+## Long contexts and long responses
+
+Both context and response are sentence-packed into windows that fit the
+encoder's max sequence length, so neither side is silently truncated:
+
+| Field | Knob | Default | Symmetric? |
+|---|---|---|---|
+| `raw_context` | `raw_context_chunk_tokens` | 256 | yes |
+| `response_text` | `response_chunk_tokens` | 256 | yes |
+
+Per-token scores stitched back to global positions are bitwise-identical
+to the unchunked scoring path on the same input — see the parity proof
+in [`tests/test_response_chunking_parity.py`](../../tests/test_response_chunking_parity.py)
+and the linear-scaling microbench in
+[`docs/perf/response_chunking_bench.md`](../perf/response_chunking_bench.md).
+Single-window inputs skip the chunker entirely (no per-request overhead
+on short responses).
+
 ## See also
 
 - [`profile_pareto.md`](../../research/triangular_maxsim/reports/profile_pareto.md)
@@ -229,3 +247,5 @@ process already set is left untouched and surfaced via the returned
 - [`../benchmarks.md`](../benchmarks.md) — head-line benchmark numbers
 - [`../algorithm-audit.md`](../algorithm-audit.md) — per-channel
   ablations and verdict
+- [`../perf/response_chunking_bench.md`](../perf/response_chunking_bench.md)
+  — response-chunking microbench (parity + linear scaling)

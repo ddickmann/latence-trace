@@ -160,6 +160,21 @@ class GroundednessRequest(BaseModel):
             "Budgets above the active encoder limit may trigger warnings and truncation."
         ),
     )
+    response_chunk_tokens: int = Field(
+        default=256,
+        ge=1,
+        le=8192,
+        description=(
+            "Approximate token budget for packed response windows. Mirrors "
+            "raw_context_chunk_tokens on the response side so long responses "
+            "(beyond the encoder's max sequence length) are sentence-packed into "
+            "windows and scored chunk-by-chunk against the full support set. "
+            "When the encoded response fits in a single window the orchestrator "
+            "skips chunking entirely (parity-preserving fast path). "
+            "Budgets above the active encoder limit may trigger warnings and "
+            "truncation."
+        ),
+    )
     primary_metric: GroundednessPrimaryMetric = Field(
         default=GroundednessPrimaryMetric.REVERSE_CONTEXT,
         description="Primary scalar score exposed as the headline groundedness metric. The shipped Beta default is reverse_context.",
@@ -402,6 +417,30 @@ class GroundednessResponseToken(BaseModel):
     support_token: Optional[str] = None
     chunk_id: Optional[Union[str, int]] = None
     heatmap_score: float
+    char_start: Optional[int] = Field(
+        default=None,
+        description=(
+            "Character start offset within the original response_text for this "
+            "token. Best-effort: populated when the encoder's tokenizer exposes "
+            "an offset_mapping (modern HuggingFace fast tokenizers). When None, "
+            "the UI must reconstruct positions by walking response_text."
+        ),
+    )
+    char_end: Optional[int] = Field(
+        default=None,
+        description=(
+            "Character end offset within the original response_text for this "
+            "token. Best-effort, see char_start."
+        ),
+    )
+    response_chunk_index: Optional[int] = Field(
+        default=None,
+        description=(
+            "Index of the response chunk that produced this token, when "
+            "response chunking is active. None for single-chunk (parity) "
+            "fast path scoring."
+        ),
+    )
 
 
 class GroundednessSupportUnit(BaseModel):

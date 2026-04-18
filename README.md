@@ -91,6 +91,27 @@ All channels are renormalized into a single `groundedness_v2` headline; the
 runtime classifies that headline into a per-stratum risk band using calibrated
 thresholds (`thresholds.json`).
 
+### Long contexts and long responses
+
+Both `raw_context` and `response_text` are **sentence-packed into windows
+that fit the encoder's max sequence length and scored chunk-by-chunk**, so
+neither side is silently truncated when input exceeds the encoder limit:
+
+| Field | API knob | Default | What it does |
+|---|---|---|---|
+| `raw_context` | `raw_context_chunk_tokens` | 256 | Splits the context on sentence boundaries into windows of ~N tokens; each window becomes a `support_unit` and is encoded + scored independently. |
+| `response_text` | `response_chunk_tokens` | 256 | Splits the response on sentence boundaries into windows of ~N tokens; each window is encoded, scored against the **full** support set, and per-token scores stitched back to global response positions. Single-window responses skip the chunker entirely (parity-preserving fast path). |
+
+The math is exact: `g_t = max_u m_{t,u}` is row-independent, so splitting
+the response along the token axis and concatenating per-window results
+produces bitwise-identical headline scores to a hypothetical "encode the
+full response in one shot" path that would otherwise OOM beyond the
+encoder limit. See
+[`tests/test_response_chunking_parity.py`](tests/test_response_chunking_parity.py)
+for the parity proof and
+[`docs/perf/response_chunking_bench.md`](docs/perf/response_chunking_bench.md)
+for the linear-scaling microbench.
+
 ## Quickstart
 
 ```bash

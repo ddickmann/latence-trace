@@ -1,0 +1,44 @@
+{
+  "regimes": [
+    {
+      "label": "short / 1 chunk (budget 512)",
+      "response_token_total": 15,
+      "chunk_count": 1,
+      "support_unit_count": 3,
+      "iterations": 30,
+      "p50_ms": 1.6831522807478905,
+      "p95_ms": 89.69296887516975,
+      "mean_ms": 11.70759815722704
+    },
+    {
+      "label": "short / 1 chunk (budget 256, default)",
+      "response_token_total": 15,
+      "chunk_count": 1,
+      "support_unit_count": 3,
+      "iterations": 30,
+      "p50_ms": 1.6592321917414665,
+      "p95_ms": 89.83850851655006,
+      "mean_ms": 13.416726142168045
+    },
+    {
+      "label": "long / ~10 chunks (budget 32)",
+      "response_token_total": 310,
+      "chunk_count": 11,
+      "support_unit_count": 3,
+      "iterations": 30,
+      "p50_ms": 195.8088567480445,
+      "p95_ms": 287.744352594018,
+      "mean_ms": 179.52502320210138
+    },
+    {
+      "label": "very_long / ~40 chunks (budget 32)",
+      "response_token_total": 2480,
+      "chunk_count": 81,
+      "support_unit_count": 3,
+      "iterations": 30,
+      "p50_ms": 1388.0794746801257,
+      "p95_ms": 1405.2073191851377,
+      "mean_ms": 1303.2630199566483
+    }
+  ]
+}
