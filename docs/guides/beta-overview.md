@@ -1,7 +1,7 @@
-# Groundedness Tracker (Beta)
+# Groundedness Tracker — Product Overview
 
-`latence-trace` ships a **Beta** groundedness tracker endpoint for
-post-generation answers:
+`latence-trace` ships a production-ready groundedness tracker endpoint
+for post-generation answers:
 
 ```text
 POST /groundedness
@@ -13,25 +13,40 @@ POST /groundedness
 > latency-vs-coverage trade-offs and ship calibrated thresholds out
 > of the box.
 
-Use it when you already have a final answer and want to measure how well that
-answer is supported by the context that was actually provided to the model.
+Use it when you already have a final answer and want to measure how
+well that answer is supported by the context that was actually
+provided to the model.
+
+## Scope (read first)
+
+`latence-trace` answers **"is this response anchored in the supplied
+context?"** (RAG-grounding / faithfulness). It does **not** answer
+**"is this response factually correct against world knowledge?"**
+(open-domain factuality). Workloads that fall on the wrong side of
+that boundary (e.g. open-domain dialogue continuations that introduce
+facts not in the dialogue context, or open-domain biographies) need
+to pair `latence-trace` with a knowledge-base fact-checker. See
+[`../algorithm-audit.md`](../algorithm-audit.md) §"Scope and Known
+Mismatches" for the empirical evidence.
 
 This feature is intentionally scoped:
 
-- useful for groundedness scoring, evidence tracing, and response-token heatmaps
-- useful for QA and user-facing support views
-- a solid starting point for groundedness tracking today
-- **not** a final factuality oracle
+- useful for groundedness scoring, evidence tracing, and
+  response-token heatmaps on retrieved-context workloads
+- useful for QA, audit trails, and user-facing support views
+- the production-recommended primitive for RAG-grounding observability
+- **not** a final factuality oracle for open-domain knowledge
 
-Dense similarity can still be too forgiving on negation, entity swaps, dates,
-numbers, units, and other semantically close factual errors. Treat the result as
-a support signal, not a truth guarantee.
+Dense similarity can still be too forgiving on negation, entity swaps,
+dates, numbers, units, and other semantically close factual errors —
+the NLI peer + literal guardrails are the channels that catch those.
+Treat the headline as a support signal, not a truth guarantee.
 
-Very long mixed-support contexts are another real Beta boundary. In the
-repo-level long-context stress run near the 8k-token range, short anchor-style
-separation did not carry over cleanly. Keep wording conservative when the answer
-draws from long, noisy context blocks and the support boundary is ambiguous even
-to a human reader.
+Very long mixed-support contexts are another real boundary. In the
+repo-level long-context stress run near the 8k-token range, short
+anchor-style separation did not carry over cleanly. Keep wording
+conservative when the answer draws from long, noisy context blocks
+and the support boundary is ambiguous even to a human reader.
 
 ## Production Scoring Policy
 
@@ -284,21 +299,30 @@ precision:
   sidecar embedding is available
 - `fp8`: treated as a scoring-mode detail, not as a persisted storage fetch path
 
-## Beta Boundaries
+## Workload Boundaries
 
-The current Beta is a good fit for:
+The Groundedness Tracker is a good fit for:
 
+- RAG QA and summarization grounding (the headline use case)
 - final-answer debugging
-- operator QA
+- operator QA and audit trails
 - user-facing evidence traces with careful product wording
+- bilingual EN+DE deployments on the same schema
 
-It is not yet the right contract for:
+It is **not** the right contract for:
 
-- a hard truth badge
-- automated policy action without human review
-- claim verification where exact lexical fidelity is required
-- very long mixed-support context blocks near the model limit
-- packed raw-context windows that exceed the active encoder's usable token limit
+- a hard truth badge for open-domain factuality (pair with a
+  knowledge-base fact-checker)
+- automated policy action on high-stakes outputs without human review
+- claim verification where exact lexical fidelity matters more than
+  any model — keep the rule-based literal channel as the gate
+- very long mixed-support context blocks near the model token limit
+  (sentence packing handles the encoder limit but evidence may be
+  spread across many windows)
+- open-domain dialogue continuations that introduce real-world facts
+  not in the dialogue context — see
+  [`../algorithm-audit.md`](../algorithm-audit.md) §"Scope and Known
+  Mismatches"
 
 Current hard-suite audit (`lightonai/GTE-ModernColBERT-v1`, `256`-token packed
 windows, mean context about `7.8k` tokens):

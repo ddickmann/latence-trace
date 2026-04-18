@@ -287,6 +287,41 @@ Notes:
 - Query-conditioned channels remain diagnostic-only. On the current hard suite,
   triangular scoring did not beat the naive reverse-context baseline.
 
+## Scope and Known Mismatches
+
+`latence-trace` answers **"is this response anchored in the supplied
+context?"** (RAG-grounding / faithfulness). It does **not** answer **"is
+this response factually correct against world knowledge?"** (open-domain
+factuality). The two questions look identical from the outside but
+diverge on the following workloads:
+
+| Workload | Why it falls outside scope |
+|---|---|
+| HaluEval Dialogue | Hallucinations introduce real-world facts that are *not in the dialogue context* (e.g. "Tom Hanks starred in Zodiac"). Both right and hallucinated continuations score equally "ungrounded" against the dialogue history because neither claim is anchored in it. Empirically: paired ranking accuracy stalls at 0.57 even with strong NLI + heavy fusion. |
+| FActScore biographies (response-level F1) | Biographies are produced *open-domain* against world knowledge; FActScore evaluates per-atomic-claim factuality against Wikipedia, not response-level grounding against a context. Even after enriching every biography with its full Wikipedia article via [`scripts/enrich_factscore_with_wiki.py`](../scripts/enrich_factscore_with_wiki.py) the response-level F1@median test is the wrong axis: the dataset is overwhelmingly mixed-support (450 / 496 biographies have *some* supported and *some* unsupported claims), so the right evaluation is per-claim precision, not response-level threshold. We surface this honestly rather than recompute the metric to flatter ourselves. |
+
+For these workloads pair `latence-trace` with a knowledge-base
+fact-checker (the latence.ai product family includes one); the
+groundedness scorer alone is the wrong tool.
+
+## Encoder-Truncation Defense
+
+Long single sentences (e.g. JSON blobs, markdown tables, paragraphs the
+sentence splitter cannot break, multi-clause technical descriptions) used
+to be packed into a single support-unit chunk that exceeded
+`chunk_token_budget`. Downstream encoders (`GTE-ModernColBERT-v1` caps at
+`299` tokens, `SauerkrautLM-Multi-Reason-ModernColBERT` caps at `512`)
+would silently truncate those chunks and drop the tail tokens from the
+groundedness matrix.
+
+`_pack_sentence_spans` now hard-guards this case: any single span whose
+token count exceeds `chunk_token_budget` is split character-wise via
+`_split_oversized_span` (greedy whitespace-snapping cuts re-measured
+against the provider tokenizer until each piece fits). All packed
+support-unit chunks are now `<= chunk_token_budget` tokens, so encoder
+truncation never silently hides evidence. Behavior verified by
+`tests/test_groundedness_service.py::test_packs_oversized_single_span`.
+
 ## Verification Results
 
 ### Automated checks
@@ -395,7 +430,7 @@ Headline: `groundedness_v2_no_nli` (calibrated + literal-guarded fusion).
 
 Latency p95: encode 113.4 ms, score 57.6 ms, total **118.3 ms** (over the
 no-NLI 100 ms budget on this single A5000 / batch=1 setup). `headline_verdict`
-emitted by the harness: *"feature in Beta, NLI required for negation/role/partial."*
+emitted by the harness: *"NLI peer required for negation / role / partial-support strata."*
 
 Read this lane as: dense + literal mismatch detection alone can rank lexical
 errors well, can usually catch negation in the current adversarial set, but
@@ -420,7 +455,7 @@ NLI backend: `MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli`.
 
 Latency p95: encode 92.5 ms, score 64.9 ms, total **141.6 ms** (under the
 250 ms NLI budget). All pre-registered exit criteria satisfied; harness
-`headline_verdict`: *"feature in Beta with NLI peer, ready for evidence/QA."*
+`headline_verdict`: *"NLI peer enabled — ready for production evidence/QA."*
 
 ### Real-world benchmark verdict (Phase E live run)
 
@@ -519,13 +554,15 @@ support tracer.
 
 ### Verdict
 
-- **With NLI peer enabled**: feature in Beta with NLI peer, ready for
-  evidence/QA. Hits 5 of 6 actionable pre-registered exit criteria
+- **With NLI peer enabled**: production-ready for RAG-grounding
+  workloads with the NLI peer enabled. Hits 5 of 6 actionable
+  pre-registered exit criteria
   (lexical 1.00, semantic 1.00, partial 1.00, RAGTruth macro F1 0.60,
   latency 141 ms), with HaluEval QA missing the 0.70 cut by a single F1
   point. Useful in production for RAG QA / summarization workloads.
-- **Without NLI**: feature in Beta as a lexical / partial-support
-  tracer. Suitable for evidence/QA on lexical groundedness checks
+- **Without NLI**: lightweight lexical / partial-support tracer
+  (sub-100 ms p95). Suitable for evidence/QA on lexical groundedness
+  checks
   (entity, date, partial), not as a sole signal for negation-,
   role-sensitive, or HaluEval-style adversarial QA.
 
@@ -588,8 +625,8 @@ Pre-registered targets (Phase J) and best-lane outcomes:
 
 Remaining weak tails: HaluEval dialogue (F1 `0.40`) and RAGTruth
 data2text (F1 `0.25`). Both are explicitly flagged as advisory in the
-Beta Guide and surfaced via the risk-band policy (red by default on
-structured / dialogue strata until the operator calibrates). The three
+operator guide and surfaced via the risk-band policy (red by default
+on structured / dialogue strata until the operator calibrates). The three
 committed reports live at
 `research/triangular_maxsim/reports/phase_j_{no_nli,nli,nli_sem}.json`.
 

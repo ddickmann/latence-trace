@@ -729,6 +729,65 @@ def _sentence_spans(text: str) -> List[Dict[str, Any]]:
     return spans or _fallback_segment(text)
 
 
+def _split_oversized_span(
+    text: str,
+    span: Dict[str, Any],
+    *,
+    provider: Any,
+    chunk_token_budget: int,
+) -> List[Dict[str, Any]]:
+    """Split a single span whose token count exceeds the budget.
+
+    Long spans (e.g. a sentence-less JSON blob, a paragraph the sentence
+    splitter could not break) would otherwise be packed into a single
+    chunk that exceeds ``chunk_token_budget``. Downstream encoders (ColBERT
+    variants typically cap around 256-512 tokens) would silently truncate
+    such chunks and drop the tail tokens from the groundedness signal.
+
+    We greedily cut characters from the front, snap to whitespace, and
+    re-measure with the provider tokenizer until each sub-span fits.
+    """
+
+    sub_spans: List[Dict[str, Any]] = []
+    cursor = int(span["offset_start"])
+    end_offset = int(span["offset_end"])
+    if end_offset <= cursor:
+        return sub_spans
+    safety = 0
+    while cursor < end_offset and safety < 256:
+        safety += 1
+        remaining = text[cursor:end_offset]
+        remaining_tokens = max(count_text_tokens(provider, remaining, is_query=False), 1)
+        if remaining_tokens <= chunk_token_budget:
+            sub = _trimmed_span(remaining, cursor, end_offset)
+            if sub is not None:
+                sub["token_count"] = remaining_tokens
+                sub_spans.append(sub)
+            break
+        ratio = max(1.0, len(remaining) / float(remaining_tokens))
+        cut_chars = max(8, int(ratio * chunk_token_budget * 0.9))
+        cut_at = min(end_offset, cursor + cut_chars)
+        snap = text.rfind(" ", cursor + 1, cut_at + 1)
+        if snap > cursor + 8:
+            cut_at = snap
+        sub_text = text[cursor:cut_at]
+        sub_tokens = max(count_text_tokens(provider, sub_text, is_query=False), 1)
+        guard = 0
+        while sub_tokens > chunk_token_budget and (cut_at - cursor) > 8 and guard < 16:
+            guard += 1
+            cut_at = cursor + max(8, int((cut_at - cursor) * 0.85))
+            sub_text = text[cursor:cut_at]
+            sub_tokens = max(count_text_tokens(provider, sub_text, is_query=False), 1)
+        sub = _trimmed_span(sub_text, cursor, cut_at)
+        if sub is not None:
+            sub["token_count"] = sub_tokens
+            sub_spans.append(sub)
+        if cut_at <= cursor:
+            break
+        cursor = cut_at
+    return sub_spans
+
+
 def _pack_sentence_spans(
     text: str,
     spans: Sequence[Dict[str, Any]],
@@ -764,6 +823,26 @@ def _pack_sentence_spans(
 
     for span in spans:
         span_tokens = max(count_text_tokens(provider, span["text"], is_query=False), 1)
+        # Hard guard: a single oversized span (e.g. a JSON blob, a long
+        # sentence the splitter could not break) must not be packed whole;
+        # downstream encoders silently truncate at their model_max_length
+        # and drop the tail tokens from the groundedness matrix.
+        if span_tokens > chunk_token_budget:
+            if current:
+                flush()
+            for sub in _split_oversized_span(
+                text, span, provider=provider, chunk_token_budget=chunk_token_budget
+            ):
+                sub_tokens = int(sub.get("token_count") or 0) or chunk_token_budget
+                packed.append(
+                    {
+                        "text": sub["text"],
+                        "offset_start": int(sub["offset_start"]),
+                        "offset_end": int(sub["offset_end"]),
+                        "token_count": sub_tokens,
+                    }
+                )
+            continue
         if current and current_tokens + span_tokens > chunk_token_budget:
             flush()
         current.append(span)

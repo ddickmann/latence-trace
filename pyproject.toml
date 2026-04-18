@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "latence-trace"
 version = "0.1.0"
-description = "Groundedness Tracker (Beta) - calibrated, auditable hallucination detection for RAG and evidence-bearing LLM outputs."
+description = "Groundedness Tracker - calibrated, auditable hallucination detection for RAG and evidence-bearing LLM outputs."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }

@@ -1,4 +1,4 @@
-"""latence-trace: Groundedness Tracker (Beta).
+"""latence-trace: Groundedness Tracker.
 
 Public API surface re-exports the core scoring entry points and Pydantic
 models for callers embedding the service in another FastAPI process.

@@ -1,0 +1,62 @@
+{
+  "nli_model": "MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli",
+  "fusion": {
+    "calibrated": 0.5,
+    "literal": 0.2,
+    "nli": 0.3
+  },
+  "samples_per_label_per_stratum": 60,
+  "per_stratum": {
+    "qa": {
+      "n_pairs": 60,
+      "wins_right_higher": 47,
+      "ties": 0,
+      "paired_accuracy": 0.7833333333333333,
+      "right_mean_score": 0.9281895978900249,
+      "halu_mean_score": 0.7733847641182295,
+      "delta_mean": 0.15480483377179535,
+      "right_score_range": [
+        0.6825050641782582,
+        0.9884752271509367
+      ],
+      "halu_score_range": [
+        0.6292447327353735,
+        0.9929759283123227
+      ]
+    },
+    "summarization": {
+      "n_pairs": 60,
+      "wins_right_higher": 45,
+      "ties": 0,
+      "paired_accuracy": 0.75,
+      "right_mean_score": 0.9178282241401174,
+      "halu_mean_score": 0.8679085363752714,
+      "delta_mean": 0.04991968776484595,
+      "right_score_range": [
+        0.7725493400590494,
+        0.9909150887442979
+      ],
+      "halu_score_range": [
+        0.6868462030051483,
+        0.9800488689014488
+      ]
+    },
+    "dialogue": {
+      "n_pairs": 60,
+      "wins_right_higher": 35,
+      "ties": 0,
+      "paired_accuracy": 0.5833333333333334,
+      "right_mean_score": 0.8164961697674048,
+      "halu_mean_score": 0.8053556256464963,
+      "delta_mean": 0.011140544120908539,
+      "right_score_range": [
+        0.6691212966873232,
+        0.9075368512302633
+      ],
+      "halu_score_range": [
+        0.6747119819263152,
+        0.9250848029442649
+      ]
+    }
+  }
+}

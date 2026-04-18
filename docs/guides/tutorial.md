@@ -1,7 +1,7 @@
 # End-to-end Groundedness Tracker Tutorial
 
 This tutorial walks through every concept and surface of the
-**Groundedness Tracker (Beta)** ships in `latence-trace`. By the end
+**Groundedness Tracker** ships in `latence-trace`. By the end
 you'll be able to:
 
 1. Boot the service locally and confirm it's healthy.
@@ -455,6 +455,12 @@ When the agent calls the tool, post the arguments to your
 - [ ] Multilingual encoders pinned (`VOYAGER_GROUNDEDNESS_MODEL`,
       `VOYAGER_GROUNDEDNESS_NLI_MODEL`) if you serve any non-English
       traffic.
+- [ ] **English-only deployment?** Switch the NLI peer to
+      `MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli`
+      (`VOYAGER_GROUNDEDNESS_NLI_MODEL=...`) for **+10 percentage
+      points paired ranking accuracy on HaluEval QA / Summ** vs. the
+      multilingual default. Keep the multilingual mDeBERTa for any
+      DE / multilingual traffic.
 - [ ] `VOYAGER_GROUNDEDNESS_VLLM_ENDPOINT` + `..._VLLM_MODEL` set when
       serving the encoder via vLLM-Factory (BYOP) for max QPS.
 - [ ] `LATENCE_TRACE_MAX_INFLIGHT` tuned to GPU budget (default 32;
@@ -465,6 +471,15 @@ When the agent calls the tool, post the arguments to your
       (`latence-trace calibrate --help`).
 - [ ] Coverage threshold tuned per request stratum if your retriever
       varies in over-fetch behaviour (default `0.5`).
+- [ ] **Workload boundary acknowledged.** `latence-trace` measures
+      whether a response is anchored in the *supplied context*
+      (RAG-grounding). It does **not** verify open-domain factuality
+      against world knowledge. Pair with a knowledge-base fact-checker
+      for workloads like dialogue continuations that introduce new
+      real-world facts (HaluEval Dialogue stratum) or open-domain
+      biographies (FActScore-style claims). See
+      [`docs/algorithm-audit.md`](../algorithm-audit.md) §"Scope and
+      Known Mismatches".
 
 ---
 

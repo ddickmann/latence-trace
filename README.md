@@ -4,10 +4,19 @@
 > outputs. **Multilingual: English + German out of the box.** Part of the
 > latence.ai product family.
 
-`latence-trace` is the standalone Groundedness Tracker (Beta) extracted from
+`latence-trace` is the standalone Groundedness Tracker extracted from
 the `voyager-index` retrieval engine. It scores how well an LLM response is
 grounded in its supporting context, returns auditable per-claim evidence, and
 classifies every output into a calibrated `green` / `amber` / `red` risk band.
+
+> **Scope.** `latence-trace` answers **"is this response anchored in the
+> supplied context?"** (RAG-grounding / faithfulness). It does **not**
+> answer **"is this response factually correct against world
+> knowledge?"** (open-domain factuality). For the latter, pair with a
+> knowledge-base fact-checker; both questions look identical from
+> outside but require different tooling. See
+> [`docs/algorithm-audit.md`](docs/algorithm-audit.md) §"Scope and
+> Known Mismatches" for the empirical evidence.
 
 > **New here?** Start with the end-to-end tutorial:
 > [`docs/guides/tutorial.md`](docs/guides/tutorial.md) — covers boot,
@@ -27,17 +36,72 @@ use inside the latence.ai product family; it is not OSS.
 
 ## Headline numbers
 
-Run on **RAGTruth** + **HaluEval**, A5000 batch=1. Headline = `groundedness_v2`.
+Honest numbers, A5000 batch=1, **n = 120 samples per stratum** (no n=20 lucky
+slices), production config: GTE-ModernColBERT bf16 + multilingual mDeBERTa NLI
++ BGE-reranker-v2-m3 + atomic claims, response-chunked path, headline =
+`groundedness_v2`. Source report:
+[`research/triangular_maxsim/reports/truth_bench_n120.json`](research/triangular_maxsim/reports/truth_bench_n120.json).
 
-| Lane | Internal lex / sem / partial | RAGTruth macro F1 | HaluEval QA F1 | Latency p95 |
-|------|-----------------------------:|------------------:|---------------:|------------:|
-| Dense + literal only | 0.80 / 0.93 / 0.95 | 0.48 | 0.75 | 92 ms |
-| + NLI peer (reranker + atomic) | 0.99 / 1.00 / 1.00 | 0.49 | **0.90** | 102 ms |
-| + Semantic entropy (synthetic peers) | 0.98 / 1.00 / 1.00 | **0.60** | 0.80 | 125 ms |
+| Lane | Stratum | n | Metric | Value | 95% CI |
+|------|---------|--:|:------:|------:|:------:|
+| Internal minimal pairs | lexical (entity / date / number / unit swap) | 120 | paired_acc | **0.95** | [0.63, 1.00] |
+| Internal minimal pairs | semantic (negation / role swap) | 60 | paired_acc | **0.98** | [0.90, 1.00] |
+| Internal minimal pairs | partial support | 30 | paired_acc | **1.00** | [1.00, 1.00] |
+| Internal minimal pairs | hard compound facts | 30 | paired_acc | **1.00** | [1.00, 1.00] |
+| Internal minimal pairs | hard structured (JSON / md table) | 30 | paired_acc | **0.93** | [0.83, 1.00] |
+| Internal minimal pairs | hard distributed dialogue | 30 | paired_acc | 0.57 | [0.40, 0.73] |
+| Internal minimal pairs | German | 26 | paired_acc | **1.00** | [1.00, 1.00] |
+| RAGTruth | macro F1 (qa / summ / data2text) | 360 | F1@median | **0.61** | — |
+| RAGTruth | qa | 120 | F1@median | **0.73** (precision 0.98) | — |
+| RAGTruth | summarization | 120 | F1@median | **0.65** (precision 0.80) | — |
+| RAGTruth | data2text | 120 | F1@median | 0.45 | — |
+| HaluEval QA | paired ranking (right > halu) — multilingual NLI | 60 | paired_acc | 0.67 | — |
+| HaluEval QA | paired ranking — **English NLI** † | 60 | paired_acc | **0.78** | — |
+| HaluEval Summarization | paired ranking — multilingual NLI | 60 | paired_acc | 0.65 | — |
+| HaluEval Summarization | paired ranking — **English NLI** † | 60 | paired_acc | **0.75** | — |
+| HaluEval Dialogue | paired ranking (either NLI) | 60 | paired_acc | 0.57–0.58 ‡ | — |
+| Latency | end-to-end (NLI on, reranker on, atomic on) | — | p95 | **118 ms** | — |
 
-See [docs/benchmarks.md](docs/benchmarks.md) and
-[docs/algorithm-audit.md](docs/algorithm-audit.md) for the full per-stratum
-breakdown and reproduction instructions.
+HaluEval numbers come from saved diagnostic runs under
+[`research/triangular_maxsim/reports/halueval_diagnose_mdeberta_n60.json`](research/triangular_maxsim/reports/halueval_diagnose_mdeberta_n60.json)
+and [`..._deberta_en_n60.json`](research/triangular_maxsim/reports/halueval_diagnose_deberta_en_n60.json);
+each is an n=60 paired diagnostic (60 paired right/hallucinated answers per
+stratum). Reproduce: `python scripts/diagnose_halueval.py --nli-model <id> --limit 60`.
+
+† English NLI peer = `MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli`. Set
+`VOYAGER_GROUNDEDNESS_NLI_MODEL` to switch. Recommended for English-only
+deployments — gains ≈ +10 percentage points paired ranking accuracy on
+HaluEval QA / Summarization vs. the multilingual default.<br>
+‡ HaluEval Dialogue is **a known mismatch lane** for context-grounded scoring:
+hallucinations introduce real-world facts that are *not in the dialogue
+context*, so both right and hallucinated continuations score "ungrounded"
+relative to the supplied context. We surface this honestly rather than tune
+to it. Same caveat applies to FActScore biographies (open-domain factuality
+vs. context-grounding); see
+[`docs/algorithm-audit.md`](docs/algorithm-audit.md) §"Scope and Known
+Mismatches".
+
+### Where it shines, where it does not
+
+- ✅ **RAG QA + summarization grounding** — the headline use case
+  (RAGTruth qa F1 0.73 / precision 0.98, summarization F1 0.65 /
+  precision 0.80, HaluEval QA paired 0.78 with English NLI).
+- ✅ **Bilingual EN+DE** — German minimal pairs 1.00 paired, identical
+  schema, same `/groundedness` endpoint.
+- ✅ **Tabular / structured-source pairs** — 0.93 paired on hard
+  JSON / markdown table stratum (NLI + structured triples).
+- ⚠️ **Distributed-evidence dialogue** where the support is split across
+  speaker turns (0.57 paired, n=30 — wide CI). Pair with a
+  context-rewriter or a longer-premise reranker run; see
+  [`docs/algorithm-audit.md`](docs/algorithm-audit.md) for the
+  per-stratum diagnosis.
+- ❌ **Open-domain factuality** (HaluEval Dialogue stratum, FActScore
+  biographies). Out of scope by construction. Pair with a
+  knowledge-base fact-checker for that workload.
+
+See [`docs/algorithm-audit.md`](docs/algorithm-audit.md) for the per-stratum
+breakdown, the math behind every channel, and reproduction instructions
+([`docs/benchmarks.md`](docs/benchmarks.md)).
 
 ## Pick your profile
 
@@ -45,11 +109,16 @@ Three Pareto-optimal default profiles ship out of the box. Each is a
 single environment variable away; the runtime never overwrites a value
 the operator already exported, so you keep full override control.
 
-| Profile | Use when | NLI | Reranker | Atomic + concat | Semantic entropy | Internal min-pair F1 | DE min-pair acc | p95 (A5000, batch=1) | Peak VRAM |
-|---|---|---|---|---|---|---|---|---|---|
-| `fast` | sub-200 ms p95 SLO; cheap "is it grounded at all?" check | off | off | off | off | 0.66 | 100% (literal-only) | ~160 ms | ~3.7 GB |
-| `balanced` (default) | typical RAG QA serving | on (mDeBERTa) | off | off | off | **0.89** | **92%** | ~190 ms | ~4.2 GB |
-| `quality` | high-stakes outputs; long multi-premise contexts | on (mDeBERTa) | on (bge v2-m3) | on | off (opt-in via env, requires recalibration) | 0.87 | 87% | ~195 ms | ~4.5 GB |
+| Profile | Use when | NLI | Reranker | Atomic + concat | Semantic entropy | DE min-pair acc | p95 (A5000, batch=1) | Peak VRAM |
+|---|---|---|---|---|---|---|---|---|
+| `fast` | sub-200 ms p95 SLO; cheap "is it grounded at all?" check | off | off | off | off | 100% (literal-only) | ~160 ms | ~3.7 GB |
+| `balanced` (default) | typical RAG QA serving | on (mDeBERTa) | off | off | off | **92%** | ~190 ms | ~4.2 GB |
+| `quality` | high-stakes outputs; long multi-premise contexts | on (mDeBERTa) | on (bge v2-m3) | on | off (opt-in via env, requires recalibration) | **100%** † | ~195 ms | ~4.5 GB |
+
+† DE accuracy from
+[`research/triangular_maxsim/reports/truth_bench_n120.json`](research/triangular_maxsim/reports/truth_bench_n120.json)
+(`quality`-equivalent config, mDeBERTa NLI + BGE reranker + atomic claims,
+n = 26 DE pairs).
 
 Numbers are from the per-profile sweep in
 [`research/triangular_maxsim/reports/profile_pareto.md`](research/triangular_maxsim/reports/profile_pareto.md);
@@ -220,7 +289,8 @@ request like the example above works without any per-request flag:
 | Component | Default | Coverage |
 |---|---|---|
 | ColBERT encoder | `VAGOsolutions/SauerkrautLM-Multi-Reason-ModernColBERT` (bf16) | EN + DE multilingual |
-| NLI peer | `MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7` | EN + DE + 100 langs |
+| NLI peer (default) | `MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7` | EN + DE + 100 langs |
+| NLI peer (English-only deployments, **+10 pp paired acc on HaluEval QA / Summ** vs default) | `MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli` via `VOYAGER_GROUNDEDNESS_NLI_MODEL` | EN (best); DE works but weaker than mDeBERTa |
 | Cross-encoder reranker | `BAAI/bge-reranker-v2-m3` (opt-in) | Multilingual |
 | Atomic-claim splitter | spaCy auto-routes `en_core_web_sm` / `de_core_news_sm` | EN + DE |
 | Literal guardrails | Date / number / currency / percent / measurement regex | EN + DE formats |
@@ -250,15 +320,35 @@ git clone --depth 1 https://github.com/ParticleMedia/RAGTruth.git \
   research/triangular_maxsim/external_data/RAGTruth
 git clone --depth 1 https://github.com/RUCAIBox/HaluEval.git \
   research/triangular_maxsim/external_data/HaluEval
+
+# FActScore biographies ship without source context (open-domain factuality);
+# run scripts/enrich_factscore_with_wiki.py first to backfill Wikipedia text.
+
 export VOYAGER_GROUNDEDNESS_RAGTRUTH_DIR=$PWD/research/triangular_maxsim/external_data/RAGTruth/voyager_layout
 export VOYAGER_GROUNDEDNESS_HALUEVAL_DIR=$PWD/research/triangular_maxsim/external_data/HaluEval/data
+export VOYAGER_GROUNDEDNESS_FACTSCORE_DIR=$PWD/research/triangular_maxsim/external_data/factscore  # optional
+export VOYAGER_GROUNDEDNESS_TORCH_DTYPE=bfloat16
+export VOYAGER_GROUNDEDNESS_MODEL=lightonai/GTE-ModernColBERT-v1
+export VOYAGER_GROUNDEDNESS_NLI_MODEL=MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7
+export VOYAGER_GROUNDEDNESS_NLI_PREMISE_RERANKER_MODEL=BAAI/bge-reranker-v2-m3
 
 python -m research.triangular_maxsim.groundedness_external_eval \
-  --pairs-per-stratum 20 --max-external-per-stratum 20 \
-  --enable-nli --reranker-model BAAI/bge-reranker-v2-m3 \
-  --concat-premises --atomic-claims \
-  --out research/triangular_maxsim/reports/phase_j_nli.json
+  --pairs-per-stratum 30 --max-external-per-stratum 120 \
+  --enable-nli --concat-premises --atomic-claims \
+  --out research/triangular_maxsim/reports/truth_bench_n120.json
+
+# HaluEval-only paired ranking diagnostic (the metric the README cites)
+python scripts/diagnose_halueval.py --limit 60 \
+  --nli-model MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7
+HALUEVAL_DIAGNOSE_OUT=research/triangular_maxsim/reports/halueval_diagnose_deberta_en_n60.json \
+  python scripts/diagnose_halueval.py --limit 60 \
+  --nli-model MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli
 ```
+
+Use `n = 20` for fast iteration only — at `n = 20` the F1 95% CI is roughly
+±0.20, so single-run F1 deltas are pure noise. The headline numbers above
+are at `n = 120` (RAGTruth, internal pairs) and `n = 60` per label per stratum
+(HaluEval paired diagnostics).
 
 ## License
 

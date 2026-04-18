@@ -243,8 +243,9 @@ on short responses).
 - [`profile_pareto.md`](../../research/triangular_maxsim/reports/profile_pareto.md)
   — the underlying 8-lane sweep and Pareto picks
 - [`multilingual.md`](multilingual.md) — bilingual EN/DE configuration
-- [`beta-overview.md`](beta-overview.md) — Beta scope and limitations
-- [`../benchmarks.md`](../benchmarks.md) — head-line benchmark numbers
+- [`beta-overview.md`](beta-overview.md) — product scope, risk-band
+  policy, and known mismatch lanes
+- [`../benchmarks.md`](../benchmarks.md) — headline benchmark numbers
 - [`../algorithm-audit.md`](../algorithm-audit.md) — per-channel
   ablations and verdict
 - [`../perf/response_chunking_bench.md`](../perf/response_chunking_bench.md)

@@ -1,4 +1,4 @@
-"""Pydantic models for the latence-trace Groundedness Tracker (Beta).
+"""Pydantic models for the latence-trace Groundedness Tracker.
 
 These were extracted verbatim from the upstream voyager-index API surface and
 re-homed to keep latence-trace fully self-contained. The schema is unchanged
@@ -93,7 +93,7 @@ class GroundednessSupportUnitInput(BaseModel):
 
 
 class GroundednessRequest(BaseModel):
-    """Beta post-generation groundedness scoring request."""
+    """Post-generation groundedness scoring request."""
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -194,7 +194,7 @@ class GroundednessRequest(BaseModel):
     )
     primary_metric: GroundednessPrimaryMetric = Field(
         default=GroundednessPrimaryMetric.REVERSE_CONTEXT,
-        description="Primary scalar score exposed as the headline groundedness metric. The shipped Beta default is reverse_context.",
+        description="Primary scalar score exposed as the headline groundedness metric. The shipped default is reverse_context.",
     )
     evidence_limit: int = Field(
         default=8,
@@ -278,7 +278,7 @@ class GroundednessRequest(BaseModel):
 
 
 class GroundednessScores(BaseModel):
-    """Aggregate groundedness scores returned by the Beta endpoint."""
+    """Aggregate groundedness scores returned by the /groundedness endpoint."""
 
     primary_name: str
     primary_score: float
@@ -600,7 +600,7 @@ class GroundednessDebugPayload(BaseModel):
 
 
 class GroundednessResponse(BaseModel):
-    """Beta groundedness scoring response with heatmap-ready sparse data."""
+    """Groundedness scoring response with heatmap-ready sparse data."""
 
     model_config = ConfigDict(
         json_schema_extra={

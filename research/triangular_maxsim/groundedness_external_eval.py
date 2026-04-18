@@ -55,9 +55,10 @@ from research.triangular_maxsim.groundedness_minimal_pairs import (  # noqa: E40
 )
 from latence_trace.core.groundedness import (  # noqa: E402
     SupportUnitInput,
+    _build_response_chunks,
     default_null_bank_texts,
     encode_texts,
-    score_groundedness,
+    score_groundedness_response_chunked,
     segment_text,
     tokenize_text,
 )
@@ -165,7 +166,15 @@ def _encode_pair_side(
     response: str,
     chunk_token_budget: int = 256,
 ) -> Dict[str, Any]:
-    """Phase 1: encode + tokenize. Returns the materials needed by scoring."""
+    """Phase 1: encode + tokenize. Returns the materials needed by scoring.
+
+    The response is **chunked** with the same sentence-packed segmenter as
+    the context so this lane exercises the production response-chunking
+    path (``score_groundedness_response_chunked``). Otherwise long responses
+    silently truncate at the encoder ``model_max_length`` and tail tokens
+    are dropped from the groundedness matrix, biasing every benchmark
+    metric downward.
+    """
 
     started = time.perf_counter()
     segments = segment_text(
@@ -184,15 +193,17 @@ def _encode_pair_side(
         )
         for idx, embedding in enumerate(support_embeddings)
     ]
-    response_embedding = encode_texts(provider, [response], is_query=False, prompt_name=None)[0]
-    response_tokens = tokenize_text(
-        provider, response, expected_len=int(response_embedding.shape[0]), is_query=False
+    response_chunks = _build_response_chunks(
+        response,
+        provider=provider,
+        chunk_token_budget=chunk_token_budget,
+        encode_fn=encode_texts,
+        document_prompt_name=None,
     )
     encode_ms = (time.perf_counter() - started) * 1000.0
     return {
         "support_units": support_units,
-        "response_embedding": response_embedding,
-        "response_tokens": response_tokens,
+        "response_chunks": response_chunks,
         "encode_ms": float(encode_ms),
     }
 
@@ -214,10 +225,21 @@ def _score_pair_side(
     """Phase 2: score the encoded materials. Times only the score call."""
 
     started = time.perf_counter()
-    scored = score_groundedness(
-        support_units=materials["support_units"],
-        response_embeddings=materials["response_embedding"],
-        response_tokens=materials["response_tokens"],
+    response_chunks = materials.get("response_chunks") or []
+    if not response_chunks:
+        # Degenerate-response safeguard: empty response → trivial score.
+        # ``score_groundedness_response_chunked`` raises on empty input.
+        return {
+            "scores": {
+                "reverse_context": 0.0,
+                "reverse_context_calibrated": 0.0,
+                "groundedness_v2": 0.0,
+            },
+            "score_ms": 0.0,
+        }
+    scored = score_groundedness_response_chunked(
+        support_batches=[materials["support_units"]],
+        response_chunks=response_chunks,
         response_text=response_text,
         evidence_limit=3,
         primary_metric="reverse_context",

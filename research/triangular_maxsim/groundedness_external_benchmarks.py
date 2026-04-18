@@ -236,7 +236,16 @@ def load_factscore(
     base = _env_path("VOYAGER_GROUNDEDNESS_FACTSCORE_DIR")
     if base is None:
         return None
-    candidates = [base / "biographies.jsonl", base / "factscore.jsonl"]
+    # Prefer the Wikipedia-enriched variant when present so the scorer has a
+    # real source context to verify against. The upstream FActScore file ships
+    # ``context=""`` for every biography (it is an open-domain factuality
+    # benchmark, not a RAG benchmark); see scripts/enrich_factscore_with_wiki.py
+    # for the enrichment that adds ``context`` from the matching Wikipedia page.
+    candidates = [
+        base / "biographies_wiki.jsonl",
+        base / "biographies.jsonl",
+        base / "factscore.jsonl",
+    ]
     path = next((p for p in candidates if p.exists()), None)
     if path is None:
         return None
@@ -248,6 +257,12 @@ def load_factscore(
         annotations = obj.get("annotations") or []
         if isinstance(output, list):
             output = " ".join(str(part) for part in output)
+        # Skip biographies whose Wikipedia enrichment failed: scoring against
+        # an empty context is degenerate (every claim looks unsupported) and
+        # silently corrupts the F1 numbers.
+        context = str(obj.get("context") or "")
+        if not context.strip():
+            continue
         supported = sum(1 for ann in annotations if ann.get("is_supported"))
         total = max(1, len(annotations))
         precision = float(supported) / float(total)
@@ -257,7 +272,7 @@ def load_factscore(
                 benchmark="factscore",
                 sample_id="{topic}-{idx}".format(topic=topic, idx=emitted),
                 stratum="biography",
-                context=str(obj.get("context") or ""),
+                context=context,
                 response=str(output),
                 label=label,
                 query=str(topic),

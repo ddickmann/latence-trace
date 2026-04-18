@@ -1,0 +1,62 @@
+{
+  "nli_model": "MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7",
+  "fusion": {
+    "calibrated": 0.5,
+    "literal": 0.2,
+    "nli": 0.3
+  },
+  "samples_per_label_per_stratum": 60,
+  "per_stratum": {
+    "qa": {
+      "n_pairs": 60,
+      "wins_right_higher": 40,
+      "ties": 0,
+      "paired_accuracy": 0.6666666666666666,
+      "right_mean_score": 0.8984023255889151,
+      "halu_mean_score": 0.8099155655858089,
+      "delta_mean": 0.08848676000310624,
+      "right_score_range": [
+        0.6819963142462075,
+        0.9884839299181476
+      ],
+      "halu_score_range": [
+        0.6459628484205902,
+        0.9855218879862353
+      ]
+    },
+    "summarization": {
+      "n_pairs": 60,
+      "wins_right_higher": 39,
+      "ties": 0,
+      "paired_accuracy": 0.65,
+      "right_mean_score": 0.8836259828389542,
+      "halu_mean_score": 0.8540682464447363,
+      "delta_mean": 0.029557736394217927,
+      "right_score_range": [
+        0.7084700759464445,
+        0.9914449668816007
+      ],
+      "halu_score_range": [
+        0.6849196642786006,
+        0.9714668048858583
+      ]
+    },
+    "dialogue": {
+      "n_pairs": 60,
+      "wins_right_higher": 34,
+      "ties": 0,
+      "paired_accuracy": 0.5666666666666667,
+      "right_mean_score": 0.8126883732272855,
+      "halu_mean_score": 0.8019768367112885,
+      "delta_mean": 0.010711536515997011,
+      "right_score_range": [
+        0.6465977977518923,
+        0.9408472642186099
+      ],
+      "halu_score_range": [
+        0.6782407820906646,
+        0.958990411628555
+      ]
+    }
+  }
+}

@@ -287,6 +287,43 @@ def test_groundedness_sentence_packing_carries_whole_sentence_forward() -> None:
     ]
 
 
+def test_packs_oversized_single_span_so_no_chunk_exceeds_budget() -> None:
+    """Long single sentences (no period, JSON blobs, etc.) must be split.
+
+    Without this guard, a single 800-token sentence would be packed into one
+    chunk that exceeds ``chunk_token_budget``; downstream encoders silently
+    truncate at ``model_max_length`` (e.g. 299 for GTE-ModernColBERT-v1)
+    and drop the tail tokens from the groundedness matrix, biasing every
+    metric downward. ``_pack_sentence_spans`` must hard-cap each emitted
+    chunk at ``chunk_token_budget`` tokens by character-wise splitting any
+    span that arrives oversized.
+    """
+    from latence_trace.core.groundedness import count_text_tokens
+
+    provider = DummyGroundednessProvider()
+    text = ("word " * 800).strip()  # one long sentence, no period
+    budget = 64
+
+    segments = segment_text(
+        text,
+        "sentence_packed",
+        provider=provider,
+        chunk_token_budget=budget,
+    )
+
+    assert len(segments) > 1, "oversized span must split into multiple chunks"
+    for segment in segments:
+        actual_tokens = count_text_tokens(provider, segment["text"], is_query=False)
+        assert actual_tokens <= budget, (
+            f"chunk exceeds budget: {actual_tokens} > {budget} (text='{segment['text'][:40]}...')"
+        )
+
+    rejoined_chars = sum(len(seg["text"].replace(" ", "")) for seg in segments)
+    expected_chars = len(text.replace(" ", ""))
+    coverage = rejoined_chars / max(1, expected_chars)
+    assert coverage >= 0.9, f"split lost too much content (kept {coverage:.0%})"
+
+
 def test_groundedness_packed_window_merge_matches_direct_reference() -> None:
     provider = DummyGroundednessProvider()
     raw_context = "alpha supports claim. beta unrelated note. gamma supports proof."
@@ -1918,10 +1955,16 @@ def test_halueval_loader_emits_paired_positive_and_negative(tmp_path, monkeypatc
 def test_factscore_loader_aggregates_per_claim_precision(tmp_path, monkeypatch) -> None:
     from research.triangular_maxsim.groundedness_external_benchmarks import load_factscore
 
+    # Biographies must carry a non-empty ``context`` (typically the matching
+    # Wikipedia article enriched via scripts/enrich_factscore_with_wiki.py)
+    # so the scorer has source text to verify against. Records without
+    # context are skipped by the loader to avoid degenerate F1=0 noise.
     payload = (
         '{"topic": "Marie Curie", "output": "She won two Nobel Prizes.",'
+        ' "context": "Marie Curie was a Polish-French physicist who won the Nobel Prize in Physics in 1903 and the Nobel Prize in Chemistry in 1911.",'
         ' "annotations": [{"is_supported": true}, {"is_supported": true}]}\n'
         '{"topic": "Other", "output": "Mostly invented.",'
+        ' "context": "Some unrelated source text about an unrelated topic.",'
         ' "annotations": [{"is_supported": false}, {"is_supported": false}]}\n'
     )
     (tmp_path / "biographies.jsonl").write_text(payload, encoding="utf-8")
@@ -1933,6 +1976,32 @@ def test_factscore_loader_aggregates_per_claim_precision(tmp_path, monkeypatch) 
     assert samples[1].label == "hallucinated"
     assert samples[0].raw["precision"] == 1.0
     assert samples[1].raw["precision"] == 0.0
+
+
+def test_factscore_loader_skips_biographies_with_empty_context(tmp_path, monkeypatch) -> None:
+    """Empty-context biographies must be skipped: scoring against ``""``
+    is degenerate (every claim looks unsupported regardless of model
+    quality) and silently corrupts F1 metrics. See
+    scripts/enrich_factscore_with_wiki.py for how to backfill context."""
+    from research.triangular_maxsim.groundedness_external_benchmarks import load_factscore
+
+    payload = (
+        '{"topic": "Marie Curie", "output": "She won two Nobel Prizes.",'
+        ' "context": "Marie Curie was a Polish-French physicist who won two Nobel Prizes.",'
+        ' "annotations": [{"is_supported": true}, {"is_supported": true}]}\n'
+        '{"topic": "EmptyCtx", "output": "Some response.",'
+        ' "context": "",'
+        ' "annotations": [{"is_supported": true}]}\n'
+        '{"topic": "WhitespaceCtx", "output": "Other response.",'
+        ' "context": "   ",'
+        ' "annotations": [{"is_supported": false}]}\n'
+    )
+    (tmp_path / "biographies.jsonl").write_text(payload, encoding="utf-8")
+    monkeypatch.setenv("VOYAGER_GROUNDEDNESS_FACTSCORE_DIR", str(tmp_path))
+    samples = load_factscore()
+    assert samples is not None
+    assert len(samples) == 1
+    assert samples[0].query == "Marie Curie"
 
 
 def test_preregistered_targets_cover_required_lanes() -> None:

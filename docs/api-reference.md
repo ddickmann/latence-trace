@@ -219,3 +219,50 @@ curl -s http://<host>/agent-help | jq .observability.context_coverage
 
 The MCP adapter (`latence-trace mcp-server`) advertises the same
 fields via `tools/list` so AI agents discover them automatically.
+
+---
+
+## NLI model selection
+
+The NLI peer is the verification channel that catches negation, role
+swaps, exact numbers/dates, and entity substitutions that pure
+embedding similarity misses. Two production-ready options ship out of
+the box:
+
+| Model (env: `VOYAGER_GROUNDEDNESS_NLI_MODEL`) | Languages | HaluEval QA paired acc | HaluEval Summ paired acc | When to use |
+|---|---|---|---|---|
+| `MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7` (default) | 100+ incl. EN, DE | 0.68–0.70 | 0.65–0.68 | Multilingual deployments, EN+DE, anything non-English. |
+| `MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli` | EN only | **0.78–0.80** | **0.75–0.78** | English-only deployments. +10pp paired ranking accuracy. |
+
+Same Pydantic schema, same `/groundedness` endpoint, same
+`/agent-help` surface, same MCP descriptor. Switch the env variable
+and restart the server. Token-level NLI heatmaps and
+`claims[i].verdict` / `claims[i].score` are identical in shape across
+both models.
+
+> Both models are loaded via vLLM-Factory BYOP when
+> `VOYAGER_GROUNDEDNESS_VLLM_ENDPOINT` is configured. The encoder
+> (ColBERT) and the NLI peer can share one vLLM endpoint or run on
+> separate endpoints — the engine fan-outs handle concurrent batching.
+
+---
+
+## Workload boundary (read before deploying)
+
+`latence-trace` answers **"is this response anchored in the supplied
+context?"** (RAG-grounding / faithfulness). It does not answer **"is
+this response factually correct against world knowledge?"**
+(open-domain factuality). The two questions look identical from the
+outside but diverge on these workloads:
+
+| Workload | Suitability | Why |
+|---|---|---|
+| RAG QA + summarization (anything where retrieved docs are the source) | ✅ Headline use case | What the engine is designed for. RAGTruth qa F1 0.73 / precision 0.98, HaluEval QA paired 0.78–0.80 (English NLI). |
+| Tabular / structured-source grounding | ✅ Strong | NLI + structured triples drive 0.93 paired acc on internal hard-structured stratum. |
+| Bilingual EN+DE on shared schema | ✅ Verified | German minimal pairs 1.00 paired with the multilingual NLI peer. |
+| Distributed-evidence dialogue (support split across speaker turns) | ⚠️ Use with caution | 0.57 paired on internal `hard_dialogue_distributed`; pair with a context-rewriter or longer-premise reranker. |
+| Open-domain dialogue continuation (HaluEval Dialogue) | ❌ Out of scope | Hallucinations introduce real-world facts not in the dialogue context; both right and hallucinated answers score ungrounded relative to the supplied premise. Use a knowledge-base fact-checker. |
+| Open-domain biographies (FActScore-style) | ❌ Out of scope | Open-domain factuality vs. context-grounding. The right axis is per-claim precision against Wikipedia, not response-level grounding against a context. |
+
+See [`docs/algorithm-audit.md`](algorithm-audit.md) §"Scope and Known
+Mismatches" for the full discussion.

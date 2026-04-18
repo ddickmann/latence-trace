@@ -1,6 +1,6 @@
 # latence-trace Documentation
 
-`latence-trace` ships the **Groundedness Tracker (Beta)** as a standalone
+`latence-trace` ships the **Groundedness Tracker** as a standalone
 sidecar in the latence.ai product family. It scores how well an LLM response
 is grounded in its supporting context, returns auditable per-claim evidence,
 and classifies every output into a calibrated `green` / `amber` / `red`
