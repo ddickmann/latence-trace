@@ -33,6 +33,45 @@ See [docs/benchmarks.md](docs/benchmarks.md) and
 [docs/algorithm-audit.md](docs/algorithm-audit.md) for the full per-stratum
 breakdown and reproduction instructions.
 
+## Pick your profile
+
+Three Pareto-optimal default profiles ship out of the box. Each is a
+single environment variable away; the runtime never overwrites a value
+the operator already exported, so you keep full override control.
+
+| Profile | Use when | NLI | Reranker | Atomic + concat | Semantic entropy | Internal min-pair F1 | DE min-pair acc | p95 (A5000, batch=1) | Peak VRAM |
+|---|---|---|---|---|---|---|---|---|---|
+| `fast` | sub-200 ms p95 SLO; cheap "is it grounded at all?" check | off | off | off | off | 0.66 | 100% (literal-only) | ~160 ms | ~3.7 GB |
+| `balanced` (default) | typical RAG QA serving | on (mDeBERTa) | off | off | off | **0.89** | **92%** | ~190 ms | ~4.2 GB |
+| `quality` | high-stakes outputs; opt-in semantic-entropy ensemble | on (mDeBERTa) | on (bge v2-m3) | on | on (caller-supplied samples) | 0.87 | 87% | ~195 ms | ~4.5 GB |
+
+Numbers are from the per-profile sweep in
+[`research/triangular_maxsim/reports/profile_pareto.md`](research/triangular_maxsim/reports/profile_pareto.md);
+each profile bundles a calibrated thresholds artefact under
+[`latence_trace/data/thresholds.<profile>.json`](latence_trace/data/) and
+a fusion-weight artefact under
+[`latence_trace/data/fusion_weights.<profile>.json`](latence_trace/data/).
+
+```bash
+# Default (balanced)
+latence-trace-server
+
+# Lowest p95
+LATENCE_TRACE_PROFILE=fast latence-trace-server
+# or
+latence-trace-server --profile fast
+
+# Maximum coverage
+latence-trace-server --profile quality
+
+# Opt out of all presets and rely on your own env vars
+latence-trace-server --profile none
+```
+
+See [`docs/guides/profiles.md`](docs/guides/profiles.md) for the full
+per-profile config dump, the evaluation methodology, and reproduction
+commands.
+
 ## How
 
 Five fused channels:
@@ -58,6 +97,10 @@ thresholds (`thresholds.json`).
 pip install -e ".[dev]"
 latence-trace-server --host 0.0.0.0 --port 8090
 ```
+
+The server boots with the `balanced` profile by default (NLI peer on,
+no reranker, ~190 ms p95). Pick `fast` for tighter SLOs or `quality`
+for the full stack - see [Pick your profile](#pick-your-profile).
 
 The default encoder is the multilingual
 [`VAGOsolutions/SauerkrautLM-Multi-Reason-ModernColBERT`](https://huggingface.co/VAGOsolutions/SauerkrautLM-Multi-Reason-ModernColBERT)

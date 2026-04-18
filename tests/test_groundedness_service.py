@@ -1816,10 +1816,13 @@ def test_minimal_pairs_cover_all_strata_with_at_least_200_total() -> None:
         "hard_compound_facts",
         "hard_structured",
         "hard_dialogue_distributed",
+        "de_minimal_pairs",
     }
     assert set(summary.keys()) == expected_strata
     for stratum, count in summary.items():
-        assert count >= 28, "stratum {0} only has {1} pairs".format(stratum, count)
+        # de_minimal_pairs is a fixed-size pre-rendered fixture
+        floor = 20 if stratum == "de_minimal_pairs" else 28
+        assert count >= floor, "stratum {0} only has {1} pairs".format(stratum, count)
 
 
 def test_minimal_pairs_are_deterministic_for_seed() -> None:
@@ -1851,6 +1854,7 @@ def test_minimal_pair_positive_and_negative_differ_within_stratum() -> None:
             "hard_compound_facts",
             "hard_structured",
             "hard_dialogue_distributed",
+            "de_minimal_pairs",
         }
 
 

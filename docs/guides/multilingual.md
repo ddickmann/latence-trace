@@ -115,16 +115,24 @@ at startup.
 
 ## Risk-band thresholds
 
-The shipped `thresholds.json` was calibrated on the internal English
-minimal-pair suite plus the external English benchmarks (RAGTruth +
-HaluEval + FActScore). The calibrated cut-points still apply to German
-content because the underlying score distribution is dominated by the
-multilingual encoder + NLI signal, not by a language-specific bias term.
+The shipped per-profile thresholds (`latence_trace/data/thresholds.<profile>.json`)
+were calibrated on the bilingual minimal-pair suite (10 EN strata + 1 DE
+stratum) plus the external English benchmarks (RAGTruth + HaluEval +
+FActScore). The German stratum is included in the calibration so the
+green/amber cut-points already reflect the joint English+German
+score distribution; the multilingual encoder + NLI peer is the
+dominant signal in either language.
 
-That said, if you operate a heavy German workload and want
-production-grade per-stratum coverage in the German lane, run
-`scripts/calibrate_thresholds.py` on a German minimal-pair set and point
-`VOYAGER_GROUNDEDNESS_THRESHOLDS_PATH` at the new artefact. The
+The Pareto-optimal default profiles (`fast`, `balanced`, `quality`)
+each ship their own thresholds artefact and pick it up automatically
+when you select the profile - see
+[`profiles.md`](profiles.md) for the full per-profile config dump and
+the underlying sweep methodology.
+
+If you operate a heavy German workload and want production-grade
+per-stratum coverage in the German lane, run
+`scripts/calibrate_thresholds.py` on a German minimal-pair set and
+point `VOYAGER_GROUNDEDNESS_THRESHOLDS_PATH` at the new artefact. The
 calibration script is language-agnostic; only the input pairs change.
 
 ## Adding a third language

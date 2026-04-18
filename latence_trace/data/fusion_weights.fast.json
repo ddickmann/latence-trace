@@ -1,0 +1,1028 @@
+{
+  "best": {
+    "counts": {
+      "date_swap": {
+        "fn": 0,
+        "fp": 30,
+        "tn": 0,
+        "tp": 30
+      },
+      "de_minimal_pairs": {
+        "fn": 0,
+        "fp": 26,
+        "tn": 0,
+        "tp": 26
+      },
+      "entity_swap": {
+        "fn": 0,
+        "fp": 30,
+        "tn": 0,
+        "tp": 30
+      },
+      "hard_compound_facts": {
+        "fn": 0,
+        "fp": 30,
+        "tn": 0,
+        "tp": 30
+      },
+      "hard_dialogue_distributed": {
+        "fn": 0,
+        "fp": 30,
+        "tn": 0,
+        "tp": 30
+      },
+      "hard_structured": {
+        "fn": 10,
+        "fp": 20,
+        "tn": 10,
+        "tp": 20
+      },
+      "negation": {
+        "fn": 0,
+        "fp": 30,
+        "tn": 0,
+        "tp": 30
+      },
+      "number_swap": {
+        "fn": 0,
+        "fp": 30,
+        "tn": 0,
+        "tp": 30
+      },
+      "partial": {
+        "fn": 0,
+        "fp": 30,
+        "tn": 0,
+        "tp": 30
+      },
+      "role_swap": {
+        "fn": 0,
+        "fp": 30,
+        "tn": 0,
+        "tp": 30
+      },
+      "unit_swap": {
+        "fn": 0,
+        "fp": 30,
+        "tn": 0,
+        "tp": 30
+      }
+    },
+    "macro_f1": 0.658008658008658,
+    "min_f1": 0.5714285714285714,
+    "per_stratum_f1": {
+      "date_swap": 0.6666666666666666,
+      "de_minimal_pairs": 0.6666666666666666,
+      "entity_swap": 0.6666666666666666,
+      "hard_compound_facts": 0.6666666666666666,
+      "hard_dialogue_distributed": 0.6666666666666666,
+      "hard_structured": 0.5714285714285714,
+      "negation": 0.6666666666666666,
+      "number_swap": 0.6666666666666666,
+      "partial": 0.6666666666666666,
+      "role_swap": 0.6666666666666666,
+      "unit_swap": 0.6666666666666666
+    },
+    "weights": {
+      "calibrated": 0.0,
+      "literal": 1.0,
+      "nli": 0.0,
+      "semantic_entropy": 0.0,
+      "structured": 0.0
+    }
+  },
+  "grid_points": 1185,
+  "pair_count": 326,
+  "profile": "fast",
+  "profile_spec": {
+    "atomic": false,
+    "concat": false,
+    "include_semantic_entropy": false,
+    "include_structured": true,
+    "use_nli": false,
+    "use_reranker": false
+  },
+  "threshold": 0.55,
+  "top_10": [
+    {
+      "counts": {
+        "date_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "de_minimal_pairs": {
+          "fn": 0,
+          "fp": 26,
+          "tn": 0,
+          "tp": 26
+        },
+        "entity_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_compound_facts": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_dialogue_distributed": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_structured": {
+          "fn": 10,
+          "fp": 20,
+          "tn": 10,
+          "tp": 20
+        },
+        "negation": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "number_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "partial": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "role_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "unit_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        }
+      },
+      "macro_f1": 0.658008658008658,
+      "min_f1": 0.5714285714285714,
+      "per_stratum_f1": {
+        "date_swap": 0.6666666666666666,
+        "de_minimal_pairs": 0.6666666666666666,
+        "entity_swap": 0.6666666666666666,
+        "hard_compound_facts": 0.6666666666666666,
+        "hard_dialogue_distributed": 0.6666666666666666,
+        "hard_structured": 0.5714285714285714,
+        "negation": 0.6666666666666666,
+        "number_swap": 0.6666666666666666,
+        "partial": 0.6666666666666666,
+        "role_swap": 0.6666666666666666,
+        "unit_swap": 0.6666666666666666
+      },
+      "weights": {
+        "calibrated": 0.0,
+        "literal": 1.0,
+        "nli": 0.0,
+        "semantic_entropy": 0.0,
+        "structured": 0.0
+      }
+    },
+    {
+      "counts": {
+        "date_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "de_minimal_pairs": {
+          "fn": 0,
+          "fp": 26,
+          "tn": 0,
+          "tp": 26
+        },
+        "entity_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_compound_facts": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_dialogue_distributed": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_structured": {
+          "fn": 10,
+          "fp": 20,
+          "tn": 10,
+          "tp": 20
+        },
+        "negation": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "number_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "partial": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "role_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "unit_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        }
+      },
+      "macro_f1": 0.658008658008658,
+      "min_f1": 0.5714285714285714,
+      "per_stratum_f1": {
+        "date_swap": 0.6666666666666666,
+        "de_minimal_pairs": 0.6666666666666666,
+        "entity_swap": 0.6666666666666666,
+        "hard_compound_facts": 0.6666666666666666,
+        "hard_dialogue_distributed": 0.6666666666666666,
+        "hard_structured": 0.5714285714285714,
+        "negation": 0.6666666666666666,
+        "number_swap": 0.6666666666666666,
+        "partial": 0.6666666666666666,
+        "role_swap": 0.6666666666666666,
+        "unit_swap": 0.6666666666666666
+      },
+      "weights": {
+        "calibrated": 0.0,
+        "literal": 0.5,
+        "nli": 0.0,
+        "semantic_entropy": 0.0,
+        "structured": 0.5
+      }
+    },
+    {
+      "counts": {
+        "date_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "de_minimal_pairs": {
+          "fn": 0,
+          "fp": 26,
+          "tn": 0,
+          "tp": 26
+        },
+        "entity_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_compound_facts": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_dialogue_distributed": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_structured": {
+          "fn": 10,
+          "fp": 20,
+          "tn": 10,
+          "tp": 20
+        },
+        "negation": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "number_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "partial": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "role_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "unit_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        }
+      },
+      "macro_f1": 0.658008658008658,
+      "min_f1": 0.5714285714285714,
+      "per_stratum_f1": {
+        "date_swap": 0.6666666666666666,
+        "de_minimal_pairs": 0.6666666666666666,
+        "entity_swap": 0.6666666666666666,
+        "hard_compound_facts": 0.6666666666666666,
+        "hard_dialogue_distributed": 0.6666666666666666,
+        "hard_structured": 0.5714285714285714,
+        "negation": 0.6666666666666666,
+        "number_swap": 0.6666666666666666,
+        "partial": 0.6666666666666666,
+        "role_swap": 0.6666666666666666,
+        "unit_swap": 0.6666666666666666
+      },
+      "weights": {
+        "calibrated": 0.0,
+        "literal": 0.3333333333333333,
+        "nli": 0.0,
+        "semantic_entropy": 0.0,
+        "structured": 0.6666666666666666
+      }
+    },
+    {
+      "counts": {
+        "date_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "de_minimal_pairs": {
+          "fn": 0,
+          "fp": 26,
+          "tn": 0,
+          "tp": 26
+        },
+        "entity_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_compound_facts": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_dialogue_distributed": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_structured": {
+          "fn": 10,
+          "fp": 20,
+          "tn": 10,
+          "tp": 20
+        },
+        "negation": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "number_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "partial": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "role_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "unit_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        }
+      },
+      "macro_f1": 0.658008658008658,
+      "min_f1": 0.5714285714285714,
+      "per_stratum_f1": {
+        "date_swap": 0.6666666666666666,
+        "de_minimal_pairs": 0.6666666666666666,
+        "entity_swap": 0.6666666666666666,
+        "hard_compound_facts": 0.6666666666666666,
+        "hard_dialogue_distributed": 0.6666666666666666,
+        "hard_structured": 0.5714285714285714,
+        "negation": 0.6666666666666666,
+        "number_swap": 0.6666666666666666,
+        "partial": 0.6666666666666666,
+        "role_swap": 0.6666666666666666,
+        "unit_swap": 0.6666666666666666
+      },
+      "weights": {
+        "calibrated": 0.0,
+        "literal": 0.25,
+        "nli": 0.0,
+        "semantic_entropy": 0.0,
+        "structured": 0.7499999999999999
+      }
+    },
+    {
+      "counts": {
+        "date_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "de_minimal_pairs": {
+          "fn": 0,
+          "fp": 26,
+          "tn": 0,
+          "tp": 26
+        },
+        "entity_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_compound_facts": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_dialogue_distributed": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_structured": {
+          "fn": 10,
+          "fp": 20,
+          "tn": 10,
+          "tp": 20
+        },
+        "negation": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "number_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "partial": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "role_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "unit_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        }
+      },
+      "macro_f1": 0.658008658008658,
+      "min_f1": 0.5714285714285714,
+      "per_stratum_f1": {
+        "date_swap": 0.6666666666666666,
+        "de_minimal_pairs": 0.6666666666666666,
+        "entity_swap": 0.6666666666666666,
+        "hard_compound_facts": 0.6666666666666666,
+        "hard_dialogue_distributed": 0.6666666666666666,
+        "hard_structured": 0.5714285714285714,
+        "negation": 0.6666666666666666,
+        "number_swap": 0.6666666666666666,
+        "partial": 0.6666666666666666,
+        "role_swap": 0.6666666666666666,
+        "unit_swap": 0.6666666666666666
+      },
+      "weights": {
+        "calibrated": 0.0,
+        "literal": 0.2,
+        "nli": 0.0,
+        "semantic_entropy": 0.0,
+        "structured": 0.8
+      }
+    },
+    {
+      "counts": {
+        "date_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "de_minimal_pairs": {
+          "fn": 0,
+          "fp": 26,
+          "tn": 0,
+          "tp": 26
+        },
+        "entity_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_compound_facts": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_dialogue_distributed": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_structured": {
+          "fn": 10,
+          "fp": 20,
+          "tn": 10,
+          "tp": 20
+        },
+        "negation": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "number_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "partial": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "role_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "unit_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        }
+      },
+      "macro_f1": 0.658008658008658,
+      "min_f1": 0.5714285714285714,
+      "per_stratum_f1": {
+        "date_swap": 0.6666666666666666,
+        "de_minimal_pairs": 0.6666666666666666,
+        "entity_swap": 0.6666666666666666,
+        "hard_compound_facts": 0.6666666666666666,
+        "hard_dialogue_distributed": 0.6666666666666666,
+        "hard_structured": 0.5714285714285714,
+        "negation": 0.6666666666666666,
+        "number_swap": 0.6666666666666666,
+        "partial": 0.6666666666666666,
+        "role_swap": 0.6666666666666666,
+        "unit_swap": 0.6666666666666666
+      },
+      "weights": {
+        "calibrated": 0.0,
+        "literal": 0.16666666666666669,
+        "nli": 0.0,
+        "semantic_entropy": 0.0,
+        "structured": 0.8333333333333334
+      }
+    },
+    {
+      "counts": {
+        "date_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "de_minimal_pairs": {
+          "fn": 0,
+          "fp": 26,
+          "tn": 0,
+          "tp": 26
+        },
+        "entity_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_compound_facts": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_dialogue_distributed": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_structured": {
+          "fn": 10,
+          "fp": 20,
+          "tn": 10,
+          "tp": 20
+        },
+        "negation": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "number_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "partial": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "role_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "unit_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        }
+      },
+      "macro_f1": 0.658008658008658,
+      "min_f1": 0.5714285714285714,
+      "per_stratum_f1": {
+        "date_swap": 0.6666666666666666,
+        "de_minimal_pairs": 0.6666666666666666,
+        "entity_swap": 0.6666666666666666,
+        "hard_compound_facts": 0.6666666666666666,
+        "hard_dialogue_distributed": 0.6666666666666666,
+        "hard_structured": 0.5714285714285714,
+        "negation": 0.6666666666666666,
+        "number_swap": 0.6666666666666666,
+        "partial": 0.6666666666666666,
+        "role_swap": 0.6666666666666666,
+        "unit_swap": 0.6666666666666666
+      },
+      "weights": {
+        "calibrated": 0.0,
+        "literal": 0.5,
+        "nli": 0.5,
+        "semantic_entropy": 0.0,
+        "structured": 0.0
+      }
+    },
+    {
+      "counts": {
+        "date_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "de_minimal_pairs": {
+          "fn": 0,
+          "fp": 26,
+          "tn": 0,
+          "tp": 26
+        },
+        "entity_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_compound_facts": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_dialogue_distributed": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_structured": {
+          "fn": 10,
+          "fp": 20,
+          "tn": 10,
+          "tp": 20
+        },
+        "negation": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "number_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "partial": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "role_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "unit_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        }
+      },
+      "macro_f1": 0.658008658008658,
+      "min_f1": 0.5714285714285714,
+      "per_stratum_f1": {
+        "date_swap": 0.6666666666666666,
+        "de_minimal_pairs": 0.6666666666666666,
+        "entity_swap": 0.6666666666666666,
+        "hard_compound_facts": 0.6666666666666666,
+        "hard_dialogue_distributed": 0.6666666666666666,
+        "hard_structured": 0.5714285714285714,
+        "negation": 0.6666666666666666,
+        "number_swap": 0.6666666666666666,
+        "partial": 0.6666666666666666,
+        "role_swap": 0.6666666666666666,
+        "unit_swap": 0.6666666666666666
+      },
+      "weights": {
+        "calibrated": 0.0,
+        "literal": 0.3333333333333333,
+        "nli": 0.3333333333333333,
+        "semantic_entropy": 0.0,
+        "structured": 0.3333333333333333
+      }
+    },
+    {
+      "counts": {
+        "date_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "de_minimal_pairs": {
+          "fn": 0,
+          "fp": 26,
+          "tn": 0,
+          "tp": 26
+        },
+        "entity_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_compound_facts": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_dialogue_distributed": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_structured": {
+          "fn": 10,
+          "fp": 20,
+          "tn": 10,
+          "tp": 20
+        },
+        "negation": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "number_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "partial": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "role_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "unit_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        }
+      },
+      "macro_f1": 0.658008658008658,
+      "min_f1": 0.5714285714285714,
+      "per_stratum_f1": {
+        "date_swap": 0.6666666666666666,
+        "de_minimal_pairs": 0.6666666666666666,
+        "entity_swap": 0.6666666666666666,
+        "hard_compound_facts": 0.6666666666666666,
+        "hard_dialogue_distributed": 0.6666666666666666,
+        "hard_structured": 0.5714285714285714,
+        "negation": 0.6666666666666666,
+        "number_swap": 0.6666666666666666,
+        "partial": 0.6666666666666666,
+        "role_swap": 0.6666666666666666,
+        "unit_swap": 0.6666666666666666
+      },
+      "weights": {
+        "calibrated": 0.0,
+        "literal": 0.25,
+        "nli": 0.25,
+        "semantic_entropy": 0.0,
+        "structured": 0.5
+      }
+    },
+    {
+      "counts": {
+        "date_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "de_minimal_pairs": {
+          "fn": 0,
+          "fp": 26,
+          "tn": 0,
+          "tp": 26
+        },
+        "entity_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_compound_facts": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_dialogue_distributed": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "hard_structured": {
+          "fn": 10,
+          "fp": 20,
+          "tn": 10,
+          "tp": 20
+        },
+        "negation": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "number_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "partial": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "role_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        },
+        "unit_swap": {
+          "fn": 0,
+          "fp": 30,
+          "tn": 0,
+          "tp": 30
+        }
+      },
+      "macro_f1": 0.658008658008658,
+      "min_f1": 0.5714285714285714,
+      "per_stratum_f1": {
+        "date_swap": 0.6666666666666666,
+        "de_minimal_pairs": 0.6666666666666666,
+        "entity_swap": 0.6666666666666666,
+        "hard_compound_facts": 0.6666666666666666,
+        "hard_dialogue_distributed": 0.6666666666666666,
+        "hard_structured": 0.5714285714285714,
+        "negation": 0.6666666666666666,
+        "number_swap": 0.6666666666666666,
+        "partial": 0.6666666666666666,
+        "role_swap": 0.6666666666666666,
+        "unit_swap": 0.6666666666666666
+      },
+      "weights": {
+        "calibrated": 0.0,
+        "literal": 0.2,
+        "nli": 0.2,
+        "semantic_entropy": 0.0,
+        "structured": 0.6
+      }
+    }
+  ]
+}

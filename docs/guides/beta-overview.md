@@ -1,11 +1,17 @@
 # Groundedness Tracker (Beta)
 
-`voyager-index` exposes a **Beta** groundedness tracker endpoint for
+`latence-trace` ships a **Beta** groundedness tracker endpoint for
 post-generation answers:
 
 ```text
-POST /collections/{name}/groundedness
+POST /groundedness
 ```
+
+> Picking a default profile? Start with
+> [`profiles.md`](profiles.md) — three Pareto-optimal presets
+> (`fast`, `balanced` (default) and `quality`) cover the common
+> latency-vs-coverage trade-offs and ship calibrated thresholds out
+> of the box.
 
 Use it when you already have a final answer and want to measure how well that
 answer is supported by the context that was actually provided to the model.

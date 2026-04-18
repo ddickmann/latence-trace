@@ -13,6 +13,15 @@ in ``latence_trace.core.groundedness`` (which was ported verbatim from
 voyager-index). Only the surrounding orchestration was extracted here so the
 service can run as a standalone FastAPI process or be embedded in another
 host application.
+
+In addition to the runtime classes the module exposes :data:`PROFILE_NAMES`
+and :func:`apply_profile`, which materialise the three Pareto-optimal default
+configurations (``fast``, ``balanced``, ``quality``) selected by the offline
+profile sweep documented in
+``research/triangular_maxsim/reports/profile_pareto.md``. Profile presets are
+expressed as environment-variable overlays so they compose cleanly with the
+existing env-driven configuration surface and so any operator-set environment
+variable always wins (the loader never overwrites an explicit override).
 """
 
 from __future__ import annotations
@@ -21,7 +30,8 @@ import logging
 import os
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import torch
 
@@ -102,6 +112,198 @@ def _env_float(name: str, default: float) -> float:
         return float(raw)
     except ValueError:
         return default
+
+
+# ---------------------------------------------------------------------------
+# Pareto-optimal default profiles
+# ---------------------------------------------------------------------------
+
+
+PROFILE_NAMES: Tuple[str, ...] = ("fast", "balanced", "quality")
+
+DEFAULT_PROFILE: str = "balanced"
+
+_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+
+
+def _profile_data_path(filename: str) -> str:
+    return str(_DATA_DIR / filename)
+
+
+# Each preset captures the environment overlay the standalone server should
+# install when the corresponding profile is selected. Values are intentionally
+# strings so they can be merged into ``os.environ`` without coercion.
+#
+# The presets reflect the per-profile sweep winners documented in
+# ``research/triangular_maxsim/reports/profile_pareto.md`` and the per-profile
+# threshold + fusion-weight artefacts under ``latence_trace/data/``. Operators
+# that need a different mix can simply export the underlying environment
+# variables before launching the server - :func:`apply_profile` never
+# overwrites a value that is already present in ``os.environ``.
+PROFILE_ENV_PRESETS: Dict[str, Dict[str, str]] = {
+    "fast": {
+        # Encoder + literal guardrails only. NLI and the cross-encoder
+        # reranker are kept off so the lane stays under ~160 ms p95 on
+        # an A5000.
+        "VOYAGER_GROUNDEDNESS_NLI_ENABLED": "0",
+        "VOYAGER_GROUNDEDNESS_NLI_ATOMIC_CLAIMS": "0",
+        "VOYAGER_GROUNDEDNESS_NLI_PREMISE_CONCAT": "0",
+        "VOYAGER_GROUNDEDNESS_NLI_PREMISE_RERANKER_MODEL": "",
+        # Sweep winner: literal-only fusion. When literals are absent the
+        # fuse helper falls back to the calibrated reverse-context MaxSim
+        # score automatically (see ``_resolve_headline_for_risk_band``).
+        "VOYAGER_GROUNDEDNESS_FUSION_W_CALIBRATED": "0.0",
+        "VOYAGER_GROUNDEDNESS_FUSION_W_LITERAL": "1.0",
+        "VOYAGER_GROUNDEDNESS_FUSION_W_NLI": "0.0",
+        "VOYAGER_GROUNDEDNESS_FUSION_W_SEMANTIC_ENTROPY": "0.0",
+        "VOYAGER_GROUNDEDNESS_FUSION_W_STRUCTURED": "0.0",
+        # Per-profile risk-band thresholds calibrated under the same fusion
+        # weights as above so the runtime distribution matches.
+        "VOYAGER_GROUNDEDNESS_THRESHOLDS_PATH": _profile_data_path("thresholds.fast.json"),
+    },
+    "balanced": {
+        # Default profile: NLI peer with multi-premise concatenation off
+        # and no cross-encoder reranker. ~190 ms p95 on an A5000.
+        "VOYAGER_GROUNDEDNESS_NLI_ENABLED": "1",
+        "VOYAGER_GROUNDEDNESS_NLI_ATOMIC_CLAIMS": "0",
+        "VOYAGER_GROUNDEDNESS_NLI_PREMISE_CONCAT": "0",
+        "VOYAGER_GROUNDEDNESS_NLI_PREMISE_RERANKER_MODEL": "",
+        "VOYAGER_GROUNDEDNESS_FUSION_W_CALIBRATED": "0.0",
+        "VOYAGER_GROUNDEDNESS_FUSION_W_LITERAL": "0.0",
+        "VOYAGER_GROUNDEDNESS_FUSION_W_NLI": "1.0",
+        "VOYAGER_GROUNDEDNESS_FUSION_W_SEMANTIC_ENTROPY": "0.0",
+        "VOYAGER_GROUNDEDNESS_FUSION_W_STRUCTURED": "0.0",
+        "VOYAGER_GROUNDEDNESS_THRESHOLDS_PATH": _profile_data_path("thresholds.balanced.json"),
+    },
+    "quality": {
+        # Full stack: NLI + cross-encoder reranker + atomic-claim
+        # decomposition + multi-premise concatenation + semantic entropy
+        # peer (when callers pass ensemble samples). The fusion weights
+        # follow the sweep winner ``literal=0.2 / nli=0.7`` with a small
+        # ``semantic_entropy=0.1`` head-room so SE contributes whenever
+        # ensemble samples are available; the renormalisation step in
+        # ``fuse_groundedness_v2`` cleanly drops SE when callers do not
+        # opt in.
+        "VOYAGER_GROUNDEDNESS_NLI_ENABLED": "1",
+        "VOYAGER_GROUNDEDNESS_NLI_ATOMIC_CLAIMS": "1",
+        "VOYAGER_GROUNDEDNESS_NLI_PREMISE_CONCAT": "1",
+        "VOYAGER_GROUNDEDNESS_NLI_PREMISE_RERANKER_MODEL": "BAAI/bge-reranker-v2-m3",
+        "VOYAGER_GROUNDEDNESS_FUSION_W_CALIBRATED": "0.0",
+        "VOYAGER_GROUNDEDNESS_FUSION_W_LITERAL": "0.2",
+        "VOYAGER_GROUNDEDNESS_FUSION_W_NLI": "0.7",
+        "VOYAGER_GROUNDEDNESS_FUSION_W_SEMANTIC_ENTROPY": "0.1",
+        "VOYAGER_GROUNDEDNESS_FUSION_W_STRUCTURED": "0.0",
+        "VOYAGER_GROUNDEDNESS_THRESHOLDS_PATH": _profile_data_path("thresholds.quality.json"),
+    },
+}
+
+
+@dataclass(frozen=True)
+class ProfileApplication:
+    """Result of :func:`apply_profile` describing which keys were touched."""
+
+    profile: str
+    applied: Dict[str, str] = field(default_factory=dict)
+    skipped: Dict[str, str] = field(default_factory=dict)
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "profile": self.profile,
+            "applied": dict(self.applied),
+            "skipped": dict(self.skipped),
+        }
+
+
+def apply_profile(
+    profile: Optional[str],
+    *,
+    env: Optional[Dict[str, str]] = None,
+    overrides: Optional[Mapping[str, str]] = None,
+    refresh_thresholds: bool = True,
+) -> ProfileApplication:
+    """Materialise the env overlay for the given profile.
+
+    Parameters
+    ----------
+    profile:
+        One of :data:`PROFILE_NAMES` or ``None``. Empty strings, ``None``
+        and the literal value ``"none"`` are treated as no-ops.
+    env:
+        Optional mutable mapping (defaults to :data:`os.environ`). The
+        overlay is applied in-place so the rest of the process picks up
+        the new values via the existing env-var readers in
+        :mod:`latence_trace.core.nli`,
+        :mod:`latence_trace.core.semantic_entropy` and
+        :mod:`latence_trace.core.thresholds`.
+    overrides:
+        Optional explicit overrides applied on top of the preset. Useful
+        for the standalone server's CLI flags (e.g. forcing a custom
+        thresholds path).
+    refresh_thresholds:
+        When True (the default) the cached
+        :class:`~latence_trace.core.thresholds.RiskBandPolicy` is
+        rebuilt so the per-profile JSON file takes effect immediately.
+
+    Returns
+    -------
+    :class:`ProfileApplication`
+        Diagnostics describing which environment variables were applied
+        versus skipped because the operator already exported them.
+
+    Notes
+    -----
+    The function never overwrites an existing environment variable. This
+    is intentional: profiles are convenience defaults for new operators,
+    but any explicit env var on the host wins so production tuning
+    decisions remain authoritative.
+    """
+
+    target_env = os.environ if env is None else env
+    if profile is None or not str(profile).strip() or str(profile).strip().lower() == "none":
+        return ProfileApplication(profile="none")
+
+    name = str(profile).strip().lower()
+    if name not in PROFILE_ENV_PRESETS:
+        raise ValueError(
+            "Unknown groundedness profile '{0}'. Choose one of: {1}".format(
+                profile, ", ".join(sorted(PROFILE_ENV_PRESETS.keys()))
+            )
+        )
+
+    preset: Dict[str, str] = dict(PROFILE_ENV_PRESETS[name])
+    if overrides:
+        for key, value in overrides.items():
+            preset[str(key)] = str(value)
+
+    applied: Dict[str, str] = {}
+    skipped: Dict[str, str] = {}
+    for key, value in preset.items():
+        if key in target_env:
+            skipped[key] = target_env[key]
+            continue
+        target_env[key] = value
+        applied[key] = value
+
+    # Always advertise the active profile so downstream diagnostics can
+    # surface it even when no env vars were touched.
+    target_env.setdefault("LATENCE_TRACE_ACTIVE_PROFILE", name)
+
+    if refresh_thresholds:
+        try:
+            from latence_trace.core.thresholds import get_risk_band_policy
+
+            get_risk_band_policy(refresh=True)
+        except Exception as exc:  # pragma: no cover - defensive logging only
+            logger.warning(
+                "profile_thresholds_refresh_failed",
+                extra={"profile": name, "error": str(exc)},
+            )
+
+    logger.info(
+        "groundedness_profile_applied",
+        extra={"profile": name, "applied_keys": sorted(applied.keys()), "skipped_keys": sorted(skipped.keys())},
+    )
+    return ProfileApplication(profile=name, applied=applied, skipped=skipped)
 
 
 # ---------------------------------------------------------------------------
@@ -649,9 +851,14 @@ __all__ = [
     "ChunkResolver",
     "DEFAULT_GROUNDEDNESS_MODEL",
     "DEFAULT_GROUNDEDNESS_TORCH_DTYPE",
+    "DEFAULT_PROFILE",
     "GroundednessService",
     "NotFoundError",
+    "PROFILE_ENV_PRESETS",
+    "PROFILE_NAMES",
+    "ProfileApplication",
     "ResolvedChunk",
     "ServiceError",
     "ValidationError",
+    "apply_profile",
 ]

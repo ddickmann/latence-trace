@@ -634,6 +634,171 @@ def _slot_factory(rng: random.Random) -> dict:
     }
 
 
+# German minimal-pair fixtures. Pre-rendered (no slot machinery) so the
+# bilingual coverage is easy to read and audit. Mixes the same stratum
+# families used elsewhere (entity/date/number/negation/role/partial)
+# inside a single ``de_minimal_pairs`` stratum so the harness reports a
+# single German headline without having to grow ten parallel buckets.
+_DE_TEMPLATES = [
+    (
+        "Berlin ist seit 1990 die Hauptstadt Deutschlands und z\u00e4hlt rund 3,7 Millionen Einwohner.",
+        "Die Hauptstadt Deutschlands ist Berlin, mit rund 3,7 Millionen Einwohnern.",
+        "Die Hauptstadt Deutschlands ist M\u00fcnchen, mit rund 3,7 Millionen Einwohnern.",
+        "DE entity swap (capital city)",
+    ),
+    (
+        "Die deutsche Wiedervereinigung wurde am 3. Oktober 1990 offiziell vollzogen.",
+        "Die deutsche Wiedervereinigung fand am 3. Oktober 1990 statt.",
+        "Die deutsche Wiedervereinigung fand am 9. November 1990 statt.",
+        "DE date swap",
+    ),
+    (
+        "Die Berliner Mauer fiel am 9. November 1989 nach 28 Jahren.",
+        "Die Berliner Mauer fiel am 9. November 1989.",
+        "Die Berliner Mauer fiel am 9. November 1990.",
+        "DE date swap (year)",
+    ),
+    (
+        "Goethe wurde am 28.08.1749 in Frankfurt geboren.",
+        "Goethe wurde am 28.08.1749 in Frankfurt geboren.",
+        "Goethe wurde am 28.08.1749 in Weimar geboren.",
+        "DE entity swap (birthplace)",
+    ),
+    (
+        "Die Single Teardrops von George Harrison erschien am 20.07.1981 in den USA.",
+        "Teardrops wurde am 20.07.1981 in den USA ver\u00f6ffentlicht.",
+        "Teardrops wurde am 20.07.1982 in den USA ver\u00f6ffentlicht.",
+        "DE date swap",
+    ),
+    (
+        "Der Listenpreis des Ger\u00e4ts betrug 1.234,56 EUR pro Einheit.",
+        "Das Ger\u00e4t kostete 1.234,56 EUR pro Einheit.",
+        "Das Ger\u00e4t kostete 1.234,57 EUR pro Einheit.",
+        "DE number swap (currency)",
+    ),
+    (
+        "Die Strecke zwischen Hamburg und M\u00fcnchen ist rund 775 km lang.",
+        "Die Strecke betr\u00e4gt etwa 775 km.",
+        "Die Strecke betr\u00e4gt etwa 875 km.",
+        "DE number swap",
+    ),
+    (
+        "Die Mehrwertsteuer in Deutschland liegt bei 19%.",
+        "Die deutsche Mehrwertsteuer betr\u00e4gt 19%.",
+        "Die deutsche Mehrwertsteuer betr\u00e4gt 20,5%.",
+        "DE percent swap",
+    ),
+    (
+        "Die Zugspitze ist mit 2.962 Metern der h\u00f6chste Berg Deutschlands.",
+        "Mit 2.962 Metern ist die Zugspitze der h\u00f6chste Berg Deutschlands.",
+        "Mit 2.972 Metern ist die Zugspitze der h\u00f6chste Berg Deutschlands.",
+        "DE number swap (elevation)",
+    ),
+    (
+        "Albert Einstein ver\u00f6ffentlichte 1905 die spezielle Relativit\u00e4tstheorie in Bern.",
+        "Einstein ver\u00f6ffentlichte 1905 die spezielle Relativit\u00e4tstheorie.",
+        "Einstein ver\u00f6ffentlichte 1915 die spezielle Relativit\u00e4tstheorie.",
+        "DE date swap (year)",
+    ),
+    (
+        "Die Europ\u00e4ische Zentralbank hat ihren Sitz seit 1998 in Frankfurt am Main.",
+        "Die EZB sitzt seit 1998 in Frankfurt am Main.",
+        "Die EZB sitzt seit 1998 in Br\u00fcssel.",
+        "DE entity swap (city)",
+    ),
+    (
+        "Goethe schrieb den ersten Teil des Faust und Schiller verfasste Wallenstein.",
+        "Goethe schrieb den Faust; Schiller verfasste Wallenstein.",
+        "Schiller schrieb den Faust; Goethe verfasste Wallenstein.",
+        "DE role swap",
+    ),
+    (
+        "Die Bundesrepublik Deutschland hat 16 Bundesl\u00e4nder, darunter Bayern und Sachsen.",
+        "Bayern und Sachsen sind zwei der 16 deutschen Bundesl\u00e4nder.",
+        "Bayern und Sachsen sind zwei der 17 deutschen Bundesl\u00e4nder.",
+        "DE number swap",
+    ),
+    (
+        "Der Rhein flie\u00dft \u00fcber rund 1.233 Kilometer von den Alpen in die Nordsee.",
+        "Der Rhein hat eine L\u00e4nge von rund 1.233 Kilometern.",
+        "Der Rhein hat eine L\u00e4nge von rund 1.500 Kilometern.",
+        "DE number swap",
+    ),
+    (
+        "Bach komponierte das Wohltemperierte Klavier in zwei B\u00e4nden \u00fcber etwa 20 Jahre.",
+        "Bach komponierte das Wohltemperierte Klavier \u00fcber rund 20 Jahre.",
+        "Bach komponierte das Wohltemperierte Klavier in einem einzigen Jahr.",
+        "DE number / partial swap",
+    ),
+    (
+        "Mozart komponierte zu Lebzeiten mehr als 600 Werke und starb 1791 in Wien.",
+        "Mozart starb 1791 in Wien.",
+        "Mozart starb 1791 in Salzburg.",
+        "DE entity swap (city)",
+    ),
+    (
+        "Die Wahl zum 21. Bundestag fand am 23. Februar 2025 statt.",
+        "Die Bundestagswahl 2025 fand am 23. Februar 2025 statt.",
+        "Die Bundestagswahl 2025 fand am 23. Mai 2025 statt.",
+        "DE date swap",
+    ),
+    (
+        "Die deutsche Sprache hat etwa 100 Millionen Muttersprachler weltweit.",
+        "Deutsch wird von rund 100 Millionen Menschen als Muttersprache gesprochen.",
+        "Deutsch wird von rund 200 Millionen Menschen als Muttersprache gesprochen.",
+        "DE number swap",
+    ),
+    (
+        "Karl der Gro\u00dfe wurde am 25. Dezember 800 in Rom zum Kaiser gekr\u00f6nt.",
+        "Karl der Gro\u00dfe wurde 800 in Rom zum Kaiser gekr\u00f6nt.",
+        "Karl der Gro\u00dfe wurde 800 in Aachen zum Kaiser gekr\u00f6nt.",
+        "DE entity swap (place)",
+    ),
+    (
+        "Otto von Bismarck war von 1871 bis 1890 erster Reichskanzler des Deutschen Reiches.",
+        "Bismarck war Reichskanzler von 1871 bis 1890.",
+        "Bismarck war Reichskanzler von 1871 bis 1900.",
+        "DE date swap",
+    ),
+    (
+        "Volkswagen wurde 1937 in Wolfsburg gegr\u00fcndet und produziert dort bis heute.",
+        "Volkswagen ist seit 1937 in Wolfsburg ans\u00e4ssig.",
+        "Volkswagen ist seit 1937 in Stuttgart ans\u00e4ssig.",
+        "DE entity swap (city)",
+    ),
+    (
+        "Die Donau ist mit 2.857 Kilometern der zweitl\u00e4ngste Fluss Europas.",
+        "Die Donau ist mit 2.857 km der zweitl\u00e4ngste Fluss Europas.",
+        "Die Donau ist mit 2.857 km der l\u00e4ngste Fluss Europas.",
+        "DE partial / role swap (rank)",
+    ),
+    (
+        "Die Allianz Arena in M\u00fcnchen wurde im Jahr 2005 er\u00f6ffnet.",
+        "Die Allianz Arena wurde 2005 er\u00f6ffnet.",
+        "Die Allianz Arena wurde 2015 er\u00f6ffnet.",
+        "DE date swap (year)",
+    ),
+    (
+        "Die Stadt Hamburg liegt nicht an der Ostsee, sondern an der Elbe.",
+        "Hamburg liegt nicht an der Ostsee.",
+        "Hamburg liegt an der Ostsee.",
+        "DE negation",
+    ),
+    (
+        "Beethoven wurde 1770 in Bonn geboren und nicht in Wien.",
+        "Beethoven wurde in Bonn geboren.",
+        "Beethoven wurde in Wien geboren.",
+        "DE negation",
+    ),
+    (
+        "Die deutsche Nationalmannschaft gewann die Fu\u00dfball-WM zuletzt 2014 in Brasilien.",
+        "Deutschland gewann die WM 2014 in Brasilien.",
+        "Deutschland gewann die WM 2018 in Brasilien.",
+        "DE date swap",
+    ),
+]
+
+
 _STRATA = [
     ("entity_swap", _ENTITY_TEMPLATES),
     ("date_swap", _DATE_TEMPLATES),
@@ -645,7 +810,15 @@ _STRATA = [
     ("hard_compound_facts", _HARD_COMPOUND_FACT_TEMPLATES),
     ("hard_structured", _HARD_STRUCTURED_TEMPLATES),
     ("hard_dialogue_distributed", _HARD_DIALOGUE_DISTRIBUTED_TEMPLATES),
+    ("de_minimal_pairs", _DE_TEMPLATES),
 ]
+
+
+# de_minimal_pairs uses pre-rendered templates (no slot machinery). The
+# build loop below special-cases the stratum to skip ``str.format`` and
+# emit one pair per template instead of looping until ``pairs_per_stratum``
+# is reached - that keeps the German lane at a fixed, audited size.
+_PRERENDERED_STRATA = {"de_minimal_pairs"}
 
 
 def build_minimal_pairs(
@@ -663,6 +836,24 @@ def build_minimal_pairs(
     pairs: List[MinimalPair] = []
     seen: set = set()
     for stratum, templates in _STRATA:
+        if stratum in _PRERENDERED_STRATA:
+            for emitted, template in enumerate(templates):
+                context, positive, negative, notes = template
+                if positive == negative:
+                    continue
+                sig = (stratum, positive, negative)
+                if sig in seen:
+                    continue
+                seen.add(sig)
+                pairs.append(MinimalPair(
+                    pair_id="MP-{stratum}-{idx:04d}".format(stratum=stratum, idx=emitted),
+                    stratum=stratum,
+                    context=context,
+                    positive=positive,
+                    negative=negative,
+                    notes=notes,
+                ))
+            continue
         emitted = 0
         attempts = 0
         while emitted < pairs_per_stratum:

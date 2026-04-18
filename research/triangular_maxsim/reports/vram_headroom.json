@@ -1,0 +1,42 @@
+{
+  "encoder": "VAGOsolutions/SauerkrautLM-Multi-Reason-ModernColBERT",
+  "fits_within_cap": true,
+  "nli": "MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7",
+  "reranker": "BAAI/bge-reranker-v2-m3",
+  "snapshots": [
+    {
+      "allocated_mb": 0.0,
+      "available": true,
+      "device": "NVIDIA RTX A5000",
+      "label": "baseline",
+      "peak_allocated_mb": 0.0,
+      "reserved_mb": 0.0
+    },
+    {
+      "allocated_mb": 302.38916015625,
+      "available": true,
+      "device": "NVIDIA RTX A5000",
+      "label": "after_encoder",
+      "peak_allocated_mb": 302.52392578125,
+      "reserved_mb": 316.0
+    },
+    {
+      "allocated_mb": 1368.7490234375,
+      "available": true,
+      "device": "NVIDIA RTX A5000",
+      "label": "after_nli",
+      "peak_allocated_mb": 1377.5625,
+      "reserved_mb": 1414.0
+    },
+    {
+      "allocated_mb": 3534.69189453125,
+      "available": true,
+      "device": "NVIDIA RTX A5000",
+      "label": "after_reranker",
+      "peak_allocated_mb": 3536.23974609375,
+      "reserved_mb": 3580.0
+    }
+  ],
+  "torch_dtype": "bfloat16",
+  "vram_cap_mb": 24576
+}

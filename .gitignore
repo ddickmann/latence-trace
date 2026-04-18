@@ -23,6 +23,10 @@ site/
 # Bench data and large checked-out corpora
 research/triangular_maxsim/external_data/
 data/
+# Re-allow the small calibration / fusion artefacts that the runtime
+# loads via PROFILE_ENV_PRESETS - these are tiny JSON files, not corpora.
+!latence_trace/data/
+!latence_trace/data/*.json
 
 # Heavy artefacts (allow only the small in-repo encoder fixtures explicitly)
 *.pt

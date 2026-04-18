@@ -7,6 +7,8 @@ and classifies every output into a calibrated `green` / `amber` / `red`
 risk band. It is **multilingual: English + German** out of the box.
 
 - **Product overview:** [`guides/beta-overview.md`](guides/beta-overview.md)
+- **Pareto-optimal default profiles (`fast` / `balanced` / `quality`):**
+  [`guides/profiles.md`](guides/profiles.md)
 - **Multilingual configuration (EN + DE):**
   [`guides/multilingual.md`](guides/multilingual.md)
 - **Benchmarks:** [`benchmarks.md`](benchmarks.md)

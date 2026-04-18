@@ -68,19 +68,64 @@ from latence_trace.core.groundedness import (  # noqa: E402
 # ----------------------------------------------------------------------
 
 
+def _resolve_torch_dtype(name: Optional[str]):
+    """Map a string dtype name to a torch.dtype (or ``None`` for default)."""
+
+    if not name:
+        return None
+    label = name.strip().lower()
+    if label in {"", "default", "none", "auto"}:
+        return None
+    mapping = {
+        "bf16": torch.bfloat16,
+        "bfloat16": torch.bfloat16,
+        "fp16": torch.float16,
+        "float16": torch.float16,
+        "half": torch.float16,
+        "fp32": torch.float32,
+        "float32": torch.float32,
+        "full": torch.float32,
+    }
+    if label not in mapping:
+        raise ValueError(
+            "Unsupported VOYAGER_GROUNDEDNESS_TORCH_DTYPE='{0}'. "
+            "Use one of bfloat16, float16, float32, or 'default'.".format(name)
+        )
+    return mapping[label]
+
+
 def _load_provider(model_name: Optional[str]):
-    """Load a real provider for production runs, else fall back to the dummy."""
+    """Load a real provider for production runs, else fall back to the dummy.
+
+    Honours ``VOYAGER_GROUNDEDNESS_TORCH_DTYPE`` (default ``bfloat16``) so the
+    sweep matches the production service-level encoder configuration.
+    """
 
     if model_name:
         try:
             from pylate import models
 
             device = "cuda" if torch.cuda.is_available() else "cpu"
-            return models.ColBERT(
-                model_name_or_path=model_name,
-                device=device,
-                do_query_expansion=False,
-            )
+            dtype_name = os.environ.get("VOYAGER_GROUNDEDNESS_TORCH_DTYPE", "bfloat16")
+            torch_dtype = _resolve_torch_dtype(dtype_name)
+            model_kwargs: Dict[str, Any] = {}
+            if torch_dtype is not None:
+                model_kwargs["torch_dtype"] = torch_dtype
+            try:
+                return models.ColBERT(
+                    model_name_or_path=model_name,
+                    device=device,
+                    do_query_expansion=False,
+                    trust_remote_code=True,
+                    model_kwargs=model_kwargs or None,
+                )
+            except TypeError:
+                # Older pylate without model_kwargs / trust_remote_code support.
+                return models.ColBERT(
+                    model_name_or_path=model_name,
+                    device=device,
+                    do_query_expansion=False,
+                )
         except Exception:
             pass
     from tests.test_groundedness_service import DummyGroundednessProvider
@@ -723,7 +768,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         "--nli-model",
         default=os.environ.get(
             "VOYAGER_GROUNDEDNESS_NLI_MODEL",
-            "MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli",
+            "MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7",
         ),
     )
     parser.add_argument(
