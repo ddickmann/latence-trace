@@ -797,6 +797,67 @@ def segment_text(
     return _sentence_spans(text)
 
 
+_DEFAULT_COVERAGE_THRESHOLD = 0.5
+
+
+def compute_unit_coverage(
+    reverse_context_unit_values: torch.Tensor,
+    *,
+    threshold: float = _DEFAULT_COVERAGE_THRESHOLD,
+) -> Dict[str, Any]:
+    """Per-support-unit coverage scorer (retrieval-efficiency observability).
+
+    Given the per-(response_token, support_unit) similarity matrix
+    ``reverse_context_unit_values`` (shape ``(R, U)``) — already computed by
+    the scoring kernel as the max similarity of each response token to the
+    tokens of each support unit — this helper reduces along the response
+    axis to produce one ``coverage_score`` per support unit:
+
+        coverage_score[u] = max over response tokens t of m[t, u]
+
+    A unit is considered "used" when its coverage score crosses
+    ``threshold`` (default 0.5 — a conservative cutoff on raw cosine
+    similarity that separates "weak match" from "strong match" for ColBERT-
+    style normalized embeddings). The global ``coverage_ratio`` is the
+    fraction of units with ``used == True`` and is the headline retrieval-
+    efficiency observability metric: a ratio of 0.4 means 60% of the
+    retrieved chunks contributed nothing strong to the response and the
+    retriever is pulling too much dead weight.
+
+    The function is pure (no I/O, no provider state) and runs in O(R * U)
+    elementary ops, the same order as the existing per-unit reductions, so
+    it adds no measurable latency to the scoring path.
+    """
+
+    if reverse_context_unit_values.numel() == 0 or reverse_context_unit_values.shape[1] == 0:
+        return {
+            "per_unit_max": [],
+            "used_mask": [],
+            "used_count": 0,
+            "total_count": 0,
+            "coverage_ratio": 0.0,
+            "threshold": float(threshold),
+        }
+    per_unit_max = reverse_context_unit_values.max(dim=0).values
+    finite_mask = torch.isfinite(per_unit_max)
+    safe_per_unit_max = torch.where(
+        finite_mask,
+        per_unit_max,
+        torch.full_like(per_unit_max, -1.0),
+    )
+    used_mask = safe_per_unit_max >= float(threshold)
+    used_count = int(used_mask.sum().item())
+    total_count = int(safe_per_unit_max.shape[0])
+    return {
+        "per_unit_max": safe_per_unit_max.detach().cpu().tolist(),
+        "used_mask": used_mask.detach().cpu().tolist(),
+        "used_count": used_count,
+        "total_count": total_count,
+        "coverage_ratio": float(used_count) / float(total_count) if total_count > 0 else 0.0,
+        "threshold": float(threshold),
+    }
+
+
 def _support_unit_maxima(
     similarity: torch.Tensor,
     support_tokens_nested: Sequence[Sequence[str]],
@@ -1441,6 +1502,7 @@ def score_groundedness(
     content_type: Optional[str] = None,
     structured_enabled: Optional[bool] = None,
     structured_support_text: Optional[str] = None,
+    coverage_threshold: float = _DEFAULT_COVERAGE_THRESHOLD,
     _emit_dedup_warning: bool = True,
 ) -> Dict[str, Any]:
     """Score response groundedness against support units.
@@ -1666,6 +1728,27 @@ def score_groundedness(
         denom = max(support_score_denominators[unit_idx], 1e-9)
         payload["score"] = float(support_score_numerators[unit_idx] / denom) if support_score_denominators[unit_idx] else 0.0
 
+    # Per-unit coverage: max-over-response-tokens similarity to each unit.
+    # This is the retrieval-efficiency observability signal — units with
+    # coverage below threshold contributed nothing strong to any response
+    # token and are dead weight from the retriever.
+    coverage = compute_unit_coverage(
+        reverse_context_unit_values,
+        threshold=coverage_threshold,
+    )
+    coverage_per_unit = coverage["per_unit_max"]
+    coverage_used_mask = coverage["used_mask"]
+    attribution_used_count = sum(
+        1 for payload in support_units_payload if int(payload["matched_response_tokens"]) > 0
+    )
+    for unit_idx, payload in enumerate(support_units_payload):
+        if unit_idx < len(coverage_per_unit):
+            payload["coverage_score"] = float(coverage_per_unit[unit_idx])
+            payload["used"] = bool(coverage_used_mask[unit_idx])
+        else:
+            payload["coverage_score"] = 0.0
+            payload["used"] = False
+
     evidence_candidates.sort(key=lambda item: item["_rank"], reverse=True)
     top_evidence = [
         {key: value for key, value in evidence.items() if key != "_rank"}
@@ -1836,6 +1919,15 @@ def score_groundedness(
             bool(structured_payload["detected"]) if structured_payload else None
         ),
         "risk_band": risk_band,
+        "context_coverage_ratio": float(coverage["coverage_ratio"]),
+        "context_coverage_threshold": float(coverage["threshold"]),
+        "support_units_used": int(coverage["used_count"]),
+        "support_units_total": int(coverage["total_count"]),
+        "context_attribution_ratio": (
+            float(attribution_used_count) / float(coverage["total_count"])
+            if coverage["total_count"] > 0 else 0.0
+        ),
+        "context_attribution_used_count": int(attribution_used_count),
     }
 
     return {
@@ -2132,6 +2224,7 @@ def score_groundedness_chunked(
     content_type: Optional[str] = None,
     structured_enabled: Optional[bool] = None,
     structured_support_text: Optional[str] = None,
+    coverage_threshold: float = _DEFAULT_COVERAGE_THRESHOLD,
 ) -> Dict[str, Any]:
     """Score chunked support windows and merge them by per-token maxima.
 
@@ -2171,6 +2264,7 @@ def score_groundedness_chunked(
             content_type=content_type,
             structured_enabled=structured_enabled,
             structured_support_text=structured_support_text,
+            coverage_threshold=coverage_threshold,
         )
 
     flat_support_units = [unit for batch in batches for unit in batch]
@@ -2490,6 +2584,23 @@ def score_groundedness_chunked(
         denom = max(support_score_denominators[unit_idx], 1e-9)
         payload["score"] = float(support_score_numerators[unit_idx] / denom) if support_score_denominators[unit_idx] else 0.0
 
+    coverage = compute_unit_coverage(
+        reverse_context_unit_values,
+        threshold=coverage_threshold,
+    )
+    coverage_per_unit = coverage["per_unit_max"]
+    coverage_used_mask = coverage["used_mask"]
+    attribution_used_count = sum(
+        1 for payload in support_units_payload if int(payload["matched_response_tokens"]) > 0
+    )
+    for unit_idx, payload in enumerate(support_units_payload):
+        if unit_idx < len(coverage_per_unit):
+            payload["coverage_score"] = float(coverage_per_unit[unit_idx])
+            payload["used"] = bool(coverage_used_mask[unit_idx])
+        else:
+            payload["coverage_score"] = 0.0
+            payload["used"] = False
+
     evidence_candidates.sort(key=lambda item: item["_rank"], reverse=True)
     top_evidence = [
         {key: value for key, value in evidence.items() if key != "_rank"}
@@ -2650,6 +2761,15 @@ def score_groundedness_chunked(
             bool(structured_payload["detected"]) if structured_payload else None
         ),
         "risk_band": risk_band,
+        "context_coverage_ratio": float(coverage["coverage_ratio"]),
+        "context_coverage_threshold": float(coverage["threshold"]),
+        "support_units_used": int(coverage["used_count"]),
+        "support_units_total": int(coverage["total_count"]),
+        "context_attribution_ratio": (
+            float(attribution_used_count) / float(coverage["total_count"])
+            if coverage["total_count"] > 0 else 0.0
+        ),
+        "context_attribution_used_count": int(attribution_used_count),
     }
 
     return {
@@ -2818,6 +2938,7 @@ def score_groundedness_response_chunked(
     content_type: Optional[str] = None,
     structured_enabled: Optional[bool] = None,
     structured_support_text: Optional[str] = None,
+    coverage_threshold: float = _DEFAULT_COVERAGE_THRESHOLD,
 ) -> Dict[str, Any]:
     """Score response groundedness across one or more response chunks.
 
@@ -2888,6 +3009,7 @@ def score_groundedness_response_chunked(
             content_type=content_type,
             structured_enabled=structured_enabled,
             structured_support_text=structured_support_text,
+            coverage_threshold=coverage_threshold,
         )
         spans = chunk_token_spans[0]
         for row in result["response_tokens"]:
@@ -2937,6 +3059,7 @@ def score_groundedness_response_chunked(
             content_type=content_type,
             structured_enabled=structured_enabled if is_first else None,
             structured_support_text=structured_support_text if is_first else None,
+            coverage_threshold=coverage_threshold,
         )
         chunk_results.append(chunk_result)
         for warning_msg in chunk_result.get("warnings", []):
@@ -3202,6 +3325,38 @@ def score_groundedness_response_chunked(
             if support_score_denominators[unit_idx] else 0.0
         )
 
+    # Per-unit coverage across response chunks: each chunk already computed
+    # coverage_score against the FULL support set (because each chunk is
+    # scored against support_batches in full). The global coverage for unit
+    # u is therefore the max over chunks of chunk_k.support_units[u].
+    # coverage_score. This is mathematically exact — partitioning the
+    # response axis cannot change the maximum, only how it is computed.
+    unit_count = len(flat_support_units)
+    coverage_per_unit_global: List[float] = [float("-inf")] * unit_count
+    for chunk_result in chunk_results:
+        for chunk_unit in chunk_result.get("support_units", []):
+            unit_idx = int(chunk_unit.get("index", -1))
+            if not (0 <= unit_idx < unit_count):
+                continue
+            chunk_cov = chunk_unit.get("coverage_score")
+            if chunk_cov is None:
+                continue
+            chunk_cov_value = float(chunk_cov)
+            if chunk_cov_value > coverage_per_unit_global[unit_idx]:
+                coverage_per_unit_global[unit_idx] = chunk_cov_value
+    for unit_idx, payload in enumerate(support_units_payload):
+        cov = coverage_per_unit_global[unit_idx]
+        if cov == float("-inf"):
+            cov = 0.0
+        payload["coverage_score"] = float(cov)
+        payload["used"] = bool(cov >= float(coverage_threshold))
+
+    coverage_used_count = sum(1 for payload in support_units_payload if payload["used"])
+    coverage_attribution_used_count = sum(
+        1 for payload in support_units_payload if int(payload["matched_response_tokens"]) > 0
+    )
+    coverage_total = unit_count
+
     evidence_candidates.sort(key=lambda item: item["_rank"], reverse=True)
     top_evidence = [
         {key: value for key, value in evidence.items() if key != "_rank"}
@@ -3308,6 +3463,17 @@ def score_groundedness_response_chunked(
     scores["null_bank_size"] = null_bank_size
     scores["groundedness_v2"] = float(groundedness_v2) if groundedness_v2 is not None else None
     scores["risk_band"] = risk_band
+    scores["context_coverage_ratio"] = (
+        float(coverage_used_count) / float(coverage_total) if coverage_total > 0 else 0.0
+    )
+    scores["context_coverage_threshold"] = float(coverage_threshold)
+    scores["support_units_used"] = int(coverage_used_count)
+    scores["support_units_total"] = int(coverage_total)
+    scores["context_attribution_ratio"] = (
+        float(coverage_attribution_used_count) / float(coverage_total)
+        if coverage_total > 0 else 0.0
+    )
+    scores["context_attribution_used_count"] = int(coverage_attribution_used_count)
 
     return {
         "scores": scores,

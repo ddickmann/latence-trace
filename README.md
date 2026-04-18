@@ -91,6 +91,23 @@ All channels are renormalized into a single `groundedness_v2` headline; the
 runtime classifies that headline into a per-stratum risk band using calibrated
 thresholds (`thresholds.json`).
 
+### Retrieval-efficiency observability (context coverage)
+
+Every response carries two scalars and a per-unit flag that turn the
+scoring engine into a feedback channel for your retriever:
+
+| Field | Where | What it tells you |
+|---|---|---|
+| `scores.context_coverage_ratio` | global | Fraction of fetched support units whose `coverage_score` crossed `coverage_threshold` (default 0.5). Range `[0, 1]`. **`0.4` means 60% of the chunks the retriever pulled were dead weight.** |
+| `scores.context_attribution_ratio` | global | Strictly stricter signal: fraction of units that were the argmax support for at least one response token. Always `<= context_coverage_ratio`. The gap is "semantically relevant but lost to a sibling chunk" — candidates for retrieval dedup. |
+| `support_units[i].coverage_score` | per-unit | Max reverse-context similarity any response token had to this unit. Independent of argmax. |
+| `support_units[i].used` | per-unit | `True` when `coverage_score >= coverage_threshold`. Filter `used == False` to surface dead-weight chunks. |
+
+Cost: one `max(dim=0)` reduction over the already-computed
+`(R, U)` per-unit similarity matrix. No extra encoder calls, no extra
+Triton kernels, no detectable latency overhead. Tune the threshold per
+request via `coverage_threshold` (range `[0, 1]`, default `0.5`).
+
 ### Long contexts and long responses
 
 Both `raw_context` and `response_text` are **sentence-packed into windows

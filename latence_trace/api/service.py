@@ -865,6 +865,7 @@ class GroundednessService:
             primary_metric=request.primary_metric.value,
             debug_dense_matrices=request.debug_dense_matrices,
             null_bank_embeddings=null_bank_embeddings or None,
+            coverage_threshold=float(request.coverage_threshold),
             **nli_kwargs,
         )
         if scored.get("_response_chunk_count", 1) > 1:

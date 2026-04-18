@@ -175,6 +175,23 @@ class GroundednessRequest(BaseModel):
             "truncation."
         ),
     )
+    coverage_threshold: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Threshold on per-support-unit reverse-context similarity used "
+            "to flag a unit as 'used' in the context-coverage observability "
+            "signal. A unit's coverage_score is the maximum similarity any "
+            "response token had to that unit's tokens; when it crosses this "
+            "threshold the unit is counted as having contributed strongly to "
+            "the response. Defaults to 0.5, a conservative cutoff for "
+            "ColBERT-style normalized embeddings (raise to 0.6-0.7 for "
+            "stricter retrieval-efficiency reporting; lower to 0.3-0.4 for "
+            "tolerant scoring on noisy multilingual encoders). The threshold "
+            "is reported back in scores.context_coverage_threshold."
+        ),
+    )
     primary_metric: GroundednessPrimaryMetric = Field(
         default=GroundednessPrimaryMetric.REVERSE_CONTEXT,
         description="Primary scalar score exposed as the headline groundedness metric. The shipped Beta default is reverse_context.",
@@ -287,6 +304,58 @@ class GroundednessScores(BaseModel):
     structured_source_guarded: Optional[float] = None
     structured_source_detected: Optional[bool] = None
     risk_band: Optional[str] = None
+    context_coverage_ratio: Optional[float] = Field(
+        default=None,
+        description=(
+            "Retrieval-efficiency observability metric: the fraction of "
+            "support units whose coverage_score >= context_coverage_threshold. "
+            "Range [0, 1]. Higher values mean the retriever's chunks were "
+            "actually useful to the response. A value of 0.4 means 60% of the "
+            "fetched chunks were dead weight — strong signal that the "
+            "retrieval k or query expansion is over-fetching."
+        ),
+    )
+    context_coverage_threshold: Optional[float] = Field(
+        default=None,
+        description=(
+            "Threshold on per-unit reverse-context similarity used to flag a "
+            "support unit as 'used'. Default 0.5 — a conservative cutoff for "
+            "ColBERT-style normalized embeddings. Configurable per request "
+            "via coverage_threshold."
+        ),
+    )
+    support_units_used: Optional[int] = Field(
+        default=None,
+        description=(
+            "Count of support units with coverage_score >= "
+            "context_coverage_threshold. Numerator of context_coverage_ratio."
+        ),
+    )
+    support_units_total: Optional[int] = Field(
+        default=None,
+        description=(
+            "Total support units evaluated. Denominator of "
+            "context_coverage_ratio."
+        ),
+    )
+    context_attribution_ratio: Optional[float] = Field(
+        default=None,
+        description=(
+            "Stricter retrieval-efficiency signal than context_coverage_ratio: "
+            "the fraction of support units that were the *argmax* support for "
+            "at least one response token. Always <= context_coverage_ratio. "
+            "Use the gap between the two ratios to identify units that were "
+            "semantically relevant but lost to a sibling chunk — those are "
+            "candidates for retrieval deduplication."
+        ),
+    )
+    context_attribution_used_count: Optional[int] = Field(
+        default=None,
+        description=(
+            "Count of support units with matched_response_tokens > 0. "
+            "Numerator of context_attribution_ratio."
+        ),
+    )
 
 
 class GroundednessLiteral(BaseModel):
@@ -458,6 +527,27 @@ class GroundednessSupportUnit(BaseModel):
     token_scores: List[float]
     score: float
     matched_response_tokens: int
+    coverage_score: float = Field(
+        default=0.0,
+        description=(
+            "Per-unit context-coverage score: the maximum reverse-context "
+            "similarity any response token had to this support unit (range "
+            "[0, 1]). Independent of argmax attribution — a unit can have "
+            "high coverage yet matched_response_tokens=0 when sibling units "
+            "scored even higher. Use this with the global "
+            "scores.context_coverage_threshold to decide whether the unit "
+            "actually contributed to the response."
+        ),
+    )
+    used: bool = Field(
+        default=False,
+        description=(
+            "True when coverage_score >= scores.context_coverage_threshold. "
+            "Retrieval-efficiency observability: units with used=False were "
+            "fetched by the retriever but contributed nothing strong to the "
+            "response, so the retriever pulled dead weight for this query."
+        ),
+    )
     source_id: Optional[str] = Field(
         default=None,
         description="Echoed from the matching support_units[] request entry, when supplied.",

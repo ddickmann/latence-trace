@@ -65,6 +65,31 @@ g_t = max_k g_t^(k)
 That equality is exact because `max` over the union of support tokens is the
 same as `max` over batch-local maxima.
 
+Per-support-unit context coverage (retrieval-efficiency observability):
+
+```text
+coverage_u   = max_t m_{t,u}                       # max over response tokens
+used_u       = 1[coverage_u >= coverage_threshold]  # default threshold = 0.5
+context_coverage_ratio = (sum_u used_u) / |U|       # in [0, 1]
+context_attribution_ratio =
+    |{u : exists t, argmax_v m_{t,v} = u}| / |U|    # stricter, argmax-based
+```
+
+`coverage_u` is partition-invariant in two senses:
+
+1. *Support-batch invariance*: when support units are processed in
+   batches `B_k`, the per-batch `coverage_u^{(k)}` for `u in B_k` is
+   exactly the global `coverage_u` because the batch covers all
+   response tokens. Concatenating batches reproduces the global vector.
+2. *Response-chunk invariance*: when the response is partitioned into
+   windows `R_1, ..., R_K`, each window's per-unit coverage is
+   `coverage_u^{(k)} = max_{t in R_k} m_{t,u}`, and `coverage_u =
+   max_k coverage_u^{(k)}` because `max` is associative.
+
+`context_coverage_ratio` is therefore deterministic regardless of how
+the work is dispatched. Both ratios are independent of token weights,
+calibration, NLI, and primary-metric selection.
+
 Secondary breadth diagnostics use the per-support-unit maxima `m_{t,u}`:
 
 ```text
@@ -204,6 +229,18 @@ Notes:
 - `consensus_hardened` merge is exact because it is computed from the full
   concatenated matrix of per-support-unit maxima `m_{t,u}`, not from lossy
   post-aggregated scalars.
+- Per-support-unit `coverage_score` is exact under both support-batch
+  partitioning and response-chunk partitioning. The score is
+  `coverage_u = max_t m_{t,u}` (max-over-response-tokens of the per-unit
+  maximum) and `max` is associative, so partitioning the response axis
+  into chunks `R_1, ..., R_K` and taking
+  `max_k max_{t in R_k} m_{t,u}` reproduces the unchunked value bit-for-
+  bit. The orchestrator merges per-chunk per-unit coverage by per-unit
+  max across chunks. The same property holds for support-axis batching:
+  each batch contributes the per-unit max for its slice and the
+  concatenation is the global vector. The global
+  `context_coverage_ratio` (count of `coverage_u >= threshold` over total
+  units) is therefore deterministic and partition-invariant.
 - The hardest-case verification run showed zero diff for:
   - per-token `reverse_context`
   - scalar `reverse_context`

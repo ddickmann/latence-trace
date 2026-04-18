@@ -12,8 +12,10 @@ from latence_trace.api.models import (
     GroundednessScores,
 )
 from latence_trace.core.groundedness import (
+    compute_unit_coverage,
     score_groundedness,
     score_groundedness_chunked,
+    score_groundedness_response_chunked,
 )
 
 __all__ = [
@@ -22,8 +24,10 @@ __all__ = [
     "GroundednessResponse",
     "GroundednessResponseToken",
     "GroundednessScores",
+    "compute_unit_coverage",
     "score_groundedness",
     "score_groundedness_chunked",
+    "score_groundedness_response_chunked",
 ]
 
 __version__ = "0.1.0"
