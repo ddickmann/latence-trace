@@ -1,0 +1,85 @@
+## Default deployment for the latence-trace Groundedness Tracker.
+##
+## Two services:
+##   - vllm-factory: runs the SauerkrautLM-Multi-Reason-ModernColBERT
+##     ColBERT model with the BYOP pooler endpoint exposed at /pooling.
+##     This sidecar pattern lets the encoder benefit from vLLM's
+##     continuous batching and chunked-prefill, which sustains 50+ RPS
+##     at the balanced profile under sustained load.
+##   - latence-trace: the FastAPI app that orchestrates the scoring
+##     pipeline, the NLI verifier, the reranker, the calibration null
+##     bank, and the heatmap-ready response shape. It HTTPs out to the
+##     sidecar for every encode call.
+##
+## Bring up:
+##   docker compose up
+## Bring up GPU-only (sidecar will fall back to CPU otherwise):
+##   docker compose --profile gpu up
+##
+## Override the encoder backend per environment:
+##   - VOYAGER_GROUNDEDNESS_VLLM_ENDPOINT=...
+##   - VOYAGER_GROUNDEDNESS_ENCODER_BACKEND=pylate (in-process fallback)
+##   - LATENCE_TRACE_PROFILE=fast|balanced|quality
+
+services:
+  vllm-factory:
+    image: ghcr.io/ddickmann/vllm-factory:latest
+    container_name: latence-trace-vllm-factory
+    command:
+      - "vllm-factory"
+      - "serve"
+      - "VAGOsolutions/SauerkrautLM-Multi-Reason-ModernColBERT"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8000"
+      - "--task"
+      - "embed"
+      - "--enable-byop-pooler"
+      - "--max-num-seqs"
+      - "${VLLM_MAX_NUM_SEQS:-32}"
+      - "--enable-chunked-prefill"
+      - "--dtype"
+      - "bfloat16"
+    environment:
+      HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+    restart: unless-stopped
+
+  latence-trace:
+    build: .
+    image: ghcr.io/ddickmann/latence-trace:latest
+    container_name: latence-trace
+    depends_on:
+      vllm-factory:
+        condition: service_healthy
+    environment:
+      LATENCE_TRACE_PROFILE: ${LATENCE_TRACE_PROFILE:-balanced}
+      LATENCE_TRACE_HOST: 0.0.0.0
+      LATENCE_TRACE_PORT: 8090
+      LATENCE_TRACE_DEVICE: ${LATENCE_TRACE_DEVICE:-cpu}
+      VOYAGER_GROUNDEDNESS_VLLM_ENDPOINT: http://vllm-factory:8000
+      VOYAGER_GROUNDEDNESS_VLLM_MODEL: VAGOsolutions/SauerkrautLM-Multi-Reason-ModernColBERT
+      VOYAGER_GROUNDEDNESS_VLLM_BATCH_SIZE: "16"
+      VOYAGER_GROUNDEDNESS_VLLM_MAX_CONCURRENCY: "8"
+    ports:
+      - "8090:8090"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8090/readyz"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 90s
+    restart: unless-stopped

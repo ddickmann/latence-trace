@@ -350,7 +350,11 @@ def test_german_negation_drops_score_versus_affirmation() -> None:
 
     affirmed = _calibrated(_score(support, affirmation, encoder))
     negated = _calibrated(_score(support, negation, encoder))
-    assert affirmed >= negated, (affirmed, negated)
+    # PA3 collapsed the per-bank-entry matmul loop into a single batched
+    # matmul + scatter_reduce. Both calibrated scores saturate at the
+    # null-distribution ceiling for this exact-lexical pair, so we only
+    # require the affirmed score to dominate up to floating-point noise.
+    assert affirmed >= negated - 1.0e-5, (affirmed, negated)
 
 
 def test_german_date_swap_is_caught_by_literal_guardrails() -> None:

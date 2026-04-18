@@ -1,0 +1,331 @@
+{
+  "schema_version": 1,
+  "profile": "balanced",
+  "iterations": 200,
+  "total_ms": 12877.22,
+  "mean_per_request_ms": 64.386,
+  "top_functions": [
+    {
+      "function": "_run_iterations",
+      "file": "/workspace/latence-trace/scripts/profile_hot_paths.py",
+      "line": 92,
+      "ncalls": 1,
+      "tottime_ms": 6.516,
+      "cumtime_ms": 12877.25
+    },
+    {
+      "function": "groundedness",
+      "file": "latence_trace/api/service.py",
+      "line": 593,
+      "ncalls": 200,
+      "tottime_ms": 93.622,
+      "cumtime_ms": 12870.713
+    },
+    {
+      "function": "score_groundedness_chunked",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 2028,
+      "ncalls": 200,
+      "tottime_ms": 4.165,
+      "cumtime_ms": 10791.401
+    },
+    {
+      "function": "score_groundedness",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 1337,
+      "ncalls": 200,
+      "tottime_ms": 5551.563,
+      "cumtime_ms": 10787.1
+    },
+    {
+      "function": "triangular_maxsim",
+      "file": "latence_trace/kernels/triton_triangular_maxsim.py",
+      "line": 326,
+      "ncalls": 200,
+      "tottime_ms": 90.977,
+      "cumtime_ms": 4440.368
+    },
+    {
+      "function": "triangular_maxsim_reference",
+      "file": "latence_trace/kernels/triton_triangular_maxsim.py",
+      "line": 260,
+      "ncalls": 200,
+      "tottime_ms": 2539.619,
+      "cumtime_ms": 4349.26
+    },
+    {
+      "function": "encode_texts",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 556,
+      "ncalls": 600,
+      "tottime_ms": 3.224,
+      "cumtime_ms": 1896.626
+    },
+    {
+      "function": "encode",
+      "file": "/workspace/latence-trace/scripts/profile_hot_paths.py",
+      "line": 67,
+      "ncalls": 600,
+      "tottime_ms": 4.886,
+      "cumtime_ms": 1882.619
+    },
+    {
+      "function": "<listcomp>",
+      "file": "/workspace/latence-trace/scripts/profile_hot_paths.py",
+      "line": 76,
+      "ncalls": 600,
+      "tottime_ms": 17.687,
+      "cumtime_ms": 1760.459
+    },
+    {
+      "function": "_vec",
+      "file": "/workspace/latence-trace/scripts/profile_hot_paths.py",
+      "line": 57,
+      "ncalls": 18600,
+      "tottime_ms": 815.498,
+      "cumtime_ms": 1742.772
+    },
+    {
+      "function": "<method 'max' of 'torch._C.TensorBase' objects>",
+      "file": "~",
+      "line": 0,
+      "ncalls": 1400,
+      "tottime_ms": 1377.934,
+      "cumtime_ms": 1377.934
+    },
+    {
+      "function": "inner",
+      "file": "/usr/local/lib/python3.11/dist-packages/numpy/_core/_ufunc_config.py",
+      "line": 464,
+      "ncalls": 18600,
+      "tottime_ms": 257.713,
+      "cumtime_ms": 359.834
+    },
+    {
+      "function": "norm",
+      "file": "/usr/local/lib/python3.11/dist-packages/numpy/linalg/_linalg.py",
+      "line": 2575,
+      "ncalls": 18600,
+      "tottime_ms": 315.396,
+      "cumtime_ms": 356.432
+    },
+    {
+      "function": "<built-in method torch.where>",
+      "file": "~",
+      "line": 0,
+      "ncalls": 2000,
+      "tottime_ms": 261.518,
+      "cumtime_ms": 261.518
+    },
+    {
+      "function": "compute_null_distribution",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 861,
+      "ncalls": 200,
+      "tottime_ms": 104.603,
+      "cumtime_ms": 227.931
+    },
+    {
+      "function": "<built-in method torch.zeros_like>",
+      "file": "~",
+      "line": 0,
+      "ncalls": 800,
+      "tottime_ms": 182.071,
+      "cumtime_ms": 182.071
+    },
+    {
+      "function": "naive_reverse_maxsim_qc",
+      "file": "latence_trace/kernels/triton_triangular_maxsim.py",
+      "line": 485,
+      "ncalls": 200,
+      "tottime_ms": 103.307,
+      "cumtime_ms": 127.615
+    },
+    {
+      "function": "tokenize",
+      "file": "/workspace/latence-trace/scripts/profile_hot_paths.py",
+      "line": 64,
+      "ncalls": 1800,
+      "tottime_ms": 1.951,
+      "cumtime_ms": 116.833
+    },
+    {
+      "function": "diff_literals",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 1232,
+      "ncalls": 200,
+      "tottime_ms": 1.04,
+      "cumtime_ms": 109.152
+    },
+    {
+      "function": "extract_literals",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 1179,
+      "ncalls": 400,
+      "tottime_ms": 81.385,
+      "cumtime_ms": 106.562
+    },
+    {
+      "function": "<listcomp>",
+      "file": "/workspace/latence-trace/scripts/profile_hot_paths.py",
+      "line": 65,
+      "ncalls": 1800,
+      "tottime_ms": 10.963,
+      "cumtime_ms": 97.782
+    },
+    {
+      "function": "__instancecheck__",
+      "file": "<frozen abc>",
+      "line": 117,
+      "ncalls": 18600,
+      "tottime_ms": 6.652,
+      "cumtime_ms": 95.897
+    },
+    {
+      "function": "<method 'mean' of 'torch._C.TensorBase' objects>",
+      "file": "~",
+      "line": 0,
+      "ncalls": 400,
+      "tottime_ms": 95.651,
+      "cumtime_ms": 95.651
+    },
+    {
+      "function": "<method 'strip' of 'str' objects>",
+      "file": "~",
+      "line": 0,
+      "ncalls": 72601,
+      "tottime_ms": 89.624,
+      "cumtime_ms": 89.624
+    },
+    {
+      "function": "<built-in method _abc._abc_instancecheck>",
+      "file": "~",
+      "line": 0,
+      "ncalls": 18600,
+      "tottime_ms": 89.245,
+      "cumtime_ms": 89.245
+    },
+    {
+      "function": "<method 'set' of '_contextvars.ContextVar' objects>",
+      "file": "~",
+      "line": 0,
+      "ncalls": 18600,
+      "tottime_ms": 89.156,
+      "cumtime_ms": 89.156
+    },
+    {
+      "function": "concatenate",
+      "file": "/usr/local/lib/python3.11/dist-packages/numpy/_core/multiarray.py",
+      "line": 180,
+      "ncalls": 19200,
+      "tottime_ms": 86.572,
+      "cumtime_ms": 86.572
+    },
+    {
+      "function": "collect_support_literal_set",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 1221,
+      "ncalls": 200,
+      "tottime_ms": 1.071,
+      "cumtime_ms": 64.881
+    },
+    {
+      "function": "<method 'item' of 'torch._C.TensorBase' objects>",
+      "file": "~",
+      "line": 0,
+      "ncalls": 114200,
+      "tottime_ms": 61.377,
+      "cumtime_ms": 61.377
+    },
+    {
+      "function": "support_content_mask",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 314,
+      "ncalls": 200,
+      "tottime_ms": 0.503,
+      "cumtime_ms": 55.958
+    },
+    {
+      "function": "<listcomp>",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 325,
+      "ncalls": 200,
+      "tottime_ms": 3.594,
+      "cumtime_ms": 50.817
+    },
+    {
+      "function": "_consensus_statistics",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 1289,
+      "ncalls": 200,
+      "tottime_ms": 22.112,
+      "cumtime_ms": 50.33
+    },
+    {
+      "function": "_is_content_token",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 294,
+      "ncalls": 11000,
+      "tottime_ms": 20.455,
+      "cumtime_ms": 47.223
+    },
+    {
+      "function": "token_weights",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 328,
+      "ncalls": 200,
+      "tottime_ms": 13.577,
+      "cumtime_ms": 41.32
+    },
+    {
+      "function": "weighted_groundedness",
+      "file": "latence_trace/kernels/triton_triangular_maxsim.py",
+      "line": 462,
+      "ncalls": 1200,
+      "tottime_ms": 10.746,
+      "cumtime_ms": 32.061
+    },
+    {
+      "function": "_normalize",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 280,
+      "ncalls": 800,
+      "tottime_ms": 2.718,
+      "cumtime_ms": 31.308
+    },
+    {
+      "function": "normalize",
+      "file": "/usr/local/lib/python3.11/dist-packages/torch/nn/functional.py",
+      "line": 5541,
+      "ncalls": 800,
+      "tottime_ms": 7.665,
+      "cumtime_ms": 28.201
+    },
+    {
+      "function": "tokenize_text",
+      "file": "latence_trace/core/groundedness.py",
+      "line": 386,
+      "ncalls": 600,
+      "tottime_ms": 2.577,
+      "cumtime_ms": 27.808
+    },
+    {
+      "function": "__init__",
+      "file": "/usr/local/lib/python3.11/dist-packages/pydantic/main.py",
+      "line": 253,
+      "ncalls": 401,
+      "tottime_ms": 0.454,
+      "cumtime_ms": 26.999
+    },
+    {
+      "function": "<method 'validate_python' of 'pydantic_core._pydantic_core.SchemaValidator' objects>",
+      "file": "~",
+      "line": 0,
+      "ncalls": 401,
+      "tottime_ms": 26.538,
+      "cumtime_ms": 26.544
+    }
+  ],
+  "encoder": "deterministic-stub",
+  "torch_version": "2.9.0+cu128"
+}

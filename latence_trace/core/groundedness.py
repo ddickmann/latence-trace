@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
 import string
 from dataclasses import dataclass, field
@@ -36,15 +37,15 @@ from latence_trace.core.semantic_entropy import (
 )
 from latence_trace.core.thresholds import (
     classify_risk_band,
-    thresholds_summary_for,
 )
 from latence_trace.core.structured import (
-    StructuredVerification,
     default_penalty_per_mismatch,
     is_structured_enabled,
     verification_to_dict,
     verify_structured_source,
 )
+
+logger = logging.getLogger(__name__)
 
 _TOKEN_FALLBACK_RE = re.compile(r"\w+|[^\w\s]", re.UNICODE)
 _SENTENCE_RE = re.compile(r"[^.!?\n]+(?:[.!?]+|$)", re.UNICODE)
@@ -252,7 +253,15 @@ def default_null_bank_texts() -> List[str]:
 
 @dataclass
 class SupportUnitInput:
-    """Normalized support unit used by the groundedness scorer."""
+    """Normalized support unit used by the groundedness scorer.
+
+    The optional ``source_id``, ``speaker`` and ``timestamp`` fields are the
+    K2 structured-premise attribution channel: when set on the input they
+    are echoed verbatim into the matching response support unit so callers
+    can attribute each surviving claim back to its originating
+    speaker/source/turn. ``metadata`` is a free-form dict that flows back
+    on the same response unit.
+    """
 
     support_id: str
     text: str
@@ -262,6 +271,9 @@ class SupportUnitInput:
     source_mode: str = "chunk_ids"
     offset_start: Optional[int] = None
     offset_end: Optional[int] = None
+    source_id: Optional[str] = None
+    speaker: Optional[str] = None
+    timestamp: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -791,9 +803,64 @@ def _dedup_unit_maxima(
     return deduped, duplicates_removed
 
 
+@dataclass
+class _NullBankPack:
+    """Pre-normalized, pre-concatenated null bank built once at cache time.
+
+    Holds:
+    - ``concat`` (N, H) - all bank entries' L2-normalized token vectors
+      stacked in a single tensor.
+    - ``segment_ids`` (N,) - bank-entry index for each row in ``concat``.
+    - ``segment_count`` - number of non-empty bank entries.
+
+    Storing the bank in this shape lets ``compute_null_distribution`` run a
+    single ``(U, H) @ (N, H).T`` matmul instead of one matmul per bank
+    entry, then segment-max over ``segment_ids`` to recover the per-bank
+    maxima. This collapses the dominant hot path measured by
+    ``scripts/profile_hot_paths.py`` (compute_null_distribution + many
+    ``.max()`` calls accounted for ~62% of CPU on the balanced profile)
+    into a single batched matmul plus one ``scatter_reduce``.
+    """
+
+    concat: torch.Tensor
+    segment_ids: torch.Tensor
+    segment_count: int
+
+
+def _build_null_bank_pack(
+    null_bank_embeddings: Sequence[torch.Tensor],
+) -> Optional[_NullBankPack]:
+    """Pre-normalize and concatenate a list of bank embeddings.
+
+    Returns ``None`` for an empty/all-empty bank so the caller can keep
+    its existing fallback logic. The result is safe to cache - the
+    tensors are detached and never mutated by ``compute_null_distribution``.
+    """
+
+    parts: List[torch.Tensor] = []
+    segment_ids: List[torch.Tensor] = []
+    seg = 0
+    for entry in null_bank_embeddings:
+        if entry is None or entry.numel() == 0:
+            continue
+        norm = _normalize(entry.float()).detach()
+        parts.append(norm)
+        segment_ids.append(
+            torch.full((norm.shape[0],), seg, dtype=torch.long)
+        )
+        seg += 1
+    if not parts:
+        return None
+    return _NullBankPack(
+        concat=torch.cat(parts, dim=0).contiguous(),
+        segment_ids=torch.cat(segment_ids, dim=0).contiguous(),
+        segment_count=seg,
+    )
+
+
 def compute_null_distribution(
     response_embeddings: torch.Tensor,
-    null_bank_embeddings: Sequence[torch.Tensor],
+    null_bank_embeddings: Sequence[torch.Tensor] | _NullBankPack,
 ) -> Tuple[torch.Tensor, torch.Tensor, int]:
     """Per-response-token null mean and std from a bank of unrelated support units.
 
@@ -801,35 +868,65 @@ def compute_null_distribution(
     over the bank's tokens. Aggregates ``{g_t^(b)}`` across the bank into a per
     response token mean and standard deviation. The third return value is the
     number of bank entries that actually contributed (non-empty embeddings).
+
+    Accepts either a sequence of per-bank-entry tensors (legacy callers) or
+    a pre-stacked :class:`_NullBankPack` (cache-friendly fast path used by
+    the API service layer). The two paths produce numerically identical
+    results modulo floating-point summation order.
     """
 
     if response_embeddings.numel() == 0:
         empty = torch.zeros((0,), dtype=torch.float32)
         return empty, empty, 0
-    R_norm = _normalize(response_embeddings.float())
-    per_unit_max_values: List[torch.Tensor] = []
-    for bank_embedding in null_bank_embeddings:
-        if bank_embedding is None or bank_embedding.numel() == 0:
-            continue
-        B_norm = _normalize(bank_embedding.float())
-        sim = R_norm @ B_norm.T
-        max_per_response, _indices = sim.max(dim=1)
-        per_unit_max_values.append(max_per_response.detach().to(R_norm.device))
 
     response_token_count = int(response_embeddings.shape[0])
-    if not per_unit_max_values:
+    R_norm = _normalize(response_embeddings.float())
+
+    pack: Optional[_NullBankPack]
+    if isinstance(null_bank_embeddings, _NullBankPack):
+        pack = null_bank_embeddings
+    else:
+        pack = _build_null_bank_pack(null_bank_embeddings)
+
+    if pack is None or pack.concat.numel() == 0:
         zeros = torch.zeros((response_token_count,), dtype=torch.float32)
         ones = torch.ones((response_token_count,), dtype=torch.float32)
         return zeros, ones, 0
 
-    stack = torch.stack(per_unit_max_values, dim=0)
-    mean = stack.mean(dim=0)
-    if stack.shape[0] > 1:
-        std = stack.std(dim=0, unbiased=False)
+    # Single batched matmul: (U, H) @ (N, H).T -> (U, N). Fastest path on
+    # both CPU and CUDA because the kernel coalesces the per-bank work
+    # the original loop dispatched piecemeal.
+    bank_concat = pack.concat.to(device=R_norm.device, dtype=R_norm.dtype)
+    sim = R_norm @ bank_concat.T  # (U, N)
+
+    segment_ids = pack.segment_ids.to(device=R_norm.device)
+    segment_count = pack.segment_count
+
+    # scatter_reduce is the modern (PyTorch >= 1.12) vectorized
+    # segment-max. We initialise to a large negative so positions that
+    # never get a token write keep -inf and are masked out below.
+    per_unit_max = torch.full(
+        (response_token_count, segment_count),
+        -1.0e30,
+        dtype=R_norm.dtype,
+        device=R_norm.device,
+    )
+    seg_index = segment_ids.unsqueeze(0).expand(response_token_count, -1)
+    per_unit_max = per_unit_max.scatter_reduce(
+        dim=1,
+        index=seg_index,
+        src=sim,
+        reduce="amax",
+        include_self=True,
+    )
+
+    mean = per_unit_max.mean(dim=1)
+    if segment_count > 1:
+        std = per_unit_max.std(dim=1, unbiased=False)
     else:
         std = torch.full_like(mean, _CALIBRATION_MIN_STD)
     std = std.clamp(min=_CALIBRATION_MIN_STD)
-    return mean.to(torch.float32), std.to(torch.float32), int(stack.shape[0])
+    return mean.to(torch.float32), std.to(torch.float32), int(segment_count)
 
 
 def calibrate_per_token_scores(
@@ -1247,7 +1344,7 @@ def score_groundedness(
     evidence_limit: int = 8,
     primary_metric: str = "reverse_context",
     debug_dense_matrices: bool = False,
-    null_bank_embeddings: Optional[Sequence[torch.Tensor]] = None,
+    null_bank_embeddings: Optional[Sequence[torch.Tensor] | _NullBankPack] = None,
     response_text: Optional[str] = None,
     nli_provider: Optional[NLIProvider] = None,
     nli_max_claims: Optional[int] = None,
@@ -1315,9 +1412,15 @@ def score_groundedness(
     consensus_duplicates_removed = int(consensus.get("duplicates_removed", 0))
     consensus_effective_unit_count = int(consensus.get("effective_unit_count", reverse_context_unit_values.shape[1]))
 
+    if isinstance(null_bank_embeddings, _NullBankPack):
+        _null_bank_arg = null_bank_embeddings
+    elif null_bank_embeddings:
+        _null_bank_arg = list(null_bank_embeddings)
+    else:
+        _null_bank_arg = []
     null_mean, null_std, null_bank_size = compute_null_distribution(
         response_embeddings,
-        list(null_bank_embeddings) if null_bank_embeddings else [],
+        _null_bank_arg,
     )
     null_mean = null_mean.to(rc_values.device, dtype=rc_values.dtype)
     null_std = null_std.to(rc_values.device, dtype=rc_values.dtype)
@@ -1400,6 +1503,10 @@ def score_groundedness(
                 "token_scores": [0.0] * len(tokens),
                 "score": 0.0,
                 "matched_response_tokens": 0,
+                "source_id": unit.source_id,
+                "speaker": unit.speaker,
+                "timestamp": unit.timestamp,
+                "metadata": dict(unit.metadata) if unit.metadata else None,
             }
         )
         support_token_scores.append([0.0] * len(tokens))
@@ -1928,7 +2035,7 @@ def score_groundedness_chunked(
     evidence_limit: int = 8,
     primary_metric: str = "reverse_context",
     debug_dense_matrices: bool = False,
-    null_bank_embeddings: Optional[Sequence[torch.Tensor]] = None,
+    null_bank_embeddings: Optional[Sequence[torch.Tensor] | _NullBankPack] = None,
     response_text: Optional[str] = None,
     nli_provider: Optional[NLIProvider] = None,
     nli_max_claims: Optional[int] = None,
@@ -2009,6 +2116,10 @@ def score_groundedness_chunked(
                 "token_scores": [0.0] * len(tokens),
                 "score": 0.0,
                 "matched_response_tokens": 0,
+                "source_id": unit.source_id,
+                "speaker": unit.speaker,
+                "timestamp": unit.timestamp,
+                "metadata": dict(unit.metadata) if unit.metadata else None,
             }
         )
         support_token_scores.append([0.0] * len(tokens))

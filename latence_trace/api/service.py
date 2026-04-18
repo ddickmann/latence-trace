@@ -37,13 +37,16 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 import torch
 
 from latence_trace.api.models import (
+    AttributionMode,
     CollectionKind,
     GroundednessEligibility,
     GroundednessRequest,
     GroundednessResponse,
+    GroundednessScores,
 )
 from latence_trace.core.groundedness import (
     SupportUnitInput,
+    _build_null_bank_pack,
     default_null_bank_texts,
     encode_texts,
     partition_support_units,
@@ -76,18 +79,45 @@ logger = logging.getLogger(__name__)
 
 
 class ServiceError(Exception):
+    """Base service error.
+
+    All service-layer exceptions carry a ``status_code`` (HTTP), an
+    ``error_code`` (stable machine-readable identifier), and a ``hint``
+    (actionable next step for the caller / AI agent). The structured
+    error envelope built by :func:`latence_trace.api.routes._raise_service_error`
+    surfaces all three so consumers never have to scrape the message
+    string.
+    """
+
     status_code = 500
     error_code = "service_error"
+    hint = "An unexpected error occurred. Inspect logs and retry."
+
+    def __init__(self, message: str, *, hint: Optional[str] = None) -> None:
+        super().__init__(message)
+        if hint is not None:
+            # Per-instance override wins over the class default. Useful
+            # for context-specific guidance ("supply a chunk_resolver",
+            # "raw_context produced no support windows", ...).
+            self.hint = hint
 
 
 class ValidationError(ServiceError):
     status_code = 400
     error_code = "validation_error"
+    hint = (
+        "Check the request shape against /agent-help or the OpenAPI schema; "
+        "every field is documented with the value range it accepts."
+    )
 
 
 class NotFoundError(ServiceError):
     status_code = 404
     error_code = "not_found"
+    hint = (
+        "The referenced chunk_id / model is not registered with this service. "
+        "Confirm the chunk_resolver is wired or that the model is loaded."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -373,6 +403,11 @@ class GroundednessService:
         self._collection_label = collection_label
         self._cached_groundedness_providers: Dict[str, Any] = {}
         self._cached_groundedness_null_banks: Dict[str, List[torch.Tensor]] = {}
+        # PA3 hot-path optimization: cache the pre-normalized, pre-stacked
+        # null bank alongside the raw tensors so compute_null_distribution
+        # collapses from N matmul + N max calls to one batched matmul +
+        # one segment-max per request.
+        self._cached_groundedness_null_packs: Dict[str, Any] = {}
         self._nli_provider: Any = None
         self._nli_provider_resolved = False
         self._nli_reranker: Any = None
@@ -428,6 +463,31 @@ class GroundednessService:
             self._nli_reranker_resolved = True
             return self._nli_reranker
 
+    def _groundedness_null_bank_pack(
+        self,
+        provider: Any,
+        *,
+        prompt_name: Optional[str],
+    ) -> Any:
+        """Return the cached pre-stacked null bank for ``provider`` (or None).
+
+        Triggers a (locked) encode if the bank has not been cached yet so
+        callers can use the pack as a single drop-in argument to
+        :func:`compute_null_distribution`.
+        """
+
+        bank = self._groundedness_null_bank_embeddings(provider, prompt_name=prompt_name)
+        if not bank:
+            return None
+        provider_key = (
+            getattr(provider, "model_name", None)
+            or getattr(provider, "model_name_or_path", None)
+            or getattr(provider, "model", None)
+            or repr(provider)
+        )
+        cache_key = f"{provider_key}::{id(provider)}::{prompt_name or ''}::v{len(bank)}"
+        return self._cached_groundedness_null_packs.get(cache_key)
+
     def _groundedness_null_bank_embeddings(
         self,
         provider: Any,
@@ -466,9 +526,19 @@ class GroundednessService:
             except Exception as exc:
                 logger.warning("groundedness_null_bank_encode_failed", extra={"error": str(exc)})
                 self._cached_groundedness_null_banks[cache_key] = []
+                self._cached_groundedness_null_packs[cache_key] = None
                 return []
             bank: List[torch.Tensor] = [torch.as_tensor(t, dtype=torch.float32) for t in tensors]
             self._cached_groundedness_null_banks[cache_key] = bank
+            # PA3: pre-normalize and stack the bank once so each request
+            # uses a single batched matmul instead of N matmuls.
+            try:
+                self._cached_groundedness_null_packs[cache_key] = _build_null_bank_pack(bank)
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.warning(
+                    "groundedness_null_bank_pack_failed", extra={"error": str(exc)}
+                )
+                self._cached_groundedness_null_packs[cache_key] = None
             return bank
 
     # --- chunk_ids resolution -------------------------------------------------
@@ -522,7 +592,43 @@ class GroundednessService:
 
     def groundedness(self, request: GroundednessRequest) -> GroundednessResponse:
         start = time.perf_counter()
-        mode = "chunk_ids" if request.chunk_ids else "raw_context"
+
+        # K1: refuse-to-score gates. Both branches return a fully-typed
+        # GroundednessResponse with risk_band="unknown" / "unsupported"
+        # plus a machine-readable reason so callers (and AI agents) can
+        # detect the no-evidence case without having to special-case
+        # exception handling.
+        has_chunk_ids = bool(request.chunk_ids)
+        has_raw_context = bool((request.raw_context or "").strip())
+        has_support_units = bool(request.support_units)
+        if request.attribution_mode == AttributionMode.OPEN_DOMAIN:
+            return self._refusal_response(
+                request=request,
+                started_at=start,
+                mode="open_domain",
+                risk_band="unsupported",
+                reason="open_domain_pending_v1_next",
+                warning="open_domain attribution_mode is reserved for the post-v1 retrieval-callback lane",
+            )
+        if not (has_chunk_ids or has_raw_context or has_support_units):
+            return self._refusal_response(
+                request=request,
+                started_at=start,
+                mode="closed_book",
+                risk_band="unknown",
+                reason="no_premise_supplied",
+                warning=(
+                    "No premise supplied. Provide one of chunk_ids, raw_context, or support_units. "
+                    "closed_book attribution_mode refuses to score zero-evidence inputs by design."
+                ),
+            )
+
+        if has_chunk_ids:
+            mode = "chunk_ids"
+        elif has_support_units:
+            mode = "support_units"
+        else:
+            mode = "raw_context"
         use_stored_vectors = mode == "chunk_ids"
         eligibility = self._eligibility(use_stored_vectors=use_stored_vectors)
         provider = self._get_groundedness_provider(model_name=request.model)
@@ -552,6 +658,41 @@ class GroundednessService:
                         embeddings=tensor,
                         tokens=tokens,
                         metadata=dict(resolved.metadata or {}),
+                    )
+                )
+        elif request.support_units:
+            unit_inputs = list(request.support_units)
+            unit_texts = [(u.text or "") for u in unit_inputs]
+            unit_embeddings = encode_texts(
+                provider,
+                unit_texts,
+                is_query=False,
+                prompt_name=request.document_prompt_name,
+            )
+            for idx, (unit, tensor) in enumerate(zip(unit_inputs, unit_embeddings)):
+                tokens = tokenize_text(
+                    provider,
+                    unit.text or "",
+                    expected_len=int(tensor.shape[0]),
+                    is_query=False,
+                )
+                # Caller-supplied source_id wins over a synthetic
+                # "support-{idx}" id so downstream attribution is stable
+                # across calls. The synthetic id is only used when the
+                # caller did not bind one (e.g. ad-hoc dialogue turns).
+                support_id = (unit.source_id or f"support-{idx}").strip() or f"support-{idx}"
+                support_units.append(
+                    SupportUnitInput(
+                        support_id=support_id,
+                        chunk_id=None,
+                        source_mode="support_units",
+                        text=unit.text or "",
+                        embeddings=tensor,
+                        tokens=tokens,
+                        source_id=unit.source_id,
+                        speaker=unit.speaker,
+                        timestamp=unit.timestamp,
+                        metadata=dict(unit.metadata) if unit.metadata else {},
                     )
                 )
         else:
@@ -638,10 +779,21 @@ class GroundednessService:
                 is_query=True,
             )
 
-        null_bank_embeddings = self._groundedness_null_bank_embeddings(
+        # PA3 fast path: feed score_groundedness the pre-stacked pack
+        # whenever it is available so compute_null_distribution skips the
+        # per-request normalize + dispatch loop. Falls back to the raw
+        # tensor list when the pack failed to build (extremely rare).
+        null_bank_pack = self._groundedness_null_bank_pack(
             provider,
             prompt_name=request.document_prompt_name,
         )
+        if null_bank_pack is not None:
+            null_bank_embeddings = null_bank_pack
+        else:
+            null_bank_embeddings = self._groundedness_null_bank_embeddings(
+                provider,
+                prompt_name=request.document_prompt_name,
+            )
         nli_provider = self._get_nli_provider()
         nli_reranker = self._get_nli_reranker() if nli_provider is not None else None
         nli_kwargs: Dict[str, Any] = {}
@@ -684,6 +836,10 @@ class GroundednessService:
                 **nli_kwargs,
             )
         else:
+            # Both raw_context and support_units share the chunked scoring
+            # path so very large inputs (e.g. a transcript of dozens of
+            # speaker turns supplied via support_units[]) are batched the
+            # same way segmented raw_context already is.
             support_batches = partition_support_units(
                 support_units,
                 batch_size=_env_int("VOYAGER_GROUNDEDNESS_SCORE_BATCH_UNITS", 64),
@@ -729,6 +885,54 @@ class GroundednessService:
             semantic_entropy_diagnostics=scored.get("semantic_entropy_diagnostics"),
             structured_diagnostics=scored.get("structured_diagnostics"),
             time_ms=elapsed_ms,
+            attribution_mode=request.attribution_mode,
+        )
+
+    def _refusal_response(
+        self,
+        *,
+        request: GroundednessRequest,
+        started_at: float,
+        mode: str,
+        risk_band: str,
+        reason: str,
+        warning: str,
+    ) -> GroundednessResponse:
+        """Build a structured zero-evidence response (K1 refuse-to-score path).
+
+        Returned for ``closed_book`` calls with no premise and for the
+        forward-compat ``open_domain`` lane. We return a fully-typed
+        :class:`GroundednessResponse` instead of an HTTP error so callers
+        and AI agents can branch on ``risk_band`` / ``reason`` without
+        special-casing exception handling.
+        """
+
+        elapsed_ms = (time.perf_counter() - started_at) * 1000.0
+        scores = GroundednessScores(
+            primary_name=request.primary_metric.value,
+            primary_score=0.0,
+            reverse_context=0.0,
+            risk_band=risk_band,
+        )
+        return GroundednessResponse(
+            collection=self._collection_label,
+            mode=mode,
+            model=None,
+            scores=scores,
+            response_tokens=[],
+            support_units=[],
+            top_evidence=[],
+            eligibility=self._eligibility(use_stored_vectors=False),
+            query_tokens=None,
+            debug=None,
+            warnings=[warning],
+            literal_diagnostics=None,
+            nli_diagnostics=None,
+            semantic_entropy_diagnostics=None,
+            structured_diagnostics=None,
+            time_ms=elapsed_ms,
+            attribution_mode=request.attribution_mode,
+            reason=reason,
         )
 
 
@@ -779,7 +983,13 @@ def _resolve_torch_dtype(name: Optional[str]) -> Optional[Any]:
 
 
 def _default_encoder_factory(device: str) -> Callable[[Optional[str]], Any]:
+    # PA4: now that /groundedness runs in the FastAPI threadpool with a
+    # bounded inflight semaphore, two concurrent cold-start requests can
+    # both arrive here before the cache is primed. Serialize the
+    # construction so only the first caller pays the healthcheck cost
+    # and every subsequent request hits the warm cache.
     cache: Dict[str, Any] = {}
+    cache_lock = threading.Lock()
 
     def factory(model_name: Optional[str]) -> Any:
         vllm_endpoint = os.environ.get("VOYAGER_GROUNDEDNESS_VLLM_ENDPOINT")
@@ -792,31 +1002,32 @@ def _default_encoder_factory(device: str) -> Callable[[Optional[str]], Any]:
                 or DEFAULT_GROUNDEDNESS_MODEL
             )
             cache_key = f"vllm_factory:{vllm_endpoint}:{resolved_model_name}"
-            cached = cache.get(cache_key)
-            if cached is not None:
-                return cached
-            try:
-                from latence_trace.providers.encoders import VllmFactoryModernColBERTProvider
-            except ImportError as exc:
-                raise ValidationError(
-                    "Groundedness vLLM integration requires the http dependencies to be installed."
-                ) from exc
-            try:
-                provider = VllmFactoryModernColBERTProvider(
-                    endpoint=vllm_endpoint,
-                    model=resolved_model_name,
-                    timeout=_env_float("VOYAGER_GROUNDEDNESS_VLLM_TIMEOUT", 60.0),
-                    health_timeout=_env_float("VOYAGER_GROUNDEDNESS_VLLM_HEALTH_TIMEOUT", 10.0),
-                    batch_size=_env_int("VOYAGER_GROUNDEDNESS_VLLM_BATCH_SIZE", 16),
-                    max_concurrency=_env_int("VOYAGER_GROUNDEDNESS_VLLM_MAX_CONCURRENCY", 8),
-                )
-                provider.healthcheck()
-            except Exception as exc:
-                raise ValidationError(
-                    f"Failed to initialize groundedness vLLM provider '{resolved_model_name}' at '{vllm_endpoint}': {exc}"
-                ) from exc
-            cache[cache_key] = provider
-            return provider
+            with cache_lock:
+                cached = cache.get(cache_key)
+                if cached is not None:
+                    return cached
+                try:
+                    from latence_trace.providers.encoders import VllmFactoryModernColBERTProvider
+                except ImportError as exc:
+                    raise ValidationError(
+                        "Groundedness vLLM integration requires the http dependencies to be installed."
+                    ) from exc
+                try:
+                    provider = VllmFactoryModernColBERTProvider(
+                        endpoint=vllm_endpoint,
+                        model=resolved_model_name,
+                        timeout=_env_float("VOYAGER_GROUNDEDNESS_VLLM_TIMEOUT", 60.0),
+                        health_timeout=_env_float("VOYAGER_GROUNDEDNESS_VLLM_HEALTH_TIMEOUT", 10.0),
+                        batch_size=_env_int("VOYAGER_GROUNDEDNESS_VLLM_BATCH_SIZE", 16),
+                        max_concurrency=_env_int("VOYAGER_GROUNDEDNESS_VLLM_MAX_CONCURRENCY", 8),
+                    )
+                    provider.healthcheck()
+                except Exception as exc:
+                    raise ValidationError(
+                        f"Failed to initialize groundedness vLLM provider '{resolved_model_name}' at '{vllm_endpoint}': {exc}"
+                    ) from exc
+                cache[cache_key] = provider
+                return provider
 
         resolved = (
             model_name
@@ -827,41 +1038,42 @@ def _default_encoder_factory(device: str) -> Callable[[Optional[str]], Any]:
         dtype_name = os.environ.get("VOYAGER_GROUNDEDNESS_TORCH_DTYPE", DEFAULT_GROUNDEDNESS_TORCH_DTYPE)
         torch_dtype = _resolve_torch_dtype(dtype_name)
         cache_key = f"local:{resolved}:{dtype_name}"
-        cached = cache.get(cache_key)
-        if cached is not None:
-            return cached
-        try:
-            from pylate import models
-        except ImportError as exc:
-            raise ValidationError(
-                "Local groundedness encoder requires pylate. Install pylate or set VOYAGER_GROUNDEDNESS_VLLM_ENDPOINT."
-            ) from exc
-        model_kwargs: Dict[str, Any] = {}
-        if torch_dtype is not None:
-            model_kwargs["torch_dtype"] = torch_dtype
-        try:
-            provider = models.ColBERT(
-                model_name_or_path=resolved,
-                device=device,
-                do_query_expansion=False,
-                trust_remote_code=True,
-                model_kwargs=model_kwargs or None,
-            )
-        except TypeError:
-            # Older pylate releases without model_kwargs / trust_remote_code
-            # kwargs - fall back to the minimal signature.
+        with cache_lock:
+            cached = cache.get(cache_key)
+            if cached is not None:
+                return cached
+            try:
+                from pylate import models
+            except ImportError as exc:
+                raise ValidationError(
+                    "Local groundedness encoder requires pylate. Install pylate or set VOYAGER_GROUNDEDNESS_VLLM_ENDPOINT."
+                ) from exc
+            model_kwargs: Dict[str, Any] = {}
+            if torch_dtype is not None:
+                model_kwargs["torch_dtype"] = torch_dtype
             try:
                 provider = models.ColBERT(
                     model_name_or_path=resolved,
                     device=device,
                     do_query_expansion=False,
+                    trust_remote_code=True,
+                    model_kwargs=model_kwargs or None,
                 )
+            except TypeError:
+                # Older pylate releases without model_kwargs / trust_remote_code
+                # kwargs - fall back to the minimal signature.
+                try:
+                    provider = models.ColBERT(
+                        model_name_or_path=resolved,
+                        device=device,
+                        do_query_expansion=False,
+                    )
+                except Exception as exc:
+                    raise ValidationError(f"Failed to load groundedness model '{resolved}': {exc}") from exc
             except Exception as exc:
                 raise ValidationError(f"Failed to load groundedness model '{resolved}': {exc}") from exc
-        except Exception as exc:
-            raise ValidationError(f"Failed to load groundedness model '{resolved}': {exc}") from exc
-        cache[cache_key] = provider
-        return provider
+            cache[cache_key] = provider
+            return provider
 
     return factory
 

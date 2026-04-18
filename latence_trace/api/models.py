@@ -37,6 +37,61 @@ class GroundednessPrimaryMetric(str, Enum):
     TRIANGULAR = "triangular"
 
 
+class AttributionMode(str, Enum):
+    """Caller-declared evidence policy for a groundedness request.
+
+    ``closed_book`` (the default) tells the service that everything required
+    to ground the response must be supplied in the request itself
+    (``chunk_ids`` / ``raw_context`` / ``support_units``). When the premise
+    set is empty the service returns ``risk_band="unknown"`` with
+    ``reason="no_premise_supplied"`` instead of inventing a score from a
+    zero-evidence input.
+
+    ``open_domain`` is a forward-compatible reservation for the K5
+    retrieval-callback lane that ships post-v1. In v1 the service accepts
+    the field for schema stability and returns ``risk_band="unsupported"``
+    with ``reason="open_domain_pending_v1_next"`` so callers can detect the
+    feature gate in production.
+    """
+
+    CLOSED_BOOK = "closed_book"
+    OPEN_DOMAIN = "open_domain"
+
+
+class GroundednessSupportUnitInput(BaseModel):
+    """Caller-supplied structured premise for the ``support_units`` lane.
+
+    ``support_units[]`` is the third premise-supplying lane alongside
+    ``chunk_ids`` and ``raw_context``. Use it whenever the caller already has
+    multi-source / multi-speaker premises (sales-call transcripts, multi-doc
+    RAG with explicit per-doc IDs, knowledge-base passages with passage IDs)
+    and wants the per-unit attribution to flow back through the response so
+    each surviving claim can be attributed to its originating speaker /
+    source / turn.
+
+    Backward compatibility: legacy callers that set ``raw_context`` or
+    ``chunk_ids`` see no behavior change.
+    """
+
+    text: str = Field(..., min_length=1, description="Premise text for this support unit.")
+    source_id: Optional[str] = Field(
+        default=None,
+        description="Stable, caller-defined identifier (document id, passage id, transcript turn id, ...).",
+    )
+    speaker: Optional[str] = Field(
+        default=None,
+        description="Speaker / author label for dialogue or multi-author premises.",
+    )
+    timestamp: Optional[str] = Field(
+        default=None,
+        description="Optional ISO-8601 timestamp echoed back in the response for time-aware audit trails.",
+    )
+    metadata: Optional[dict] = Field(
+        default=None,
+        description="Free-form caller metadata returned verbatim on the matching response support unit.",
+    )
+
+
 class GroundednessRequest(BaseModel):
     """Beta post-generation groundedness scoring request."""
 
@@ -69,6 +124,24 @@ class GroundednessRequest(BaseModel):
     raw_context: Optional[str] = Field(
         default=None,
         description="Compatibility fallback: raw context text to segment and re-encode on demand.",
+    )
+    support_units: Optional[List[GroundednessSupportUnitInput]] = Field(
+        default=None,
+        description=(
+            "Structured premise lane: list of caller-supplied support units, each with text, "
+            "optional source_id, speaker, timestamp, and metadata. Each surviving response unit "
+            "in the response carries the matching source_id/speaker/timestamp so callers can show "
+            "'this answer was grounded in turn 4 by Dr. X'. Mutually exclusive with chunk_ids and raw_context."
+        ),
+    )
+    attribution_mode: AttributionMode = Field(
+        default=AttributionMode.CLOSED_BOOK,
+        description=(
+            "Evidence policy. ``closed_book`` (default) requires premises in the request and refuses "
+            "to score with risk_band='unknown' / reason='no_premise_supplied' when none are provided. "
+            "``open_domain`` is reserved for the post-v1 retrieval-callback lane and currently returns "
+            "risk_band='unsupported' / reason='open_domain_pending_v1_next' for forward schema compatibility."
+        ),
     )
     segmentation_mode: GroundednessSegmentationMode = Field(
         default=GroundednessSegmentationMode.SENTENCE_PACKED,
@@ -151,8 +224,22 @@ class GroundednessRequest(BaseModel):
     def validate_input_modes(self) -> "GroundednessRequest":
         has_chunk_ids = bool(self.chunk_ids)
         has_raw_context = bool((self.raw_context or "").strip())
-        if has_chunk_ids == has_raw_context:
-            raise ValueError("Provide exactly one of 'chunk_ids' or 'raw_context'")
+        has_support_units = bool(self.support_units)
+        premise_lanes = [has_chunk_ids, has_raw_context, has_support_units]
+        active_lanes = sum(premise_lanes)
+        if active_lanes > 1:
+            raise ValueError(
+                "Provide exactly one of 'chunk_ids', 'raw_context', or 'support_units'"
+            )
+        if active_lanes == 0:
+            # K1: closed_book + zero premises is a *valid* request. The
+            # service short-circuits it to risk_band="unknown" /
+            # reason="no_premise_supplied" instead of inventing a score.
+            # open_domain + zero premises is reserved for the K5
+            # retrieval-callback lane (post-v1) and the service emits a
+            # forward-compat refusal there as well, so we accept the input
+            # at the schema layer in both modes.
+            pass
         if self.primary_metric == GroundednessPrimaryMetric.TRIANGULAR and not (self.query_text or "").strip():
             raise ValueError("triangular primary_metric requires query_text")
         return self
@@ -332,6 +419,22 @@ class GroundednessSupportUnit(BaseModel):
     token_scores: List[float]
     score: float
     matched_response_tokens: int
+    source_id: Optional[str] = Field(
+        default=None,
+        description="Echoed from the matching support_units[] request entry, when supplied.",
+    )
+    speaker: Optional[str] = Field(
+        default=None,
+        description="Echoed from the matching support_units[] request entry, when supplied.",
+    )
+    timestamp: Optional[str] = Field(
+        default=None,
+        description="Echoed from the matching support_units[] request entry, when supplied.",
+    )
+    metadata: Optional[dict] = Field(
+        default=None,
+        description="Echoed verbatim from the matching support_units[] request entry, when supplied.",
+    )
 
 
 class GroundednessEvidence(BaseModel):
@@ -455,3 +558,15 @@ class GroundednessResponse(BaseModel):
     semantic_entropy_diagnostics: Optional[GroundednessSemanticEntropyDiagnostics] = None
     structured_diagnostics: Optional[GroundednessStructuredDiagnostics] = None
     time_ms: float
+    attribution_mode: Optional[AttributionMode] = Field(
+        default=None,
+        description="Echo of the request attribution_mode for downstream auditing.",
+    )
+    reason: Optional[str] = Field(
+        default=None,
+        description=(
+            "Machine-readable reason code for non-scored responses. "
+            "Currently emitted: 'no_premise_supplied' (closed_book + zero premises) and "
+            "'open_domain_pending_v1_next' (open_domain not yet wired in v1)."
+        ),
+    )
