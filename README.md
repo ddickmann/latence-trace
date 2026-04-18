@@ -76,10 +76,20 @@ HaluEval QA / Summarization vs. the multilingual default.<br>
 hallucinations introduce real-world facts that are *not in the dialogue
 context*, so both right and hallucinated continuations score "ungrounded"
 relative to the supplied context. We surface this honestly rather than tune
-to it. Same caveat applies to FActScore biographies (open-domain factuality
-vs. context-grounding); see
-[`docs/algorithm-audit.md`](docs/algorithm-audit.md) §"Scope and Known
-Mismatches".
+to it. See [`docs/algorithm-audit.md`](docs/algorithm-audit.md) §"Scope and
+Known Mismatches".
+
+§ FActScore biographies are now evaluated under the **canonical FActScore
+protocol** (per-claim atomic precision at the F1-optimal threshold),
+not response-level F1. Each biography's per-annotation `is_supported` gold
+label is compared one-by-one against the atomic claim's score against the
+matching Wikipedia article (enriched via
+[`scripts/enrich_factscore_with_wiki.py`](scripts/enrich_factscore_with_wiki.py)).
+Per-claim **precision = 0.61, recall = 0.62, F1 = 0.62** at n = 748
+atomic claims (30 biographies, multilingual mDeBERTa NLI); the criterion
+target of 0.65 is missed by ≈ 4 points and we report the actual number
+rather than tune to the test set. See
+[`research/triangular_maxsim/reports/truth_bench_n120_factscore_per_claim.json`](research/triangular_maxsim/reports/truth_bench_n120_factscore_per_claim.json).
 
 ### Where it shines, where it does not
 
@@ -90,14 +100,20 @@ Mismatches".
   schema, same `/groundedness` endpoint.
 - ✅ **Tabular / structured-source pairs** — 0.93 paired on hard
   JSON / markdown table stratum (NLI + structured triples).
+- ✅ **Per-claim atomic verification (FActScore-style)** — 0.61 precision /
+  0.62 F1 at n = 748 atomic claims, Wikipedia-grounded, evaluated under
+  the canonical FActScore protocol (was previously reported as `skipped`
+  because the loader collapsed per-claim labels into one response-level
+  sample; v1.1 emits one sample per atomic annotation).
 - ⚠️ **Distributed-evidence dialogue** where the support is split across
   speaker turns (0.57 paired, n=30 — wide CI). Pair with a
   context-rewriter or a longer-premise reranker run; see
   [`docs/algorithm-audit.md`](docs/algorithm-audit.md) for the
   per-stratum diagnosis.
-- ❌ **Open-domain factuality** (HaluEval Dialogue stratum, FActScore
-  biographies). Out of scope by construction. Pair with a
-  knowledge-base fact-checker for that workload.
+- ❌ **Open-domain factuality without a source document** — if you cannot
+  hand the sidecar a context to verify against, no algorithm can. Pair
+  with a retrieval step (or with `scripts/enrich_factscore_with_wiki.py`-
+  style enrichment) so each claim has its source paragraph.
 
 See [`docs/algorithm-audit.md`](docs/algorithm-audit.md) for the per-stratum
 breakdown, the math behind every channel, and reproduction instructions

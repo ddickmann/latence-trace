@@ -262,7 +262,7 @@ outside but diverge on these workloads:
 | Bilingual EN+DE on shared schema | ✅ Verified | German minimal pairs 1.00 paired with the multilingual NLI peer. |
 | Distributed-evidence dialogue (support split across speaker turns) | ⚠️ Use with caution | 0.57 paired on internal `hard_dialogue_distributed`; pair with a context-rewriter or longer-premise reranker. |
 | Open-domain dialogue continuation (HaluEval Dialogue) | ❌ Out of scope | Hallucinations introduce real-world facts not in the dialogue context; both right and hallucinated answers score ungrounded relative to the supplied premise. Use a knowledge-base fact-checker. |
-| Open-domain biographies (FActScore-style) | ❌ Out of scope | Open-domain factuality vs. context-grounding. The right axis is per-claim precision against Wikipedia, not response-level grounding against a context. |
+| Per-claim atomic verification (FActScore-style biographies) | ✅ Supported when source is provided | Each annotation is treated as its own atomic claim and scored against the matching source paragraph (e.g. Wikipedia article enriched via `scripts/enrich_factscore_with_wiki.py`). At F1-optimal threshold the engine reports per-claim precision = 0.61, recall = 0.62, F1 = 0.62 on n = 748 atomic claims (30 biographies, multilingual mDeBERTa NLI). Without a source paragraph the workload degenerates to open-domain factuality and falls into the row above. |
 
 See [`docs/algorithm-audit.md`](algorithm-audit.md) §"Scope and Known
 Mismatches" for the full discussion.

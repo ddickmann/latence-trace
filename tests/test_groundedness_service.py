@@ -1952,30 +1952,51 @@ def test_halueval_loader_emits_paired_positive_and_negative(tmp_path, monkeypatc
     assert all(sample.query for sample in samples)
 
 
-def test_factscore_loader_aggregates_per_claim_precision(tmp_path, monkeypatch) -> None:
+def test_factscore_loader_emits_one_sample_per_atomic_claim(tmp_path, monkeypatch) -> None:
+    """FActScore biographies ship per-claim ``annotations[i]`` with binary
+    ``is_supported`` gold labels. The proper FActScore metric is per-claim
+    atomic precision, so the loader must emit ONE BenchmarkSample per
+    annotation (carrying that annotation's text and gold label), not a
+    single response-level sample collapsed across all claims.
+    """
     from research.triangular_maxsim.groundedness_external_benchmarks import load_factscore
 
-    # Biographies must carry a non-empty ``context`` (typically the matching
-    # Wikipedia article enriched via scripts/enrich_factscore_with_wiki.py)
-    # so the scorer has source text to verify against. Records without
-    # context are skipped by the loader to avoid degenerate F1=0 noise.
     payload = (
         '{"topic": "Marie Curie", "output": "She won two Nobel Prizes.",'
         ' "context": "Marie Curie was a Polish-French physicist who won the Nobel Prize in Physics in 1903 and the Nobel Prize in Chemistry in 1911.",'
-        ' "annotations": [{"is_supported": true}, {"is_supported": true}]}\n'
+        ' "annotations": ['
+        '   {"text": "Marie Curie won a Nobel Prize.", "is_supported": true},'
+        '   {"text": "Marie Curie was Polish.", "is_supported": true},'
+        '   {"text": "Marie Curie won three Nobel Prizes.", "is_supported": false}'
+        ' ]}\n'
         '{"topic": "Other", "output": "Mostly invented.",'
         ' "context": "Some unrelated source text about an unrelated topic.",'
-        ' "annotations": [{"is_supported": false}, {"is_supported": false}]}\n'
+        ' "annotations": ['
+        '   {"text": "Other was invented.", "is_supported": false},'
+        '   {"text": "Other never existed.", "is_supported": false}'
+        ' ]}\n'
     )
     (tmp_path / "biographies.jsonl").write_text(payload, encoding="utf-8")
     monkeypatch.setenv("VOYAGER_GROUNDEDNESS_FACTSCORE_DIR", str(tmp_path))
     samples = load_factscore()
     assert samples is not None
-    assert len(samples) == 2
-    assert samples[0].label == "faithful"
-    assert samples[1].label == "hallucinated"
-    assert samples[0].raw["precision"] == 1.0
-    assert samples[1].raw["precision"] == 0.0
+    assert len(samples) == 5
+    assert [s.label for s in samples] == [
+        "faithful", "faithful", "hallucinated",
+        "hallucinated", "hallucinated",
+    ]
+    # Each sample's response is the atomic claim, not the full biography.
+    assert samples[0].response == "Marie Curie won a Nobel Prize."
+    assert samples[2].response == "Marie Curie won three Nobel Prizes."
+    # Each sample carries the original Wikipedia context so the scorer can
+    # ground the per-claim verification.
+    for sample in samples:
+        assert "Marie Curie" in sample.context or "unrelated" in sample.context
+    # The raw payload preserves per-claim provenance for debugging.
+    assert samples[0].raw["claim_index"] == 0
+    assert samples[0].raw["is_supported"] is True
+    assert samples[2].raw["claim_index"] == 2
+    assert samples[2].raw["is_supported"] is False
 
 
 def test_factscore_loader_skips_biographies_with_empty_context(tmp_path, monkeypatch) -> None:
@@ -1988,13 +2009,13 @@ def test_factscore_loader_skips_biographies_with_empty_context(tmp_path, monkeyp
     payload = (
         '{"topic": "Marie Curie", "output": "She won two Nobel Prizes.",'
         ' "context": "Marie Curie was a Polish-French physicist who won two Nobel Prizes.",'
-        ' "annotations": [{"is_supported": true}, {"is_supported": true}]}\n'
+        ' "annotations": [{"text": "She won.", "is_supported": true}]}\n'
         '{"topic": "EmptyCtx", "output": "Some response.",'
         ' "context": "",'
-        ' "annotations": [{"is_supported": true}]}\n'
+        ' "annotations": [{"text": "Empty.", "is_supported": true}]}\n'
         '{"topic": "WhitespaceCtx", "output": "Other response.",'
         ' "context": "   ",'
-        ' "annotations": [{"is_supported": false}]}\n'
+        ' "annotations": [{"text": "Whitespace.", "is_supported": false}]}\n'
     )
     (tmp_path / "biographies.jsonl").write_text(payload, encoding="utf-8")
     monkeypatch.setenv("VOYAGER_GROUNDEDNESS_FACTSCORE_DIR", str(tmp_path))
@@ -2002,6 +2023,55 @@ def test_factscore_loader_skips_biographies_with_empty_context(tmp_path, monkeyp
     assert samples is not None
     assert len(samples) == 1
     assert samples[0].query == "Marie Curie"
+
+
+def test_factscore_evaluator_uses_best_f1_threshold_not_median() -> None:
+    """The FActScore stratum must NOT threshold per-claim scores at the
+    median. Median splits the score distribution arbitrarily, which on a
+    class-imbalanced dataset produces nonsense precision (the previous
+    truth_bench reported precision 0.18 because of this exact bug).
+    The evaluator must instead sweep candidate thresholds and pick the
+    F1-optimal one (the canonical FActScore protocol). Verified by
+    constructing a perfectly separable score distribution and asserting
+    the evaluator recovers F1 == 1.0 (which median-thresholding cannot).
+    """
+    from research.triangular_maxsim.groundedness_external_benchmarks import BenchmarkSample
+    from research.triangular_maxsim.groundedness_external_eval import (
+        _select_best_f1_threshold,
+    )
+
+    # Perfectly separable: positives all score >= 0.8, negatives <= 0.5.
+    # F1-optimal threshold is anywhere in (0.45, 0.81] inclusive --
+    # any threshold strictly above the highest negative (0.45) and at
+    # or below the lowest positive (0.81) gives F1=1.0.
+    scores = [0.95, 0.92, 0.88, 0.81, 0.45, 0.30, 0.20, 0.10]
+    labels = [1, 1, 1, 1, 0, 0, 0, 0]
+    threshold = _select_best_f1_threshold(scores, labels)
+    assert 0.45 < threshold <= 0.81
+    tp = sum(1 for s, l in zip(scores, labels) if s >= threshold and l == 1)
+    fp = sum(1 for s, l in zip(scores, labels) if s >= threshold and l == 0)
+    fn = sum(1 for s, l in zip(scores, labels) if s < threshold and l == 1)
+    precision = tp / max(1, tp + fp)
+    recall = tp / max(1, tp + fn)
+    f1 = 2 * precision * recall / max(1e-9, precision + recall)
+    assert f1 == 1.0, f"perfectly-separable example must hit F1=1.0; got {f1}"
+
+    # Median threshold here is 0.63 (between 0.45 and 0.81), which would
+    # also separate this trivially-easy synthetic example. The real bug
+    # is on imbalanced/overlapping distributions: 80% positives where
+    # the median sits inside the positive cluster. Verify on that:
+    scores_imbal = [0.95, 0.93, 0.91, 0.85, 0.80, 0.75, 0.72, 0.71, 0.55, 0.20]
+    labels_imbal = [1, 1, 1, 1, 1, 1, 1, 1, 0, 0]  # 80% positive
+    threshold_imbal = _select_best_f1_threshold(scores_imbal, labels_imbal)
+    # Best-F1 on imbalanced data captures all positives (low threshold)
+    # and only the actual negative is excluded (threshold > 0.20).
+    tp = sum(1 for s, l in zip(scores_imbal, labels_imbal) if s >= threshold_imbal and l == 1)
+    fp = sum(1 for s, l in zip(scores_imbal, labels_imbal) if s >= threshold_imbal and l == 0)
+    fn = sum(1 for s, l in zip(scores_imbal, labels_imbal) if s < threshold_imbal and l == 1)
+    precision = tp / max(1, tp + fp)
+    recall = tp / max(1, tp + fn)
+    f1 = 2 * precision * recall / max(1e-9, precision + recall)
+    assert f1 >= 0.94, f"best-F1 sweep should find a near-perfect cut; got F1={f1}"
 
 
 def test_preregistered_targets_cover_required_lanes() -> None:

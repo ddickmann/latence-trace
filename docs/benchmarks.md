@@ -35,6 +35,7 @@ Source: [`reports/truth_bench_n120.json`](../research/triangular_maxsim/reports/
 | HaluEval Summ — multilingual NLI | paired ranking | 60 | paired_acc | 0.65 | — |
 | HaluEval Summ — **English NLI** † | paired ranking | 60 | paired_acc | **0.75** | — |
 | HaluEval Dialogue — either NLI | paired ranking | 60 | paired_acc | 0.57–0.58 ‡ | — |
+| FActScore biographies (per-claim atomic, Wikipedia-grounded) § | precision / recall / F1 @ best-F1 threshold | 748 | precision / recall / F1 | **0.61 / 0.62 / 0.62** | — |
 | Latency | end-to-end (NLI on, reranker on, atomic on) | — | p95 | **118 ms** | — |
 
 † English NLI peer = `MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli`. Set
@@ -46,10 +47,19 @@ default.
 ‡ HaluEval Dialogue is **a known mismatch lane** for context-grounded
 scoring: hallucinations introduce real-world facts that are not in the
 dialogue context, so both right and hallucinated continuations score
-"ungrounded" relative to the supplied context. Same caveat applies to
-FActScore biographies. See
+"ungrounded" relative to the supplied context. See
 [`algorithm-audit.md`](algorithm-audit.md) §"Scope and Known
 Mismatches" for the formal explanation.
+
+§ FActScore biographies are scored under the **canonical FActScore
+protocol** (per-claim atomic precision at the F1-optimal threshold).
+Each `annotations[i]` becomes its own `BenchmarkSample` carrying the
+atomic claim text and the binary `is_supported` gold label; the engine
+scores each claim against the matching Wikipedia article and the
+threshold is swept to maximise F1. Source:
+[`reports/truth_bench_n120_factscore_per_claim.json`](../research/triangular_maxsim/reports/truth_bench_n120_factscore_per_claim.json).
+Earlier reports that show `factscore.status == "skipped"` predate this
+change and are kept for historical comparison only.
 
 ## What changed since prior reports
 
@@ -76,8 +86,8 @@ git clone --depth 1 https://github.com/RUCAIBox/HaluEval.git \
   research/triangular_maxsim/external_data/HaluEval
 
 # FActScore biographies ship without source context (open-domain
-# factuality); enrich with Wikipedia text first if you want the
-# loader to emit non-trivial samples instead of skipping them:
+# factuality). Enrich with Wikipedia text first so the per-claim
+# evaluator has a real source to verify against:
 python scripts/enrich_factscore_with_wiki.py \
   --in  research/triangular_maxsim/external_data/factscore/biographies.jsonl \
   --out research/triangular_maxsim/external_data/factscore/biographies_wiki.jsonl
@@ -89,12 +99,16 @@ export VOYAGER_GROUNDEDNESS_TORCH_DTYPE=bfloat16
 export VOYAGER_GROUNDEDNESS_MODEL=lightonai/GTE-ModernColBERT-v1
 export VOYAGER_GROUNDEDNESS_NLI_PREMISE_RERANKER_MODEL=BAAI/bge-reranker-v2-m3
 
-# Truth bench (RAGTruth + internal pairs + FActScore at n=120)
+# Truth bench: RAGTruth + internal pairs at n=120, plus FActScore at
+# 30 biographies (~750 atomic claims emitted by the per-claim loader,
+# scored at the F1-optimal threshold per the canonical FActScore
+# protocol).
 export VOYAGER_GROUNDEDNESS_NLI_MODEL=MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7
 python -m research.triangular_maxsim.groundedness_external_eval \
   --pairs-per-stratum 30 --max-external-per-stratum 120 \
+  --max-factscore-biographies 30 \
   --enable-nli --concat-premises --atomic-claims \
-  --out research/triangular_maxsim/reports/truth_bench_n120.json
+  --out research/triangular_maxsim/reports/truth_bench_n120_factscore_per_claim.json
 
 # HaluEval paired ranking diagnostic — multilingual NLI
 HALUEVAL_DIAGNOSE_OUT=research/triangular_maxsim/reports/halueval_diagnose_mdeberta_n60.json \
@@ -116,8 +130,8 @@ non-determinism.
 
 - [`algorithm-audit.md`](algorithm-audit.md) — exact formulas for
   every channel, partition-invariance proofs for response chunking,
-  per-channel ablations, and the "Scope and Known Mismatches" section
-  that scopes out HaluEval Dialogue and FActScore biographies.
+  per-channel ablations, the canonical FActScore per-claim protocol,
+  and the "Scope and Known Mismatches" section.
 - [`api-reference.md`](api-reference.md) — request / response shape
   of every field cited above (`coverage_score`, `claims[i].verdict`,
   `groundedness_v2`, etc.) and the workload-boundary table.

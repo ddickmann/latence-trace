@@ -222,25 +222,33 @@ def load_factscore(
     *,
     max_samples_per_stratum: Optional[int] = None,
 ) -> Optional[List[BenchmarkSample]]:
-    """Load FActScore biographies if available.
+    """Load FActScore biographies as **per-claim atomic samples**.
 
-    Expected layout:
+    Expected layout::
 
-    ``$VOYAGER_GROUNDEDNESS_FACTSCORE_DIR/biographies.jsonl``
+        $VOYAGER_GROUNDEDNESS_FACTSCORE_DIR/biographies_wiki.jsonl  (preferred)
+        $VOYAGER_GROUNDEDNESS_FACTSCORE_DIR/biographies.jsonl
+        $VOYAGER_GROUNDEDNESS_FACTSCORE_DIR/factscore.jsonl
 
-    Each line carries ``topic`` / ``output`` / ``annotations`` with per-claim
-    support labels. We aggregate per-claim labels into a single response-level
-    proportion that downstream metrics can threshold.
+    Each line carries ``topic`` / ``output`` / ``annotations[i]`` where each
+    annotation has its own ``text`` (an atomic claim already extracted by the
+    FActScore authors) and a binary ``is_supported`` gold label.
+
+    Per-claim atomic precision is the **proper FActScore metric** (response-
+    level F1@median is meaningless because biographies are open-domain mixed-
+    support: the median threshold splits a class-imbalanced distribution
+    arbitrarily). We therefore emit ONE ``BenchmarkSample`` per atomic claim,
+    so downstream evaluators can compute precision/recall/F1 directly from
+    the per-claim scores against the per-claim gold labels.
+
+    Each emitted sample uses the original Wikipedia ``context``, the atomic
+    claim text as both the ``response`` and the ``query``, and the gold
+    ``is_supported`` label as ``faithful`` / ``hallucinated``.
     """
 
     base = _env_path("VOYAGER_GROUNDEDNESS_FACTSCORE_DIR")
     if base is None:
         return None
-    # Prefer the Wikipedia-enriched variant when present so the scorer has a
-    # real source context to verify against. The upstream FActScore file ships
-    # ``context=""`` for every biography (it is an open-domain factuality
-    # benchmark, not a RAG benchmark); see scripts/enrich_factscore_with_wiki.py
-    # for the enrichment that adds ``context`` from the matching Wikipedia page.
     candidates = [
         base / "biographies_wiki.jsonl",
         base / "biographies.jsonl",
@@ -250,37 +258,45 @@ def load_factscore(
     if path is None:
         return None
     samples: List[BenchmarkSample] = []
-    emitted = 0
+    emitted_biographies = 0
     for obj in _read_jsonl(path):
         topic = str(obj.get("topic") or "biography")
-        output = obj.get("output") or obj.get("response") or ""
         annotations = obj.get("annotations") or []
-        if isinstance(output, list):
-            output = " ".join(str(part) for part in output)
         # Skip biographies whose Wikipedia enrichment failed: scoring against
         # an empty context is degenerate (every claim looks unsupported) and
         # silently corrupts the F1 numbers.
         context = str(obj.get("context") or "")
         if not context.strip():
             continue
-        supported = sum(1 for ann in annotations if ann.get("is_supported"))
-        total = max(1, len(annotations))
-        precision = float(supported) / float(total)
-        label = "faithful" if precision >= 0.65 else "hallucinated"
-        samples.append(
-            BenchmarkSample(
-                benchmark="factscore",
-                sample_id="{topic}-{idx}".format(topic=topic, idx=emitted),
-                stratum="biography",
-                context=context,
-                response=str(output),
-                label=label,
-                query=str(topic),
-                raw={"precision": precision, **obj},
+        if not annotations:
+            continue
+        for claim_idx, ann in enumerate(annotations):
+            claim_text = str(ann.get("text") or "").strip()
+            if not claim_text:
+                continue
+            is_supported = bool(ann.get("is_supported"))
+            samples.append(
+                BenchmarkSample(
+                    benchmark="factscore",
+                    sample_id=f"{topic}-{emitted_biographies}-c{claim_idx}",
+                    stratum="biography",
+                    context=context,
+                    response=claim_text,
+                    label="faithful" if is_supported else "hallucinated",
+                    query=str(topic),
+                    raw={
+                        "topic": topic,
+                        "biography_index": emitted_biographies,
+                        "claim_index": claim_idx,
+                        "is_supported": is_supported,
+                    },
+                )
             )
-        )
-        emitted += 1
-        if max_samples_per_stratum is not None and emitted >= max_samples_per_stratum:
+        emitted_biographies += 1
+        if (
+            max_samples_per_stratum is not None
+            and emitted_biographies >= max_samples_per_stratum
+        ):
             break
     return samples or None
 
@@ -322,10 +338,16 @@ PREREGISTERED_TARGETS: Dict[str, Dict[str, Any]] = {
         "notes": "Phase J distributed-dialogue stratum; benchmarks HaluEval dialogue pairs if present.",
     },
     "factscore": {
-        "metric": "claim_precision",
+        "metric": "claim_precision_at_best_f1",
         "min": 0.65,
         "ci_lower_min": 0.60,
-        "notes": "Per-claim atomic precision on FActScore biographies.",
+        "notes": (
+            "Per-claim atomic precision at the F1-optimal threshold on "
+            "FActScore biographies (Wikipedia-grounded). Each annotation is "
+            "scored independently; the threshold is swept over the empirical "
+            "score distribution to maximise F1, matching the canonical "
+            "FActScore protocol."
+        ),
     },
     "minimal_pairs_lexical": {
         "metric": "paired_accuracy",

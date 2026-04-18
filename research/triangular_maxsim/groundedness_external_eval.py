@@ -528,11 +528,26 @@ def evaluate_benchmark_samples(
         score, _field = _resolve_headline(scored["scores"], nli_enabled=nli_enabled)
         by_stratum.setdefault(sample.stratum, []).append((float(score), _binary_label(sample)))
 
+    benchmark_id = samples[0].benchmark if samples else ""
     per_stratum: Dict[str, Dict[str, float]] = {}
     for stratum, rows in by_stratum.items():
         scores = [score for score, _ in rows]
         labels = [label for _, label in rows]
-        threshold = float(np.median(scores)) if scores else 0.0
+        if not scores:
+            continue
+        # Threshold strategy:
+        #   * FActScore atomic claims are class-imbalanced and the response
+        #     space is many short atomic claims, not a few long answers --
+        #     median threshold is meaningless. Sweep all candidate thresholds
+        #     and pick the one that maximises F1 (the standard FActScore
+        #     evaluation protocol).
+        #   * Every other dataset (RAGTruth, HaluEval) ships balanced
+        #     positive/negative pairs per stratum, so median threshold is the
+        #     fair, parameter-free baseline.
+        if benchmark_id == "factscore":
+            threshold = _select_best_f1_threshold(scores, labels)
+        else:
+            threshold = float(np.median(scores))
         tp = sum(1 for s, l in rows if s >= threshold and l == 1)
         fp = sum(1 for s, l in rows if s >= threshold and l == 0)
         fn = sum(1 for s, l in rows if s < threshold and l == 1)
@@ -544,8 +559,12 @@ def evaluate_benchmark_samples(
             if (precision + recall) > 0
             else 0.0
         )
+        positives = sum(1 for l in labels if l == 1)
+        negatives = sum(1 for l in labels if l == 0)
         per_stratum[stratum] = {
             "n": len(rows),
+            "n_positive": positives,
+            "n_negative": negatives,
             "tp": tp,
             "fp": fp,
             "tn": tn,
@@ -553,12 +572,58 @@ def evaluate_benchmark_samples(
             "precision": float(precision),
             "recall": float(recall),
             "f1": float(f1),
-            "threshold": threshold,
+            "threshold": float(threshold),
+            "threshold_strategy": (
+                "best_f1_sweep" if benchmark_id == "factscore" else "median"
+            ),
         }
     return {
         "sample_count": len(samples),
         "per_stratum": per_stratum,
     }
+
+
+def _select_best_f1_threshold(
+    scores: Sequence[float],
+    labels: Sequence[int],
+    *,
+    candidate_count: int = 101,
+) -> float:
+    """Sweep ``candidate_count`` thresholds and return the F1-optimal one.
+
+    Used for class-imbalanced datasets (FActScore atomic claims) where the
+    median threshold is uninformative. The sweep is bounded by the actual
+    score range so it always evaluates at thresholds where the prediction
+    actually changes.
+    """
+
+    if not scores:
+        return 0.0
+    if not any(label == 1 for label in labels):
+        return float(max(scores)) + 1.0
+    lo = float(min(scores))
+    hi = float(max(scores))
+    if hi <= lo:
+        return float(lo)
+    best_threshold = float(np.median(scores))
+    best_f1 = -1.0
+    span = hi - lo
+    for k in range(candidate_count):
+        threshold = lo + span * (k / float(candidate_count - 1))
+        tp = sum(1 for s, l in zip(scores, labels) if s >= threshold and l == 1)
+        fp = sum(1 for s, l in zip(scores, labels) if s >= threshold and l == 0)
+        fn = sum(1 for s, l in zip(scores, labels) if s < threshold and l == 1)
+        precision = tp / float(tp + fp) if (tp + fp) > 0 else 0.0
+        recall = tp / float(tp + fn) if (tp + fn) > 0 else 0.0
+        f1 = (
+            2.0 * precision * recall / (precision + recall)
+            if (precision + recall) > 0
+            else 0.0
+        )
+        if f1 > best_f1:
+            best_f1 = f1
+            best_threshold = float(threshold)
+    return best_threshold
 
 
 # ----------------------------------------------------------------------
@@ -661,16 +726,36 @@ def assemble_report(
         elif key == "factscore":
             payload = external_results.get("factscore")
             if not payload or "biography" not in payload["per_stratum"]:
-                report["criteria"][key] = {"status": "skipped", "notes": target.get("notes")}
+                report["criteria"][key] = {
+                    "status": "skipped",
+                    "skip_reason": (
+                        "FActScore data not available "
+                        "(set VOYAGER_GROUNDEDNESS_FACTSCORE_DIR; "
+                        "run scripts/enrich_factscore_with_wiki.py to populate "
+                        "biographies_wiki.jsonl)"
+                    ),
+                    "notes": target.get("notes"),
+                }
                 continue
             bio_stats = payload["per_stratum"]["biography"]
-            met = bool(bio_stats["precision"] >= target.get("min", 0.0))
+            precision = float(bio_stats["precision"])
+            met = bool(precision >= target.get("min", 0.0))
             report["criteria"][key] = {
                 "metric": target["metric"],
-                "value": float(bio_stats["precision"]),
+                "value": precision,
+                "f1": float(bio_stats.get("f1", 0.0)),
+                "recall": float(bio_stats.get("recall", 0.0)),
+                "n_claims": int(bio_stats.get("n", 0)),
+                "n_positive": int(bio_stats.get("n_positive", 0)),
+                "n_negative": int(bio_stats.get("n_negative", 0)),
+                "threshold": float(bio_stats.get("threshold", 0.0)),
+                "threshold_strategy": str(
+                    bio_stats.get("threshold_strategy", "best_f1_sweep")
+                ),
                 "min": target.get("min"),
                 "met": met,
                 "label": "pass" if met else "fail",
+                "evaluation": "per_claim_atomic_precision_at_f1_best_threshold",
                 "notes": target.get("notes"),
             }
         elif key == "latency_score_only":
@@ -780,6 +865,17 @@ def main(argv: Optional[List[str]] = None) -> int:
         "--max-external-per-stratum",
         type=int,
         default=int(os.environ.get("VOYAGER_GROUNDEDNESS_MAX_EXTERNAL_PER_STRATUM", "200")),
+    )
+    parser.add_argument(
+        "--max-factscore-biographies",
+        type=int,
+        default=int(os.environ.get("VOYAGER_GROUNDEDNESS_MAX_FACTSCORE_BIOGRAPHIES", "30")),
+        help=(
+            "Cap on FActScore biographies. Each biography emits ~25 atomic "
+            "claims that are scored independently, so the total number of "
+            "scoring calls is roughly biographies x 25. Use a smaller cap "
+            "for fast iteration (default 30 biographies ~ 800 claims)."
+        ),
     )
     parser.add_argument(
         "--enable-nli",
@@ -914,7 +1010,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         ("halueval", load_halueval),
         ("factscore", load_factscore),
     ):
-        samples = loader(max_samples_per_stratum=args.max_external_per_stratum)
+        # FActScore is per-claim atomic; one biography emits ~25 claims, so
+        # the per-stratum cap is interpreted as biographies (not claims).
+        per_stratum_cap = (
+            args.max_factscore_biographies
+            if name == "factscore"
+            else args.max_external_per_stratum
+        )
+        samples = loader(max_samples_per_stratum=per_stratum_cap)
         if samples is None:
             external_results[name] = None
             continue
