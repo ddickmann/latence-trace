@@ -322,12 +322,48 @@ languages.
   entropy, structured, thresholds).
 - `latence_trace/kernels/` - Triton triangular MaxSim kernel.
 - `latence_trace/api/` - FastAPI router, Pydantic models, service layer.
+- `latence_trace/auth/` - JWT (Ed25519) license verifier + middleware.
+- `latence_trace/middleware/` - request-id and token-bucket rate-limit middleware.
+- `latence_trace/observability/` - Prometheus metrics, OpenTelemetry tracing,
+  structured JSON logging.
 - `latence_trace/providers/` - encoder providers (pylate local, vLLM-factory
   remote ModernColBERT pooling).
+- `clients/python/` - the `latence-trace-client` SDK (sync + async,
+  retries, OTel, Pydantic types) plus LangChain / LlamaIndex / OpenAI
+  adapters.
+- `deploy/helm/latence-trace/` - production Helm chart (Deployment +
+  Service + ConfigMap + Secret + HPA + PDB + NetworkPolicy +
+  ServiceMonitor + Ingress).
+- `commercial/` - procurement + buying-side artefacts: security
+  one-pager, MSA + DPA + Order Form templates, SOC 2 control mapping,
+  Trust Center page, audit-evidence inventory, and the
+  [pilot kit](commercial/pilot-kit/) (pilot agreement, success
+  criteria, ROI calculator, case-study template, tracker).
+- `docs/operations/` - operator-facing runbooks (deployment checklist,
+  calibration runbook, observability, licensing).
 - `server/` - uvicorn entry point.
 - `research/triangular_maxsim/` - evaluation harness, minimal pairs,
   pre-registered targets, committed reports.
 - `scripts/` - threshold calibration and fusion-weight sweeps.
+
+## Operate it in production
+
+For Fortune-500 ops teams there is now a complete operator surface:
+
+| Layer | Where |
+|---|---|
+| Hardened container (uid 65532, RO root, no shells, OCI labels, tini) | [`Dockerfile`](Dockerfile) |
+| Helm chart (Deployment / Service / ConfigMap / Secret / HPA / PDB / NetworkPolicy / ServiceMonitor / Ingress) | [`deploy/helm/latence-trace/`](deploy/helm/latence-trace/) |
+| Ed25519-signed JWT license enforcement | [`latence_trace/auth/`](latence_trace/auth/), CLI `latence-trace license inspect|verify|fingerprint` |
+| Prometheus `/metrics`, OpenTelemetry tracing, structured JSON logs, request-ID propagation | [`latence_trace/observability/`](latence_trace/observability/) |
+| Token-bucket rate limiter (per-license / per-IP, burst-capable, `Retry-After` aware) | [`latence_trace/middleware/`](latence_trace/middleware/) |
+| Python SDK (sync + async + retries + OTel + framework adapters) | [`clients/python/`](clients/python/) |
+| Per-customer threshold / weight refit playbook | [`docs/operations/calibration-runbook.md`](docs/operations/calibration-runbook.md) |
+| Procurement + buying artefacts (security one-pager, MSA, DPA, SOC 2 mapping, Trust Center, pilot kit) | [`commercial/`](commercial/) |
+
+See [`docs/operations/`](docs/operations/) for the full operator
+walkthrough and [`SECURITY.md`](SECURITY.md) for the security posture
+and disclosure process.
 
 ## Reproducing benchmarks
 

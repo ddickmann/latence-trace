@@ -32,6 +32,11 @@ dependencies = [
   "uvicorn>=0.29",
   "httpx>=0.27",
   "pylate>=1.1",
+  "PyJWT[crypto]>=2.8",
+  "cryptography>=42.0",
+  "prometheus-client>=0.19",
+  "opentelemetry-api>=1.24",
+  "opentelemetry-sdk>=1.24",
 ]
 
 [project.optional-dependencies]
@@ -40,6 +45,11 @@ dev = [
   "pytest-asyncio>=0.23",
   "ruff>=0.4",
   "mypy>=1.10",
+]
+otel = [
+  "opentelemetry-exporter-otlp>=1.24",
+  "opentelemetry-instrumentation-fastapi>=0.45b0",
+  "opentelemetry-instrumentation-httpx>=0.45b0",
 ]
 
 [project.scripts]
@@ -52,13 +62,17 @@ latence-trace-sweep = "scripts.sweep_fusion_weights:main"
 packages = [
   "latence_trace",
   "latence_trace.api",
+  "latence_trace.auth",
   "latence_trace.cli",
   "latence_trace.core",
   "latence_trace.kernels",
   "latence_trace.mcp",
+  "latence_trace.middleware",
+  "latence_trace.observability",
   "latence_trace.providers",
 ]
 include-package-data = true
 
 [tool.setuptools.package-data]
 "latence_trace.core" = ["thresholds.json"]
+"latence_trace.auth" = ["license_pubkey.pem"]

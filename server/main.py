@@ -38,7 +38,17 @@ from latence_trace.api.service import (
     PROFILE_NAMES,
     apply_profile,
 )
+from latence_trace.auth import LicenseMiddleware
 from latence_trace.kernels.warmup import warm_all
+from latence_trace.middleware import RateLimitMiddleware, RequestIdMiddleware
+from latence_trace.observability import (
+    PrometheusMiddleware,
+    configure_json_logging,
+    configure_tracing,
+    create_metrics_router,
+    register_default_collectors,
+)
+from latence_trace.observability.metrics import update_license_gauge
 
 logger = logging.getLogger(__name__)
 
@@ -177,6 +187,58 @@ def create_app(profile: Optional[str] = None) -> FastAPI:
     # ``LATENCE_TRACE_ACTIVE_PROFILE`` for the process.
     app.state.active_profile = applied_profile_name or DEFAULT_PROFILE
 
+    # --- L4 observability ------------------------------------------------
+    # Switch to JSON-formatted logging when the operator opts in. We
+    # keep the human-readable default for ``LATENCE_TRACE_LOG_FORMAT``
+    # absent so local dev / CI does not see machine-only output.
+    log_format = os.environ.get("LATENCE_TRACE_LOG_FORMAT", "").strip().lower()
+    if log_format == "json":
+        configure_json_logging()
+    register_default_collectors(
+        profile=app.state.active_profile,
+        version=app.version,
+    )
+    configure_tracing(app, service_version=app.version)
+
+    # --- L3 license + L5 rate limit + observability middleware ----------
+    # Eagerly load the license so the Prometheus gauge can publish the
+    # days-until-expiry value before the first scrape. We pass the
+    # already-validated claims into LicenseMiddleware so the per-request
+    # path does no extra work.
+    from latence_trace.auth.license import (  # noqa: PLC0415
+        LicenseError,
+        load_license_from_env,
+    )
+
+    license_claims = None
+    try:
+        license_claims = load_license_from_env()
+    except LicenseError as exc:
+        logger.error(
+            "license_load_failed",
+            extra={"code": exc.code, "error_detail": str(exc)},
+        )
+
+    if license_claims is not None:
+        update_license_gauge(
+            subject=license_claims.subject,
+            tier=license_claims.tier,
+            days_until_expiry=license_claims.days_until_expiry,
+        )
+
+    # Starlette processes ``add_middleware`` in LIFO order, so the
+    # *last* call wraps the others outermost. We want
+    # RequestId -> License -> RateLimit -> Prometheus -> route, so we
+    # add them in REVERSE here:
+    app.add_middleware(PrometheusMiddleware)
+    app.add_middleware(RateLimitMiddleware)
+    app.add_middleware(
+        LicenseMiddleware,
+        license_claims=license_claims,
+    )
+    app.add_middleware(RequestIdMiddleware)
+
+    app.include_router(create_metrics_router())
     app.include_router(create_router(_get_service))
 
     # PA7 polish: coerce FastAPI's default 422 validation responses into

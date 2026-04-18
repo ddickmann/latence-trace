@@ -1,0 +1,28 @@
+apiVersion: v2
+name: latence-trace
+description: Calibrated, auditable groundedness scoring for RAG and evidence-bearing LLM outputs.
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+home: https://latence.ai/trace
+sources:
+  - https://latence.ai/trace
+icon: https://latence.ai/trace/logo.png
+maintainers:
+  - name: latence.ai
+    email: support@latence.ai
+keywords:
+  - llm
+  - rag
+  - groundedness
+  - hallucination-detection
+  - colbert
+  - nli
+annotations:
+  category: AI
+  artifacthub.io/license: LicenseRef-latence-ai-Commercial
+  artifacthub.io/links: |
+    - name: Documentation
+      url: https://latence.ai/trace/docs
+    - name: Trust Center
+      url: https://latence.ai/trace/trust

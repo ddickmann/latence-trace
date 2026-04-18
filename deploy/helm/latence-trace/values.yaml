@@ -1,0 +1,169 @@
+# Default values for latence-trace.
+# A production deployment overrides at minimum:
+#   - image.tag                                     (pin to a digest)
+#   - license.token (or license.existingSecret)     (your customer JWT)
+#   - resources.{requests,limits}                   (sized to your QPS)
+#   - ingress.* or expose via your gateway          (TLS terminating proxy)
+
+image:
+  repository: ghcr.io/latence-ai/latence-trace
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+# Number of replicas when autoscaling is disabled.
+replicaCount: 2
+
+# Customer-issued JWT license (L3). Set inline OR point at an existing
+# Secret to avoid putting the token in your values file.
+license:
+  # Inline token. Leave empty to use existingSecret instead.
+  token: ""
+  # When non-empty, the chart will mount THIS Secret at
+  # /etc/latence-trace/license. Recommended: provision the Secret with
+  # ExternalSecrets / Sealed Secrets / Vault.
+  existingSecret: ""
+  existingSecretKey: license
+  # Set false in CI / staging where the engine should run unlicensed.
+  required: true
+
+# Pareto-optimal profile preset (fast | balanced | quality).
+profile: balanced
+
+# Per-request guardrails. The rate-limit middleware enforces this
+# unless the JWT max_qps claim is lower (claim wins).
+limits:
+  rateLimitRps: 0           # 0 = use license max_qps; set explicit for ungated dev
+  maxInflight: 8
+
+# Concurrency / parallelism knobs forwarded to the FastAPI server.
+server:
+  workers: 1                # uvicorn workers per pod
+  port: 8090
+
+# Logging + tracing. Set otelEndpoint to enable OpenTelemetry export.
+observability:
+  logFormat: json           # "json" | "" (human-readable)
+  otelEndpoint: ""          # e.g. "http://otel-collector.observability:4318"
+
+# Optional vLLM-Factory sidecar address. Leave empty to fall back to
+# the in-process pylate provider (CPU-friendly, slower).
+encoder:
+  vllmEndpoint: "http://vllm-factory:8000"
+  vllmModel: "VAGOsolutions/SauerkrautLM-Multi-Reason-ModernColBERT"
+
+resources:
+  requests:
+    cpu: "1000m"
+    memory: "4Gi"
+  limits:
+    cpu: "4000m"
+    memory: "12Gi"
+    # nvidia.com/gpu: 1                    # set when running with a GPU
+
+# Probe tuning.
+probes:
+  liveness:
+    initialDelaySeconds: 30
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readiness:
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6   # gate on Triton warmup
+
+# Pod security context: run as non-root, read-only root fs, no privilege
+# escalation. The image already enforces uid 65532; this stays in lockstep.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+
+# When readOnlyRootFilesystem=true the HF cache needs writable storage.
+# emptyDir keeps the chart self-contained; mount a PVC in production
+# so model weights survive pod restarts.
+hfCacheVolume:
+  type: emptyDir            # emptyDir | persistentVolumeClaim
+  size: 16Gi
+  storageClass: ""
+
+# Service definition.
+service:
+  type: ClusterIP
+  port: 8090
+  annotations: {}
+
+# Optional ingress (default off; most operators front the chart with
+# their own gateway). Inline TLS recommended.
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: latence-trace.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Horizontal Pod Autoscaler. Disabled by default; enable once your
+# load test calibrates the right CPU / RPS target.
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Pod Disruption Budget so cluster ops can't drain all replicas at once.
+pdb:
+  enabled: true
+  minAvailable: 1
+
+# Network policy: deny ingress except from explicitly listed namespaces /
+# pod selectors. Edit ingressFrom to your gateway / service mesh policy.
+networkPolicy:
+  enabled: false
+  ingressFrom: []           # [{ namespaceSelector: ..., podSelector: ... }]
+
+# ServiceMonitor for kube-prometheus-stack (set true if you run that op).
+serviceMonitor:
+  enabled: false
+  namespace: ""
+  interval: 30s
+  scrapeTimeout: 10s
+  labels: {}                # match your Prometheus selector
+  metricRelabelings: []
+  honorLabels: false
+
+# ServiceAccount + RBAC (read-only -- the app does not need K8s API).
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+priorityClassName: ""
+
+# Extra environment variables (key/value or valueFrom).
+extraEnv: []
+# Extra volumes / mounts for sidecars or custom truststores.
+extraVolumes: []
+extraVolumeMounts: []

@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "latence-trace.fullname" . }}-config
+  labels:
+    {{- include "latence-trace.labels" . | nindent 4 }}
+data:
+  LATENCE_TRACE_PROFILE: {{ .Values.profile | quote }}
+  LATENCE_TRACE_PORT: {{ .Values.server.port | quote }}
+  LATENCE_TRACE_WORKERS: {{ .Values.server.workers | quote }}
+  LATENCE_TRACE_MAX_INFLIGHT: {{ .Values.limits.maxInflight | quote }}
+  LATENCE_TRACE_LOG_FORMAT: {{ .Values.observability.logFormat | quote }}
+  LATENCE_TRACE_LICENSE_REQUIRE: {{ .Values.license.required | quote }}
+  {{- if .Values.limits.rateLimitRps }}
+  LATENCE_TRACE_RATE_LIMIT_RPS: {{ .Values.limits.rateLimitRps | quote }}
+  {{- end }}
+  {{- if .Values.observability.otelEndpoint }}
+  OTEL_EXPORTER_OTLP_ENDPOINT: {{ .Values.observability.otelEndpoint | quote }}
+  OTEL_SERVICE_NAME: {{ include "latence-trace.fullname" . | quote }}
+  {{- end }}
+  {{- if .Values.encoder.vllmEndpoint }}
+  VOYAGER_GROUNDEDNESS_VLLM_ENDPOINT: {{ .Values.encoder.vllmEndpoint | quote }}
+  VOYAGER_GROUNDEDNESS_VLLM_MODEL: {{ .Values.encoder.vllmModel | quote }}
+  {{- end }}

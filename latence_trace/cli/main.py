@@ -149,6 +149,47 @@ def _add_calibrate_parser(sub: argparse._SubParsersAction) -> None:
     )
 
 
+def _add_license_parser(sub: argparse._SubParsersAction) -> None:
+    parser = sub.add_parser(
+        "license",
+        help="Inspect / verify the JWT license token (L3).",
+        description=(
+            "Operator-side tooling for the commercial license: print the "
+            "active claims, validate a token from a file, or compute the "
+            "deployment fingerprint to embed in a pinned license."
+        ),
+    )
+    license_sub = parser.add_subparsers(dest="license_command", required=True)
+
+    inspect = license_sub.add_parser(
+        "inspect",
+        help="Print the resolved license claims as JSON (subject, tier, exp...).",
+    )
+    inspect.add_argument(
+        "--token",
+        default=None,
+        help=(
+            "Verify the supplied token instead of the active env. Accepts a "
+            "raw JWT string or a path to a file containing one."
+        ),
+    )
+
+    license_sub.add_parser(
+        "verify",
+        help="Exit 0 if the active license is valid, non-zero otherwise.",
+    )
+
+    fp = license_sub.add_parser(
+        "fingerprint",
+        help="Compute the SHA-256 deployment fingerprint from a seed.",
+    )
+    fp.add_argument(
+        "--seed",
+        required=True,
+        help="Free-form deployment seed (e.g. cluster id, machine id).",
+    )
+
+
 def _add_mcp_parser(sub: argparse._SubParsersAction) -> None:
     parser = sub.add_parser(
         "mcp-server",
@@ -307,6 +348,61 @@ def _cmd_calibrate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_license(args: argparse.Namespace) -> int:
+    from latence_trace.auth.license import (  # noqa: PLC0415
+        LicenseError,
+        deployment_fingerprint,
+        load_license_from_env,
+        verify_license,
+    )
+
+    if args.license_command == "fingerprint":
+        sys.stdout.write(deployment_fingerprint(args.seed) + "\n")
+        return 0
+
+    try:
+        if args.license_command == "inspect" and args.token:
+            token = args.token.strip()
+            if token.count(".") == 2 and not token.startswith("/"):
+                claims = verify_license(token)
+            else:
+                claims = verify_license(Path(token).read_text(encoding="utf-8").strip())
+        else:
+            claims = load_license_from_env(require=True)
+    except LicenseError as exc:
+        sys.stderr.write(
+            json.dumps(
+                {"ok": False, "code": exc.code, "message": str(exc)},
+                indent=2,
+            )
+            + "\n"
+        )
+        return 1
+
+    if args.license_command == "verify":
+        sys.stdout.write(
+            json.dumps(
+                {
+                    "ok": True,
+                    "subject": claims.subject if claims else None,
+                    "tier": claims.tier if claims else None,
+                    "expires_at": claims.expires_at if claims else None,
+                    "days_until_expiry": (
+                        round(claims.days_until_expiry, 2) if claims else None
+                    ),
+                },
+                indent=2,
+            )
+            + "\n"
+        )
+        return 0
+
+    sys.stdout.write(
+        json.dumps(claims.to_inspect_dict() if claims else {}, indent=2) + "\n"
+    )
+    return 0
+
+
 def _cmd_mcp_server(args: argparse.Namespace) -> int:
     if args.profile:
         os.environ["LATENCE_TRACE_PROFILE"] = args.profile
@@ -332,6 +428,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_warm_parser(sub)
     _add_bench_parser(sub)
     _add_calibrate_parser(sub)
+    _add_license_parser(sub)
     _add_mcp_parser(sub)
     return parser
 
@@ -342,6 +439,7 @@ _DISPATCH = {
     "warm": _cmd_warm,
     "bench": _cmd_bench,
     "calibrate": _cmd_calibrate,
+    "license": _cmd_license,
     "mcp-server": _cmd_mcp_server,
 }
 
