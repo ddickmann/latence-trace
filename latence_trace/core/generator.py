@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, List, Optional, Protocol, Sequence
+from typing import Any, Callable, List, Optional, Protocol, Sequence
 
 logger = logging.getLogger(__name__)
 

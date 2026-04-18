@@ -104,6 +104,34 @@ async def test_agent_help_describes_premise_lanes_and_attribution_modes():
 
 
 @pytest.mark.anyio("asyncio")
+async def test_create_app_propagates_active_profile_to_agent_help(monkeypatch):
+    """create_app(profile=...) must surface the chosen profile via /agent-help.
+
+    Regression guard: the discovery endpoint reads
+    ``LATENCE_TRACE_ACTIVE_PROFILE`` (preferred) or ``LATENCE_TRACE_PROFILE``
+    to populate ``profiles.active``. Without explicit propagation the value
+    falls back to ``balanced`` regardless of the CLI flag.
+    """
+
+    monkeypatch.delenv("LATENCE_TRACE_ACTIVE_PROFILE", raising=False)
+    monkeypatch.delenv("LATENCE_TRACE_PROFILE", raising=False)
+    monkeypatch.setenv("LATENCE_TRACE_DISABLE_WARMUP", "1")
+    monkeypatch.setenv("VOYAGER_GROUNDEDNESS_NLI_ENABLED", "0")
+
+    from server.main import create_app  # noqa: PLC0415
+
+    app = create_app(profile="fast")
+    async with _client(app) as client:
+        r = await client.get("/agent-help")
+    assert r.status_code == 200
+    profiles = r.json()["profiles"]
+    assert profiles["active"] == "fast", (
+        f"create_app(profile='fast') must surface active='fast' on /agent-help, "
+        f"got active={profiles['active']!r}"
+    )
+
+
+@pytest.mark.anyio("asyncio")
 async def test_well_known_ai_plugin_descriptor_is_self_consistent():
     app = _build_app()
     async with _client(app) as client:

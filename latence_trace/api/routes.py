@@ -17,7 +17,7 @@ import asyncio
 import os
 from typing import Callable, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 
@@ -200,9 +200,19 @@ def create_router(service_provider: Callable[[], GroundednessService]) -> APIRou
             "schema."
         ),
     )
-    async def agent_help() -> JSONResponse:
+    async def agent_help(request: Request) -> JSONResponse:
+        # Resolution order, most-authoritative first:
+        #   1. ``request.app.state.active_profile`` -- set by ``create_app``
+        #      so per-app selection (CLI flag / embedded apply_profile call)
+        #      wins even when the process eagerly built another app first.
+        #   2. ``LATENCE_TRACE_ACTIVE_PROFILE`` -- exported by ``apply_profile``
+        #      for routers built outside of ``server.main.create_app``.
+        #   3. ``LATENCE_TRACE_PROFILE`` -- the operator-facing selection env.
+        #   4. ``DEFAULT_PROFILE`` -- static fallback.
+        state_profile = getattr(request.app.state, "active_profile", None)
         active_profile = (
-            os.environ.get("LATENCE_TRACE_ACTIVE_PROFILE")
+            state_profile
+            or os.environ.get("LATENCE_TRACE_ACTIVE_PROFILE")
             or os.environ.get("LATENCE_TRACE_PROFILE")
             or DEFAULT_PROFILE
         )

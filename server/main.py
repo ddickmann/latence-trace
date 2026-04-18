@@ -127,9 +127,11 @@ def create_app(profile: Optional[str] = None) -> FastAPI:
     """
 
     selected = profile if profile is not None else _resolve_profile_from_env()
+    applied_profile_name: Optional[str] = None
     if selected:
         try:
             applied = apply_profile(selected)
+            applied_profile_name = applied.profile
             logger.info(
                 "groundedness_profile_active",
                 extra={
@@ -169,6 +171,12 @@ def create_app(profile: Optional[str] = None) -> FastAPI:
             "url": "https://latence.ai/trace/legal",
         },
     )
+    # Stamp the active profile on app.state so /agent-help reports the
+    # per-app selection (CLI flag / embedded apply_profile call) even when
+    # an earlier eager ``app = create_app()`` already wrote
+    # ``LATENCE_TRACE_ACTIVE_PROFILE`` for the process.
+    app.state.active_profile = applied_profile_name or DEFAULT_PROFILE
+
     app.include_router(create_router(_get_service))
 
     # PA7 polish: coerce FastAPI's default 422 validation responses into

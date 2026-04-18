@@ -491,9 +491,13 @@ def naive_reverse_maxsim_qc(
     normalize: bool = True,
 ) -> tuple[float, torch.Tensor]:
     """Strawman: g_naive[t] = max_{x in Q union C} R[t] . x. Returns (G, g_per_token)."""
-    Q = Q.float(); C = C.float(); R = R.float()
+    Q = Q.float()
+    C = C.float()
+    R = R.float()
     if normalize:
-        Q = _normalize(Q); C = _normalize(C); R = _normalize(R)
+        Q = _normalize(Q)
+        C = _normalize(C)
+        R = _normalize(R)
     QC = torch.cat([Q, C], dim=0)
     if Q_mask is None:
         Q_mask = torch.ones(Q.shape[0], device=Q.device)
@@ -517,9 +521,11 @@ def reverse_maxsim_rc(
     normalize: bool = True,
 ) -> tuple[float, torch.Tensor]:
     """Reverse MaxSim against just C (no query conditioning)."""
-    C = C.float(); R = R.float()
+    C = C.float()
+    R = R.float()
     if normalize:
-        C = _normalize(C); R = _normalize(R)
+        C = _normalize(C)
+        R = _normalize(R)
     sim = R @ C.T
     if C_mask is not None:
         sim = torch.where(C_mask.bool().to(sim.device)[None, :], sim,

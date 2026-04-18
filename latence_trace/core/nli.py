@@ -17,7 +17,7 @@ import re
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Protocol, Sequence, Tuple
 
 from latence_trace.core.claims import (
     AtomicClaim,

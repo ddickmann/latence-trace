@@ -2343,8 +2343,6 @@ def test_fuse_groundedness_v2_supports_structured_channel() -> None:
 # ----------------------------------------------------------------------
 
 from latence_trace.core.semantic_entropy import (  # noqa: E402
-    SemanticEntropyCluster,
-    cluster_samples_by_entailment,
     compute_semantic_entropy,
     is_semantic_entropy_enabled,
 )
@@ -2699,7 +2697,6 @@ def test_thresholds_summary_for_returns_json_safe_payload() -> None:
 # ----------------------------------------------------------------------
 
 from latence_trace.core.structured import (  # noqa: E402
-    StructuredVerification,
     detect_source_format,
     extract_response_triples,
     extract_triples_from_json,
@@ -2898,8 +2895,11 @@ def test_score_groundedness_wires_verification_samples_into_semantic_entropy() -
     """End-to-end: samples + NLI provider produce a semantic_entropy_diagnostics payload."""
 
     samples = ["Paris is the capital of France.", "The capital of France is Paris."]
-    table = _build_identity_table(samples)
-    provider = _ScriptedNLIProvider(table)
+    # The NLI provider is intentionally None below so clustering cannot run;
+    # _build_identity_table is still exercised to keep the table builder
+    # covered by the service-level test, but the resulting object is not
+    # consumed by the call so we discard it.
+    _build_identity_table(samples)
     support_tensor = torch.eye(4, dtype=torch.float32)
     response_tensor = torch.eye(4, dtype=torch.float32)[:2]
     unit = SupportUnitInput(

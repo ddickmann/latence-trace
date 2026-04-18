@@ -122,7 +122,6 @@ def _regex_split(sentence: str, parent_start: int) -> List[Tuple[int, int, str]]
         return []
 
     pieces: List[Tuple[int, int, str]] = []
-    cursor = 0
     text = sentence
 
     def _slice_at(positions: Sequence[int]) -> List[Tuple[int, str]]:
