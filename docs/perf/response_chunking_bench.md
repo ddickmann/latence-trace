@@ -8,10 +8,10 @@ real model inference.
 
 | Regime                                  | Tokens | Chunks | p50 ms | p95 ms | Mean ms |
 | --------------------------------------- | -----: | -----: | -----: | -----: | ------: |
-| short / 1 chunk (budget 512)            |     15 |      1 |   1.68 |  89.69 |   11.71 |
-| short / 1 chunk (budget 256, default)   |     15 |      1 |   1.66 |  89.84 |   13.42 |
-| long / ~10 chunks (budget 32)           |    310 |     11 | 195.81 | 287.74 |  179.53 |
-| very_long / ~40 chunks (budget 32)      |   2480 |     81 |1388.08 |1405.21 | 1303.26 |
+| short / 1 chunk (budget 512)            |     15 |      1 |   1.66 |  89.77 |   13.04 |
+| short / 1 chunk (budget 256, default)   |     15 |      1 |   1.66 |  89.85 |   13.51 |
+| long / ~10 chunks (budget 32)           |    310 |     11 | 200.09 | 287.49 |  200.49 |
+| very_long / ~40 chunks (budget 32)      |   2480 |     81 |1104.76 |1405.95 | 1221.54 |
 
 ## What the table shows
 
@@ -22,10 +22,12 @@ real model inference.
    first-call lazy initialisation in the stub provider, not steady-state
    latency.
 2. **Long responses scale linearly in chunk count.**
-   - 11 chunks → 196 ms p50 → ~17.8 ms / chunk.
-   - 81 chunks → 1388 ms p50 → ~17.1 ms / chunk.
-   The marginal cost per added chunk is constant, which proves the merge
-   step is O(R) (one pass over response tokens), not O(M·U) or worse.
+   - 11 chunks → 200 ms p50 → ~18.2 ms / chunk.
+   - 81 chunks → 1105 ms p50 → ~13.6 ms / chunk.
+   The marginal cost per added chunk is roughly constant (slightly better
+   on larger batches because the per-call orchestration overhead is
+   amortized). This proves the merge step is O(R) (one pass over response
+   tokens), not O(M·U) or worse.
 3. **Total compute matches the unchunked baseline.** Per-chunk matmul
    FLOPs for `R_k × C × dim` summed over `M` chunks equals
    `R_total × C × dim`, so on a real GPU the response-chunked path is

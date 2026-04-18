@@ -311,6 +311,100 @@ def test_response_chunking_long_response_stays_well_formed() -> None:
         assert 0 <= int(evidence["support_unit_index"]) < len(support_units)
 
 
+def test_response_chunking_per_token_nli_reaches_every_chunk(monkeypatch) -> None:
+    """Regression: per-token NLI must cover tokens in EVERY chunk.
+
+    Previously the orchestrator inherited per-token NLI projection from
+    chunk-0 only, so tokens in chunks 1..N-1 always carried
+    ``nli_score = None`` even when their corresponding claim was verified.
+    This test mocks ``_maybe_run_nli`` so the orchestrator returns three
+    claims spanning the full response text and asserts that the
+    re-projection at orchestrator level assigns scores to tokens in every
+    response chunk, not just the first one.
+    """
+    from latence_trace.core import groundedness as gd
+
+    provider = _StubColbertProvider()
+    raw_context = (
+        "Berlin is the German capital. "
+        "Paris is the French capital. "
+        "Rome is the Italian capital."
+    )
+    response_text = (
+        "Berlin is the German capital. "
+        "Paris is the French capital. "
+        "Rome is the Italian capital."
+    )
+
+    support_units = _make_support_units(provider, raw_context)
+    support_batches = partition_support_units(support_units, batch_size=4)
+
+    chunks = _build_response_chunks(
+        response_text,
+        provider=provider,
+        chunk_token_budget=4,
+        encode_fn=encode_texts,
+    )
+    assert len(chunks) >= 3
+
+    sentence_pattern = re.compile(r"[^.!?]+[.!?]")
+    spans = [(m.start(), m.end()) for m in sentence_pattern.finditer(response_text)]
+    assert len(spans) >= 3
+
+    fake_payload = {
+        "claim_records": [
+            {
+                "index": idx,
+                "text": response_text[start:end],
+                "char_start": int(start),
+                "char_end": int(end),
+                "score": 0.7,
+                "entailment": 0.85,
+                "neutral": 0.1,
+                "contradiction": 0.05,
+                "skipped": False,
+                "skip_reason": None,
+                "premise_count": 1,
+                "atoms": [],
+            }
+            for idx, (start, end) in enumerate(spans)
+        ],
+        "claim_count": len(spans),
+        "skipped_count": 0,
+        "aggregate_score": 0.7,
+        "per_token": [None] * 8,
+        "warnings": [],
+    }
+
+    def _fake_run_nli(**_kwargs):
+        return fake_payload
+
+    monkeypatch.setattr(gd, "_maybe_run_nli", _fake_run_nli)
+
+    class _FakeNLI:
+        pass
+
+    result = score_groundedness_response_chunked(
+        response_chunks=chunks,
+        support_batches=support_batches,
+        response_text=response_text,
+        evidence_limit=8,
+        primary_metric="reverse_context",
+        nli_provider=_FakeNLI(),
+    )
+
+    chunk_indices_with_nli: set = set()
+    for row in result["response_tokens"]:
+        if row.get("nli_score") is not None:
+            chunk_indices_with_nli.add(row["response_chunk_index"])
+
+    expected_chunk_count = len({row["response_chunk_index"] for row in result["response_tokens"]})
+    assert len(chunk_indices_with_nli) == expected_chunk_count, (
+        f"expected nli_score on tokens in every chunk, got chunks={chunk_indices_with_nli}, "
+        f"expected={expected_chunk_count} chunks"
+    )
+
+
 def test_response_chunking_full_service_request_default_chunk_budget(monkeypatch) -> None:
     """End-to-end: the API service layer routes through the orchestrator."""
     monkeypatch.setenv("VOYAGER_GROUNDEDNESS_NLI_ENABLED", "0")

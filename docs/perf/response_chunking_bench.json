@@ -5,40 +5,40 @@
       "response_token_total": 15,
       "chunk_count": 1,
       "support_unit_count": 3,
-      "iterations": 30,
-      "p50_ms": 1.6831522807478905,
-      "p95_ms": 89.69296887516975,
-      "mean_ms": 11.70759815722704
+      "iterations": 200,
+      "p50_ms": 1.654546707868576,
+      "p95_ms": 89.76900391280651,
+      "mean_ms": 13.041264833882451
     },
     {
       "label": "short / 1 chunk (budget 256, default)",
       "response_token_total": 15,
       "chunk_count": 1,
       "support_unit_count": 3,
-      "iterations": 30,
-      "p50_ms": 1.6592321917414665,
-      "p95_ms": 89.83850851655006,
-      "mean_ms": 13.416726142168045
+      "iterations": 200,
+      "p50_ms": 1.6551055014133453,
+      "p95_ms": 89.84560705721378,
+      "mean_ms": 13.50718529894948
     },
     {
       "label": "long / ~10 chunks (budget 32)",
       "response_token_total": 310,
       "chunk_count": 11,
       "support_unit_count": 3,
-      "iterations": 30,
-      "p50_ms": 195.8088567480445,
-      "p95_ms": 287.744352594018,
-      "mean_ms": 179.52502320210138
+      "iterations": 200,
+      "p50_ms": 200.09304210543633,
+      "p95_ms": 287.49115765094757,
+      "mean_ms": 200.49017888493836
     },
     {
       "label": "very_long / ~40 chunks (budget 32)",
       "response_token_total": 2480,
       "chunk_count": 81,
       "support_unit_count": 3,
-      "iterations": 30,
-      "p50_ms": 1388.0794746801257,
-      "p95_ms": 1405.2073191851377,
-      "mean_ms": 1303.2630199566483
+      "iterations": 200,
+      "p50_ms": 1104.7556586563587,
+      "p95_ms": 1405.9501178562641,
+      "mean_ms": 1221.5398708358407
     }
   ]
 }

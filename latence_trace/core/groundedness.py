@@ -27,6 +27,7 @@ from latence_trace.core.nli import (
     fuse_groundedness_v2,
     is_atomic_enabled,
     is_premise_concat_enabled,
+    project_claim_records_to_tokens,
     project_claim_scores_to_tokens,
     verify_claims,
 )
@@ -2747,6 +2748,12 @@ def _build_response_chunks(
     chunks: List[ResponseChunkInput] = []
     for span, chunk_text, chunk_emb in zip(spans, chunk_texts, embeddings_list):
         expected_len = int(chunk_emb.shape[0])
+        # Defensive: pathological inputs (e.g. all-whitespace chunks) can
+        # produce an empty embedding row. Skip them rather than feed an
+        # empty tensor into the scorer, which would either error out on
+        # tokens-vs-embeddings alignment or silently produce 0/NaN scores.
+        if expected_len <= 0:
+            continue
         tokens, offsets = tokenize_with_offsets(
             provider,
             chunk_text,
@@ -2829,8 +2836,10 @@ def score_groundedness_response_chunked(
     the global ``Σ w_t g_t / Σ w_t`` is computed once on the merged vectors,
     not as a per-chunk weighted average. NLI / literal / semantic-entropy /
     structured-source channels run exactly once on the full
-    ``response_text`` (chunk 0 invocation) and are reused verbatim because
-    they are text-level, not embedding-level.
+    ``response_text`` (chunk 0 invocation) because they are text-level, not
+    embedding-level. NLI's per-token projection is re-anchored on the
+    *global* token list afterwards so per-token NLI heatmaps stay correct
+    on every chunk, not just the first window.
     """
 
     if not response_chunks:
@@ -3057,6 +3066,26 @@ def score_groundedness_response_chunked(
         dtype=torch.float32,
     )
     consensus_hardened_score = float(weighted_groundedness(consensus_global, weights))
+
+    # Per-token NLI re-projection (heatmap-correctness fix for multi-chunk
+    # responses). NLI runs once on chunk 0 with ``response_text`` = the full
+    # response, so ``claim_records`` already covers every claim across the
+    # whole response. The per-token projection inside chunk 0 is anchored on
+    # chunk-0's tokens though, which means tokens beyond the first window
+    # would otherwise carry ``nli_score = None`` even when their claim was
+    # successfully verified. Re-project the claim records onto the *global*
+    # token list so the heatmap shows every supported / refuted token, not
+    # just those in the first response chunk.
+    nli_diag = base.get("nli_diagnostics")
+    if nli_diag and nli_diag.get("claims"):
+        global_token_strings = [str(row["token"]) for row in response_token_rows]
+        global_nli_per_token = project_claim_records_to_tokens(
+            global_token_strings,
+            response_text,
+            nli_diag["claims"],
+        )
+        for row, value in zip(response_token_rows, global_nli_per_token):
+            row["nli_score"] = value
 
     base_scores = base["scores"]
     base_groundedness_v2 = base_scores.get("groundedness_v2")

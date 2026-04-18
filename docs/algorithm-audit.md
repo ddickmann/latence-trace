@@ -193,6 +193,13 @@ Notes:
   See [`tests/test_response_chunking_parity.py`](../tests/test_response_chunking_parity.py)
   for the bitwise-parity test (chunked vs unchunked → identical headline,
   identical per-token reverse-context, identical attribution).
+- Per-token NLI heatmaps stay correct on multi-chunk responses. NLI runs
+  exactly once on the full `response_text` (chunk 0 invocation) and the
+  resulting `claim_records` cover every claim. The orchestrator
+  re-projects those claim records onto the *global* response token list
+  using the same character-cursor projection used in the unchunked path,
+  so tokens in chunks 1..N-1 receive their `nli_score` instead of being
+  truncated to the first window's coverage.
 - Evidence attribution remains exact for the winning support token after merge.
 - `consensus_hardened` merge is exact because it is computed from the full
   concatenated matrix of per-support-unit maxima `m_{t,u}`, not from lossy

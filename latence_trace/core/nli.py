@@ -389,26 +389,20 @@ def _strip_token_marker(token: str) -> str:
     return out
 
 
-def project_claim_scores_to_tokens(
+def _project_spans_to_tokens(
     response_tokens: Sequence[str],
     response_text: str,
-    verifications: Sequence[ClaimVerification],
+    spans: Sequence[Tuple[int, int, float]],
 ) -> List[Optional[float]]:
-    """Project per-claim NLI scores back onto response tokens.
+    """Walk ``response_tokens`` left-to-right and assign each token the score
+    of whichever ``(char_start, char_end, score)`` span contains its cursor.
 
-    Walks the response tokens left-to-right, advancing a character cursor
-    through ``response_text`` by stripped token surface, and assigns each
-    token the score of whichever claim span contains the cursor. Tokens that
-    fall outside any claim span (whitespace-only, special tokens, padding)
-    receive ``None``.
+    Shared helper used by both :func:`project_claim_scores_to_tokens` and
+    :func:`project_claim_records_to_tokens` so the two stay bit-identical.
     """
 
     n = len(response_tokens)
-    if n == 0 or not response_text:
-        return [None] * n
-
-    spans = [(v.claim.char_start, v.claim.char_end, float(v.score)) for v in verifications]
-    if not spans:
+    if n == 0 or not response_text or not spans:
         return [None] * n
 
     out: List[Optional[float]] = [None] * n
@@ -429,6 +423,56 @@ def project_claim_scores_to_tokens(
                 out[idx] = score
                 break
     return out
+
+
+def project_claim_scores_to_tokens(
+    response_tokens: Sequence[str],
+    response_text: str,
+    verifications: Sequence[ClaimVerification],
+) -> List[Optional[float]]:
+    """Project per-claim NLI scores back onto response tokens.
+
+    Walks the response tokens left-to-right, advancing a character cursor
+    through ``response_text`` by stripped token surface, and assigns each
+    token the score of whichever claim span contains the cursor. Tokens that
+    fall outside any claim span (whitespace-only, special tokens, padding)
+    receive ``None``.
+    """
+
+    spans = [(v.claim.char_start, v.claim.char_end, float(v.score)) for v in verifications]
+    return _project_spans_to_tokens(response_tokens, response_text, spans)
+
+
+def project_claim_records_to_tokens(
+    response_tokens: Sequence[str],
+    response_text: str,
+    claim_records: Sequence[Dict[str, Any]],
+) -> List[Optional[float]]:
+    """Dict-format counterpart to :func:`project_claim_scores_to_tokens`.
+
+    Accepts the serialized claim records exposed by
+    ``nli_diagnostics.claims`` (each record carries ``char_start``,
+    ``char_end``, and ``score``). Used by the response-chunking orchestrator
+    to re-project NLI verdicts onto the *global* response token list after
+    each chunk has been scored, so per-token NLI heatmaps stay correct on
+    long, multi-chunk responses without re-running the (expensive) NLI
+    classifier.
+    """
+
+    spans: List[Tuple[int, int, float]] = []
+    for record in claim_records:
+        if record is None:
+            continue
+        start = record.get("char_start")
+        end = record.get("char_end")
+        score = record.get("score")
+        if start is None or end is None or score is None:
+            continue
+        try:
+            spans.append((int(start), int(end), float(score)))
+        except (TypeError, ValueError):
+            continue
+    return _project_spans_to_tokens(response_tokens, response_text, spans)
 
 
 # ----------------------------------------------------------------------
@@ -1163,6 +1207,7 @@ __all__ = [
     "is_atomic_enabled",
     "is_enabled",
     "is_premise_concat_enabled",
+    "project_claim_records_to_tokens",
     "project_claim_scores_to_tokens",
     "resolve_default_provider",
     "resolve_default_reranker",
