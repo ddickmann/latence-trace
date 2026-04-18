@@ -30,6 +30,7 @@ import logging
 import os
 import re
 import threading
+import unicodedata
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -337,23 +338,31 @@ _DE_FUNCTION_WORDS = (
 )
 
 
+_DE_UMLAUT_CHARS = frozenset(("\u00e4", "\u00f6", "\u00fc", "\u00df"))
+
+
 def _looks_german(text: str) -> bool:
     if not text:
         return False
     # NFC-normalize so combining-diaeresis sequences (``M\u0075\u0308nchen``)
     # collapse to the precomposed umlaut (``M\u00fcnchen``) before we count.
-    import unicodedata
-
     nfc = unicodedata.normalize("NFC", text)
-    haystack = " " + nfc.lower() + " "
-    hits = sum(haystack.count(token) for token in _DE_FUNCTION_WORDS)
-    if hits >= 2:
+    # Strong signal first: any precomposed umlaut/eszett wins immediately
+    # so we do not pay the function-word scan on obviously German strings.
+    if any(ch in _DE_UMLAUT_CHARS for ch in nfc):
         return True
-    # Strong signal: any precomposed umlaut or eszett is present.
-    return any(ch in nfc for ch in ("\u00e4", "\u00f6", "\u00fc", "\u00df"))
+    haystack = " " + nfc.lower() + " "
+    hits = 0
+    for token in _DE_FUNCTION_WORDS:
+        if token in haystack:
+            hits += 1
+            if hits >= 2:
+                return True
+    return False
 
 
 _SPACY_SPLITTERS: Dict[str, _SpacySplitter] = {}
+_SPACY_SPLITTER_LOCK = threading.Lock()
 
 
 def _spacy_model_for(lang: str) -> str:
@@ -378,9 +387,15 @@ def _get_spacy_splitter(language: Optional[str] = None) -> Optional[_SpacySplitt
     cached = _SPACY_SPLITTERS.get(lang)
     if cached is not None:
         return cached
-    splitter = _SpacySplitter(_spacy_model_for(lang))
-    _SPACY_SPLITTERS[lang] = splitter
-    return splitter
+    # Two concurrent first-time accesses must not both create a splitter and
+    # race the cache write; guard the slow path with a lock.
+    with _SPACY_SPLITTER_LOCK:
+        cached = _SPACY_SPLITTERS.get(lang)
+        if cached is not None:
+            return cached
+        splitter = _SpacySplitter(_spacy_model_for(lang))
+        _SPACY_SPLITTERS[lang] = splitter
+        return splitter
 
 
 # ----------------------------------------------------------------------

@@ -51,9 +51,43 @@ _DEFAULT_PREMISE_CONCAT_BUDGET = 384  # tokens approximated as words
 _PREMISE_JOIN_SEPARATOR = " \u2022 "  # bullet keeps sentence boundaries visible
 
 _CLAIM_SPLIT_RE = re.compile(r"[^.!?\n]+(?:[.!?]+|$)", re.UNICODE)
-_CONJUNCTION_SPLIT_RE = re.compile(r"\s*(?:;|\bbut\b|\bhowever\b|\bwhereas\b)\s+", re.IGNORECASE)
+# Conjunction split fires on long sentences only. The alternation now
+# spans both English (but, however, whereas) and German (aber, jedoch,
+# w\u00e4hrend, sondern, doch) to keep claim refinement language-aware
+# without needing a runtime language detector.
+_CONJUNCTION_SPLIT_RE = re.compile(
+    r"\s*(?:"
+    r";"
+    r"|\bbut\b|\bhowever\b|\bwhereas\b"
+    r"|\baber\b|\bjedoch\b|\bw\u00e4hrend\b|\bsondern\b|\bdoch\b"
+    r")\s+",
+    re.IGNORECASE,
+)
 _TOKEN_FALLBACK_RE = re.compile(r"\w+", re.UNICODE)
 _STRIP_PREFIXES = ("Ġ", "▁", "##")
+
+# Function-word stopwords used by ``_content_set`` to avoid lexical-overlap
+# rerank false positives on common closed-class words. The set unions
+# English + German function words; longer-than-2 filter in ``_content_set``
+# already drops 1-2 char tokens, so we only list 3+ char terms here.
+_OVERLAP_STOPWORDS = frozenset({
+    # English
+    "the", "and", "for", "with", "from", "that", "this", "are", "was",
+    "were", "have", "has", "had", "will", "would", "could", "should",
+    "but", "not", "any", "all", "its", "his", "her", "their", "these",
+    "those",
+    # German
+    "der", "die", "das", "den", "dem", "des", "ein", "eine", "einen",
+    "einem", "einer", "eines", "und", "oder", "aber", "doch", "sondern",
+    "weil", "dass", "wenn", "als", "wie", "von", "vom", "zur", "zum",
+    "ist", "sind", "war", "waren", "wird", "werden", "wurde", "wurden",
+    "hat", "hatte", "haben", "hatten", "sein", "seine", "ihre", "ihr",
+    "ihn", "ihm", "nicht", "kein", "keine", "auch", "noch", "nur",
+    "schon", "sehr", "mehr", "denn", "daher", "dabei", "damit", "darum",
+    "hier", "dort", "auf", "aus", "bei", "mit", "nach", "vor",
+    "\u00fcber", "unter", "neben", "zwischen", "f\u00fcr", "ohne",
+    "gegen",
+})
 
 
 # ----------------------------------------------------------------------
@@ -136,9 +170,10 @@ def split_claims(response_text: str, *, max_claims: int = _DEFAULT_MAX_CLAIMS) -
 
     The splitter is intentionally conservative: it segments by sentence
     punctuation first, then optionally splits long sentences on strong
-    conjunctions (``;``, ``but``, ``however``, ``whereas``). Each claim keeps
-    its character offsets in the original response so callers can project
-    NLI scores back to specific response tokens later.
+    conjunctions (English: ``;``, ``but``, ``however``, ``whereas``;
+    German: ``aber``, ``jedoch``, ``w\u00e4hrend``, ``sondern``, ``doch``).
+    Each claim keeps its character offsets in the original response so
+    callers can project NLI scores back to specific response tokens later.
     """
 
     if not response_text or not response_text.strip():
@@ -194,7 +229,11 @@ def _tokenize_for_overlap(text: str) -> List[str]:
 
 def _content_set(text: str) -> set:
     tokens = _tokenize_for_overlap(text)
-    return {token for token in tokens if len(token) > 2}
+    return {
+        token
+        for token in tokens
+        if len(token) > 2 and token not in _OVERLAP_STOPWORDS
+    }
 
 
 def _candidate_premise_texts(support_units: Sequence[Any]) -> List[str]:
@@ -316,7 +355,7 @@ def _concat_premises_for_nli(
     out_words: List[str] = []
     used = 0
     sep_words = len(separator.split())
-    for idx, premise in enumerate(premises):
+    for premise in premises:
         if not premise:
             continue
         words = premise.split()
@@ -334,7 +373,6 @@ def _concat_premises_for_nli(
         used += len(words)
         if used >= token_budget:
             break
-        _ = idx  # noqa: F841 — cursor only
     return " ".join(out_words)
 
 

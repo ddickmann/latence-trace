@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import threading
 from typing import Optional
 
 from fastapi import FastAPI
@@ -35,15 +36,27 @@ from latence_trace.api.service import (
 logger = logging.getLogger(__name__)
 
 _service: Optional[GroundednessService] = None
+_service_lock = threading.Lock()
 
 
 def _get_service() -> GroundednessService:
+    """Lazily build the singleton ``GroundednessService``.
+
+    The first request builds the encoder cache, NLI provider stubs, and
+    null-bank scaffolding. We guard the construction with a lock so two
+    concurrent in-flight requests do not race and double-instantiate.
+    """
+
     global _service
     if _service is None:
-        _service = GroundednessService(
-            device=os.environ.get("LATENCE_TRACE_DEVICE", "cpu"),
-            collection_label=os.environ.get("LATENCE_TRACE_COLLECTION_LABEL", "latence-trace"),
-        )
+        with _service_lock:
+            if _service is None:
+                _service = GroundednessService(
+                    device=os.environ.get("LATENCE_TRACE_DEVICE", "cpu"),
+                    collection_label=os.environ.get(
+                        "LATENCE_TRACE_COLLECTION_LABEL", "latence-trace"
+                    ),
+                )
     return _service
 
 

@@ -64,7 +64,9 @@ _SPECIAL_TOKENS = {
 # additive: any token whose lowercased form is in this set contributes 0
 # weight to the headline reverse-context score.
 _STOPWORDS = {
-    # English function words
+    # English function words. Note that several entries (``a``, ``an``,
+    # ``in``, ``is``, ``war``) are also valid German closed-class words; we
+    # list them once here and skip duplicates in the German block below.
     "a",
     "an",
     "and",
@@ -118,8 +120,9 @@ _STOPWORDS = {
     "zum",
     "zur",
     "im",
-    "in",
-    "an",
+    # ``in`` and ``an`` already appear above in the English block; they are
+    # also valid German closed-class words. Listing them only once keeps
+    # the source canonical (the ``set`` would dedupe anyway).
     "am",
     "auf",
     "aus",
@@ -157,7 +160,6 @@ _STOPWORDS = {
     "er",
     "sie",
     "wir",
-    "ihr",
     "uns",
     "euch",
     "mich",
@@ -877,11 +879,13 @@ _EN_MONTHS = (
 
 # German month name alternation. ``M\u00e4rz`` and its abbreviation ``M\u00e4r``
 # carry the umlaut explicitly; the regex runs case-insensitively so capitalized
-# and lowercased forms both match.
+# and lowercased forms both match. Each token appears only once - the
+# alternation engine evaluates left-to-right anyway, so duplicates were
+# pure dead bytes.
 _DE_MONTHS = (
     r"(?:Januar|Februar|M\u00e4rz|April|Mai|Juni|Juli|August|"
-    r"September|Oktober|November|Dezember|Jan|Feb|M\u00e4r|Mar|"
-    r"Apr|Mai|Jun|Jul|Aug|Sep|Sept|Okt|Nov|Dez)"
+    r"September|Oktober|November|Dezember|"
+    r"Jan|Feb|M\u00e4r|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Okt|Nov|Dez)"
 )
 
 _LITERAL_PATTERNS: Tuple[Tuple[str, "re.Pattern[str]"], ...] = (

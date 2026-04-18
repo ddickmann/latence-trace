@@ -394,3 +394,97 @@ def test_english_minimal_pair_still_works_after_multilingual_changes() -> None:
     a = _calibrated(_score(support, supported, encoder))
     b = _calibrated(_score(support, unsupported, encoder))
     assert a > b, (a, b)
+
+
+# ---------------------------------------------------------------------------
+# 6. Audit-driven regressions: claim splitter + lexical rerank stopwords
+# ---------------------------------------------------------------------------
+
+
+def test_claim_splitter_refines_long_german_sentences_on_aber_jedoch() -> None:
+    """``split_claims`` must split German conjunctions on long sentences.
+
+    Pre-fix the conjunction regex only listed English (``but``/``however``/
+    ``whereas``); long German prose sailed through as one giant claim and
+    blew up NLI premise selection. The refined splitter now mirrors the
+    atomic-claim coordinator regex.
+    """
+
+    long_de = (
+        "Goethe wurde 1749 in Frankfurt am Main geboren und studierte sp\u00e4ter "
+        "in Leipzig sowie in Stra\u00dfburg, aber er kehrte regelm\u00e4\u00dfig "
+        "in seine Heimatstadt zur\u00fcck und reiste mehrfach nach Italien, "
+        "jedoch siedelte er schlie\u00dflich nach Weimar \u00fcber, wo er "
+        "vierzig Jahre lang im Dienst des herzoglichen Hofes blieb"
+    )
+    claims = nli_module.split_claims(long_de)
+    # Without German conjunctions in the splitter, the whole 299-char run
+    # collapsed to a single claim. The fix yields >=3 sub-claims, with
+    # the German conjunctions ``aber``/``jedoch`` consumed as delimiters
+    # (so the resulting sub-claims start with the post-conjunction tail).
+    assert len(claims) >= 3, [c.text for c in claims]
+    starts = [c.text.split()[0].lower() for c in claims]
+    # The sub-claim immediately after ``aber`` starts with ``er``;
+    # the sub-claim after ``jedoch`` starts with ``siedelte``.
+    assert "er" in starts, starts
+    assert "siedelte" in starts, starts
+    # And no surviving sub-claim begins with the German conjunction itself.
+    for token in ("aber", "jedoch", "w\u00e4hrend", "sondern", "doch"):
+        assert token not in starts, (token, starts)
+
+
+def test_lexical_overlap_filters_german_function_words() -> None:
+    """``_content_set`` must skip German function words for premise rerank."""
+
+    content_set = nli_module._content_set
+    bag = content_set("der Hund und die Katze sind in dem Garten")
+    # All shown words are German function words and must NOT survive the
+    # filter; only ``hund``, ``katze``, and ``garten`` remain.
+    assert bag == {"hund", "katze", "garten"}, bag
+
+
+def test_lexical_overlap_still_drops_english_function_words() -> None:
+    content_set = nli_module._content_set
+    bag = content_set("the cat and the dog were in the garden")
+    assert bag == {"cat", "dog", "garden"}, bag
+
+
+def test_de_months_alternation_has_no_duplicates() -> None:
+    """Audit fix: ``_DE_MONTHS`` was emitting duplicate ``Mai`` and ``Apr``.
+
+    A duplicate alternation never breaks correctness but wastes regex
+    bytecode and matches confidence diagnostics. This guard keeps the
+    pattern minimal so future edits do not silently re-introduce the dup.
+    """
+
+    from latence_trace.core.groundedness import _DE_MONTHS
+
+    parts = _DE_MONTHS.strip("()?:").rstrip(")").lstrip("(?:").split("|")
+    assert len(parts) == len(set(parts)), [p for p in parts if parts.count(p) > 1]
+
+
+def test_german_stopword_set_has_no_duplicates() -> None:
+    from latence_trace.core.groundedness import _STOPWORDS
+
+    # ``_STOPWORDS`` is a set, so duplicates collapse silently. The audit
+    # found ``"ihr"`` listed twice in the source; we keep this guard so
+    # future edits are forced to be tidy. The list is regenerated from the
+    # source via ``ast`` to detect duplicates explicitly.
+    import ast
+    import inspect
+    from latence_trace.core import groundedness as ground_mod
+
+    source = inspect.getsource(ground_mod)
+    tree = ast.parse(source)
+    set_node = next(
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.Assign)
+        and isinstance(node.targets[0], ast.Name)
+        and node.targets[0].id == "_STOPWORDS"
+    )
+    literal_words = [el.value for el in set_node.value.elts if isinstance(el, ast.Constant)]
+    duplicates = [w for w in literal_words if literal_words.count(w) > 1]
+    assert not duplicates, sorted(set(duplicates))
+    # And the runtime set still carries the German closed-class words.
+    for must_have in ("der", "die", "das", "und", "ist", "nicht"):
+        assert must_have in _STOPWORDS

@@ -1,0 +1,324 @@
+{
+  "all_targets_met": false,
+  "criteria": {
+    "factscore": {
+      "label": "fail",
+      "met": false,
+      "metric": "claim_precision",
+      "min": 0.65,
+      "notes": "Per-claim atomic precision on FActScore biographies.",
+      "value": 0.0
+    },
+    "halueval_qa": {
+      "label": "fail",
+      "met": false,
+      "metric": "paired_accuracy",
+      "min": 0.75,
+      "notes": "Phase J tightened paired ranking accuracy on HaluEval QA pairs.",
+      "value": 0.5
+    },
+    "latency_score_only": {
+      "applicable": false,
+      "applies_when": "nli_disabled",
+      "label": "fail",
+      "max": 100.0,
+      "met": false,
+      "metric": "p95_ms",
+      "notes": "Score-only request budget without NLI.",
+      "value": 193.4573646634817
+    },
+    "latency_with_nli": {
+      "applicable": true,
+      "applies_when": "nli_enabled",
+      "label": "pass",
+      "max": 250.0,
+      "met": true,
+      "metric": "p95_ms",
+      "notes": "Full-request budget with NLI verifier enabled.",
+      "value": 193.4573646634817
+    },
+    "minimal_pairs_hard_compound": {
+      "ci_lower": 1.0,
+      "ci_lower_min": 0.55,
+      "label": "pass",
+      "met": true,
+      "metric": "paired_accuracy",
+      "min": 0.6,
+      "n": 20,
+      "notes": "Phase J hard compound-fact pairs (multi-fact conjunctions with one fact flipped).",
+      "value": 1.0
+    },
+    "minimal_pairs_hard_dialogue_distributed": {
+      "ci_lower": 0.1,
+      "ci_lower_min": 0.5,
+      "label": "fail",
+      "met": false,
+      "metric": "paired_accuracy",
+      "min": 0.55,
+      "n": 20,
+      "notes": "Phase J distributed-dialogue pairs (evidence split across speaker turns).",
+      "value": 0.25
+    },
+    "minimal_pairs_hard_structured": {
+      "ci_lower": 0.7,
+      "ci_lower_min": 0.6,
+      "label": "pass",
+      "met": true,
+      "metric": "paired_accuracy",
+      "min": 0.65,
+      "n": 20,
+      "notes": "Phase J hard structured-source pairs (JSON, markdown table). Exercises the structured channel.",
+      "value": 0.85
+    },
+    "minimal_pairs_lexical": {
+      "ci_lower": 0.75,
+      "ci_lower_min": 0.75,
+      "label": "pass",
+      "met": true,
+      "metric": "paired_accuracy",
+      "min": 0.8,
+      "n": 80,
+      "notes": "Pairs in entity_swap, date_swap, number_swap, unit_swap.",
+      "value": 0.975
+    },
+    "minimal_pairs_partial": {
+      "ci_lower": 0.85,
+      "ci_lower_min": 0.6,
+      "label": "pass",
+      "met": true,
+      "metric": "paired_accuracy",
+      "min": 0.65,
+      "n": 20,
+      "notes": "Partial-support pairs (one clause grounded, one not).",
+      "value": 0.95
+    },
+    "minimal_pairs_semantic": {
+      "ci_lower": 0.85,
+      "ci_lower_min": 0.65,
+      "label": "pass",
+      "met": true,
+      "metric": "paired_accuracy",
+      "min": 0.7,
+      "n": 40,
+      "notes": "Pairs in negation and role_swap (need NLI).",
+      "value": 0.975
+    },
+    "ragtruth": {
+      "label": "pass",
+      "met": true,
+      "metric": "span_f1_macro",
+      "min": 0.55,
+      "notes": "Macro span-F1 across qa/summarization/data2text strata.",
+      "value": 0.6267478025693037
+    }
+  },
+  "external": {
+    "factscore": {
+      "per_stratum": {
+        "biography": {
+          "f1": 0.0,
+          "fn": 0,
+          "fp": 10,
+          "n": 20,
+          "precision": 0.0,
+          "recall": 0.0,
+          "threshold": 0.019809998099138016,
+          "tn": 10,
+          "tp": 0
+        }
+      },
+      "sample_count": 20
+    },
+    "halueval": {
+      "per_stratum": {
+        "dialogue": {
+          "f1": 0.45,
+          "fn": 11,
+          "fp": 11,
+          "n": 40,
+          "precision": 0.45,
+          "recall": 0.45,
+          "threshold": 0.8070920864208969,
+          "tn": 9,
+          "tp": 9
+        },
+        "qa": {
+          "f1": 0.5,
+          "fn": 10,
+          "fp": 10,
+          "n": 40,
+          "precision": 0.5,
+          "recall": 0.5,
+          "threshold": 0.8090539527142904,
+          "tn": 10,
+          "tp": 10
+        },
+        "summarization": {
+          "f1": 0.6,
+          "fn": 8,
+          "fp": 8,
+          "n": 40,
+          "precision": 0.6,
+          "recall": 0.6,
+          "threshold": 0.8263286822694231,
+          "tn": 12,
+          "tp": 12
+        }
+      },
+      "sample_count": 120
+    },
+    "ragtruth": {
+      "per_stratum": {
+        "data2text": {
+          "f1": 0.47058823529411764,
+          "fn": 3,
+          "fp": 6,
+          "n": 20,
+          "precision": 0.4,
+          "recall": 0.5714285714285714,
+          "threshold": 0.7570636679310583,
+          "tn": 7,
+          "tp": 4
+        },
+        "qa": {
+          "f1": 0.6896551724137931,
+          "fn": 9,
+          "fp": 0,
+          "n": 20,
+          "precision": 1.0,
+          "recall": 0.5263157894736842,
+          "threshold": 0.8279939424656275,
+          "tn": 1,
+          "tp": 10
+        },
+        "summarization": {
+          "f1": 0.7200000000000001,
+          "fn": 6,
+          "fp": 1,
+          "n": 20,
+          "precision": 0.9,
+          "recall": 0.6,
+          "threshold": 0.8304543127088306,
+          "tn": 4,
+          "tp": 9
+        }
+      },
+      "sample_count": 60
+    }
+  },
+  "headline_verdict": "feature in Beta with NLI peer, ready for evidence/QA",
+  "lane": "L6",
+  "minimal_pairs": {
+    "encode_p50_ms": 44.990478083491325,
+    "encode_p95_ms": 47.030119225382805,
+    "headline_distribution": {
+      "groundedness_v2": 452
+    },
+    "headline_used": "groundedness_v2",
+    "latency_p50_ms": 102.60452888906002,
+    "latency_p95_ms": 193.4573646634817,
+    "nli_enabled": true,
+    "overall_accuracy": 0.9026548672566371,
+    "pair_count": 226,
+    "per_stratum": {
+      "date_swap": {
+        "ci_lower": 0.75,
+        "ci_upper": 1.0,
+        "n": 20,
+        "paired_accuracy": 0.9
+      },
+      "de_minimal_pairs": {
+        "ci_lower": 1.0,
+        "ci_upper": 1.0,
+        "n": 26,
+        "paired_accuracy": 1.0
+      },
+      "entity_swap": {
+        "ci_lower": 1.0,
+        "ci_upper": 1.0,
+        "n": 20,
+        "paired_accuracy": 1.0
+      },
+      "hard_compound_facts": {
+        "ci_lower": 1.0,
+        "ci_upper": 1.0,
+        "n": 20,
+        "paired_accuracy": 1.0
+      },
+      "hard_dialogue_distributed": {
+        "ci_lower": 0.1,
+        "ci_upper": 0.45,
+        "n": 20,
+        "paired_accuracy": 0.25
+      },
+      "hard_structured": {
+        "ci_lower": 0.7,
+        "ci_upper": 1.0,
+        "n": 20,
+        "paired_accuracy": 0.85
+      },
+      "negation": {
+        "ci_lower": 1.0,
+        "ci_upper": 1.0,
+        "n": 20,
+        "paired_accuracy": 1.0
+      },
+      "number_swap": {
+        "ci_lower": 1.0,
+        "ci_upper": 1.0,
+        "n": 20,
+        "paired_accuracy": 1.0
+      },
+      "partial": {
+        "ci_lower": 0.85,
+        "ci_upper": 1.0,
+        "n": 20,
+        "paired_accuracy": 0.95
+      },
+      "role_swap": {
+        "ci_lower": 0.85,
+        "ci_upper": 1.0,
+        "n": 20,
+        "paired_accuracy": 0.95
+      },
+      "unit_swap": {
+        "ci_lower": 1.0,
+        "ci_upper": 1.0,
+        "n": 20,
+        "paired_accuracy": 1.0
+      }
+    },
+    "score_p50_ms": 58.389538899064064,
+    "score_p95_ms": 148.25100535526872,
+    "stratum_counts": {
+      "date_swap": 20,
+      "de_minimal_pairs": 26,
+      "entity_swap": 20,
+      "hard_compound_facts": 20,
+      "hard_dialogue_distributed": 20,
+      "hard_structured": 20,
+      "negation": 20,
+      "number_swap": 20,
+      "partial": 20,
+      "role_swap": 20,
+      "unit_swap": 20
+    }
+  },
+  "vram": {
+    "baseline": {
+      "allocated_mb": 9.125,
+      "available": true,
+      "label": "baseline_L6",
+      "peak_allocated_mb": 9.125,
+      "reserved_mb": 22.0
+    },
+    "peak": {
+      "allocated_mb": 303.70166015625,
+      "available": true,
+      "label": "peak_L6",
+      "peak_allocated_mb": 2288.8896484375,
+      "reserved_mb": 3214.0
+    }
+  },
+  "wall_time_s": 109.97957587055862
+}

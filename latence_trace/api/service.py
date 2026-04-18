@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -376,6 +377,11 @@ class GroundednessService:
         self._nli_provider_resolved = False
         self._nli_reranker: Any = None
         self._nli_reranker_resolved = False
+        # Concurrent first requests must not double-resolve the NLI provider
+        # or cross-encoder reranker - both are expensive HuggingFace loads.
+        self._nli_provider_lock = threading.Lock()
+        self._nli_reranker_lock = threading.Lock()
+        self._null_bank_lock = threading.Lock()
 
     # --- provider plumbing ----------------------------------------------------
 
@@ -395,26 +401,32 @@ class GroundednessService:
             return None
         if self._nli_provider_resolved:
             return self._nli_provider
-        try:
-            self._nli_provider = nli_resolve_default_provider()
-        except Exception as exc:
-            logger.warning("nli_resolve_failed", extra={"error": str(exc)})
-            self._nli_provider = None
-        self._nli_provider_resolved = True
-        return self._nli_provider
+        with self._nli_provider_lock:
+            if self._nli_provider_resolved:
+                return self._nli_provider
+            try:
+                self._nli_provider = nli_resolve_default_provider()
+            except Exception as exc:
+                logger.warning("nli_resolve_failed", extra={"error": str(exc)})
+                self._nli_provider = None
+            self._nli_provider_resolved = True
+            return self._nli_provider
 
     def _get_nli_reranker(self):
         if not nli_is_enabled():
             return None
         if self._nli_reranker_resolved:
             return self._nli_reranker
-        try:
-            self._nli_reranker = nli_resolve_default_reranker()
-        except Exception as exc:
-            logger.warning("nli_reranker_resolve_failed", extra={"error": str(exc)})
-            self._nli_reranker = None
-        self._nli_reranker_resolved = True
-        return self._nli_reranker
+        with self._nli_reranker_lock:
+            if self._nli_reranker_resolved:
+                return self._nli_reranker
+            try:
+                self._nli_reranker = nli_resolve_default_reranker()
+            except Exception as exc:
+                logger.warning("nli_reranker_resolve_failed", extra={"error": str(exc)})
+                self._nli_reranker = None
+            self._nli_reranker_resolved = True
+            return self._nli_reranker
 
     def _groundedness_null_bank_embeddings(
         self,
@@ -437,20 +449,27 @@ class GroundednessService:
         cached = self._cached_groundedness_null_banks.get(cache_key)
         if cached is not None:
             return cached
-        try:
-            tensors = encode_texts(
-                provider,
-                list(bank_texts),
-                is_query=False,
-                prompt_name=prompt_name,
-            )
-        except Exception as exc:
-            logger.warning("groundedness_null_bank_encode_failed", extra={"error": str(exc)})
-            self._cached_groundedness_null_banks[cache_key] = []
-            return []
-        bank: List[torch.Tensor] = [torch.as_tensor(t, dtype=torch.float32) for t in tensors]
-        self._cached_groundedness_null_banks[cache_key] = bank
-        return bank
+        # Concurrent cold requests would otherwise each pay for a full
+        # encode of the bilingual null bank; serialize with a lock so the
+        # second caller sees the cached result.
+        with self._null_bank_lock:
+            cached = self._cached_groundedness_null_banks.get(cache_key)
+            if cached is not None:
+                return cached
+            try:
+                tensors = encode_texts(
+                    provider,
+                    list(bank_texts),
+                    is_query=False,
+                    prompt_name=prompt_name,
+                )
+            except Exception as exc:
+                logger.warning("groundedness_null_bank_encode_failed", extra={"error": str(exc)})
+                self._cached_groundedness_null_banks[cache_key] = []
+                return []
+            bank: List[torch.Tensor] = [torch.as_tensor(t, dtype=torch.float32) for t in tensors]
+            self._cached_groundedness_null_banks[cache_key] = bank
+            return bank
 
     # --- chunk_ids resolution -------------------------------------------------
 

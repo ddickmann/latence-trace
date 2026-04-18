@@ -110,9 +110,14 @@ class VllmFactoryModernColBERTProvider:
         return self._http_client
 
     def close(self) -> None:
-        if self._http_client is not None:
-            self._http_client.close()
-            self._http_client = None
+        # Serialize close() so two concurrent shutdowns don't both call
+        # close() on a half-released httpx client.
+        with self._client_lock:
+            if self._http_client is not None:
+                try:
+                    self._http_client.close()
+                finally:
+                    self._http_client = None
         if self._executor is not None:
             self._executor.shutdown(wait=False)
             self._executor = None
