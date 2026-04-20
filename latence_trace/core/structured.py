@@ -118,6 +118,37 @@ class StructuredVerification:
     matches: List[TripleMatch] = field(default_factory=list)
     mismatches: List[TripleMatch] = field(default_factory=list)
     guarded_score: Optional[float] = None  # None => channel inactive
+    # New (Typed Structured Evidence Lane). When the prose-table /
+    # numeric-key-value detector fires, ``typed_score`` carries the
+    # AND-gate cell-match score and ``typed_claim_count`` reports how
+    # many response claims were aligned. Both stay ``None`` for the
+    # legacy JSON / markdown-pipe-table path so the new lane never
+    # silently mutates older diagnostics.
+    typed_score: Optional[float] = None
+    typed_claim_count: int = 0
+    typed_claim_aligned: int = 0
+    typed_claim_failures: List[Dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class TypedCell:
+    """A single typed source-side cell extracted from a prose / KV / table support.
+
+    Carries both the matchable token signature (``anchor_norm``) and
+    the parsed numeric / unit / period payload that downstream typed-
+    claim matching uses to enforce exact-or-tolerance value match,
+    unit consistency, and period-aware sign comparison.
+    """
+
+    anchor: str
+    anchor_norm: str
+    value: float
+    unit: str          # canonical unit: "M", "B", "PCT", "BPS", "COUNT", "GWH", "TWH", "MWH", "POINTS", "NONE"
+    currency: str      # "USD", "EUR", or ""
+    sign: str          # source sign relative to comparison cell ("POS" / "NEG" / "NEUTRAL")
+    period: Optional[str] = None     # e.g. "Q3 FY24", "2023", "H1 2024"
+    paired_value: Optional[float] = None   # comparison value if the cell carries one (for sign derivation)
+    raw_phrase: str = ""
 
 
 # ----------------------------------------------------------------------
@@ -281,11 +312,15 @@ def detect_source_format(
     *,
     content_type: Optional[str] = None,
 ) -> Optional[str]:
-    """Return one of ``"json"``, ``"markdown_table"`` or ``None``.
+    """Return one of ``"json"``, ``"markdown_table"``, ``"prose_table"`` or ``None``.
 
     Caller hints win when they match the content; otherwise we
     auto-detect. We intentionally never classify a raw free-form blob as
     structured: false positives here directly poison the fusion.
+
+    The new ``"prose_table"`` lane covers real-world segment tables and
+    numeric key-value lists that appear inline in 10-K / Geschaftsbericht
+    prose (``"Cloud: 4.151 Mio. EUR; Software-Lizenzen: 64; ..."``).
     """
 
     hint = _normalize_content_type_hint(content_type)
@@ -298,7 +333,635 @@ def detect_source_format(
         return "json"
     if _looks_like_markdown_table(support_text):
         return "markdown_table"
+    if _looks_like_prose_table(support_text) or _looks_like_numeric_kv(support_text):
+        return "prose_table"
+    if _looks_like_numeric_fact(support_text):
+        return "numeric_fact"
     return None
+
+
+def _looks_like_numeric_fact(text: str) -> bool:
+    """Detect a single-fact numeric statement.
+
+    Targets short central-bank / regulator / weather / power-grid
+    statements that read like one row of a table embedded in a
+    headline (``"EZB-Zinsentscheidung 18.09.2024. Senkung des
+    Einlagesatzes um 25 Basispunkte auf 3,50 %."``). The detector is
+    deliberately strict so it does not fire on long prose paragraphs
+    that happen to mention a number:
+
+    - Total length below 220 characters.
+    - At most 3 numeric values in the whole text.
+    - At least one of the numeric values carries an explicit
+      *typed* unit (``BPS``, ``%``, ``EUR``, ``USD``, ``M``, ``B``,
+      ``GWh``...). Bare integers without a unit don't count.
+    - No semicolons (those would qualify the text as a real table /
+      prose table and the earlier detectors would have caught it).
+    """
+
+    if not text:
+        return False
+    stripped = text.strip()
+    if len(stripped) > 220 or ";" in stripped:
+        return False
+    nums = list(re.finditer(r"\b-?\d{1,3}(?:[\.,\u00A0\s]\d{3})*(?:[\.,]\d+)?\b", stripped))
+    if not nums or len(nums) > 3:
+        return False
+    typed_unit_re = re.compile(
+        r"(?:%|percent|Prozent|bps|Basispunkte|Bp\.?|"
+        r"\$|\u20AC|EUR|USD|GBP|CHF|JPY|"
+        r"million|billion|trillion|Mio\.?|Mrd\.?|Tsd\.?|"
+        r"GWh|TWh|MWh|kWh|Punkte|points)",
+        re.IGNORECASE,
+    )
+    return bool(typed_unit_re.search(stripped))
+
+
+# ----------------------------------------------------------------------
+# Prose-table / numeric-KV detection (Typed Structured Evidence Lane)
+# ----------------------------------------------------------------------
+
+
+# Anchor labels followed by a number with optional currency / unit. Picks
+# up "Cloud: 4.151", "Greater China $14,728", "FY2025: $5.6 billion",
+# "Audi 832", "Einlagesatz: 3,50 %", "Total revenue $30,040", etc.
+# We require the label to start with a letter (or German umlaut / SS),
+# allow internal spaces / slashes / hyphens / parentheses / digits, and
+# accept either a colon, an equals sign, or a single whitespace before
+# the number. The number itself may carry an optional currency prefix
+# ($, €, EUR, USD), thousands separator (",", "."), decimal separator
+# (",", ".") and an optional unit suffix (%, bps, M, B, Mio., Mrd.,
+# million, billion, thousand, Mrd EUR, ...).
+_PROSE_KV_HIT_RE = re.compile(
+    r"""
+    (?P<label>[A-Za-z\u00C0-\u017F][A-Za-z0-9\u00C0-\u017F\-\/\&\(\) ]{1,80}?)
+    \s*[:=]?\s*
+    (?P<currency>\$|\u20AC|EUR|USD|GBP|CHF|JPY)?\s*
+    (?P<num>-?\d{1,3}(?:[\.,\u00A0\s]\d{3})*(?:[\.,]\d+)?|\d+(?:[\.,]\d+)?)
+    \s*
+    (?P<suffix>%|percent|Prozent|bps|Basispunkte|million|millions|billion|billions|trillion|Mio\.?|Mrd\.?|Tsd\.?|Bp\.?|GWh|TWh|MWh|kWh|Punkte|points|Stück|Einheiten|EUR|USD|million\.?)?
+    """,
+    re.VERBOSE,
+)
+
+
+# Stricter "label : number" rule used by the *detector* so we don't
+# flag pure narrative paragraphs containing a stray number. We require
+# the colon / equals separator, and we count distinct hits.
+_PROSE_KV_DETECT_RE = re.compile(
+    r"""
+    (?:^|[\n;,\.])
+    \s*
+    (?P<label>[A-Za-z\u00C0-\u017F][A-Za-z0-9\u00C0-\u017F\-\/\&\(\) ]{1,80}?)
+    \s*[:=]\s*
+    (?P<currency>\$|\u20AC|EUR|USD|GBP|CHF|JPY)?\s*
+    (?P<num>-?\d{1,3}(?:[\.,\u00A0\s]\d{3})*(?:[\.,]\d+)?|\d+(?:[\.,]\d+)?)
+    """,
+    re.VERBOSE,
+)
+
+
+# Pattern for "Label <number><unit>" pairs separated by ; or , (no
+# explicit colon required), used by prose-table detection. Triggers on
+# segment-table prose like:
+#   "Americas $37,678; Europe $21,883; Greater China $14,728"
+_PROSE_TABLE_DETECT_RE = re.compile(
+    r"""
+    (?P<label>[A-Z][A-Za-z\u00C0-\u017F0-9\-\/\& ]{1,60}?)
+    \s+
+    (?P<currency>\$|\u20AC|EUR|USD)?\s*
+    (?P<num>-?\d{1,3}(?:[\.,\u00A0\s]\d{3})*(?:[\.,]\d+)?|\d+(?:[\.,]\d+)?)
+    (?:\s*(?P<suffix>%|percent|Prozent|bps|Basispunkte|million|billion|Mio\.?|Mrd\.?|Tsd\.?|GWh|TWh|MWh|kWh|Punkte|points))?
+    \s*[;,]
+    """,
+    re.VERBOSE,
+)
+
+
+# Period markers inside a prose-table announcement (used by the typed
+# extractor to attach a period / fiscal label to each cell).
+_PERIOD_MARKER_RE = re.compile(
+    r"""
+    (
+      Q[1-4]\s*(?:FY?)?\s*\d{2,4}        # Q3 FY24, Q3 FY2024, Q2 2024, Q1 24
+      | (?:H[12]|FY|GJ|CY)\s*\d{2,4}     # H1 2024, FY2025, GJ 2023, CY24
+      | \d{4}                             # bare year (kept short to avoid false positives)
+    )
+    """,
+    re.VERBOSE | re.IGNORECASE,
+)
+
+
+_PROSE_TABLE_LABEL_VERBS = {
+    # English finite verbs / participles that betray a sentence-shaped
+    # "label" (i.e. not a real table cell). True tables use compact
+    # noun-phrase labels ("Data Center", "Greater China", "Cloud",
+    # "Q3 FY24") with no verb in the label segment.
+    "is", "are", "was", "were", "be", "been", "being", "has", "have", "had",
+    "rose", "fell", "grew", "declined", "increased", "decreased", "dropped",
+    "edged", "climbed", "jumped", "surged", "sank", "expanded", "contracted",
+    "narrowed", "widened", "totalled", "totaled", "delivered", "reported",
+    "amounted", "stood", "reached", "lay", "lies", "exceeded", "posted",
+    "revised", "achieved", "lowered", "raised", "lifted", "trimmed",
+    "noted", "stated", "guided", "expects", "expect", "expected",
+    "saw", "seen", "registered", "recorded", "represented", "marked",
+    "came", "ended", "fell", "made", "met", "missed", "reaffirmed",
+    # DE
+    "ist", "war", "waren", "lag", "lagen", "betrug", "betrugen",
+    "stieg", "sank", "fiel", "wuchs", "kletterte", "verlor",
+    "erreichte", "erreichten", "erzielte", "erzielten", "lieferte", "lieferten",
+    "nahm", "nahmen", "verringerte", "schrumpfte", "verbesserte",
+    "stiegen", "fielen", "wuchsen", "verringerten",
+}
+
+
+def _label_is_table_cell(label: str) -> bool:
+    """True iff *label* looks like a real table-cell label.
+
+    Heuristics (intentionally strict so prose with embedded numbers
+    cannot masquerade as a table):
+
+    - Label has at most 5 tokens (table cells are concise; sentence
+      fragments are not).
+    - Label contains zero verbs / participles from
+      :data:`_PROSE_TABLE_LABEL_VERBS`.
+    - Label is not just a fiscal-period marker (``"Q3 FY24"``); those
+      are real cells but they don't carry an entity, so they should
+      not push the detector across the threshold on their own.
+    """
+
+    tokens = [t for t in re.findall(r"[\w\u00C0-\u017F]+", label) if t]
+    if not tokens:
+        return False
+    if len(tokens) > 5:
+        return False
+    if any(t.lower() in _PROSE_TABLE_LABEL_VERBS for t in tokens):
+        return False
+    period_re = re.compile(
+        r"^(?:q[1-4]|fy\d{0,4}|h[12]|cy\d{2,4}|gj\d{2,4}|w\d+|kw\d+|\d{4})$",
+        re.IGNORECASE,
+    )
+    if all(period_re.match(t) for t in tokens):
+        return False
+    return True
+
+
+def _looks_like_prose_table(text: str) -> bool:
+    """Detect an inline prose-formatted table.
+
+    A true prose table is dense *and* shaped like a table:
+
+    - At least 3 ``label NUMBER[unit]`` pairs separated by semicolons
+      or commas.
+    - Each *qualifying* label is a compact noun phrase (no verbs, ≤ 5
+      tokens). This is what separates ``"Americas $37,678; Europe
+      $21,883; ..."`` (table) from ``"...rose by 206,000 in June, ..."``
+      (prose with embedded numbers).
+    """
+
+    if not text or len(text) < 20:
+        return False
+    hits = list(_PROSE_TABLE_DETECT_RE.finditer(text))
+    if len(hits) < 3:
+        return False
+    table_shaped = sum(1 for h in hits if _label_is_table_cell(h.group("label") or ""))
+    return table_shaped >= 3
+
+
+def _looks_like_numeric_kv(text: str) -> bool:
+    """Detect a numeric key-value list (``"key: value"`` pattern)."""
+
+    if not text or len(text) < 12:
+        return False
+    hits = list(_PROSE_KV_DETECT_RE.finditer(text))
+    return len(hits) >= 3
+
+
+# Currency prefix mapping
+_CURRENCY_NORM = {
+    "$": "USD",
+    "USD": "USD",
+    "\u20AC": "EUR",
+    "EUR": "EUR",
+    "GBP": "GBP",
+    "CHF": "CHF",
+    "JPY": "JPY",
+}
+
+
+# Multiplier mapping for canonical units.
+# We always normalise *into* canonical magnitude units so a claim of
+# "$30,040 million" and a source of "$30.04 billion" both become
+# 30,040,000,000 in the comparison.
+_UNIT_MULTIPLIER = {
+    "M": 1_000_000.0,
+    "MIO": 1_000_000.0,
+    "B": 1_000_000_000.0,
+    "MRD": 1_000_000_000.0,
+    "T": 1_000_000_000_000.0,
+    "TSD": 1_000.0,
+    "K": 1_000.0,
+}
+
+
+def _canonicalize_unit_suffix(suffix: Optional[str]) -> Tuple[str, float]:
+    """Map a raw unit suffix to (canonical_unit, magnitude_multiplier).
+
+    Returns ``("NONE", 1.0)`` when no suffix is present. The canonical
+    unit is what the matcher checks for hard equality; the magnitude
+    multiplier is folded into the value so cross-magnitude equality
+    (``"30,040 million"`` vs ``"30.04 billion"``) is still detected
+    when the rest of the claim is consistent.
+    """
+
+    if not suffix:
+        return "NONE", 1.0
+    raw = suffix.strip().rstrip(".").upper()
+    if raw in {"%", "PERCENT", "PROZENT"}:
+        return "PCT", 1.0
+    if raw in {"BPS", "BASISPUNKTE", "BP"}:
+        return "BPS", 1.0
+    if raw in {"MILLION", "MILLIONS", "MIO", "MM"}:
+        return "M", 1_000_000.0
+    if raw in {"BILLION", "BILLIONS", "MRD"}:
+        return "B", 1_000_000_000.0
+    if raw in {"TRILLION"}:
+        return "T", 1_000_000_000_000.0
+    if raw in {"TSD", "THOUSAND"}:
+        return "TSD", 1_000.0
+    if raw in {"GWH"}:
+        return "GWH", 1_000_000.0   # treat MWh / GWh / TWh as commensurate energy
+    if raw in {"MWH"}:
+        return "MWH", 1_000.0
+    if raw in {"TWH"}:
+        return "TWH", 1_000_000_000.0
+    if raw in {"KWH"}:
+        return "KWH", 1.0
+    if raw in {"PUNKTE", "POINTS"}:
+        return "POINTS", 1.0
+    if raw in {"STÜCK", "EINHEITEN"}:
+        return "COUNT", 1.0
+    return raw, 1.0
+
+
+def _detect_locale(text: str) -> str:
+    """Cheap locale heuristic: presence of DE-specific tokens flips to ``"de"``.
+
+    The prose-table extractor uses this to disambiguate the meaning of
+    ``"."`` / ``","`` inside a numeric token: in ``"1.234,56 EUR"`` the
+    dot is the thousands separator and the comma is the decimal
+    separator (DE), whereas in ``"1,234.56"`` the comma is thousands
+    and the dot is decimal (EN).
+    """
+
+    if not text:
+        return "en"
+    de_tokens = (
+        "Mio.", "Mrd.", "EUR", "€", "Tsd.", "Mio ", "Mrd ", "Mrd. EUR",
+        "Prozent", "Basispunkte", "Stück", "Einheiten",
+    )
+    if any(tok in text for tok in de_tokens):
+        return "de"
+    de_words = re.search(r"\b(stieg|sank|fiel|wuchs|nahm zu|nahm ab|gegenüber|Konzern|Geschäft)\b", text)
+    if de_words is not None:
+        return "de"
+    return "en"
+
+
+def parse_number(token: str, locale: str = "auto") -> Optional[Tuple[float, str, str]]:
+    """Parse a localized numeric literal into (value, currency, unit).
+
+    Returns ``None`` when the token is not a number. Examples:
+    - ``"$14,728"`` (en) -> ``(14728.0, "USD", "NONE")``
+    - ``"14.728,00 EUR"`` (de) -> ``(14728.0, "EUR", "NONE")``
+    - ``"1.5 billion"`` -> ``(1_500_000_000.0, "", "B")``
+    - ``"1,5 Mrd. EUR"`` (de) -> ``(1_500_000_000.0, "EUR", "B")``
+    - ``"3,50 %"`` (de) -> ``(3.5, "", "PCT")``
+    - ``"108,000"`` (en) -> ``(108000.0, "", "NONE")``
+
+    ``value`` is always magnitude-normalised: a ``"million"`` suffix
+    is folded into ``value`` so cross-magnitude comparisons stay
+    arithmetically correct. The returned ``unit`` is the canonical
+    label (``"M"``, ``"B"``, ``"PCT"``, ``"BPS"``, ``"COUNT"``, ...) that
+    the matcher hard-compares.
+    """
+
+    if token is None:
+        return None
+    text = str(token).strip()
+    if not text:
+        return None
+    if locale == "auto":
+        locale = _detect_locale(text)
+
+    # Pull the optional leading currency
+    currency_match = re.match(r"^\s*(\$|\u20AC|EUR|USD|GBP|CHF|JPY)\s*", text)
+    currency = ""
+    if currency_match:
+        currency = _CURRENCY_NORM.get(currency_match.group(1).upper(), "")
+        text = text[currency_match.end():]
+
+    # Pull the optional trailing unit / currency suffix
+    suffix_match = re.search(
+        r"\s*(?P<suffix>%|percent|Prozent|bps|Basispunkte|Bp\.?|million|millions|billion|billions|trillion|Mio\.?|Mrd\.?|Tsd\.?|GWh|TWh|MWh|kWh|Punkte|points|Stück|Einheiten|EUR|USD|GBP|CHF|JPY)\s*$",
+        text,
+        re.IGNORECASE,
+    )
+    unit_token = ""
+    if suffix_match:
+        suffix_text = suffix_match.group("suffix")
+        # Some suffixes are actually trailing currency labels (EUR /
+        # USD) - lift them into the currency field instead of the unit
+        # so a downstream comparison of ``"4.151 Mio. EUR"`` vs
+        # ``"4,151 million USD"`` does not over-trigger on currency.
+        upper = suffix_text.upper().strip(".")
+        if upper in _CURRENCY_NORM:
+            currency = currency or _CURRENCY_NORM[upper]
+            unit_token = ""
+        else:
+            unit_token = suffix_text
+        text = text[: suffix_match.start()]
+
+    text = text.strip()
+    if not text:
+        return None
+
+    # Locale-aware numeric parse
+    cleaned = text
+    if locale == "de":
+        # 1.234,56 -> 1234.56  (drop dots used as thousands sep, keep
+        # comma as decimal sep and convert)
+        if "," in cleaned:
+            cleaned = cleaned.replace(".", "").replace(" ", "").replace("\u00A0", "")
+            cleaned = cleaned.replace(",", ".")
+        else:
+            # 14.728 -> ambiguous; if it has a single trailing 3-digit
+            # group treat as thousands sep, otherwise as decimal.
+            if re.fullmatch(r"-?\d{1,3}(?:\.\d{3})+", cleaned):
+                cleaned = cleaned.replace(".", "")
+            else:
+                # bare integer or 1.5 (DE doesn't use bare dot decimals
+                # for thousands of size <=3, so keep as-is).
+                pass
+    else:
+        # 1,234.56 -> 1234.56  (commas thousands; period decimal)
+        if "." in cleaned and "," in cleaned:
+            cleaned = cleaned.replace(",", "")
+        elif "," in cleaned:
+            # Either "1,234" (thousands) or "1,5" — disambiguate by
+            # checking the comma group sizes. EN never uses a single
+            # comma followed by exactly 3 digits as a decimal.
+            if re.fullmatch(r"-?\d{1,3}(?:,\d{3})+", cleaned):
+                cleaned = cleaned.replace(",", "")
+            else:
+                # Treat as decimal (rare in EN financial prose, but seen
+                # in mixed-locale PDFs).
+                cleaned = cleaned.replace(",", ".")
+        cleaned = cleaned.replace(" ", "").replace("\u00A0", "")
+
+    try:
+        value = float(cleaned)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(value):
+        return None
+
+    canonical_unit, multiplier = _canonicalize_unit_suffix(unit_token)
+    value = value * multiplier
+    return float(value), currency, canonical_unit
+
+
+def _split_prose_table_period(text: str) -> Optional[str]:
+    """Pull the leading period marker from a prose-table announcement.
+
+    For ``"Apple Inc. revenue by reportable segment, Q3 FY2024, in
+    millions: ..."`` we want ``"Q3 FY2024"`` so each cell can carry a
+    period and so a downstream typed claim about ``"Q3 FY24"`` aligns
+    to the right cell.
+    """
+
+    if not text:
+        return None
+    match = _PERIOD_MARKER_RE.search(text)
+    if match is None:
+        return None
+    return match.group(1).strip()
+
+
+def _table_announcement_unit(text: str) -> Tuple[str, float, str]:
+    """Pull the table-level magnitude / currency announcement from a header.
+
+    ``"Apple Inc. revenue by reportable segment, Q3 FY2024, in millions:
+    Americas $37,678; ..."`` declares ``"in millions"`` once and then
+    omits the unit on each cell. We capture the announcement so each
+    cell inherits the right magnitude multiplier and currency.
+    """
+
+    if not text:
+        return "NONE", 1.0, ""
+
+    # Currency announcement (very simple heuristic; the most common
+    # finance idioms are ``"in EUR"`` / ``"USD"`` / ``"in millions of
+    # dollars"``). We default to USD when we see ``"$"`` in the text and
+    # to EUR when we see ``"EUR"`` / ``"€"``.
+    currency = ""
+    if "EUR" in text or "\u20AC" in text:
+        currency = "EUR"
+    elif "$" in text or "USD" in text:
+        currency = "USD"
+
+    # Magnitude announcement.
+    lower = text.lower()
+    if re.search(r"\bin\s+billion(s)?\b|\bin\s+mrd\.?\b", lower):
+        return "B", 1_000_000_000.0, currency
+    if re.search(r"\bin\s+million(s)?\b|\bin\s+mio\.?\b", lower):
+        return "M", 1_000_000.0, currency
+    if re.search(r"\bin\s+thousand(s)?\b|\bin\s+tsd\.?\b", lower):
+        return "TSD", 1_000.0, currency
+    if re.search(r"\bin\s+(twh|gwh|mwh|kwh)\b", lower):
+        return re.search(r"\bin\s+(twh|gwh|mwh|kwh)\b", lower).group(1).upper(), 1.0, currency
+    if re.search(r"\bin\s+stück\b|\bin\s+einheiten\b|\bin\s+stk\.?\b", lower):
+        return "COUNT", 1.0, currency
+    return "NONE", 1.0, currency
+
+
+def extract_typed_cells(
+    support_text: str,
+    *,
+    locale: str = "auto",
+) -> List[TypedCell]:
+    """Pull typed cells from a prose-formatted table or numeric KV list.
+
+    Each cell carries the parsed magnitude-normalised value, canonical
+    unit, currency, optional period, and (when present in the source)
+    a paired comparison value used by the matcher to derive a sign.
+    """
+
+    if not support_text:
+        return []
+    if locale == "auto":
+        locale = _detect_locale(support_text)
+
+    period = _split_prose_table_period(support_text)
+    announced_unit, announced_mult, announced_currency = _table_announcement_unit(
+        support_text
+    )
+
+    # Mask period-marker spans (``Q3 FY2024``, ``FY24``, ``H1 2024``, ``2023``)
+    # before we scan for cells: they otherwise leak into ``_PROSE_KV_HIT_RE``
+    # as ``"label NUMBER"`` matches (``"Q3 FY"`` + ``"202"``) and pollute the
+    # cell list with bogus entities. Replace with spaces of the same length
+    # so character offsets stay stable for downstream tooling.
+    masked_text = _PERIOD_MARKER_RE.sub(lambda m: " " * len(m.group(0)), support_text)
+
+    cells: List[TypedCell] = []
+    seen: set = set()
+
+    # We scan with the relaxed PROSE_KV_HIT_RE so we pick up both the
+    # ``"label: number"`` form (KV list) and the ``"label number"``
+    # form that follows a magnitude announcement.
+    for match in _PROSE_KV_HIT_RE.finditer(masked_text):
+        label = (match.group("label") or "").strip(" \t.,;:-")
+        currency_token = (match.group("currency") or "").strip()
+        num_token = (match.group("num") or "").strip()
+        suffix_token = (match.group("suffix") or "").strip()
+        if not label or not num_token:
+            continue
+
+        # Reject label tokens that are themselves numeric or look like
+        # period markers — they are not entities.
+        if _PERIOD_MARKER_RE.fullmatch(label):
+            continue
+        if re.fullmatch(r"\d+([\.,]\d+)?", label):
+            continue
+        # Drop labels that are now whitespace-padded fragments left over
+        # from period masking (a no-op trim on the original text but
+        # required because the masked text can leave ``"  FY24  "`` style
+        # gaps which then re-glue to the next number).
+        label_norm = re.sub(r"\s+", " ", label).strip()
+        if not label_norm or len(label_norm) < 2:
+            continue
+        # Reject labels that begin with a known period prefix (``Q``,
+        # ``FY``, ``H1``, ``H2``, ``GJ``) followed by a stray number;
+        # the masking should have caught these but the regex sometimes
+        # reassembles them from neighbouring text.
+        if re.match(r"^(?:Q[1-4]|FY|H[12]|GJ|CY|W\d+)\b", label_norm, re.IGNORECASE):
+            continue
+
+        # Re-build a single token "currency num suffix" and parse it.
+        composite = " ".join(
+            tok for tok in [currency_token, num_token, suffix_token] if tok
+        )
+        parsed = parse_number(composite, locale=locale)
+        if parsed is None:
+            continue
+        value, currency, unit = parsed
+
+        # Inherit the table-level announcement when the cell did not
+        # declare its own unit and the announcement is non-trivial.
+        if unit == "NONE" and announced_unit != "NONE":
+            value *= announced_mult
+            unit = announced_unit
+        if not currency and announced_currency:
+            currency = announced_currency
+
+        anchor = label.strip()
+        anchor_norm = _normalize_key(anchor)
+        if not anchor_norm:
+            continue
+
+        # Look ahead in the same window to see if a "(period: paired)"
+        # context is provided, e.g. "Data Center $26,272 (Q2 FY24
+        # $10,323)". When present, use it to derive a sign relative to
+        # the chronological prior period.
+        paired_value: Optional[float] = None
+        local_sign = "NEUTRAL"
+        # Scan a 80-char window after the match for a paired numeric
+        # in parentheses or after "vs" / "von" / "from". We mask period
+        # markers in the tail so a stray ``"Q3"`` cannot be picked up
+        # as the paired value.
+        tail_orig = support_text[match.end(): match.end() + 120]
+        tail = _PERIOD_MARKER_RE.sub(lambda m: " " * len(m.group(0)), tail_orig)
+        paired_match = re.search(
+            r"(?:vs|von|from|\(|gegen|prior)[^\d\-+€$]*?(?P<num>-?\d{1,3}(?:[\.,\u00A0\s]\d{3})*(?:[\.,]\d+)?|\d+(?:[\.,]\d+)?)",
+            tail,
+            re.IGNORECASE,
+        )
+        if paired_match:
+            paired_parsed = parse_number(paired_match.group("num"), locale=locale)
+            if paired_parsed is not None:
+                pv = paired_parsed[0]
+                # Inherit the table-level magnitude when the paired
+                # value omitted it; otherwise we'd compare $10,323M to
+                # $26,272 unit-less.
+                if announced_unit != "NONE" and "Mio" not in paired_match.group(0) \
+                        and "billion" not in paired_match.group(0).lower() \
+                        and "Mrd" not in paired_match.group(0):
+                    pv *= announced_mult
+                paired_value = pv
+                if value > pv * 1.0001:
+                    local_sign = "POS"
+                elif value < pv * 0.9999:
+                    local_sign = "NEG"
+                else:
+                    local_sign = "NEUTRAL"
+
+        cell_key = (anchor_norm, round(value, 6), unit, currency)
+        if cell_key in seen:
+            continue
+        seen.add(cell_key)
+        cells.append(
+            TypedCell(
+                anchor=anchor,
+                anchor_norm=anchor_norm,
+                value=float(value),
+                unit=unit,
+                currency=currency,
+                sign=local_sign,
+                period=period,
+                paired_value=paired_value,
+                raw_phrase=match.group(0),
+            )
+        )
+        if len(cells) >= _MAX_TRIPLES_PER_SIDE:
+            break
+    return cells
+
+
+def extract_triples_from_prose_table(
+    support_text: str,
+    *,
+    locale: str = "auto",
+) -> List[Triple]:
+    """Compatibility wrapper: emit Triples for the legacy matcher.
+
+    Lets the existing structured-source pipeline continue to operate on
+    prose-formatted tables; the typed AND-gate matcher uses
+    :func:`extract_typed_cells` for the strict comparison.
+    """
+
+    triples: List[Triple] = []
+    for cell in extract_typed_cells(support_text, locale=locale):
+        # Encode magnitude-normalised value as a string so the existing
+        # ``_parse_numeric`` round-trips it cleanly.
+        value_token = (
+            f"{int(cell.value)}"
+            if cell.value.is_integer()
+            else f"{cell.value:.6f}".rstrip("0").rstrip(".")
+        )
+        triples.append(
+            Triple(
+                subject=cell.anchor_norm,
+                predicate="",
+                object=value_token,
+                raw_object=value_token,
+                numeric_value=float(cell.value),
+                source_hint="prose_table",
+            )
+        )
+        if len(triples) >= _MAX_TRIPLES_PER_SIDE:
+            break
+    return triples
 
 
 # ----------------------------------------------------------------------
@@ -490,6 +1153,8 @@ def extract_source_triples(
         return extract_triples_from_json(support_text)
     if source_format == "markdown_table":
         return extract_triples_from_markdown_table(support_text)
+    if source_format == "prose_table":
+        return extract_triples_from_prose_table(support_text)
     return []
 
 
@@ -733,6 +1398,17 @@ def verify_structured_source(
             guarded_score=None,
         )
 
+    # Always try the typed AND-gate lane for prose-table sources,
+    # independent of the legacy triple matcher. The typed lane uses
+    # ``extract_typed_cells`` directly on the raw support text so it
+    # still fires when ``extract_source_triples`` returns nothing
+    # (e.g. when the legacy regex misses a German-format cell).
+    typed_score, typed_aligned, typed_total, typed_failures = _maybe_run_typed_lane(
+        support_text=support_text,
+        response_text=response_text,
+        source_format=source_format,
+    )
+
     source_triples = extract_source_triples(support_text, source_format=source_format)
     if not source_triples:
         return StructuredVerification(
@@ -741,6 +1417,10 @@ def verify_structured_source(
             source_triple_count=0,
             response_triple_count=0,
             guarded_score=None,
+            typed_score=typed_score,
+            typed_claim_count=typed_total,
+            typed_claim_aligned=typed_aligned,
+            typed_claim_failures=typed_failures,
         )
 
     response_triples = extract_response_triples(response_text)
@@ -751,6 +1431,10 @@ def verify_structured_source(
             source_triple_count=len(source_triples),
             response_triple_count=0,
             guarded_score=None,
+            typed_score=typed_score,
+            typed_claim_count=typed_total,
+            typed_claim_aligned=typed_aligned,
+            typed_claim_failures=typed_failures,
         )
 
     matches, mismatches = match_triples(source_triples, response_triples)
@@ -765,6 +1449,10 @@ def verify_structured_source(
             source_triple_count=len(source_triples),
             response_triple_count=len(response_triples),
             guarded_score=None,
+            typed_score=typed_score,
+            typed_claim_count=typed_total,
+            typed_claim_aligned=typed_aligned,
+            typed_claim_failures=typed_failures,
         )
 
     penalty = max(0.0, float(penalty_per_mismatch)) * float(len(mismatches))
@@ -777,7 +1465,66 @@ def verify_structured_source(
         matches=matches,
         mismatches=mismatches,
         guarded_score=float(guarded),
+        typed_score=typed_score,
+        typed_claim_count=typed_total,
+        typed_claim_aligned=typed_aligned,
+        typed_claim_failures=typed_failures,
     )
+
+
+def _maybe_run_typed_lane(
+    *,
+    support_text: str,
+    response_text: str,
+    source_format: Optional[str],
+) -> Tuple[Optional[float], int, int, List[Dict[str, Any]]]:
+    """Run the typed AND-gate cell matcher and surface its score.
+
+    Returns ``(score, aligned, total, failures)``. ``score`` is ``None``
+    when the lane could not align a single response claim to a typed
+    source cell (the lane stays silent on non-numeric prose so it does
+    not pollute the headline for legal / FActScore-style content).
+
+    The lane fires for ``"prose_table"`` (multi-cell segment tables /
+    KV lists) and ``"numeric_fact"`` (short single-row numeric facts
+    like central-bank rate decisions) sources because those are the
+    formats where cell-level extraction is reliable. JSON and
+    markdown-pipe-table sources already use the strict triple matcher
+    above and do not need a parallel run.
+    """
+
+    if source_format not in ("prose_table", "numeric_fact"):
+        return None, 0, 0, []
+
+    try:
+        cells = extract_typed_cells(support_text)
+    except Exception:  # pragma: no cover - defensive guard for the hot path
+        return None, 0, 0, []
+    if not cells:
+        return None, 0, 0, []
+
+    try:
+        # Local import to avoid a cycle: typed_claims imports from this
+        # module, and structured_match imports from typed_claims.
+        from latence_trace.core.typed_claims import extract_typed_claims
+        from latence_trace.core.structured_match import (
+            structured_score_from_claims,
+            matched_to_dicts,
+        )
+
+        claims = extract_typed_claims(response_text)
+        if not claims:
+            return None, 0, 0, []
+        result = structured_score_from_claims(claims, cells)
+    except Exception:  # pragma: no cover - defensive guard for the hot path
+        return None, 0, 0, []
+
+    if result.score is None:
+        return None, 0, len(claims), []
+    failures = [
+        entry for entry in matched_to_dicts(result.per_claim) if entry.get("per_claim_score", 1.0) < 1.0
+    ]
+    return float(result.score), int(result.aligned), int(len(claims)), failures
 
 
 def is_structured_enabled() -> bool:
@@ -791,6 +1538,26 @@ def is_structured_enabled() -> bool:
     """
 
     raw = os.environ.get("VOYAGER_GROUNDEDNESS_STRUCTURED_ENABLED", "1").strip().lower()
+    if raw in {"", "0", "false", "no", "off"}:
+        return False
+    return True
+
+
+def is_structured_gate_enabled() -> bool:
+    """Feature flag for the AND-gate fusion (typed structured evidence lane).
+
+    When ``VOYAGER_GROUNDEDNESS_STRUCTURED_GATE`` is enabled and the
+    typed lane returns a non-``None`` score, the fusion switches from
+    a weighted convex combination to ``min(narrative, structured)`` so a
+    single broken cell collapses the headline. Defaults to ON because
+    the typed lane is conservative (it only fires when at least one
+    response claim could be aligned to a typed cell) and the lane is
+    silenced for pure-prose contexts.
+    """
+
+    raw = os.environ.get(
+        "VOYAGER_GROUNDEDNESS_STRUCTURED_GATE", "1"
+    ).strip().lower()
     if raw in {"", "0", "false", "no", "off"}:
         return False
     return True
@@ -825,21 +1592,32 @@ def verification_to_dict(result: StructuredVerification) -> Dict[str, Any]:
         "response_triple_count": int(result.response_triple_count),
         "matches": [_match_to_dict(m) for m in result.matches],
         "mismatches": [_match_to_dict(m) for m in result.mismatches],
+        "typed_score": (
+            float(result.typed_score) if result.typed_score is not None else None
+        ),
+        "typed_claim_count": int(result.typed_claim_count),
+        "typed_claim_aligned": int(result.typed_claim_aligned),
+        "typed_claim_failures": list(result.typed_claim_failures),
     }
 
 
 __all__ = [
     "Triple",
     "TripleMatch",
+    "TypedCell",
     "StructuredVerification",
     "detect_source_format",
     "extract_triples_from_json",
     "extract_triples_from_markdown_table",
+    "extract_triples_from_prose_table",
+    "extract_typed_cells",
     "extract_source_triples",
     "extract_response_triples",
     "match_triples",
+    "parse_number",
     "verify_structured_source",
     "is_structured_enabled",
+    "is_structured_gate_enabled",
     "default_penalty_per_mismatch",
     "verification_to_dict",
 ]

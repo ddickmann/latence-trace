@@ -1950,6 +1950,9 @@ def score_groundedness(
     structured_aggregate = (
         structured_payload["guarded_score"] if structured_payload else None
     )
+    typed_structured_score = (
+        structured_payload.get("typed_score") if structured_payload else None
+    )
 
     groundedness_v2 = fuse_groundedness_v2(
         reverse_context_calibrated=(
@@ -1959,6 +1962,7 @@ def score_groundedness(
         nli_aggregate=nli_aggregate,
         semantic_entropy=semantic_entropy_aggregate,
         structured_source_guarded=structured_aggregate,
+        typed_structured=typed_structured_score,
         weights=fusion_weights,
     )
     for token_idx, row in enumerate(response_token_rows):
@@ -2018,6 +2022,15 @@ def score_groundedness(
         ),
         "structured_source_detected": (
             bool(structured_payload["detected"]) if structured_payload else None
+        ),
+        "structured_source": (
+            float(typed_structured_score) if typed_structured_score is not None else None
+        ),
+        "structured_source_typed_aligned": (
+            int(structured_payload.get("typed_claim_aligned", 0)) if structured_payload else 0
+        ),
+        "structured_source_typed_count": (
+            int(structured_payload.get("typed_claim_count", 0)) if structured_payload else 0
         ),
         "risk_band": risk_band,
         "context_coverage_ratio": float(coverage["coverage_ratio"]),
@@ -2786,6 +2799,9 @@ def score_groundedness_chunked(
     structured_aggregate = (
         structured_payload["guarded_score"] if structured_payload else None
     )
+    typed_structured_score = (
+        structured_payload.get("typed_score") if structured_payload else None
+    )
 
     groundedness_v2 = fuse_groundedness_v2(
         reverse_context_calibrated=(
@@ -2795,6 +2811,7 @@ def score_groundedness_chunked(
         nli_aggregate=nli_aggregate,
         semantic_entropy=semantic_entropy_aggregate,
         structured_source_guarded=structured_aggregate,
+        typed_structured=typed_structured_score,
         weights=fusion_weights,
     )
     for token_idx, row in enumerate(response_token_rows):
@@ -2860,6 +2877,15 @@ def score_groundedness_chunked(
         ),
         "structured_source_detected": (
             bool(structured_payload["detected"]) if structured_payload else None
+        ),
+        "structured_source": (
+            float(typed_structured_score) if typed_structured_score is not None else None
+        ),
+        "structured_source_typed_aligned": (
+            int(structured_payload.get("typed_claim_aligned", 0)) if structured_payload else 0
+        ),
+        "structured_source_typed_count": (
+            int(structured_payload.get("typed_claim_count", 0)) if structured_payload else 0
         ),
         "risk_band": risk_band,
         "context_coverage_ratio": float(coverage["coverage_ratio"]),
@@ -3317,6 +3343,7 @@ def score_groundedness_response_chunked(
     nli_aggregate = base_scores.get("nli_aggregate")
     semantic_entropy_aggregate = base_scores.get("semantic_entropy_aggregate")
     structured_aggregate = base_scores.get("structured_source_guarded")
+    typed_structured_score = base_scores.get("structured_source")
 
     # Refuse the v2 fusion on the global vectors so the headline reflects
     # the full response, not just the first chunk's support coverage.
@@ -3330,6 +3357,7 @@ def score_groundedness_response_chunked(
         nli_aggregate=nli_aggregate,
         semantic_entropy=semantic_entropy_aggregate,
         structured_source_guarded=structured_aggregate,
+        typed_structured=typed_structured_score,
         weights=fusion_weights,
     )
     groundedness_v2 = fused if fused is not None else base_groundedness_v2

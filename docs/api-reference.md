@@ -93,6 +93,9 @@ attribution fields are `null` when scoring was refused
 | **`support_units_total`**          | `int`   | Denominator of `context_coverage_ratio` (= number of distinct support units after dedup).                                                       |
 | **`context_attribution_ratio`**    | `float` | Threshold-free competitive signal. Fraction of units that won the argmax for at least one response token.                                       |
 | **`context_attribution_used_count`** | `int` | Numerator of `context_attribution_ratio`.                                                                                                       |
+| **`structured_source`**            | `float?`| Typed Structured Evidence Lane aggregate. `null` when the lane stayed silent (no `prose_table` / `numeric_fact` / `table_md` / `kv_pairs` / `json` source detected). When non-null, this is the AND-gate `min(entity_align, value_match, unit_match, sign_match)` aggregated `min` across all aligned response claims; with `VOYAGER_GROUNDEDNESS_STRUCTURED_GATE=1` the headline becomes `min(narrative_score, structured_source)`. |
+| **`structured_source_typed_aligned`** | `int?` | Number of typed response claims that aligned to a typed source cell.                                                                         |
+| **`structured_source_typed_count`**| `int?`  | Number of typed response claims extracted from `response_text`. The denominator of the lane's recall.                                            |
 
 ### `risk_band`
 

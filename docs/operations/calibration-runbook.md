@@ -197,6 +197,8 @@ sum(rate(rag_human_flagged_total{lt_band="green"}[1h]))
 | Calibrator picks `green_min == red_max` | dataset is degenerate (no hallucinations or all hallucinations) | rebalance the dataset |
 | Validation precision is OK, recall is awful | false negatives concentrated on a stratum -- usually `summary` | turn on `--atomic-claims` and rerun |
 | Refit is **worse** than the shipped defaults | dataset is too small or too noisy | go back to Step 1; aim for inter-rater agreement > 0.8 |
+| Tabular / segment-table responses leak into `green` despite a wrong number / sign / unit | Typed Structured Evidence Lane is off (legacy fusion only) | export `VOYAGER_GROUNDEDNESS_STRUCTURED_GATE=1` (or run the `quality` profile, where it is on by default) and rerun. The lane fires only when the source is detected as `prose_table` / `numeric_fact` / `table_md` / `kv_pairs` / `json`, so prose strata are unaffected. See `docs/algorithm-audit.md` §K. |
+| Pure-prose responses regress after enabling the structured gate | the `_looks_like_prose_table` detector is firing on something it should not | inspect `scores.structured_source*` in the response; if `structured_source_typed_count > 0` on a context that is genuinely prose, file the sample at `support@latence.ai` so we can tighten the detector heuristics |
 
 ---
 

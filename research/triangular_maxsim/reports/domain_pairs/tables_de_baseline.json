@@ -1,0 +1,332 @@
+{
+  "input": "research/triangular_maxsim/external_data/domain_pairs/tables_adversarial_de.jsonl",
+  "n_pairs_total": 70,
+  "colbert_model": "VAGOsolutions/SauerkrautLM-Multi-Reason-ModernColBERT",
+  "nli_model": "MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7",
+  "reranker_model": "BAAI/bge-reranker-v2-m3",
+  "fusion_weights": {
+    "calibrated": 0.0,
+    "literal": 0.2,
+    "nli": 0.8,
+    "semantic_entropy": 0.0,
+    "structured": 0.0
+  },
+  "threshold_artifact": "/workspace/latence-trace/latence_trace/data/thresholds.quality.json",
+  "wallclock": {
+    "total_seconds": 19.47,
+    "encode_ms_per_response_avg": 45.87,
+    "score_ms_per_response_avg": 93.18
+  },
+  "macro": {
+    "n_pairs": 70,
+    "paired_accuracy": 0.8857142857142857,
+    "wins_grounded_higher": 62,
+    "ties": 0,
+    "grounded_mean_score": 0.7524184587709221,
+    "ungrounded_mean_score": 0.4623902249780658,
+    "delta_mean": 0.2900282337928563,
+    "grounded_score_range": [
+      0.28702523233741517,
+      0.9947722264307143
+    ],
+    "ungrounded_score_range": [
+      0.14334323613481087,
+      0.9327735606431962
+    ],
+    "grounded_band_distribution": {
+      "amber": 4,
+      "green": 4,
+      "red": 62
+    },
+    "ungrounded_band_distribution": {
+      "red": 70
+    },
+    "grounded_green_rate": 0.05714285714285714,
+    "ungrounded_review_rate": 1.0
+  },
+  "per_stratum": {
+    "segment_table": {
+      "n_pairs": 10,
+      "paired_accuracy": 0.9,
+      "wins_grounded_higher": 9,
+      "ties": 0,
+      "grounded_mean_score": 0.7065034189527016,
+      "ungrounded_mean_score": 0.4456940700074556,
+      "delta_mean": 0.260809348945246,
+      "grounded_score_range": [
+        0.5057084478045766,
+        0.9774576591970843
+      ],
+      "ungrounded_score_range": [
+        0.16710125089046501,
+        0.6213830667363722
+      ],
+      "grounded_band_distribution": {
+        "amber": 1,
+        "red": 9
+      },
+      "ungrounded_band_distribution": {
+        "red": 10
+      },
+      "grounded_green_rate": 0.0,
+      "ungrounded_review_rate": 1.0
+    },
+    "operating_profit": {
+      "n_pairs": 5,
+      "paired_accuracy": 0.8,
+      "wins_grounded_higher": 4,
+      "ties": 0,
+      "grounded_mean_score": 0.7141314039763751,
+      "ungrounded_mean_score": 0.4665509679069954,
+      "delta_mean": 0.24758043606937968,
+      "grounded_score_range": [
+        0.460264721003271,
+        0.9570957146601545
+      ],
+      "ungrounded_score_range": [
+        0.16783064325733318,
+        0.6288350839925007
+      ],
+      "grounded_band_distribution": {
+        "red": 5
+      },
+      "ungrounded_band_distribution": {
+        "red": 5
+      },
+      "grounded_green_rate": 0.0,
+      "ungrounded_review_rate": 1.0
+    },
+    "capital_ratio": {
+      "n_pairs": 5,
+      "paired_accuracy": 1.0,
+      "wins_grounded_higher": 5,
+      "ties": 0,
+      "grounded_mean_score": 0.892201865864464,
+      "ungrounded_mean_score": 0.3747145255564162,
+      "delta_mean": 0.5174873403080479,
+      "grounded_score_range": [
+        0.6702821686154321,
+        0.9925465427339077
+      ],
+      "ungrounded_score_range": [
+        0.18780798216660818,
+        0.7665933162935319
+      ],
+      "grounded_band_distribution": {
+        "amber": 1,
+        "green": 1,
+        "red": 3
+      },
+      "ungrounded_band_distribution": {
+        "red": 5
+      },
+      "grounded_green_rate": 0.2,
+      "ungrounded_review_rate": 1.0
+    },
+    "auto_table": {
+      "n_pairs": 15,
+      "paired_accuracy": 0.7333333333333333,
+      "wins_grounded_higher": 11,
+      "ties": 0,
+      "grounded_mean_score": 0.7135751289014565,
+      "ungrounded_mean_score": 0.5509504343826632,
+      "delta_mean": 0.16262469451879322,
+      "grounded_score_range": [
+        0.28702523233741517,
+        0.9917503972449119
+      ],
+      "ungrounded_score_range": [
+        0.1682259046249092,
+        0.8796991387921937
+      ],
+      "grounded_band_distribution": {
+        "green": 1,
+        "red": 14
+      },
+      "ungrounded_band_distribution": {
+        "red": 15
+      },
+      "grounded_green_rate": 0.06666666666666667,
+      "ungrounded_review_rate": 1.0
+    },
+    "ezb_rate_table": {
+      "n_pairs": 5,
+      "paired_accuracy": 1.0,
+      "wins_grounded_higher": 5,
+      "ties": 0,
+      "grounded_mean_score": 0.7622693546131718,
+      "ungrounded_mean_score": 0.4075793613199831,
+      "delta_mean": 0.35468999329318873,
+      "grounded_score_range": [
+        0.4624069613218308,
+        0.9728831533874784
+      ],
+      "ungrounded_score_range": [
+        0.19695852279883663,
+        0.9327735606431962
+      ],
+      "grounded_band_distribution": {
+        "amber": 1,
+        "red": 4
+      },
+      "ungrounded_band_distribution": {
+        "red": 5
+      },
+      "grounded_green_rate": 0.0,
+      "ungrounded_review_rate": 1.0
+    },
+    "macro_table": {
+      "n_pairs": 5,
+      "paired_accuracy": 1.0,
+      "wins_grounded_higher": 5,
+      "ties": 0,
+      "grounded_mean_score": 0.6962082239974495,
+      "ungrounded_mean_score": 0.21860365822149377,
+      "delta_mean": 0.47760456577595567,
+      "grounded_score_range": [
+        0.3615845034657692,
+        0.9682931208333304
+      ],
+      "ungrounded_score_range": [
+        0.14334323613481087,
+        0.31685968721196767
+      ],
+      "grounded_band_distribution": {
+        "red": 5
+      },
+      "ungrounded_band_distribution": {
+        "red": 5
+      },
+      "grounded_green_rate": 0.0,
+      "ungrounded_review_rate": 1.0
+    },
+    "insurance_table": {
+      "n_pairs": 5,
+      "paired_accuracy": 1.0,
+      "wins_grounded_higher": 5,
+      "ties": 0,
+      "grounded_mean_score": 0.7275860489882653,
+      "ungrounded_mean_score": 0.4589361890332227,
+      "delta_mean": 0.26864985995504265,
+      "grounded_score_range": [
+        0.4954884095625444,
+        0.9947722264307143
+      ],
+      "ungrounded_score_range": [
+        0.16940758345376064,
+        0.5975269730580159
+      ],
+      "grounded_band_distribution": {
+        "green": 1,
+        "red": 4
+      },
+      "ungrounded_band_distribution": {
+        "red": 5
+      },
+      "grounded_green_rate": 0.2,
+      "ungrounded_review_rate": 1.0
+    },
+    "airline_table": {
+      "n_pairs": 5,
+      "paired_accuracy": 1.0,
+      "wins_grounded_higher": 5,
+      "ties": 0,
+      "grounded_mean_score": 0.8258551715073563,
+      "ungrounded_mean_score": 0.4879693092573024,
+      "delta_mean": 0.3378858622500539,
+      "grounded_score_range": [
+        0.7329993287548423,
+        0.9292815203322693
+      ],
+      "ungrounded_score_range": [
+        0.17921320519231734,
+        0.7469127148751225
+      ],
+      "grounded_band_distribution": {
+        "red": 5
+      },
+      "ungrounded_band_distribution": {
+        "red": 5
+      },
+      "grounded_green_rate": 0.0,
+      "ungrounded_review_rate": 1.0
+    },
+    "consumer_table": {
+      "n_pairs": 5,
+      "paired_accuracy": 0.6,
+      "wins_grounded_higher": 3,
+      "ties": 0,
+      "grounded_mean_score": 0.7275478599290948,
+      "ungrounded_mean_score": 0.5789837776940566,
+      "delta_mean": 0.1485640822350381,
+      "grounded_score_range": [
+        0.5578975276648999,
+        0.9722271248738378
+      ],
+      "ungrounded_score_range": [
+        0.2460490285117051,
+        0.8037749206399503
+      ],
+      "grounded_band_distribution": {
+        "red": 5
+      },
+      "ungrounded_band_distribution": {
+        "red": 5
+      },
+      "grounded_green_rate": 0.0,
+      "ungrounded_review_rate": 1.0
+    },
+    "dax_table": {
+      "n_pairs": 5,
+      "paired_accuracy": 1.0,
+      "wins_grounded_higher": 5,
+      "ties": 0,
+      "grounded_mean_score": 0.8836173188498956,
+      "ungrounded_mean_score": 0.5912620986660271,
+      "delta_mean": 0.2923552201838685,
+      "grounded_score_range": [
+        0.689070524339165,
+        0.9821297870925234
+      ],
+      "ungrounded_score_range": [
+        0.37856894719189615,
+        0.8952699222993383
+      ],
+      "grounded_band_distribution": {
+        "amber": 1,
+        "red": 4
+      },
+      "ungrounded_band_distribution": {
+        "red": 5
+      },
+      "grounded_green_rate": 0.0,
+      "ungrounded_review_rate": 1.0
+    },
+    "energy_table": {
+      "n_pairs": 5,
+      "paired_accuracy": 1.0,
+      "wins_grounded_higher": 5,
+      "ties": 0,
+      "grounded_mean_score": 0.7507089504570619,
+      "ungrounded_mean_score": 0.3446238188745211,
+      "delta_mean": 0.4060851315825408,
+      "grounded_score_range": [
+        0.41311131774210463,
+        0.9849217478185892
+      ],
+      "ungrounded_score_range": [
+        0.1764769590728813,
+        0.5558858404159546
+      ],
+      "grounded_band_distribution": {
+        "green": 1,
+        "red": 4
+      },
+      "ungrounded_band_distribution": {
+        "red": 5
+      },
+      "grounded_green_rate": 0.2,
+      "ungrounded_review_rate": 1.0
+    }
+  }
+}

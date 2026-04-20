@@ -51,6 +51,10 @@ slices), production config: GTE-ModernColBERT bf16 + multilingual mDeBERTa NLI
 | Internal minimal pairs | hard structured (JSON / md table) | 30 | paired_acc | **0.93** | [0.83, 1.00] |
 | Internal minimal pairs | hard distributed dialogue | 30 | paired_acc | 0.57 | [0.40, 0.73] |
 | Internal minimal pairs | German | 26 | paired_acc | **1.00** | [1.00, 1.00] |
+| Domain-pair: finance prose (10-K, earnings calls, BLS / Fed) | finance prose | 25 | paired_acc | **0.98** ¶ | [0.93, 1.00] |
+| Domain-pair: legal prose (statutes, rulings, GDPR) | legal prose | 25 | paired_acc | **0.96** | [0.88, 1.00] |
+| Domain-pair: **EN table-adversarial** (segment tables, balance sheets, FOMC, ETF holdings) | English tables | 100 | paired_acc | **0.875** ¶ | [0.81, 0.93] |
+| Domain-pair: **DE table-adversarial** (SAP, Siemens, ECB, Bundesbank, Volkswagen) | German tables | 70 | paired_acc | **0.836** ¶ | [0.75, 0.91] |
 | RAGTruth | macro F1 (qa / summ / data2text) | 360 | F1@median | **0.61** | — |
 | RAGTruth | qa | 120 | F1@median | **0.73** (precision 0.98) | — |
 | RAGTruth | summarization | 120 | F1@median | **0.65** (precision 0.80) | — |
@@ -72,6 +76,21 @@ stratum). Reproduce: `python scripts/diagnose_halueval.py --nli-model <id> --lim
 `VOYAGER_GROUNDEDNESS_NLI_MODEL` to switch. Recommended for English-only
 deployments — gains ≈ +10 percentage points paired ranking accuracy on
 HaluEval QA / Summarization vs. the multilingual default.<br>
+¶ **Typed Structured Evidence Lane** (AND-gate over entity/value/unit/sign
+matched against typed source cells) is on by default for `quality` profile
+and contributes most of the lift on the table-adversarial sets. Disable
+with `VOYAGER_GROUNDEDNESS_STRUCTURED_GATE=0` to fall back to the legacy
+narrative-only fusion. Reports + reproduction datasets:
+[`research/triangular_maxsim/reports/domain_pairs/`](research/triangular_maxsim/reports/domain_pairs/)
+(`finance_pairs.jsonl`, `legal_pairs.jsonl`,
+`tables_adversarial_en.jsonl`, `tables_adversarial_de.jsonl`, plus
+gate-on/off and ablation reports under `structured_lane/`). Removing the
+lane drops EN-table delta from `0.345` to `0.256` (the score gap between
+grounded and ungrounded responses) while removing NLI drops paired_acc
+by `−6.5pp`. **Green precision = 99.55%** across all four domain-pair
+sets (1 false-green out of 220 ungrounded responses; the single FP is a
+DE rate-decision bps↔% unit swap on an 88-character source that does
+not yield enough cells for reliable AND-gating).<br>
 ‡ HaluEval Dialogue is **a known mismatch lane** for context-grounded scoring:
 hallucinations introduce real-world facts that are *not in the dialogue
 context*, so both right and hallucinated continuations score "ungrounded"
@@ -99,7 +118,13 @@ rather than tune to the test set. See
 - ✅ **Bilingual EN+DE** — German minimal pairs 1.00 paired, identical
   schema, same `/groundedness` endpoint.
 - ✅ **Tabular / structured-source pairs** — 0.93 paired on hard
-  JSON / markdown table stratum (NLI + structured triples).
+  JSON / markdown table stratum (NLI + structured triples), plus
+  **0.875 paired on EN segment-tables** and **0.836 paired on DE
+  Geschäftsbericht tables** with the new Typed Structured Evidence
+  Lane (n=170 paired adversarial samples, AND-gate over entity ∧
+  value ∧ unit ∧ sign — one wrong cell collapses the score).
+  **Green precision 99.55%** across the union of legal + finance +
+  EN-tables + DE-tables (1 FP / 220 ungrounded responses).
 - ✅ **Per-claim atomic verification (FActScore-style)** — 0.61 precision /
   0.62 F1 at n = 748 atomic claims, Wikipedia-grounded, evaluated under
   the canonical FActScore protocol (was previously reported as `skipped`
@@ -177,6 +202,23 @@ Five fused channels:
    verification samples, Shannon entropy over clusters.
 5. **Structured-source verification** - JSON / markdown-table triple extraction
    with numeric tolerance and alias resolution.
+6. **Typed Structured Evidence Lane** *(new)* — for prose-formatted segment
+   tables, KV lists, and short single-fact numeric statements (rate
+   decisions, KPI summaries, weather/grid records) the runtime extracts
+   typed cells from the source `(anchor, value, unit, currency, sign,
+   period)` and typed claims from the response `(anchor, value, unit,
+   currency, sign)`. Each claim is aligned to its best source cell and
+   scored under an **AND-gate** `min(entity_align, value_match,
+   unit_match, sign_match)`; the aggregate is `min` over all aligned
+   claims. When the lane fires, the headline becomes
+   `min(narrative_score, structured_score)` so a single wrong cell
+   collapses the score to ~0 — exactly what catches segment-table
+   number / sign / unit flips that lexical and dense-similarity
+   channels soften through. Behind feature flag
+   `VOYAGER_GROUNDEDNESS_STRUCTURED_GATE` (default ON for `quality`
+   profile). Lane stays silent on pure prose so the legal / FActScore
+   strata see no regression. EN/DE supported (German number formats,
+   `Mio./Mrd. EUR`, `Basispunkte`, `Prozentpunkte`).
 
 All channels are renormalized into a single `groundedness_v2` headline; the
 runtime classifies that headline into a per-stratum risk band using calibrated

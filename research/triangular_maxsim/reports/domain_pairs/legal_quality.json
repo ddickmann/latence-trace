@@ -1,0 +1,231 @@
+{
+  "input": "research/triangular_maxsim/external_data/domain_pairs/legal_pairs.jsonl",
+  "n_pairs_total": 25,
+  "colbert_model": "lightonai/GTE-ModernColBERT-v1",
+  "nli_model": "MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli",
+  "reranker_model": "BAAI/bge-reranker-v2-m3",
+  "fusion_weights": {
+    "calibrated": 0.0,
+    "literal": 0.2,
+    "nli": 0.8,
+    "semantic_entropy": 0.0,
+    "structured": 0.0
+  },
+  "threshold_artifact": "/workspace/latence-trace/latence_trace/data/thresholds.quality.json",
+  "wallclock": {
+    "total_seconds": 10.71,
+    "encode_ms_per_response_avg": 49.33,
+    "score_ms_per_response_avg": 164.92
+  },
+  "macro": {
+    "n_pairs": 25,
+    "paired_accuracy": 0.96,
+    "wins_grounded_higher": 24,
+    "ties": 0,
+    "grounded_mean_score": 0.8745408942590484,
+    "ungrounded_mean_score": 0.2681107128802667,
+    "delta_mean": 0.6064301813787817,
+    "grounded_score_range": [
+      0.23258640685050108,
+      0.9965840869361446
+    ],
+    "ungrounded_score_range": [
+      0.13922516367219098,
+      0.5799280982672874
+    ],
+    "grounded_band_distribution": {
+      "amber": 3,
+      "green": 9,
+      "red": 13
+    },
+    "ungrounded_band_distribution": {
+      "red": 25
+    },
+    "grounded_green_rate": 0.36,
+    "ungrounded_review_rate": 1.0
+  },
+  "per_stratum": {
+    "contract_clauses": {
+      "n_pairs": 9,
+      "paired_accuracy": 0.8888888888888888,
+      "wins_grounded_higher": 8,
+      "ties": 0,
+      "grounded_mean_score": 0.8194613854557785,
+      "ungrounded_mean_score": 0.3185578210195393,
+      "delta_mean": 0.5009035644362393,
+      "grounded_score_range": [
+        0.23258640685050108,
+        0.9965840869361446
+      ],
+      "ungrounded_score_range": [
+        0.16890062060947955,
+        0.5799280982672874
+      ],
+      "grounded_band_distribution": {
+        "amber": 1,
+        "green": 5,
+        "red": 3
+      },
+      "ungrounded_band_distribution": {
+        "red": 9
+      },
+      "grounded_green_rate": 0.5555555555555556,
+      "ungrounded_review_rate": 1.0
+    },
+    "regulation_gdpr": {
+      "n_pairs": 3,
+      "paired_accuracy": 1.0,
+      "wins_grounded_higher": 3,
+      "ties": 0,
+      "grounded_mean_score": 0.8778511705352665,
+      "ungrounded_mean_score": 0.17586878886937748,
+      "delta_mean": 0.7019823816658891,
+      "grounded_score_range": [
+        0.7725540359814962,
+        0.9554895053699352
+      ],
+      "ungrounded_score_range": [
+        0.13922516367219098,
+        0.2200588748448839
+      ],
+      "grounded_band_distribution": {
+        "red": 3
+      },
+      "ungrounded_band_distribution": {
+        "red": 3
+      },
+      "grounded_green_rate": 0.0,
+      "ungrounded_review_rate": 1.0
+    },
+    "regulation_eu_ai_act": {
+      "n_pairs": 4,
+      "paired_accuracy": 1.0,
+      "wins_grounded_higher": 4,
+      "ties": 0,
+      "grounded_mean_score": 0.9832164144964921,
+      "ungrounded_mean_score": 0.27375480104927175,
+      "delta_mean": 0.7094616134472204,
+      "grounded_score_range": [
+        0.9703541073948145,
+        0.9932530322047914
+      ],
+      "ungrounded_score_range": [
+        0.17622652427526192,
+        0.5500880453872438
+      ],
+      "grounded_band_distribution": {
+        "amber": 1,
+        "green": 2,
+        "red": 1
+      },
+      "ungrounded_band_distribution": {
+        "red": 4
+      },
+      "grounded_green_rate": 0.5,
+      "ungrounded_review_rate": 1.0
+    },
+    "case_law": {
+      "n_pairs": 4,
+      "paired_accuracy": 1.0,
+      "wins_grounded_higher": 4,
+      "ties": 0,
+      "grounded_mean_score": 0.8794318327651365,
+      "ungrounded_mean_score": 0.1889397299241945,
+      "delta_mean": 0.690492102840942,
+      "grounded_score_range": [
+        0.6296526907718387,
+        0.992614504681634
+      ],
+      "ungrounded_score_range": [
+        0.16514327477898466,
+        0.1971600399463482
+      ],
+      "grounded_band_distribution": {
+        "amber": 1,
+        "green": 1,
+        "red": 2
+      },
+      "ungrounded_band_distribution": {
+        "red": 4
+      },
+      "grounded_green_rate": 0.25,
+      "ungrounded_review_rate": 1.0
+    },
+    "contract_dpa": {
+      "n_pairs": 2,
+      "paired_accuracy": 1.0,
+      "wins_grounded_higher": 2,
+      "ties": 0,
+      "grounded_mean_score": 0.8804063061280367,
+      "ungrounded_mean_score": 0.28278982066076186,
+      "delta_mean": 0.5976164854672749,
+      "grounded_score_range": [
+        0.8407155417874457,
+        0.9200970704686278
+      ],
+      "ungrounded_score_range": [
+        0.164053939306027,
+        0.40152570201549675
+      ],
+      "grounded_band_distribution": {
+        "red": 2
+      },
+      "ungrounded_band_distribution": {
+        "red": 2
+      },
+      "grounded_green_rate": 0.0,
+      "ungrounded_review_rate": 1.0
+    },
+    "regulation_dora": {
+      "n_pairs": 1,
+      "paired_accuracy": 1.0,
+      "wins_grounded_higher": 1,
+      "ties": 0,
+      "grounded_mean_score": 0.9348405554890633,
+      "ungrounded_mean_score": 0.19587708425501155,
+      "delta_mean": 0.7389634712340518,
+      "grounded_score_range": [
+        0.9348405554890633,
+        0.9348405554890633
+      ],
+      "ungrounded_score_range": [
+        0.19587708425501155,
+        0.19587708425501155
+      ],
+      "grounded_band_distribution": {
+        "red": 1
+      },
+      "ungrounded_band_distribution": {
+        "red": 1
+      },
+      "grounded_green_rate": 0.0,
+      "ungrounded_review_rate": 1.0
+    },
+    "regulation_hipaa": {
+      "n_pairs": 2,
+      "paired_accuracy": 1.0,
+      "wins_grounded_higher": 2,
+      "ties": 0,
+      "grounded_mean_score": 0.8542851094883761,
+      "ungrounded_mean_score": 0.3479531083761404,
+      "delta_mean": 0.5063320011122356,
+      "grounded_score_range": [
+        0.7161819979930535,
+        0.9923882209836986
+      ],
+      "ungrounded_score_range": [
+        0.16964277475625275,
+        0.526263441996028
+      ],
+      "grounded_band_distribution": {
+        "green": 1,
+        "red": 1
+      },
+      "ungrounded_band_distribution": {
+        "red": 2
+      },
+      "grounded_green_rate": 0.5,
+      "ungrounded_review_rate": 1.0
+    }
+  }
+}

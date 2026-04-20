@@ -831,6 +831,8 @@ def fuse_groundedness_v2(
     nli_aggregate: Optional[float],
     semantic_entropy: Optional[float] = None,
     structured_source_guarded: Optional[float] = None,
+    typed_structured: Optional[float] = None,
+    typed_structured_gate: Optional[bool] = None,
     weights: Optional[Dict[str, float]] = None,
 ) -> Optional[float]:
     """Convex-combination fusion of the available peer scores.
@@ -843,9 +845,60 @@ def fuse_groundedness_v2(
     The semantic-entropy and structured-source channels are opt-in: their
     default weights are ``0`` and they renormalize the others when their
     value is provided and a non-zero weight has been configured.
+
+    Typed-structured-evidence AND-gate
+    ----------------------------------
+    When ``typed_structured`` is supplied (the AND-gate cell matcher
+    actually fired) and the structured-evidence gate flag is on, the
+    fusion switches from a weighted convex combination to:
+
+        ``min(narrative_score, structured_min)``
+
+    where ``narrative_score`` is the renormalized weighted sum over the
+    *narrative* channels (calibrated / literal / nli /
+    semantic_entropy) and ``structured_min`` is the minimum across all
+    structured signals that fired (legacy ``structured_source_guarded``
+    and the typed AND-gate score). This is the user-requested switch:
+    one broken cell collapses the headline so a high-similarity, low-
+    correctness response on a table cannot pass through.
+
+    For pure-prose contexts (typed lane silent) the function falls
+    through to the legacy weighted-sum behaviour so existing fusion
+    weights and per-stratum thresholds are preserved.
     """
 
     weights = dict(weights) if weights else dict(_DEFAULT_FUSION_WEIGHTS)
+    if typed_structured_gate is None:
+        typed_structured_gate = _is_structured_gate_enabled_default()
+
+    if typed_structured is not None and typed_structured_gate:
+        narrative_channels = [
+            ("calibrated", reverse_context_calibrated, weights.get("calibrated", 0.0)),
+            ("literal", literal_guarded, weights.get("literal", 0.0)),
+            ("nli", nli_aggregate, weights.get("nli", 0.0)),
+            ("semantic_entropy", semantic_entropy, weights.get("semantic_entropy", 0.0)),
+        ]
+        contributing_narrative = [
+            (value, max(0.0, weight))
+            for _name, value, weight in narrative_channels
+            if value is not None and weight > 0
+        ]
+        structured_signals: List[float] = [float(typed_structured)]
+        if structured_source_guarded is not None:
+            structured_signals.append(float(structured_source_guarded))
+        structured_min = min(structured_signals)
+        if not contributing_narrative:
+            return max(0.0, min(1.0, float(structured_min)))
+        total_weight = sum(weight for _value, weight in contributing_narrative)
+        if total_weight <= 0:
+            return max(0.0, min(1.0, float(structured_min)))
+        narrative_score = (
+            sum(float(value) * float(weight) for value, weight in contributing_narrative)
+            / total_weight
+        )
+        fused = min(float(narrative_score), float(structured_min))
+        return max(0.0, min(1.0, float(fused)))
+
     channels = [
         ("calibrated", reverse_context_calibrated, weights.get("calibrated", 0.0)),
         ("literal", literal_guarded, weights.get("literal", 0.0)),
@@ -865,6 +918,24 @@ def fuse_groundedness_v2(
         return None
     fused = sum(float(value) * float(weight) for value, weight in contributing) / total_weight
     return max(0.0, min(1.0, float(fused)))
+
+
+def _is_structured_gate_enabled_default() -> bool:
+    """Resolve the AND-gate flag without forcing an import cycle.
+
+    Mirrors :func:`latence_trace.core.structured.is_structured_gate_enabled`
+    but lives in :mod:`nli` so the fusion stays self-contained when the
+    structured module is patched out in tests.
+    """
+
+    import os
+
+    raw = os.environ.get(
+        "VOYAGER_GROUNDEDNESS_STRUCTURED_GATE", "1"
+    ).strip().lower()
+    if raw in {"", "0", "false", "no", "off"}:
+        return False
+    return True
 
 
 # ----------------------------------------------------------------------

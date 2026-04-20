@@ -1,0 +1,533 @@
+{
+  "input": "research/triangular_maxsim/external_data/domain_pairs/legal_pairs.jsonl",
+  "n_pairs_total": 25,
+  "colbert_model": "lightonai/GTE-ModernColBERT-v1",
+  "nli_model": "MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli",
+  "reranker_model": "BAAI/bge-reranker-v2-m3",
+  "fusion_weights": {
+    "calibrated": 0.0,
+    "literal": 0.2,
+    "nli": 0.8,
+    "semantic_entropy": 0.0,
+    "structured": 0.0
+  },
+  "threshold_artifact": "latence_trace/data/thresholds.quality.json",
+  "wallclock": {
+    "total_seconds": 8.26,
+    "encode_ms_per_response_avg": 47.52,
+    "score_ms_per_response_avg": 117.71
+  },
+  "macro": {
+    "n_pairs": 25,
+    "paired_accuracy": 0.96,
+    "wins_grounded_higher": 24,
+    "ties": 0,
+    "grounded_mean_score": 0.8745408942590484,
+    "ungrounded_mean_score": 0.2681107128802667,
+    "delta_mean": 0.6064301813787817,
+    "grounded_score_range": [
+      0.23258640685050108,
+      0.9965840869361446
+    ],
+    "ungrounded_score_range": [
+      0.13922516367219098,
+      0.5799280982672874
+    ],
+    "grounded_band_distribution": {
+      "amber": 3,
+      "green": 9,
+      "red": 13
+    },
+    "ungrounded_band_distribution": {
+      "red": 25
+    },
+    "grounded_green_rate": 0.36,
+    "ungrounded_review_rate": 1.0
+  },
+  "per_stratum": {
+    "contract_clauses": {
+      "n_pairs": 9,
+      "paired_accuracy": 0.8888888888888888,
+      "wins_grounded_higher": 8,
+      "ties": 0,
+      "grounded_mean_score": 0.8194613854557785,
+      "ungrounded_mean_score": 0.3185578210195393,
+      "delta_mean": 0.5009035644362393,
+      "grounded_score_range": [
+        0.23258640685050108,
+        0.9965840869361446
+      ],
+      "ungrounded_score_range": [
+        0.16890062060947955,
+        0.5799280982672874
+      ],
+      "grounded_band_distribution": {
+        "amber": 1,
+        "green": 5,
+        "red": 3
+      },
+      "ungrounded_band_distribution": {
+        "red": 9
+      },
+      "grounded_green_rate": 0.5555555555555556,
+      "ungrounded_review_rate": 1.0
+    },
+    "regulation_gdpr": {
+      "n_pairs": 3,
+      "paired_accuracy": 1.0,
+      "wins_grounded_higher": 3,
+      "ties": 0,
+      "grounded_mean_score": 0.8778511705352665,
+      "ungrounded_mean_score": 0.17586878886937748,
+      "delta_mean": 0.7019823816658891,
+      "grounded_score_range": [
+        0.7725540359814962,
+        0.9554895053699352
+      ],
+      "ungrounded_score_range": [
+        0.13922516367219098,
+        0.2200588748448839
+      ],
+      "grounded_band_distribution": {
+        "red": 3
+      },
+      "ungrounded_band_distribution": {
+        "red": 3
+      },
+      "grounded_green_rate": 0.0,
+      "ungrounded_review_rate": 1.0
+    },
+    "regulation_eu_ai_act": {
+      "n_pairs": 4,
+      "paired_accuracy": 1.0,
+      "wins_grounded_higher": 4,
+      "ties": 0,
+      "grounded_mean_score": 0.9832164144964921,
+      "ungrounded_mean_score": 0.27375480104927175,
+      "delta_mean": 0.7094616134472204,
+      "grounded_score_range": [
+        0.9703541073948145,
+        0.9932530322047914
+      ],
+      "ungrounded_score_range": [
+        0.17622652427526192,
+        0.5500880453872438
+      ],
+      "grounded_band_distribution": {
+        "amber": 1,
+        "green": 2,
+        "red": 1
+      },
+      "ungrounded_band_distribution": {
+        "red": 4
+      },
+      "grounded_green_rate": 0.5,
+      "ungrounded_review_rate": 1.0
+    },
+    "case_law": {
+      "n_pairs": 4,
+      "paired_accuracy": 1.0,
+      "wins_grounded_higher": 4,
+      "ties": 0,
+      "grounded_mean_score": 0.8794318327651365,
+      "ungrounded_mean_score": 0.1889397299241945,
+      "delta_mean": 0.690492102840942,
+      "grounded_score_range": [
+        0.6296526907718387,
+        0.992614504681634
+      ],
+      "ungrounded_score_range": [
+        0.16514327477898466,
+        0.1971600399463482
+      ],
+      "grounded_band_distribution": {
+        "amber": 1,
+        "green": 1,
+        "red": 2
+      },
+      "ungrounded_band_distribution": {
+        "red": 4
+      },
+      "grounded_green_rate": 0.25,
+      "ungrounded_review_rate": 1.0
+    },
+    "contract_dpa": {
+      "n_pairs": 2,
+      "paired_accuracy": 1.0,
+      "wins_grounded_higher": 2,
+      "ties": 0,
+      "grounded_mean_score": 0.8804063061280367,
+      "ungrounded_mean_score": 0.28278982066076186,
+      "delta_mean": 0.5976164854672749,
+      "grounded_score_range": [
+        0.8407155417874457,
+        0.9200970704686278
+      ],
+      "ungrounded_score_range": [
+        0.164053939306027,
+        0.40152570201549675
+      ],
+      "grounded_band_distribution": {
+        "red": 2
+      },
+      "ungrounded_band_distribution": {
+        "red": 2
+      },
+      "grounded_green_rate": 0.0,
+      "ungrounded_review_rate": 1.0
+    },
+    "regulation_dora": {
+      "n_pairs": 1,
+      "paired_accuracy": 1.0,
+      "wins_grounded_higher": 1,
+      "ties": 0,
+      "grounded_mean_score": 0.9348405554890633,
+      "ungrounded_mean_score": 0.19587708425501155,
+      "delta_mean": 0.7389634712340518,
+      "grounded_score_range": [
+        0.9348405554890633,
+        0.9348405554890633
+      ],
+      "ungrounded_score_range": [
+        0.19587708425501155,
+        0.19587708425501155
+      ],
+      "grounded_band_distribution": {
+        "red": 1
+      },
+      "ungrounded_band_distribution": {
+        "red": 1
+      },
+      "grounded_green_rate": 0.0,
+      "ungrounded_review_rate": 1.0
+    },
+    "regulation_hipaa": {
+      "n_pairs": 2,
+      "paired_accuracy": 1.0,
+      "wins_grounded_higher": 2,
+      "ties": 0,
+      "grounded_mean_score": 0.8542851094883761,
+      "ungrounded_mean_score": 0.3479531083761404,
+      "delta_mean": 0.5063320011122356,
+      "grounded_score_range": [
+        0.7161819979930535,
+        0.9923882209836986
+      ],
+      "ungrounded_score_range": [
+        0.16964277475625275,
+        0.526263441996028
+      ],
+      "grounded_band_distribution": {
+        "green": 1,
+        "red": 1
+      },
+      "ungrounded_band_distribution": {
+        "red": 2
+      },
+      "grounded_green_rate": 0.5,
+      "ungrounded_review_rate": 1.0
+    }
+  },
+  "samples": [
+    {
+      "stratum": "contract_clauses",
+      "id": "legal-001",
+      "flip_kind": null,
+      "language": "en",
+      "grounded_score": 0.9965840869361446,
+      "ungrounded_score": 0.5799280982672874,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "contract_clauses",
+      "id": "legal-002",
+      "flip_kind": null,
+      "language": "en",
+      "grounded_score": 0.9933665307089687,
+      "ungrounded_score": 0.20444722185401543,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "contract_clauses",
+      "id": "legal-003",
+      "flip_kind": null,
+      "language": "en",
+      "grounded_score": 0.9954173767318328,
+      "ungrounded_score": 0.2002667948137969,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "contract_clauses",
+      "id": "legal-004",
+      "flip_kind": null,
+      "language": "en",
+      "grounded_score": 0.9738181754946709,
+      "ungrounded_score": 0.1772300744708926,
+      "grounded_band": "amber",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "contract_clauses",
+      "id": "legal-005",
+      "flip_kind": null,
+      "language": "en",
+      "grounded_score": 0.9899637108047804,
+      "ungrounded_score": 0.46836202553074274,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "contract_clauses",
+      "id": "legal-016",
+      "flip_kind": null,
+      "language": "en",
+      "grounded_score": 0.7581710306080904,
+      "ungrounded_score": 0.3469233807236762,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "contract_clauses",
+      "id": "legal-017",
+      "flip_kind": null,
+      "language": "en",
+      "grounded_score": 0.23258640685050108,
+      "ungrounded_score": 0.16890062060947955,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "contract_clauses",
+      "id": "legal-018",
+      "flip_kind": null,
+      "language": "en",
+      "grounded_score": 0.9849451306030939,
+      "ungrounded_score": 0.1870923274810511,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "contract_clauses",
+      "id": "legal-025",
+      "flip_kind": null,
+      "language": "en",
+      "grounded_score": 0.4503000203639238,
+      "ungrounded_score": 0.5338698454249118,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "regulation_gdpr",
+      "id": "legal-006",
+      "flip_kind": null,
+      "language": "en",
+      "grounded_score": 0.9554895053699352,
+      "ungrounded_score": 0.1683223280910576,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "regulation_gdpr",
+      "id": "legal-007",
+      "flip_kind": null,
+      "language": "en",
+      "grounded_score": 0.7725540359814962,
+      "ungrounded_score": 0.2200588748448839,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "regulation_gdpr",
+      "id": "legal-008",
+      "flip_kind": null,
+      "language": "en",
+      "grounded_score": 0.9055099702543683,
+      "ungrounded_score": 0.13922516367219098,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "regulation_eu_ai_act",
+      "id": "legal-009",
+      "flip_kind": null,
+      "language": "en",
+      "grounded_score": 0.9799847259307686,
+      "ungrounded_score": 0.18008436112617016,
+      "grounded_band": "amber",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "regulation_eu_ai_act",
+      "id": "legal-010",
+      "flip_kind": null,
+      "language": "en",
+      "grounded_score": 0.9892737924555939,
+      "ungrounded_score": 0.1886202734084112,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "regulation_eu_ai_act",
+      "id": "legal-019",
+      "flip_kind": null,
+      "language": "en",
+      "grounded_score": 0.9932530322047914,
+      "ungrounded_score": 0.5500880453872438,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "regulation_eu_ai_act",
+      "id": "legal-020",
+      "flip_kind": null,
+      "language": "en",
+      "grounded_score": 0.9703541073948145,
+      "ungrounded_score": 0.17622652427526192,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "case_law",
+      "id": "legal-011",
+      "flip_kind": null,
+      "language": "en",
+      "grounded_score": 0.9821507369028405,
+      "ungrounded_score": 0.1971600399463482,
+      "grounded_band": "amber",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "case_law",
+      "id": "legal-012",
+      "flip_kind": null,
+      "language": "en",
+      "grounded_score": 0.9133093987042324,
+      "ungrounded_score": 0.16514327477898466,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "case_law",
+      "id": "legal-013",
+      "flip_kind": null,
+      "language": "en",
+      "grounded_score": 0.992614504681634,
+      "ungrounded_score": 0.19665818646816272,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "case_law",
+      "id": "legal-021",
+      "flip_kind": null,
+      "language": "en",
+      "grounded_score": 0.6296526907718387,
+      "ungrounded_score": 0.1967974185032825,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "contract_dpa",
+      "id": "legal-014",
+      "flip_kind": null,
+      "language": "en",
+      "grounded_score": 0.9200970704686278,
+      "ungrounded_score": 0.164053939306027,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "contract_dpa",
+      "id": "legal-015",
+      "flip_kind": null,
+      "language": "en",
+      "grounded_score": 0.8407155417874457,
+      "ungrounded_score": 0.40152570201549675,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "regulation_dora",
+      "id": "legal-022",
+      "flip_kind": null,
+      "language": "en",
+      "grounded_score": 0.9348405554890633,
+      "ungrounded_score": 0.19587708425501155,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "regulation_hipaa",
+      "id": "legal-023",
+      "flip_kind": null,
+      "language": "en",
+      "grounded_score": 0.9923882209836986,
+      "ungrounded_score": 0.16964277475625275,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "regulation_hipaa",
+      "id": "legal-024",
+      "flip_kind": null,
+      "language": "en",
+      "grounded_score": 0.7161819979930535,
+      "ungrounded_score": 0.526263441996028,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    }
+  ]
+}

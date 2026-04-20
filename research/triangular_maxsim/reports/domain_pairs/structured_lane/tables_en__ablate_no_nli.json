@@ -1,0 +1,1706 @@
+{
+  "input": "research/triangular_maxsim/external_data/domain_pairs/tables_adversarial_en.jsonl",
+  "n_pairs_total": 100,
+  "colbert_model": "lightonai/GTE-ModernColBERT-v1",
+  "nli_model": "MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli",
+  "reranker_model": "BAAI/bge-reranker-v2-m3",
+  "fusion_weights": {
+    "calibrated": 0.0,
+    "literal": 0.2,
+    "nli": 0.8,
+    "semantic_entropy": 0.0,
+    "structured": 0.0
+  },
+  "threshold_artifact": "latence_trace/data/thresholds.quality.json",
+  "wallclock": {
+    "total_seconds": 19.55,
+    "encode_ms_per_response_avg": 56.71,
+    "score_ms_per_response_avg": 41.02
+  },
+  "macro": {
+    "n_pairs": 100,
+    "paired_accuracy": 0.81,
+    "wins_grounded_higher": 76,
+    "ties": 10,
+    "grounded_mean_score": 0.7746604429878094,
+    "ungrounded_mean_score": 0.4080461381664497,
+    "delta_mean": 0.36661430482135976,
+    "grounded_score_range": [
+      0.0,
+      0.9999356446442781
+    ],
+    "ungrounded_score_range": [
+      0.0,
+      0.9998958294208233
+    ],
+    "grounded_band_distribution": {
+      "amber": 6,
+      "green": 27,
+      "red": 67
+    },
+    "ungrounded_band_distribution": {
+      "amber": 3,
+      "green": 13,
+      "red": 84
+    },
+    "grounded_green_rate": 0.27,
+    "ungrounded_review_rate": 0.87
+  },
+  "per_stratum": {
+    "segment_table": {
+      "n_pairs": 15,
+      "paired_accuracy": 0.8333333333333334,
+      "wins_grounded_higher": 11,
+      "ties": 3,
+      "grounded_mean_score": 0.6376411865384435,
+      "ungrounded_mean_score": 0.2563722311522023,
+      "delta_mean": 0.3812689553862411,
+      "grounded_score_range": [
+        0.0,
+        0.9996861996858016
+      ],
+      "ungrounded_score_range": [
+        0.0,
+        0.9998958294208233
+      ],
+      "grounded_band_distribution": {
+        "green": 4,
+        "red": 11
+      },
+      "ungrounded_band_distribution": {
+        "green": 3,
+        "red": 12
+      },
+      "grounded_green_rate": 0.26666666666666666,
+      "ungrounded_review_rate": 0.8
+    },
+    "operating_earnings": {
+      "n_pairs": 5,
+      "paired_accuracy": 0.8,
+      "wins_grounded_higher": 4,
+      "ties": 0,
+      "grounded_mean_score": 0.8889359057038222,
+      "ungrounded_mean_score": 0.3689488342791165,
+      "delta_mean": 0.5199870714247057,
+      "grounded_score_range": [
+        0.8,
+        0.9998096823692322
+      ],
+      "ungrounded_score_range": [
+        0.0,
+        0.998322900736107
+      ],
+      "grounded_band_distribution": {
+        "green": 2,
+        "red": 3
+      },
+      "ungrounded_band_distribution": {
+        "green": 1,
+        "red": 4
+      },
+      "grounded_green_rate": 0.4,
+      "ungrounded_review_rate": 0.8
+    },
+    "balance_sheet": {
+      "n_pairs": 10,
+      "paired_accuracy": 0.85,
+      "wins_grounded_higher": 8,
+      "ties": 1,
+      "grounded_mean_score": 0.6884524426320129,
+      "ungrounded_mean_score": 0.2189184211282169,
+      "delta_mean": 0.4695340215037961,
+      "grounded_score_range": [
+        0.19999999999999996,
+        0.996338921624261
+      ],
+      "ungrounded_score_range": [
+        0.0,
+        0.9949455261230469
+      ],
+      "grounded_band_distribution": {
+        "green": 2,
+        "red": 8
+      },
+      "ungrounded_band_distribution": {
+        "green": 2,
+        "red": 8
+      },
+      "grounded_green_rate": 0.2,
+      "ungrounded_review_rate": 0.8
+    },
+    "credit_table": {
+      "n_pairs": 5,
+      "paired_accuracy": 1.0,
+      "wins_grounded_higher": 5,
+      "ties": 0,
+      "grounded_mean_score": 0.8823447473624515,
+      "ungrounded_mean_score": 0.0,
+      "delta_mean": 0.8823447473624515,
+      "grounded_score_range": [
+        0.6,
+        0.997712648831881
+      ],
+      "ungrounded_score_range": [
+        0.0,
+        0.0
+      ],
+      "grounded_band_distribution": {
+        "amber": 1,
+        "green": 2,
+        "red": 2
+      },
+      "ungrounded_band_distribution": {
+        "red": 5
+      },
+      "grounded_green_rate": 0.4,
+      "ungrounded_review_rate": 1.0
+    },
+    "macro_table": {
+      "n_pairs": 5,
+      "paired_accuracy": 0.8,
+      "wins_grounded_higher": 4,
+      "ties": 0,
+      "grounded_mean_score": 0.8977009462209848,
+      "ungrounded_mean_score": 0.7020101347436438,
+      "delta_mean": 0.19569081147734096,
+      "grounded_score_range": [
+        0.7083695910527156,
+        0.999812492957482
+      ],
+      "ungrounded_score_range": [
+        0.0,
+        0.9894822438557943
+      ],
+      "grounded_band_distribution": {
+        "green": 3,
+        "red": 2
+      },
+      "ungrounded_band_distribution": {
+        "green": 1,
+        "red": 4
+      },
+      "grounded_green_rate": 0.6,
+      "ungrounded_review_rate": 0.8
+    },
+    "earnings_per_share": {
+      "n_pairs": 5,
+      "paired_accuracy": 1.0,
+      "wins_grounded_higher": 5,
+      "ties": 0,
+      "grounded_mean_score": 0.698708225573603,
+      "ungrounded_mean_score": 0.1441697167483243,
+      "delta_mean": 0.5545385088252787,
+      "grounded_score_range": [
+        0.3999999999999999,
+        0.8481337243860418
+      ],
+      "ungrounded_score_range": [
+        0.0,
+        0.7208485837416214
+      ],
+      "grounded_band_distribution": {
+        "red": 5
+      },
+      "ungrounded_band_distribution": {
+        "red": 5
+      },
+      "grounded_green_rate": 0.0,
+      "ungrounded_review_rate": 1.0
+    },
+    "guidance_table": {
+      "n_pairs": 5,
+      "paired_accuracy": 1.0,
+      "wins_grounded_higher": 5,
+      "ties": 0,
+      "grounded_mean_score": 0.9953504293410183,
+      "ungrounded_mean_score": 0.566711102471207,
+      "delta_mean": 0.4286393268698111,
+      "grounded_score_range": [
+        0.9928142284524852,
+        0.9983117956864207
+      ],
+      "ungrounded_score_range": [
+        0.0,
+        0.9959726929664612
+      ],
+      "grounded_band_distribution": {
+        "green": 5
+      },
+      "ungrounded_band_distribution": {
+        "green": 2,
+        "red": 3
+      },
+      "grounded_green_rate": 1.0,
+      "ungrounded_review_rate": 0.6
+    },
+    "rate_table": {
+      "n_pairs": 5,
+      "paired_accuracy": 0.5,
+      "wins_grounded_higher": 2,
+      "ties": 1,
+      "grounded_mean_score": 0.6164411344316271,
+      "ungrounded_mean_score": 0.358537294599745,
+      "delta_mean": 0.25790383983188214,
+      "grounded_score_range": [
+        0.0,
+        0.8453269375695123
+      ],
+      "ungrounded_score_range": [
+        0.0,
+        0.9469829559326172
+      ],
+      "grounded_band_distribution": {
+        "red": 5
+      },
+      "ungrounded_band_distribution": {
+        "red": 5
+      },
+      "grounded_green_rate": 0.0,
+      "ungrounded_review_rate": 1.0
+    },
+    "exhibit_table": {
+      "n_pairs": 5,
+      "paired_accuracy": 0.8,
+      "wins_grounded_higher": 3,
+      "ties": 2,
+      "grounded_mean_score": 0.7147718728785322,
+      "ungrounded_mean_score": 0.31596747121503277,
+      "delta_mean": 0.3988044016634994,
+      "grounded_score_range": [
+        0.0,
+        0.997367505674009
+      ],
+      "ungrounded_score_range": [
+        0.0,
+        0.9798373560751639
+      ],
+      "grounded_band_distribution": {
+        "amber": 1,
+        "green": 2,
+        "red": 2
+      },
+      "ungrounded_band_distribution": {
+        "amber": 1,
+        "red": 4
+      },
+      "grounded_green_rate": 0.4,
+      "ungrounded_review_rate": 1.0
+    },
+    "alphabet_table": {
+      "n_pairs": 5,
+      "paired_accuracy": 1.0,
+      "wins_grounded_higher": 5,
+      "ties": 0,
+      "grounded_mean_score": 0.8493143422976395,
+      "ungrounded_mean_score": 0.36924677383723514,
+      "delta_mean": 0.4800675684604044,
+      "grounded_score_range": [
+        0.6,
+        0.9999356446442781
+      ],
+      "ungrounded_score_range": [
+        0.0,
+        0.9991084507533482
+      ],
+      "grounded_band_distribution": {
+        "green": 2,
+        "red": 3
+      },
+      "ungrounded_band_distribution": {
+        "green": 1,
+        "red": 4
+      },
+      "grounded_green_rate": 0.4,
+      "ungrounded_review_rate": 0.8
+    },
+    "treasury_yield_table": {
+      "n_pairs": 5,
+      "paired_accuracy": 0.6,
+      "wins_grounded_higher": 3,
+      "ties": 0,
+      "grounded_mean_score": 0.9037966890798851,
+      "ungrounded_mean_score": 0.8738926046951413,
+      "delta_mean": 0.02990408438474379,
+      "grounded_score_range": [
+        0.7166351413726805,
+        0.9907536139855018
+      ],
+      "ungrounded_score_range": [
+        0.7162422323226928,
+        0.9908450277228105
+      ],
+      "grounded_band_distribution": {
+        "amber": 1,
+        "green": 2,
+        "red": 2
+      },
+      "ungrounded_band_distribution": {
+        "amber": 1,
+        "green": 1,
+        "red": 3
+      },
+      "grounded_green_rate": 0.4,
+      "ungrounded_review_rate": 0.8
+    },
+    "options_table": {
+      "n_pairs": 5,
+      "paired_accuracy": 0.9,
+      "wins_grounded_higher": 4,
+      "ties": 1,
+      "grounded_mean_score": 0.6975869733706499,
+      "ungrounded_mean_score": 0.537548724030837,
+      "delta_mean": 0.16003824933981284,
+      "grounded_score_range": [
+        0.0,
+        0.9976195494333903
+      ],
+      "ungrounded_score_range": [
+        0.0,
+        0.9976003964742025
+      ],
+      "grounded_band_distribution": {
+        "green": 1,
+        "red": 4
+      },
+      "ungrounded_band_distribution": {
+        "green": 1,
+        "red": 4
+      },
+      "grounded_green_rate": 0.2,
+      "ungrounded_review_rate": 0.8
+    },
+    "lease_schedule": {
+      "n_pairs": 5,
+      "paired_accuracy": 0.8,
+      "wins_grounded_higher": 4,
+      "ties": 0,
+      "grounded_mean_score": 0.9322996081697653,
+      "ungrounded_mean_score": 0.5480133459927782,
+      "delta_mean": 0.38428626217698714,
+      "grounded_score_range": [
+        0.7896076975642025,
+        0.9985849289667039
+      ],
+      "ungrounded_score_range": [
+        0.0,
+        0.9988443283807664
+      ],
+      "grounded_band_distribution": {
+        "green": 1,
+        "red": 4
+      },
+      "ungrounded_band_distribution": {
+        "green": 1,
+        "red": 4
+      },
+      "grounded_green_rate": 0.2,
+      "ungrounded_review_rate": 0.8
+    },
+    "headcount_table": {
+      "n_pairs": 5,
+      "paired_accuracy": 0.6,
+      "wins_grounded_higher": 3,
+      "ties": 0,
+      "grounded_mean_score": 0.9486446383457976,
+      "ungrounded_mean_score": 0.8892435432151281,
+      "delta_mean": 0.05940109513066947,
+      "grounded_score_range": [
+        0.8464500109354656,
+        0.995380163192749
+      ],
+      "ungrounded_score_range": [
+        0.8327235568653454,
+        0.9779657636369977
+      ],
+      "grounded_band_distribution": {
+        "amber": 2,
+        "green": 1,
+        "red": 2
+      },
+      "ungrounded_band_distribution": {
+        "amber": 1,
+        "red": 4
+      },
+      "grounded_green_rate": 0.2,
+      "ungrounded_review_rate": 1.0
+    },
+    "fee_schedule": {
+      "n_pairs": 5,
+      "paired_accuracy": 0.7,
+      "wins_grounded_higher": 3,
+      "ties": 1,
+      "grounded_mean_score": 0.7078846060302272,
+      "ungrounded_mean_score": 0.19211578369140625,
+      "delta_mean": 0.5157688223388209,
+      "grounded_score_range": [
+        0.0,
+        0.9814498901367188
+      ],
+      "ungrounded_score_range": [
+        0.0,
+        0.9605789184570312
+      ],
+      "grounded_band_distribution": {
+        "amber": 1,
+        "red": 4
+      },
+      "ungrounded_band_distribution": {
+        "red": 5
+      },
+      "grounded_green_rate": 0.0,
+      "ungrounded_review_rate": 1.0
+    },
+    "sla_table": {
+      "n_pairs": 5,
+      "paired_accuracy": 0.8,
+      "wins_grounded_higher": 4,
+      "ties": 0,
+      "grounded_mean_score": 0.818812532828457,
+      "ungrounded_mean_score": 0.7707823238294274,
+      "delta_mean": 0.0480302089990297,
+      "grounded_score_range": [
+        0.6721776692410733,
+        0.9525489807128906
+      ],
+      "ungrounded_score_range": [
+        0.6655248903459118,
+        0.9669198989868164
+      ],
+      "grounded_band_distribution": {
+        "red": 5
+      },
+      "ungrounded_band_distribution": {
+        "red": 5
+      },
+      "grounded_green_rate": 0.0,
+      "ungrounded_review_rate": 1.0
+    },
+    "etf_holdings_table": {
+      "n_pairs": 5,
+      "paired_accuracy": 0.7,
+      "wins_grounded_higher": 3,
+      "ties": 1,
+      "grounded_mean_score": 0.6507877632423684,
+      "ungrounded_mean_score": 0.3167815742669282,
+      "delta_mean": 0.33400618897544015,
+      "grounded_score_range": [
+        0.0,
+        0.874515692392985
+      ],
+      "ungrounded_score_range": [
+        0.0,
+        0.7979356328646342
+      ],
+      "grounded_band_distribution": {
+        "red": 5
+      },
+      "ungrounded_band_distribution": {
+        "red": 5
+      },
+      "grounded_green_rate": 0.0,
+      "ungrounded_review_rate": 1.0
+    }
+  },
+  "samples": [
+    {
+      "stratum": "segment_table",
+      "id": "tab-en-001",
+      "flip_kind": "number_swap",
+      "language": "en",
+      "grounded_score": 0.8,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "segment_table",
+      "id": "tab-en-002",
+      "flip_kind": "sign_flip",
+      "language": "en",
+      "grounded_score": 0.9992434978485107,
+      "ungrounded_score": 0.0,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "segment_table",
+      "id": "tab-en-003",
+      "flip_kind": "unit_swap",
+      "language": "en",
+      "grounded_score": 0.8,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "segment_table",
+      "id": "tab-en-004",
+      "flip_kind": "segment_label_swap",
+      "language": "en",
+      "grounded_score": 0.6,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "segment_table",
+      "id": "tab-en-005",
+      "flip_kind": "near_miss_percentage",
+      "language": "en",
+      "grounded_score": 0.0,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 0.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "segment_table",
+      "id": "tab-en-006",
+      "flip_kind": "number_swap",
+      "language": "en",
+      "grounded_score": 0.6,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "segment_table",
+      "id": "tab-en-007",
+      "flip_kind": "sign_flip",
+      "language": "en",
+      "grounded_score": 0.9996861996858016,
+      "ungrounded_score": 0.9996602431587551,
+      "grounded_band": "green",
+      "ungrounded_band": "green",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 1.0
+    },
+    {
+      "stratum": "segment_table",
+      "id": "tab-en-008",
+      "flip_kind": "unit_swap",
+      "language": "en",
+      "grounded_score": 0.7208635139465331,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "segment_table",
+      "id": "tab-en-009",
+      "flip_kind": "segment_label_swap",
+      "language": "en",
+      "grounded_score": 0.6,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "segment_table",
+      "id": "tab-en-010",
+      "flip_kind": "near_miss_percentage",
+      "language": "en",
+      "grounded_score": 0.0,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 0.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "segment_table",
+      "id": "tab-en-011",
+      "flip_kind": "number_swap",
+      "language": "en",
+      "grounded_score": 0.9989164216177804,
+      "ungrounded_score": 0.8490841116224016,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "segment_table",
+      "id": "tab-en-012",
+      "flip_kind": "sign_flip",
+      "language": "en",
+      "grounded_score": 0.9970728874206543,
+      "ungrounded_score": 0.9969432830810548,
+      "grounded_band": "green",
+      "ungrounded_band": "green",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "segment_table",
+      "id": "tab-en-013",
+      "flip_kind": "unit_swap",
+      "language": "en",
+      "grounded_score": 0.848835277557373,
+      "ungrounded_score": 0.9998958294208233,
+      "grounded_band": "red",
+      "ungrounded_band": "green",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "segment_table",
+      "id": "tab-en-014",
+      "flip_kind": "segment_label_swap",
+      "language": "en",
+      "grounded_score": 0.6,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "segment_table",
+      "id": "tab-en-015",
+      "flip_kind": "near_miss_percentage",
+      "language": "en",
+      "grounded_score": 0.0,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 0.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "operating_earnings",
+      "id": "tab-en-016",
+      "flip_kind": "number_swap",
+      "language": "en",
+      "grounded_score": 0.9998096823692322,
+      "ungrounded_score": 0.0,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "operating_earnings",
+      "id": "tab-en-017",
+      "flip_kind": "sign_flip",
+      "language": "en",
+      "grounded_score": 0.9988384606703272,
+      "ungrounded_score": 0.998322900736107,
+      "grounded_band": "green",
+      "ungrounded_band": "green",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "operating_earnings",
+      "id": "tab-en-018",
+      "flip_kind": "unit_swap",
+      "language": "en",
+      "grounded_score": 0.8,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "operating_earnings",
+      "id": "tab-en-019",
+      "flip_kind": "segment_label_swap",
+      "language": "en",
+      "grounded_score": 0.8,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "operating_earnings",
+      "id": "tab-en-020",
+      "flip_kind": "near_miss_percentage",
+      "language": "en",
+      "grounded_score": 0.8460313854795515,
+      "ungrounded_score": 0.8464212706594756,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "balance_sheet",
+      "id": "tab-en-021",
+      "flip_kind": "number_swap",
+      "language": "en",
+      "grounded_score": 0.3999999999999999,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "balance_sheet",
+      "id": "tab-en-022",
+      "flip_kind": "unit_swap",
+      "language": "en",
+      "grounded_score": 0.8437870702435893,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "balance_sheet",
+      "id": "tab-en-023",
+      "flip_kind": "segment_label_swap",
+      "language": "en",
+      "grounded_score": 0.19999999999999996,
+      "ungrounded_score": 0.19999999999999996,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 1.0
+    },
+    {
+      "stratum": "balance_sheet",
+      "id": "tab-en-024",
+      "flip_kind": "near_miss_percentage",
+      "language": "en",
+      "grounded_score": 0.3999999999999999,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "balance_sheet",
+      "id": "tab-en-025",
+      "flip_kind": "sign_flip",
+      "language": "en",
+      "grounded_score": 0.9958340781075614,
+      "ungrounded_score": 0.0,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "balance_sheet",
+      "id": "tab-en-091",
+      "flip_kind": "number_swap",
+      "language": "en",
+      "grounded_score": 0.8,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "balance_sheet",
+      "id": "tab-en-092",
+      "flip_kind": "near_miss_percentage",
+      "language": "en",
+      "grounded_score": 0.8,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "balance_sheet",
+      "id": "tab-en-093",
+      "flip_kind": "unit_swap",
+      "language": "en",
+      "grounded_score": 0.8485643563447176,
+      "ungrounded_score": 0.9942386851591223,
+      "grounded_band": "red",
+      "ungrounded_band": "green",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 1.0
+    },
+    {
+      "stratum": "balance_sheet",
+      "id": "tab-en-094",
+      "flip_kind": "segment_label_swap",
+      "language": "en",
+      "grounded_score": 0.6,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "balance_sheet",
+      "id": "tab-en-095",
+      "flip_kind": "sign_flip",
+      "language": "en",
+      "grounded_score": 0.996338921624261,
+      "ungrounded_score": 0.9949455261230469,
+      "grounded_band": "green",
+      "ungrounded_band": "green",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "credit_table",
+      "id": "tab-en-026",
+      "flip_kind": "number_swap",
+      "language": "en",
+      "grounded_score": 0.997712648831881,
+      "ungrounded_score": 0.0,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "credit_table",
+      "id": "tab-en-027",
+      "flip_kind": "sign_flip",
+      "language": "en",
+      "grounded_score": 0.9907824198404948,
+      "ungrounded_score": 0.0,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "credit_table",
+      "id": "tab-en-028",
+      "flip_kind": "unit_swap",
+      "language": "en",
+      "grounded_score": 0.8395910089666193,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "credit_table",
+      "id": "tab-en-029",
+      "flip_kind": "segment_label_swap",
+      "language": "en",
+      "grounded_score": 0.9836376591732627,
+      "ungrounded_score": 0.0,
+      "grounded_band": "amber",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "credit_table",
+      "id": "tab-en-030",
+      "flip_kind": "near_miss_percentage",
+      "language": "en",
+      "grounded_score": 0.6,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "macro_table",
+      "id": "tab-en-031",
+      "flip_kind": "number_swap",
+      "language": "en",
+      "grounded_score": 0.999812492957482,
+      "ungrounded_score": 0.8498129331148587,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "macro_table",
+      "id": "tab-en-032",
+      "flip_kind": "sign_flip",
+      "language": "en",
+      "grounded_score": 0.9912023544311523,
+      "ungrounded_score": 0.9894822438557943,
+      "grounded_band": "green",
+      "ungrounded_band": "green",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "macro_table",
+      "id": "tab-en-033",
+      "flip_kind": "unit_swap",
+      "language": "en",
+      "grounded_score": 0.7083695910527156,
+      "ungrounded_score": 0.830738807447029,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "macro_table",
+      "id": "tab-en-034",
+      "flip_kind": "segment_label_swap",
+      "language": "en",
+      "grounded_score": 0.8,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "macro_table",
+      "id": "tab-en-035",
+      "flip_kind": "near_miss_percentage",
+      "language": "en",
+      "grounded_score": 0.9891202926635743,
+      "ungrounded_score": 0.8400166893005371,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "earnings_per_share",
+      "id": "tab-en-036",
+      "flip_kind": "number_swap",
+      "language": "en",
+      "grounded_score": 0.8,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "earnings_per_share",
+      "id": "tab-en-037",
+      "flip_kind": "unit_swap",
+      "language": "en",
+      "grounded_score": 0.6,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "earnings_per_share",
+      "id": "tab-en-038",
+      "flip_kind": "sign_flip",
+      "language": "en",
+      "grounded_score": 0.8454074034819732,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "earnings_per_share",
+      "id": "tab-en-039",
+      "flip_kind": "near_miss_percentage",
+      "language": "en",
+      "grounded_score": 0.8481337243860418,
+      "ungrounded_score": 0.7208485837416214,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "earnings_per_share",
+      "id": "tab-en-040",
+      "flip_kind": "segment_label_swap",
+      "language": "en",
+      "grounded_score": 0.3999999999999999,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "guidance_table",
+      "id": "tab-en-041",
+      "flip_kind": "number_swap",
+      "language": "en",
+      "grounded_score": 0.9928142284524852,
+      "ungrounded_score": 0.0,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "guidance_table",
+      "id": "tab-en-042",
+      "flip_kind": "near_miss_percentage",
+      "language": "en",
+      "grounded_score": 0.9930962071274266,
+      "ungrounded_score": 0.8445312904589104,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "guidance_table",
+      "id": "tab-en-043",
+      "flip_kind": "unit_swap",
+      "language": "en",
+      "grounded_score": 0.9960011839866639,
+      "ungrounded_score": 0.9959726929664612,
+      "grounded_band": "green",
+      "ungrounded_band": "green",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "guidance_table",
+      "id": "tab-en-044",
+      "flip_kind": "sign_flip",
+      "language": "en",
+      "grounded_score": 0.9965287314520943,
+      "ungrounded_score": 0.9930515289306641,
+      "grounded_band": "green",
+      "ungrounded_band": "green",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 1.0
+    },
+    {
+      "stratum": "guidance_table",
+      "id": "tab-en-045",
+      "flip_kind": "segment_label_swap",
+      "language": "en",
+      "grounded_score": 0.9983117956864207,
+      "ungrounded_score": 0.0,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "rate_table",
+      "id": "tab-en-046",
+      "flip_kind": "number_swap",
+      "language": "en",
+      "grounded_score": 0.0,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 0.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "rate_table",
+      "id": "tab-en-047",
+      "flip_kind": "unit_swap",
+      "language": "en",
+      "grounded_score": 0.836878734588623,
+      "ungrounded_score": 0.9469829559326172,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 1.0
+    },
+    {
+      "stratum": "rate_table",
+      "id": "tab-en-048",
+      "flip_kind": "near_miss_percentage",
+      "language": "en",
+      "grounded_score": 0.8,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "rate_table",
+      "id": "tab-en-049",
+      "flip_kind": "segment_label_swap",
+      "language": "en",
+      "grounded_score": 0.6,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "rate_table",
+      "id": "tab-en-050",
+      "flip_kind": "sign_flip",
+      "language": "en",
+      "grounded_score": 0.8453269375695123,
+      "ungrounded_score": 0.8457035170661078,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "exhibit_table",
+      "id": "tab-en-051",
+      "flip_kind": "number_swap",
+      "language": "en",
+      "grounded_score": 0.997367505674009,
+      "ungrounded_score": 0.0,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "exhibit_table",
+      "id": "tab-en-052",
+      "flip_kind": "segment_label_swap",
+      "language": "en",
+      "grounded_score": 0.6,
+      "ungrounded_score": 0.6,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 1.0
+    },
+    {
+      "stratum": "exhibit_table",
+      "id": "tab-en-053",
+      "flip_kind": "sign_flip",
+      "language": "en",
+      "grounded_score": 0.9949958476614446,
+      "ungrounded_score": 0.0,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "exhibit_table",
+      "id": "tab-en-054",
+      "flip_kind": "unit_swap",
+      "language": "en",
+      "grounded_score": 0.9814960110572076,
+      "ungrounded_score": 0.9798373560751639,
+      "grounded_band": "amber",
+      "ungrounded_band": "amber",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "exhibit_table",
+      "id": "tab-en-055",
+      "flip_kind": "near_miss_percentage",
+      "language": "en",
+      "grounded_score": 0.0,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 0.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "alphabet_table",
+      "id": "tab-en-056",
+      "flip_kind": "number_swap",
+      "language": "en",
+      "grounded_score": 0.8,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "alphabet_table",
+      "id": "tab-en-057",
+      "flip_kind": "segment_label_swap",
+      "language": "en",
+      "grounded_score": 0.6,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "alphabet_table",
+      "id": "tab-en-058",
+      "flip_kind": "unit_swap",
+      "language": "en",
+      "grounded_score": 0.9999356446442781,
+      "ungrounded_score": 0.0,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "alphabet_table",
+      "id": "tab-en-059",
+      "flip_kind": "sign_flip",
+      "language": "en",
+      "grounded_score": 0.999160403297061,
+      "ungrounded_score": 0.9991084507533482,
+      "grounded_band": "green",
+      "ungrounded_band": "green",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "alphabet_table",
+      "id": "tab-en-060",
+      "flip_kind": "near_miss_percentage",
+      "language": "en",
+      "grounded_score": 0.8474756635468583,
+      "ungrounded_score": 0.8471254184328276,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "treasury_yield_table",
+      "id": "tab-en-061",
+      "flip_kind": "number_swap",
+      "language": "en",
+      "grounded_score": 0.9883776444655198,
+      "ungrounded_score": 0.8399513281308688,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "treasury_yield_table",
+      "id": "tab-en-062",
+      "flip_kind": "segment_label_swap",
+      "language": "en",
+      "grounded_score": 0.9800025019152411,
+      "ungrounded_score": 0.9804206716603248,
+      "grounded_band": "amber",
+      "ungrounded_band": "amber",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "treasury_yield_table",
+      "id": "tab-en-063",
+      "flip_kind": "near_miss_percentage",
+      "language": "en",
+      "grounded_score": 0.9907536139855018,
+      "ungrounded_score": 0.8420037636390099,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "treasury_yield_table",
+      "id": "tab-en-064",
+      "flip_kind": "unit_swap",
+      "language": "en",
+      "grounded_score": 0.8432145436604818,
+      "ungrounded_score": 0.9908450277228105,
+      "grounded_band": "red",
+      "ungrounded_band": "green",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "treasury_yield_table",
+      "id": "tab-en-065",
+      "flip_kind": "sign_flip",
+      "language": "en",
+      "grounded_score": 0.7166351413726805,
+      "ungrounded_score": 0.7162422323226928,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "options_table",
+      "id": "tab-en-066",
+      "flip_kind": "number_swap",
+      "language": "en",
+      "grounded_score": 0.8414572983980179,
+      "ungrounded_score": 0.8412875741720199,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "options_table",
+      "id": "tab-en-067",
+      "flip_kind": "near_miss_percentage",
+      "language": "en",
+      "grounded_score": 0.0,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 0.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "options_table",
+      "id": "tab-en-068",
+      "flip_kind": "segment_label_swap",
+      "language": "en",
+      "grounded_score": 0.8,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "options_table",
+      "id": "tab-en-069",
+      "flip_kind": "sign_flip",
+      "language": "en",
+      "grounded_score": 0.9976195494333903,
+      "ungrounded_score": 0.9976003964742025,
+      "grounded_band": "green",
+      "ungrounded_band": "green",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "options_table",
+      "id": "tab-en-070",
+      "flip_kind": "unit_swap",
+      "language": "en",
+      "grounded_score": 0.8488580190218412,
+      "ungrounded_score": 0.8488556495079628,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "lease_schedule",
+      "id": "tab-en-071",
+      "flip_kind": "number_swap",
+      "language": "en",
+      "grounded_score": 0.968840085543119,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "lease_schedule",
+      "id": "tab-en-072",
+      "flip_kind": "near_miss_percentage",
+      "language": "en",
+      "grounded_score": 0.7896076975642025,
+      "ungrounded_score": 0.7891409538887643,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 1.0
+    },
+    {
+      "stratum": "lease_schedule",
+      "id": "tab-en-073",
+      "flip_kind": "segment_label_swap",
+      "language": "en",
+      "grounded_score": 0.9985849289667039,
+      "ungrounded_score": 0.9988443283807664,
+      "grounded_band": "green",
+      "ungrounded_band": "green",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "lease_schedule",
+      "id": "tab-en-074",
+      "flip_kind": "unit_swap",
+      "language": "en",
+      "grounded_score": 0.9501782417297363,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "lease_schedule",
+      "id": "tab-en-075",
+      "flip_kind": "sign_flip",
+      "language": "en",
+      "grounded_score": 0.9542870870450648,
+      "ungrounded_score": 0.9520814476943598,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "headcount_table",
+      "id": "tab-en-076",
+      "flip_kind": "number_swap",
+      "language": "en",
+      "grounded_score": 0.9815602111816407,
+      "ungrounded_score": 0.8327235568653454,
+      "grounded_band": "amber",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "headcount_table",
+      "id": "tab-en-077",
+      "flip_kind": "sign_flip",
+      "language": "en",
+      "grounded_score": 0.9754008079061702,
+      "ungrounded_score": 0.9779657636369977,
+      "grounded_band": "amber",
+      "ungrounded_band": "amber",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "headcount_table",
+      "id": "tab-en-078",
+      "flip_kind": "unit_swap",
+      "language": "en",
+      "grounded_score": 0.8464500109354656,
+      "ungrounded_score": 0.8464698712031046,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "headcount_table",
+      "id": "tab-en-079",
+      "flip_kind": "near_miss_percentage",
+      "language": "en",
+      "grounded_score": 0.995380163192749,
+      "ungrounded_score": 0.8455274879932403,
+      "grounded_band": "green",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "headcount_table",
+      "id": "tab-en-080",
+      "flip_kind": "segment_label_swap",
+      "language": "en",
+      "grounded_score": 0.9444319985129618,
+      "ungrounded_score": 0.9435310363769531,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "fee_schedule",
+      "id": "tab-en-081",
+      "flip_kind": "number_swap",
+      "language": "en",
+      "grounded_score": 0.9449409036075368,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "fee_schedule",
+      "id": "tab-en-082",
+      "flip_kind": "near_miss_percentage",
+      "language": "en",
+      "grounded_score": 0.9814498901367188,
+      "ungrounded_score": 0.0,
+      "grounded_band": "amber",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "fee_schedule",
+      "id": "tab-en-083",
+      "flip_kind": "unit_swap",
+      "language": "en",
+      "grounded_score": 0.81303223640688,
+      "ungrounded_score": 0.9605789184570312,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 1.0
+    },
+    {
+      "stratum": "fee_schedule",
+      "id": "tab-en-084",
+      "flip_kind": "segment_label_swap",
+      "language": "en",
+      "grounded_score": 0.8,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "fee_schedule",
+      "id": "tab-en-085",
+      "flip_kind": "sign_flip",
+      "language": "en",
+      "grounded_score": 0.0,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 0.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "sla_table",
+      "id": "tab-en-086",
+      "flip_kind": "number_swap",
+      "language": "en",
+      "grounded_score": 0.8365993452072144,
+      "ungrounded_score": 0.7106612985134123,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "sla_table",
+      "id": "tab-en-087",
+      "flip_kind": "near_miss_percentage",
+      "language": "en",
+      "grounded_score": 0.8052832954808287,
+      "ungrounded_score": 0.6851942642111527,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "sla_table",
+      "id": "tab-en-088",
+      "flip_kind": "unit_swap",
+      "language": "en",
+      "grounded_score": 0.8274533735002789,
+      "ungrounded_score": 0.8256112670898437,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "sla_table",
+      "id": "tab-en-089",
+      "flip_kind": "segment_label_swap",
+      "language": "en",
+      "grounded_score": 0.6721776692410733,
+      "ungrounded_score": 0.6655248903459118,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "sla_table",
+      "id": "tab-en-090",
+      "flip_kind": "sign_flip",
+      "language": "en",
+      "grounded_score": 0.9525489807128906,
+      "ungrounded_score": 0.9669198989868164,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": null,
+      "structured_ungrounded": null
+    },
+    {
+      "stratum": "etf_holdings_table",
+      "id": "tab-en-096",
+      "flip_kind": "number_swap",
+      "language": "en",
+      "grounded_score": 0.8,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "etf_holdings_table",
+      "id": "tab-en-097",
+      "flip_kind": "segment_label_swap",
+      "language": "en",
+      "grounded_score": 0.874515692392985,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 0.0
+    },
+    {
+      "stratum": "etf_holdings_table",
+      "id": "tab-en-098",
+      "flip_kind": "near_miss_percentage",
+      "language": "en",
+      "grounded_score": 0.7794231238188567,
+      "ungrounded_score": 0.7859722384700069,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 1.0
+    },
+    {
+      "stratum": "etf_holdings_table",
+      "id": "tab-en-099",
+      "flip_kind": "unit_swap",
+      "language": "en",
+      "grounded_score": 0.8,
+      "ungrounded_score": 0.7979356328646342,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 1.0,
+      "structured_ungrounded": 1.0
+    },
+    {
+      "stratum": "etf_holdings_table",
+      "id": "tab-en-100",
+      "flip_kind": "sign_flip",
+      "language": "en",
+      "grounded_score": 0.0,
+      "ungrounded_score": 0.0,
+      "grounded_band": "red",
+      "ungrounded_band": "red",
+      "structured_grounded": 0.0,
+      "structured_ungrounded": 0.0
+    }
+  ]
+}

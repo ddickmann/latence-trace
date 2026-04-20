@@ -491,6 +491,45 @@ predicates) drop `structured_source_guarded` toward `0`, which feeds into
 (matches, mismatches, detected format) is returned in
 `structured_diagnostics`.
 
+### Typed Structured Evidence Lane (Phase K)
+
+Phase I solves the "well-formed JSON / markdown table" problem. Phase K
+extends structured verification to **prose-formatted segment tables**,
+**numeric KV lists**, and **single-fact numeric statements** (rate
+decisions, KPI summaries, weather/grid records) — formats that look like
+narrative but encode cell-level numerical evidence. The lane:
+
+1. **Detects** typed source segments via `_looks_like_prose_table` and
+   `_looks_like_numeric_fact` in
+   [`latence_trace/core/structured.py`](../../latence_trace/core/structured.py).
+2. **Extracts** typed cells `(anchor, value, unit, currency, sign,
+   period)` from the source and typed claims `(anchor, value, unit,
+   currency, sign)` from the response
+   ([`latence_trace/core/typed_claims.py`](../../latence_trace/core/typed_claims.py)).
+3. **Aligns** each claim to its best source cell and scores it under an
+   **AND-gate** `min(entity_align, value_match, unit_match, sign_match)`,
+   then aggregates `min` across all aligned claims
+   ([`latence_trace/core/structured_match.py`](../../latence_trace/core/structured_match.py)).
+4. **Fuses** when the lane fires: the headline becomes
+   `min(narrative_score, structured_score)`, so a single wrong cell
+   collapses the score regardless of how strong lexical and dense
+   overlap are.
+
+EN + DE (German number formats `1.234.567,89`, `Mio./Mrd. EUR`,
+`Basispunkte`, `Prozentpunkte`). Behind feature flag
+`VOYAGER_GROUNDEDNESS_STRUCTURED_GATE` (default ON for `quality`
+profile; off for `fast` / `balanced`). Empirical lift on n=220 paired
+adversarial samples (legal + finance + EN-tables + DE-tables): paired
+accuracy moves from `0.870 → 0.875` (EN tables) and `0.800 → 0.836` (DE
+tables); ungrounded-vs-grounded score delta widens by `+0.089` (EN) and
+`+0.162` (DE) — pushing fabricated answers further into red. Green
+precision = **99.55%** across all four sets. Diagnostics surface in the
+response under `scores.structured_source`,
+`scores.structured_source_typed_aligned`, and
+`scores.structured_source_typed_count`. See
+[`../algorithm-audit.md`](../algorithm-audit.md) §K for the full method
+and the ablation breakdown.
+
 ### Fusion weights (Phase J)
 
 `groundedness_v2` is a convex combination over `calibrated`, `literal`,

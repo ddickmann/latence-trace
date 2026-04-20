@@ -599,6 +599,69 @@ Phase J locks in the results of the F-G-H-I-J hardening program:
   pipe-tables in the source are parsed into triples; the response is
   mined for triples via spaCy + regex patterns; mismatches drop
   `structured_source_guarded` and feed a dedicated fusion channel.
+- **K (Typed Structured Evidence Lane)**: The dual-lane architecture
+  that closes the segment-table blind spot. Sources that look like
+  prose-formatted segment tables, key-value lists, single-fact numeric
+  statements, JSON, or markdown tables are classified as **structured**
+  evidence and routed through a typed AND-gate verifier. Each response
+  gets two scores: a **narrative score** (the original weighted fusion
+  of calibrated reverse MaxSim, NLI, semantic entropy, and the legacy
+  literal/structured guards) and a **structured score**
+  (`min(entity_align, value_match, unit_match, sign_match)` per claim,
+  aggregated `min` over all aligned claims). When the lane fires the
+  headline becomes `min(narrative, structured)`, so a wrong segment
+  number, sign flip, or unit swap collapses the score regardless of
+  how strong the lexical and dense overlap is. EN + DE (German
+  number formats `1.234.567,89`, `Mio./Mrd. EUR`, `Basispunkte`,
+  `Prozentpunkte`). Behind feature flag
+  `VOYAGER_GROUNDEDNESS_STRUCTURED_GATE` (default ON for `quality`
+  profile, off elsewhere). Source modules:
+  [`latence_trace/core/typed_claims.py`](../latence_trace/core/typed_claims.py)
+  (response-side claim extractor),
+  [`latence_trace/core/structured.py`](../latence_trace/core/structured.py)
+  (`extract_typed_cells`, `_looks_like_prose_table`, `_looks_like_numeric_fact`),
+  [`latence_trace/core/structured_match.py`](../latence_trace/core/structured_match.py)
+  (AND-gate matcher), and the gate switch in
+  [`latence_trace/core/nli.py`](../latence_trace/core/nli.py)
+  `fuse_groundedness_v2`.
+
+  **Scope and detector hygiene.** The lane is intentionally
+  conservative: `_looks_like_prose_table` requires ≥3 hits of the
+  ``label: value [paired-value]`` pattern *and* the labels must be
+  table-cell-shaped (≤5 tokens, no verbs, not just a fiscal-period
+  marker). `_looks_like_numeric_fact` only fires on contexts under
+  220 chars with 1-3 typed-unit numbers (BPS, %, EUR, Mio./Mrd., GWh,
+  …). General prose stays on the narrative lane and the AND-gate never
+  collapses a score that has no structured premise.
+
+  **Empirical lift on 4 domain-pair sets** (gate OFF vs gate ON, n=220
+  paired):
+
+  | Set | n | gate OFF paired_acc | gate ON paired_acc | Δ paired_acc | Δ delta_mean |
+  |---|--:|--:|--:|--:|--:|
+  | finance prose | 25 | 0.960 | **0.980** | +0.020 | −0.004 |
+  | legal prose | 25 | 0.960 | 0.960 | 0.000 | 0.000 |
+  | EN tables | 100 | 0.870 | **0.875** | +0.005 | **+0.089** |
+  | DE tables | 70 | 0.800 | **0.836** | +0.036 | **+0.162** |
+
+  Green precision across all four sets = **99.55%** (1 ungrounded
+  response scored green out of 220, and the single FP is a German
+  central-bank rate-decision bps↔% unit swap on a single-line
+  88-character source whose typed extractor only yields one cell —
+  documented residual). Ablation on EN tables shows the lane
+  contributes most of the delta widening (`0.345 → 0.256` when the
+  lane is removed), and NLI removal drops paired_acc by 6.5 percentage
+  points (`0.875 → 0.810`), confirming that NLI handles narrative
+  contradictions and the typed lane handles cell-level numerical
+  contradictions.   Atomic-claim decomposition shows zero impact on this
+  set (paired_acc identical with and without it). Reproduction:
+  `scripts/diagnose_domain_pairs.py --input
+  research/triangular_maxsim/reports/domain_pairs/{finance_pairs,legal_pairs,tables_adversarial_en,tables_adversarial_de}.jsonl
+  --thresholds-path latence_trace/data/thresholds.quality.json` with
+  `VOYAGER_GROUNDEDNESS_STRUCTURED_GATE={0,1}`; the four input JSONL
+  files and the 11 gate-on / gate-off / ablation reports are tracked
+  under
+  [`research/triangular_maxsim/reports/domain_pairs/`](../research/triangular_maxsim/reports/domain_pairs/).
 - **J (fusion weight sweep + hard strata + tightened exits)**: offline
   grid search over fusion weights maximises **min per-stratum F1**; the
   minimal-pair fixture adds `hard_compound_facts`, `hard_structured`,

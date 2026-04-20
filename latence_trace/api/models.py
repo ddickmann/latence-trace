@@ -303,6 +303,32 @@ class GroundednessScores(BaseModel):
     semantic_entropy_sample_count: Optional[int] = None
     structured_source_guarded: Optional[float] = None
     structured_source_detected: Optional[bool] = None
+    structured_source: Optional[float] = Field(
+        default=None,
+        description=(
+            "Typed structured-evidence (AND-gate) score: min over per-claim "
+            "(entity_align, value_match, unit_match, sign_match) for every "
+            "response claim that aligned to a typed source cell. Returns "
+            "``None`` for pure-prose responses where no claim could be "
+            "aligned. When non-null and the AND-gate is enabled, the "
+            "headline groundedness becomes ``min(narrative, structured)`` "
+            "so a single broken cell collapses support."
+        ),
+    )
+    structured_source_typed_aligned: Optional[int] = Field(
+        default=None,
+        description=(
+            "Number of response claims that the typed structured-evidence "
+            "lane aligned to a typed source cell."
+        ),
+    )
+    structured_source_typed_count: Optional[int] = Field(
+        default=None,
+        description=(
+            "Total number of typed claims extracted from the response, "
+            "including those dropped because no cell could be aligned."
+        ),
+    )
     risk_band: Optional[str] = None
     context_coverage_ratio: Optional[float] = Field(
         default=None,
