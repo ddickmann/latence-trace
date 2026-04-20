@@ -30,7 +30,6 @@ single broken cell collapses the structured score to zero.
 
 from __future__ import annotations
 
-import logging
 import re
 from dataclasses import dataclass
 from typing import List, Literal, Optional, Tuple
@@ -41,8 +40,6 @@ from latence_trace.core.structured import (
     _detect_locale,
     _normalize_key,
 )
-
-logger = logging.getLogger(__name__)
 
 
 Locale = Literal["en", "de"]
@@ -226,7 +223,7 @@ _DELTA_RE_DE = re.compile(
 # ----------------------------------------------------------------------
 
 
-_VERB_TOKENS = (
+_VERB_TOKENS = frozenset({
     "is", "was", "were", "are", "be", "been", "being",
     "had", "has", "have", "reported", "lay", "lies", "stood", "stand",
     "totalled", "totaled", "amount", "amounts", "amounted",
@@ -238,6 +235,23 @@ _VERB_TOKENS = (
     "erreichte", "erreichten", "erzielte", "erzielten", "lieferte", "lieferten",
     "produzierte", "produzierten", "beförderte", "beförderten",
     "nahm", "nahmen", "verringerte", "schrumpfte", "verbesserte",
+})
+
+
+_CURRENCY_TOKENS = frozenset({"USD", "EUR", "GBP", "CHF", "JPY"})
+
+
+# Pre-compiled at module load (was previously re-compiled per call /
+# per claim inside ``_anchor_for_value`` and ``extract_typed_claims``).
+_ANCHOR_TOKEN_RE = re.compile(r"[\w\u00C0-\u017F]+(?:[\-/][\w\u00C0-\u017F]+)*")
+_PERIOD_TOKEN_RE = re.compile(
+    r"^(?:q[1-4]|fy\d{0,4}|h[12]|cy\d{2,4}|gj\d{2,4}|w\d+|\d{4})$",
+    re.IGNORECASE,
+)
+_BARE_NUMBER_ANCHOR_RE = re.compile(r"\d+(\.\d+)?")
+_BARE_PERIOD_ANCHOR_RE = re.compile(
+    r"(?:q[1-4]|fy\d{0,4}|h[12]|cy\d{2,4}|gj\d{2,4}|w\d+|\d{1,4})",
+    re.IGNORECASE,
 )
 
 
@@ -293,16 +307,9 @@ def _anchor_for_value(
     if not prefix:
         return sentence.strip()
 
-    tokens = re.findall(r"[\w\u00C0-\u017F]+(?:[\-/][\w\u00C0-\u017F]+)*", prefix)
+    tokens = _ANCHOR_TOKEN_RE.findall(prefix)
     if not tokens:
         return prefix
-
-    # Reject fiscal-period tokens so an anchor like ``"q3 fy24 greater
-    # china revenue"`` becomes ``"greater china revenue"``.
-    period_token_re = re.compile(
-        r"^(?:q[1-4]|fy\d{0,4}|h[12]|cy\d{2,4}|gj\d{2,4}|w\d+|\d{4})$",
-        re.IGNORECASE,
-    )
 
     cleaned: List[str] = []
     for tok in tokens:
@@ -311,9 +318,11 @@ def _anchor_for_value(
             continue
         if low in _FILLER_TOKENS:
             continue
-        if tok.upper() in {"USD", "EUR", "GBP", "CHF", "JPY"}:
+        if tok.upper() in _CURRENCY_TOKENS:
             continue
-        if period_token_re.match(tok):
+        # Reject fiscal-period tokens so an anchor like ``"q3 fy24
+        # greater china revenue"`` becomes ``"greater china revenue"``.
+        if _PERIOD_TOKEN_RE.match(tok):
             continue
         cleaned.append(tok)
 
@@ -519,16 +528,14 @@ def extract_typed_claims(
             # Drop pure-number anchors (``"5"``, ``"100"``) that bleed
             # in when a sentence stitches numbers without a clear
             # subject (``"5 percent of the..."``).
-            if re.fullmatch(r"\d+(\.\d+)?", anchor_norm):
+            if _BARE_NUMBER_ANCHOR_RE.fullmatch(anchor_norm):
                 continue
             # Drop numeric spans that follow a bare period marker
             # without any other anchor token: the only "subject" left
             # is the period itself, which cannot align to a cell.
-            anchor_tokens = [t for t in anchor_norm.split() if t]
+            anchor_tokens = anchor_norm.split()
             if anchor_tokens and all(
-                re.fullmatch(r"(?:q[1-4]|fy\d{0,4}|h[12]|cy\d{2,4}|gj\d{2,4}|w\d+|\d{1,4})",
-                             t, re.IGNORECASE)
-                for t in anchor_tokens
+                _BARE_PERIOD_ANCHOR_RE.fullmatch(t) for t in anchor_tokens
             ):
                 continue
 

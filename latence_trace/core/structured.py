@@ -340,6 +340,20 @@ def detect_source_format(
     return None
 
 
+# Pre-compiled at module load (used inside ``_looks_like_numeric_fact``
+# which is on the request hot path).
+_NUMERIC_FACT_NUM_RE = re.compile(
+    r"\b-?\d{1,3}(?:[\.,\u00A0\s]\d{3})*(?:[\.,]\d+)?\b"
+)
+_NUMERIC_FACT_TYPED_UNIT_RE = re.compile(
+    r"(?:%|percent|Prozent|bps|Basispunkte|Bp\.?|"
+    r"\$|\u20AC|EUR|USD|GBP|CHF|JPY|"
+    r"million|billion|trillion|Mio\.?|Mrd\.?|Tsd\.?|"
+    r"GWh|TWh|MWh|kWh|Punkte|points)",
+    re.IGNORECASE,
+)
+
+
 def _looks_like_numeric_fact(text: str) -> bool:
     """Detect a single-fact numeric statement.
 
@@ -364,17 +378,18 @@ def _looks_like_numeric_fact(text: str) -> bool:
     stripped = text.strip()
     if len(stripped) > 220 or ";" in stripped:
         return False
-    nums = list(re.finditer(r"\b-?\d{1,3}(?:[\.,\u00A0\s]\d{3})*(?:[\.,]\d+)?\b", stripped))
-    if not nums or len(nums) > 3:
+    # Cap the iteration: we only need to know there are at least 1 and
+    # at most 3 numeric matches. Walk the iterator and short-circuit so
+    # very-numeric strings don't pay an O(n) scan cost just to be
+    # rejected.
+    nums = 0
+    for _ in _NUMERIC_FACT_NUM_RE.finditer(stripped):
+        nums += 1
+        if nums > 3:
+            return False
+    if nums == 0:
         return False
-    typed_unit_re = re.compile(
-        r"(?:%|percent|Prozent|bps|Basispunkte|Bp\.?|"
-        r"\$|\u20AC|EUR|USD|GBP|CHF|JPY|"
-        r"million|billion|trillion|Mio\.?|Mrd\.?|Tsd\.?|"
-        r"GWh|TWh|MWh|kWh|Punkte|points)",
-        re.IGNORECASE,
-    )
-    return bool(typed_unit_re.search(stripped))
+    return bool(_NUMERIC_FACT_TYPED_UNIT_RE.search(stripped))
 
 
 # ----------------------------------------------------------------------
@@ -452,7 +467,7 @@ _PERIOD_MARKER_RE = re.compile(
 )
 
 
-_PROSE_TABLE_LABEL_VERBS = {
+_PROSE_TABLE_LABEL_VERBS = frozenset({
     # English finite verbs / participles that betray a sentence-shaped
     # "label" (i.e. not a real table cell). True tables use compact
     # noun-phrase labels ("Data Center", "Greater China", "Cloud",
@@ -465,14 +480,24 @@ _PROSE_TABLE_LABEL_VERBS = {
     "revised", "achieved", "lowered", "raised", "lifted", "trimmed",
     "noted", "stated", "guided", "expects", "expect", "expected",
     "saw", "seen", "registered", "recorded", "represented", "marked",
-    "came", "ended", "fell", "made", "met", "missed", "reaffirmed",
+    "came", "ended", "made", "met", "missed", "reaffirmed",
     # DE
     "ist", "war", "waren", "lag", "lagen", "betrug", "betrugen",
     "stieg", "sank", "fiel", "wuchs", "kletterte", "verlor",
     "erreichte", "erreichten", "erzielte", "erzielten", "lieferte", "lieferten",
     "nahm", "nahmen", "verringerte", "schrumpfte", "verbesserte",
     "stiegen", "fielen", "wuchsen", "verringerten",
-}
+})
+
+# Pre-compiled at module load (was previously re-compiled on every call
+# inside ``_label_is_table_cell`` — that is in the request hot path
+# because the detector runs once per support unit and the inner regex
+# fires once per qualifying label hit).
+_TABLE_CELL_TOKEN_RE = re.compile(r"[\w\u00C0-\u017F]+")
+_TABLE_CELL_PERIOD_RE = re.compile(
+    r"^(?:q[1-4]|fy\d{0,4}|h[12]|cy\d{2,4}|gj\d{2,4}|w\d+|kw\d+|\d{4})$",
+    re.IGNORECASE,
+)
 
 
 def _label_is_table_cell(label: str) -> bool:
@@ -490,18 +515,15 @@ def _label_is_table_cell(label: str) -> bool:
       not push the detector across the threshold on their own.
     """
 
-    tokens = [t for t in re.findall(r"[\w\u00C0-\u017F]+", label) if t]
+    tokens = _TABLE_CELL_TOKEN_RE.findall(label)
     if not tokens:
         return False
     if len(tokens) > 5:
         return False
-    if any(t.lower() in _PROSE_TABLE_LABEL_VERBS for t in tokens):
-        return False
-    period_re = re.compile(
-        r"^(?:q[1-4]|fy\d{0,4}|h[12]|cy\d{2,4}|gj\d{2,4}|w\d+|kw\d+|\d{4})$",
-        re.IGNORECASE,
-    )
-    if all(period_re.match(t) for t in tokens):
+    for tok in tokens:
+        if tok.lower() in _PROSE_TABLE_LABEL_VERBS:
+            return False
+    if all(_TABLE_CELL_PERIOD_RE.match(t) for t in tokens):
         return False
     return True
 
@@ -785,6 +807,30 @@ def _table_announcement_unit(text: str) -> Tuple[str, float, str]:
     return "NONE", 1.0, currency
 
 
+# Pre-compiled label-shape and paired-value regexes used inside
+# ``extract_typed_cells``. Hoisting them out of the per-cell loop keeps
+# the inner work to ``Pattern.search`` lookups instead of re-compiling
+# the same patterns dozens of times per request.
+_CELL_NUMERIC_LABEL_RE = re.compile(r"\d+([\.,]\d+)?")
+_CELL_LABEL_PERIOD_PREFIX_RE = re.compile(
+    r"^(?:Q[1-4]|FY|H[12]|GJ|CY|W\d+)\b",
+    re.IGNORECASE,
+)
+_CELL_PAIRED_VALUE_RE = re.compile(
+    r"(?:vs|von|from|\(|gegen|prior)[^\d\-+€$]*?"
+    r"(?P<num>-?\d{1,3}(?:[\.,\u00A0\s]\d{3})*(?:[\.,]\d+)?|\d+(?:[\.,]\d+)?)",
+    re.IGNORECASE,
+)
+_CELL_LABEL_WS_RE = re.compile(r"\s+")
+# Explicit Mio / Mrd / billion mentions inside a paired-value context
+# (so we know whether the source already declared a magnitude on the
+# paired number and we should NOT inherit the table-level multiplier).
+_CELL_PAIRED_HAS_OWN_MAG_RE = re.compile(
+    r"\b(?:million|billion|trillion|Mio\.?|Mrd\.?|Tsd\.?|GWh|TWh|MWh|kWh)\b",
+    re.IGNORECASE,
+)
+
+
 def extract_typed_cells(
     support_text: str,
     *,
@@ -832,20 +878,20 @@ def extract_typed_cells(
         # period markers — they are not entities.
         if _PERIOD_MARKER_RE.fullmatch(label):
             continue
-        if re.fullmatch(r"\d+([\.,]\d+)?", label):
+        if _CELL_NUMERIC_LABEL_RE.fullmatch(label):
             continue
         # Drop labels that are now whitespace-padded fragments left over
         # from period masking (a no-op trim on the original text but
         # required because the masked text can leave ``"  FY24  "`` style
         # gaps which then re-glue to the next number).
-        label_norm = re.sub(r"\s+", " ", label).strip()
+        label_norm = _CELL_LABEL_WS_RE.sub(" ", label).strip()
         if not label_norm or len(label_norm) < 2:
             continue
         # Reject labels that begin with a known period prefix (``Q``,
         # ``FY``, ``H1``, ``H2``, ``GJ``) followed by a stray number;
         # the masking should have caught these but the regex sometimes
         # reassembles them from neighbouring text.
-        if re.match(r"^(?:Q[1-4]|FY|H[12]|GJ|CY|W\d+)\b", label_norm, re.IGNORECASE):
+        if _CELL_LABEL_PERIOD_PREFIX_RE.match(label_norm):
             continue
 
         # Re-build a single token "currency num suffix" and parse it.
@@ -882,11 +928,7 @@ def extract_typed_cells(
         # as the paired value.
         tail_orig = support_text[match.end(): match.end() + 120]
         tail = _PERIOD_MARKER_RE.sub(lambda m: " " * len(m.group(0)), tail_orig)
-        paired_match = re.search(
-            r"(?:vs|von|from|\(|gegen|prior)[^\d\-+€$]*?(?P<num>-?\d{1,3}(?:[\.,\u00A0\s]\d{3})*(?:[\.,]\d+)?|\d+(?:[\.,]\d+)?)",
-            tail,
-            re.IGNORECASE,
-        )
+        paired_match = _CELL_PAIRED_VALUE_RE.search(tail)
         if paired_match:
             paired_parsed = parse_number(paired_match.group("num"), locale=locale)
             if paired_parsed is not None:
@@ -894,9 +936,9 @@ def extract_typed_cells(
                 # Inherit the table-level magnitude when the paired
                 # value omitted it; otherwise we'd compare $10,323M to
                 # $26,272 unit-less.
-                if announced_unit != "NONE" and "Mio" not in paired_match.group(0) \
-                        and "billion" not in paired_match.group(0).lower() \
-                        and "Mrd" not in paired_match.group(0):
+                if announced_unit != "NONE" and not _CELL_PAIRED_HAS_OWN_MAG_RE.search(
+                    paired_match.group(0)
+                ):
                     pv *= announced_mult
                 paired_value = pv
                 if value > pv * 1.0001:

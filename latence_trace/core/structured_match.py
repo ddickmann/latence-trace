@@ -29,16 +29,13 @@ that simply paraphrase the question.
 
 from __future__ import annotations
 
-import logging
 import math
 import re
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, FrozenSet, List, Optional, Sequence, Tuple
 
 from latence_trace.core.structured import TypedCell
 from latence_trace.core.typed_claims import TypedClaim
-
-logger = logging.getLogger(__name__)
 
 
 # ----------------------------------------------------------------------
@@ -109,9 +106,10 @@ _EXACT_REL_TOLERANCE = 0.005
 
 
 _TOKEN_SPLIT_RE = re.compile(r"[\s\-/_,;:]+")
+_TOKEN_STRIP_CHARS = ".,;:()[]"
 
 
-def _token_set(text: str) -> set:
+def _token_set(text: str) -> FrozenSet[str]:
     """Split into matchable tokens.
 
     Splits on whitespace and the joiners commonly seen in compound nouns
@@ -119,29 +117,37 @@ def _token_set(text: str) -> set:
     ``"Cloud-Umsatz"`` -> ``{"cloud","umsatz"}``). Token must be at
     least 2 chars and contain at least one alpha character so we don't
     pick up ``"q2"`` or ``"2024"`` as entity tokens.
+
+    Returns a ``frozenset`` so callers can stash it in dicts / use it as
+    a cache key without copying.
     """
 
     if not text:
-        return set()
-    tokens = _TOKEN_SPLIT_RE.split(text)
-    out = set()
-    for tok in tokens:
-        tok = tok.strip(".,;:()[]")
+        return frozenset()
+    out: set = set()
+    for tok in _TOKEN_SPLIT_RE.split(text):
+        tok = tok.strip(_TOKEN_STRIP_CHARS)
         if not tok or len(tok) < 2:
             continue
         if not any(ch.isalpha() for ch in tok):
             continue
         out.add(tok.lower())
-    return out
+    return frozenset(out)
 
 
-def _entity_overlap(claim_anchor: str, cell_anchor: str) -> float:
+def _entity_overlap_sets(a: FrozenSet[str], b: FrozenSet[str]) -> float:
     """Jaccard-style overlap snapped to ``{0.0, 0.5, 1.0}``.
+
+    Pre-tokenized variant: callers that score one claim against many
+    cells precompute the token sets once and reuse them, avoiding the
+    O(n_cells) re-tokenize cost that the original implementation paid
+    inside the hot per-cell loop.
 
     Rules:
       - ``1.0`` when claim anchor is a superset of cell anchor (cell
         tokens fully appear in the claim) or vice versa.
-      - ``0.5`` when the Jaccard >= 0.4.
+      - ``1.0`` when the Jaccard >= 0.5.
+      - ``0.5`` when the Jaccard >= 0.3 and at least one token overlaps.
       - ``0.0`` otherwise.
 
     Snapping prevents a fuzzy 0.6 entity overlap from dragging an
@@ -150,8 +156,6 @@ def _entity_overlap(claim_anchor: str, cell_anchor: str) -> float:
     the AND-gate.
     """
 
-    a = _token_set(claim_anchor)
-    b = _token_set(cell_anchor)
     if not a or not b:
         return 0.0
     inter = a & b
@@ -162,9 +166,21 @@ def _entity_overlap(claim_anchor: str, cell_anchor: str) -> float:
     jaccard = len(inter) / float(len(a | b))
     if jaccard >= 0.5:
         return 1.0
-    if jaccard >= 0.3 and len(inter) >= 1:
+    if jaccard >= 0.3:
         return 0.5
     return 0.0
+
+
+def _entity_overlap(claim_anchor: str, cell_anchor: str) -> float:
+    """String-based overlap. Kept for backwards-compat callers / tests.
+
+    Internally delegates to :func:`_entity_overlap_sets` after building
+    both token sets. Hot-path callers (``_best_cell_for_claim``)
+    pre-cache cells via ``_token_set`` once and call
+    ``_entity_overlap_sets`` directly.
+    """
+
+    return _entity_overlap_sets(_token_set(claim_anchor), _token_set(cell_anchor))
 
 
 def _value_match_score(
@@ -287,7 +303,12 @@ def _sign_match_score(claim_sign: str, cell_sign: str) -> Tuple[float, str]:
 
 
 def _best_cell_for_claim(
-    claim: TypedClaim, cells: Sequence[TypedCell]
+    claim: TypedClaim,
+    claim_tokens: FrozenSet[str],
+    claim_fam: str,
+    cells: Sequence[TypedCell],
+    cell_tokens: Sequence[FrozenSet[str]],
+    cell_families: Sequence[str],
 ) -> Tuple[Optional[TypedCell], float]:
     """Pick the cell with the highest entity overlap.
 
@@ -301,22 +322,25 @@ def _best_cell_for_claim(
       3. Closeness in numeric value (so the ``"Audi"`` claim aligns
          to the ``"Audi"`` cell even when ``"Volkswagen"`` is in the
          same table).
+
+    Token sets and unit families are pre-computed by the caller so
+    this loop stays O(n_cells) per claim, not O(n_cells × tokenize).
     """
 
-    claim_fam = _unit_family(claim.unit)
     best: Optional[TypedCell] = None
     best_score = 0.0
     best_family_match = -1
     best_value_diff = math.inf
-    for cell in cells:
-        score = _entity_overlap(claim.anchor_norm, cell.anchor_norm)
+    claim_value = claim.value
+    for idx, cell in enumerate(cells):
+        score = _entity_overlap_sets(claim_tokens, cell_tokens[idx])
         if score < _ENTITY_DROP_THRESHOLD:
             continue
-        cell_fam = _unit_family(cell.unit)
-        family_match = 1 if cell_fam == claim_fam else 0
+        family_match = 1 if cell_families[idx] == claim_fam else 0
         diff = math.inf
-        if claim.value is not None and cell.value is not None and cell.value != 0:
-            diff = abs(claim.value - cell.value) / max(1e-6, abs(cell.value))
+        cell_value = cell.value
+        if claim_value is not None and cell_value is not None and cell_value != 0:
+            diff = abs(claim_value - cell_value) / max(1e-6, abs(cell_value))
         better = False
         if score > best_score:
             better = True
@@ -343,6 +367,12 @@ def structured_score_from_claims(
     fusion layer can keep its weighted-sum behaviour for pure-prose
     contexts and only escalate to ``min(narrative, structured)`` when
     the typed lane is actually scoring something.
+
+    Performance note: cell token sets and unit families are computed
+    once up-front (O(n_cells)), then reused across every claim
+    (otherwise each (claim, cell) pair would rebuild the token set,
+    making the matcher O(n_claims · n_cells) tokenizations on long
+    segment tables).
     """
 
     matched: List[MatchedClaim] = []
@@ -351,8 +381,20 @@ def structured_score_from_claims(
     if not claims or not cells:
         return StructuredMatchResult(score=None, aligned=0, dropped=len(claims), per_claim=[])
 
+    cell_tokens = [_token_set(cell.anchor_norm) for cell in cells]
+    cell_families = [_unit_family(cell.unit) for cell in cells]
+
     for claim in claims:
-        cell, entity_score = _best_cell_for_claim(claim, cells)
+        claim_tokens = _token_set(claim.anchor_norm)
+        claim_fam = _unit_family(claim.unit)
+        cell, entity_score = _best_cell_for_claim(
+            claim,
+            claim_tokens,
+            claim_fam,
+            cells,
+            cell_tokens,
+            cell_families,
+        )
         if cell is None or entity_score <= 0:
             dropped += 1
             continue
