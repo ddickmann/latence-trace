@@ -190,8 +190,15 @@ class VllmFactoryModernColBERTProvider:
             "task": "token_embed",
         }
 
+    @staticmethod
+    def _unwrap_data(payload: Any) -> Any:
+        current = payload
+        while isinstance(current, dict) and "data" in current:
+            current = current["data"]
+        return current
+
     def _decode_embedding(self, payload: Any) -> np.ndarray:
-        data = payload.get("data", payload) if isinstance(payload, dict) else payload
+        data = self._unwrap_data(payload)
         if isinstance(data, dict):
             for key in ("data", "embedding", "embeddings", "output"):
                 if key in data:
@@ -241,7 +248,7 @@ class VllmFactoryModernColBERTProvider:
         response = client.post("/pooling", json=payload)
         response.raise_for_status()
         body = response.json()
-        raw = body.get("data", body) if isinstance(body, dict) else body
+        raw = self._unwrap_data(body)
         if len(texts) == 1:
             return [self._decode_embedding(raw)]
         if not isinstance(raw, list):

@@ -28,6 +28,8 @@ RUN git clone https://github.com/ddickmann/vllm-factory.git /opt/vllm-factory \
 RUN python -m pip install --no-deps /workspace/latence-trace/runpod/vllm_plugins/moderncolbert_batched
 RUN python -m pip install --no-deps /workspace/latence-trace/runpod/vllm_plugins/nli_mdeberta
 RUN python -m pip install /workspace/latence-trace
+RUN python -m spacy download en_core_web_sm \
+    && python -m spacy download de_core_news_sm
 
 RUN chmod +x /workspace/latence-trace/runpod/start.sh
 

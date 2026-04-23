@@ -65,6 +65,9 @@ def _detect_device() -> str:
         return "cpu"
 
 
+_STARTUP_WARMUP_REQUEST_COUNT = 3
+
+
 @dataclass(frozen=True)
 class WorkerConfig:
     profile: str
@@ -106,7 +109,7 @@ def create_config() -> WorkerConfig:
         profile=profile,
         version=os.environ.get("LATENCE_TRACE_RUNPOD_VERSION", __version__),
         request_timeout_s=_env_int("LATENCE_TRACE_RUNPOD_REQUEST_TIMEOUT", 120),
-        max_concurrency=_env_int("MAX_CONCURRENCY", 32),
+        max_concurrency=32,
         collection_label=os.environ.get("LATENCE_TRACE_COLLECTION_LABEL", "latence-trace"),
         service_device=os.environ.get("LATENCE_TRACE_SERVICE_DEVICE", _detect_device()),
         docs_url=os.environ.get("LATENCE_TRACE_DOCS_URL", ""),
@@ -130,21 +133,90 @@ _config: WorkerConfig | None = None
 _servers: dict[str, ManagedVllmServer] = {}
 _service: GroundednessService | None = None
 _initialize_lock = threading.Lock()
+_request_executor: ThreadPoolExecutor | None = None
+_request_executor_lock = threading.Lock()
+_request_semaphore: asyncio.Semaphore | None = None
+_request_semaphore_loop: asyncio.AbstractEventLoop | None = None
 
 
-def _start_kernel_warmup(profile: str) -> tuple[threading.Thread, dict[str, Any]]:
-    result: dict[str, Any] = {"error": None}
+def _get_request_executor(config: WorkerConfig) -> ThreadPoolExecutor:
+    global _request_executor
+    if _request_executor is not None:
+        return _request_executor
+    with _request_executor_lock:
+        if _request_executor is None:
+            _request_executor = ThreadPoolExecutor(
+                max_workers=config.max_concurrency,
+                thread_name_prefix="latence-trace-runpod",
+            )
+        return _request_executor
 
-    def _runner() -> None:
-        try:
-            warm_all(profile)
-        except Exception as exc:  # pragma: no cover - best-effort warmup
-            logger.warning("kernel warmup failed: %s", exc)
-            result["error"] = exc
 
-    thread = threading.Thread(target=_runner, name="latence-kernel-warmup", daemon=True)
-    thread.start()
-    return thread, result
+def _get_request_semaphore(limit: int) -> asyncio.Semaphore:
+    global _request_semaphore, _request_semaphore_loop
+    loop = asyncio.get_running_loop()
+    if _request_semaphore is not None and _request_semaphore_loop is loop:
+        return _request_semaphore
+    _request_semaphore = asyncio.Semaphore(limit)
+    _request_semaphore_loop = loop
+    return _request_semaphore
+
+
+def _make_startup_sentence(prefix: str, index: int) -> str:
+    return (
+        f"{prefix} record {index} states the reference sample remained internally "
+        f"consistent on day {index} with calibration value {100 + index}."
+    )
+
+
+def _build_startup_warmup_requests() -> list[GroundednessRequest]:
+    query_text = "Which recorded days remained internally consistent in the reference sample?"
+    shapes = (
+        ("alpha", 8, 4),
+        ("beta", 24, 8),
+        ("gamma", 48, 16),
+    )
+    requests: list[GroundednessRequest] = []
+    for prefix, context_count, response_count in shapes:
+        context_sentences = [_make_startup_sentence(prefix, idx) for idx in range(1, context_count + 1)]
+        response_sentences = [_make_startup_sentence(prefix, idx) for idx in range(1, response_count + 1)]
+        requests.append(
+            GroundednessRequest(
+                query_text=query_text,
+                raw_context=" ".join(context_sentences),
+                response_text=" ".join(response_sentences),
+                include_triangular_diagnostics=True,
+                evidence_limit=4,
+            )
+        )
+    return requests
+
+
+def _ensure_kernel_warmup(profile: str) -> None:
+    result = warm_all(profile)
+    if result.ok:
+        return
+    raise RuntimeError(
+        "Triton kernel warmup failed for profile '{profile}' on {device}: {error}".format(
+            profile=result.profile,
+            device=result.device,
+            error=result.error or "unknown error",
+        )
+    )
+
+
+def _prime_service_runtime(service: GroundednessService) -> None:
+    requests = _build_startup_warmup_requests()
+    for idx, request in enumerate(requests, start=1):
+        response = service.groundedness(request)
+        logger.info(
+            "startup warmup request %s/%s complete: primary=%s score=%.4f latency_ms=%.2f",
+            idx,
+            len(requests),
+            response.scores.primary_name,
+            response.scores.primary_score,
+            response.time_ms,
+        )
 
 
 def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
@@ -158,7 +230,7 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
             max_model_len=config.colbert_max_model_len,
             max_num_seqs=config.colbert_max_num_seqs,
             max_num_batched_tokens=config.colbert_max_batched_tokens,
-            plugins=["moderncolbert"],
+            plugins=["moderncolbert", "moderncolbert_batched_io"],
         ),
         "nli": ManagedVllmServer(
             name="nli",
@@ -189,7 +261,6 @@ def initialize() -> None:
         os.environ.setdefault("LATENCE_TRACE_PROFILE", config.profile)
         apply_profile(config.profile)
 
-        warmup_thread, _warmup_result = _start_kernel_warmup(config.profile)
         servers = _build_servers(config)
 
         try:
@@ -213,8 +284,9 @@ def initialize() -> None:
                 device=config.service_device,
                 collection_label=config.collection_label,
             )
-
-            warmup_thread.join()
+            _ensure_kernel_warmup(config.profile)
+            _prime_service_runtime(service)
+            _get_request_executor(config)
 
             _servers = servers
             _service = service
@@ -232,7 +304,7 @@ def initialize() -> None:
 
 
 def shutdown() -> None:
-    global _initialized, _servers, _service
+    global _initialized, _servers, _service, _request_executor, _request_semaphore, _request_semaphore_loop
     for server in _servers.values():
         try:
             server.stop()
@@ -241,6 +313,12 @@ def shutdown() -> None:
     _servers = {}
     _service = None
     _initialized = False
+    with _request_executor_lock:
+        if _request_executor is not None:
+            _request_executor.shutdown(wait=False, cancel_futures=True)
+            _request_executor = None
+    _request_semaphore = None
+    _request_semaphore_loop = None
 
 
 def _health_payload() -> dict[str, Any]:
@@ -249,6 +327,8 @@ def _health_payload() -> dict[str, Any]:
         "version": _config.version if _config else __version__,
         "profile": _config.profile if _config else None,
         "service_device": _config.service_device if _config else None,
+        "max_concurrency": _config.max_concurrency if _config else None,
+        "startup_warmup_requests": _STARTUP_WARMUP_REQUEST_COUNT,
         "servers": {name: server.health() for name, server in _servers.items()},
     }
 
@@ -383,11 +463,18 @@ async def handler(job: dict[str, Any]) -> dict[str, Any]:
         )
 
     try:
-        response = await asyncio.wait_for(
-            asyncio.to_thread(_service.groundedness, request),
-            timeout=_config.request_timeout_s if _config else 120,
-        )
-        return _compact_response(response, verbose=verbose)
+        config = _config
+        service = _service
+        if config is None or service is None:
+            raise RuntimeError("RunPod worker was not initialized")
+        executor = _get_request_executor(config)
+        async with _get_request_semaphore(config.max_concurrency):
+            loop = asyncio.get_running_loop()
+            response = await asyncio.wait_for(
+                loop.run_in_executor(executor, service.groundedness, request),
+                timeout=config.request_timeout_s,
+            )
+            return _compact_response(response, verbose=verbose)
     except asyncio.TimeoutError:
         return _service_error_payload(
             f"Job exceeded {_config.request_timeout_s if _config else 120}s execution timeout",

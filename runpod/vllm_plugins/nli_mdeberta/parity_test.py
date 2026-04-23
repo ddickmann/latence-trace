@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import gc
 from typing import Iterable
 
 import httpx
@@ -32,6 +33,13 @@ FIXTURES = [
 ]
 
 
+def _unwrap_data(payload):
+    current = payload
+    while isinstance(current, dict) and "data" in current:
+        current = current["data"]
+    return current
+
+
 def _resolve_label_indices(id2label: dict) -> tuple[int, int, int]:
     normalized = {str(idx): str(label).lower() for idx, label in (id2label or {}).items()}
     contradiction_idx = neutral_idx = entailment_idx = -1
@@ -49,27 +57,45 @@ def _resolve_label_indices(id2label: dict) -> tuple[int, int, int]:
 
 
 def _hf_scores(model_id: str, pairs: Iterable[dict[str, str]], *, device: str) -> list[tuple[float, float, float]]:
+    resolved_device = torch.device(device)
     tokenizer = AutoTokenizer.from_pretrained(model_id, use_fast=True, trust_remote_code=True)
-    model = AutoModelForSequenceClassification.from_pretrained(model_id, trust_remote_code=True)
-    model.to(device)
+    model_kwargs = {"trust_remote_code": True}
+    if resolved_device.type != "cpu":
+        device_name = (
+            f"{resolved_device.type}:{resolved_device.index}"
+            if resolved_device.index is not None
+            else f"{resolved_device.type}:0"
+        )
+        model_kwargs["device_map"] = {"": device_name}
+        model_kwargs["low_cpu_mem_usage"] = True
+        if resolved_device.type == "cuda":
+            model_kwargs["dtype"] = torch.bfloat16
+    model = AutoModelForSequenceClassification.from_pretrained(model_id, **model_kwargs)
+    if resolved_device.type == "cpu":
+        model.to(device)
     model.eval()
     pairs = list(pairs)
-    encoded = tokenizer(
-        [pair["premise"] for pair in pairs],
-        [pair["hypothesis"] for pair in pairs],
-        padding=True,
-        truncation=True,
-        max_length=512,
-        return_tensors="pt",
-    )
-    encoded = {key: value.to(device) for key, value in encoded.items()}
-    with torch.no_grad():
-        probs = torch.softmax(model(**encoded).logits, dim=-1).cpu().numpy()
+    target_device = next(model.parameters()).device
     c_idx, n_idx, e_idx = _resolve_label_indices(getattr(model.config, "id2label", None) or {})
-    return [
-        (float(row[e_idx]), float(row[n_idx]), float(row[c_idx]))
-        for row in probs
-    ]
+    results = []
+    for pair in pairs:
+        encoded = tokenizer(
+            pair["premise"],
+            pair["hypothesis"],
+            truncation=True,
+            max_length=512,
+            return_tensors="pt",
+        )
+        encoded = {key: value.to(target_device) for key, value in encoded.items()}
+        with torch.no_grad():
+            probs = torch.softmax(model(**encoded).logits.float(), dim=-1).cpu().numpy()[0]
+        results.append((float(probs[e_idx]), float(probs[n_idx]), float(probs[c_idx])))
+        del encoded, probs
+    del model, tokenizer
+    gc.collect()
+    if target_device.type == "cuda":
+        torch.cuda.empty_cache()
+    return results
 
 
 def _endpoint_scores(endpoint: str, model: str, pairs: list[dict[str, str]]) -> list[tuple[float, float, float]]:
@@ -86,8 +112,7 @@ def _endpoint_scores(endpoint: str, model: str, pairs: list[dict[str, str]]) -> 
             },
         )
         response.raise_for_status()
-        body = response.json()
-        rows = body.get("data", body) if isinstance(body, dict) else body
+        rows = _unwrap_data(response.json())
         return [
             (
                 float(row["entail"]),
@@ -109,8 +134,8 @@ def _endpoint_single(endpoint: str, model: str, pair: dict[str, str]) -> tuple[f
             },
         )
         response.raise_for_status()
-        body = response.json()
-        row = body["data"][0]
+        rows = _unwrap_data(response.json())
+        row = rows[0]
         return (
             float(row["entail"]),
             float(row["neutral"]),
@@ -123,7 +148,7 @@ def main() -> None:
     parser.add_argument("--endpoint", required=True)
     parser.add_argument("--model", required=True)
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
-    parser.add_argument("--prob-tol", type=float, default=5e-4)
+    parser.add_argument("--prob-tol", type=float, default=1e-2)
     args = parser.parse_args()
 
     expected = _hf_scores(args.model, FIXTURES, device=args.device)

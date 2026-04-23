@@ -66,6 +66,13 @@ class VllmFactoryNLIProvider:
             return {"status": response.text}
 
     @staticmethod
+    def _unwrap_data(payload: Any) -> Any:
+        current = payload
+        while isinstance(current, dict) and "data" in current:
+            current = current["data"]
+        return current
+
+    @staticmethod
     def _coerce_row(row: Any) -> tuple[float, float, float]:
         if isinstance(row, dict):
             return (
@@ -102,7 +109,7 @@ class VllmFactoryNLIProvider:
         response.raise_for_status()
 
         body = response.json()
-        rows = body.get("data", body) if isinstance(body, dict) else body
+        rows = self._unwrap_data(body)
         if isinstance(rows, dict):
             rows = [rows]
         if not isinstance(rows, list):

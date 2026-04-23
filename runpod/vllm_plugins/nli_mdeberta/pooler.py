@@ -35,6 +35,8 @@ class NLIClassifyPooler(nn.Module):
         act = _ACT_FN.get(activation.lower())
         if act is None:
             raise ValueError(f"Unsupported pooler_hidden_act={activation!r}")
+        if isinstance(act, type):
+            act = act()
         self._activation = act
 
     def get_tasks(self) -> set[str]:

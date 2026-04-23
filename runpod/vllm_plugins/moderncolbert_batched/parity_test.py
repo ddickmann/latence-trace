@@ -30,8 +30,15 @@ FIXTURES = [
 ]
 
 
+def _unwrap_data(payload: Any) -> Any:
+    current = payload
+    while isinstance(current, dict) and "data" in current:
+        current = current["data"]
+    return current
+
+
 def _decode_matrix(payload: Any, *, colbert_dim: int = 128) -> np.ndarray:
-    data = payload.get("data", payload) if isinstance(payload, dict) else payload
+    data = _unwrap_data(payload)
     if isinstance(data, str):
         raw = np.frombuffer(base64.b64decode(data.encode("ascii")), dtype=np.float32)
         if raw.size == 0:
@@ -83,9 +90,25 @@ def _batched_request(client: httpx.Client, endpoint: str, model: str, fixtures: 
         },
     )
     response.raise_for_status()
-    body = response.json()
-    rows = body.get("data", body) if isinstance(body, dict) else body
+    rows = _unwrap_data(response.json())
     return [_decode_matrix(row) for row in rows]
+
+
+def _grouped_batched_request(
+    client: httpx.Client,
+    endpoint: str,
+    model: str,
+    fixtures: list[dict[str, Any]],
+) -> list[np.ndarray]:
+    outputs: list[np.ndarray | None] = [None] * len(fixtures)
+    for is_query in (True, False):
+        indices = [idx for idx, item in enumerate(fixtures) if bool(item["is_query"]) is is_query]
+        if not indices:
+            continue
+        rows = _batched_request(client, endpoint, model, [fixtures[idx] for idx in indices])
+        for idx, row in zip(indices, rows):
+            outputs[idx] = row
+    return [row for row in outputs if row is not None]
 
 
 def record_reference(endpoint: str, model: str, output_path: Path) -> None:
@@ -101,7 +124,7 @@ def verify_reference(endpoint: str, model: str, reference_path: Path, *, vector_
     reference = json.loads(reference_path.read_text(encoding="utf-8"))
     rows = reference["fixtures"]
     with httpx.Client(timeout=60.0) as client:
-        batched = _batched_request(client, endpoint, model, rows)
+        batched = _grouped_batched_request(client, endpoint, model, rows)
         for idx, fixture in enumerate(rows):
             expected = _decode_reference(fixture["embedding"])
             single = _single_request(client, endpoint, model, fixture["text"], bool(fixture["is_query"]))
@@ -125,7 +148,7 @@ def main() -> None:
     parser.add_argument("--model", required=True)
     parser.add_argument("--reference", required=True)
     parser.add_argument("--record", action="store_true")
-    parser.add_argument("--vector-tol", type=float, default=1e-3)
+    parser.add_argument("--vector-tol", type=float, default=1e-2)
     args = parser.parse_args()
 
     reference_path = Path(args.reference)

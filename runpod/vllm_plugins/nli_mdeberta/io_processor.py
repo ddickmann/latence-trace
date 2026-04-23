@@ -171,11 +171,24 @@ class NLIDebertaV2IOProcessor(FactoryIOProcessor):
             return_tensors=None,
         )
 
+        token_type_rows = encoded.get("token_type_ids")
+        split_positions: list[int] = []
+        if token_type_rows is not None:
+            for row in token_type_rows:
+                split_positions.append(
+                    next((idx for idx, value in enumerate(row) if int(value) == 1), len(row))
+                )
+
         prompts = []
         for ids in encoded["input_ids"]:
             prompts.append(TokensPrompt(prompt_token_ids=list(ids)))
 
+        extra_kwargs = None
+        if split_positions and all(pos == split_positions[0] for pos in split_positions):
+            extra_kwargs = {"compressed_token_type_ids": int(split_positions[0])}
+
         self._stash(
+            extra_kwargs=extra_kwargs,
             request_id=request_id,
             meta={
                 "n": len(prompts),

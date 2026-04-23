@@ -427,7 +427,9 @@ def test_groundedness_token_helpers_ignore_mapping_tokenize_outputs() -> None:
     assert tokenize_text(provider, text) == [f"tok_{idx}" for idx in range(len(_TOKEN_RE.findall(text)))]
 
 
-def test_vllm_factory_moderncolbert_provider_uses_plugin_contract(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_vllm_factory_moderncolbert_provider_uses_token_embed_contract(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     requests_seen: list[dict] = []
 
     class DummyTokenizer:
@@ -473,7 +475,19 @@ def test_vllm_factory_moderncolbert_provider_uses_plugin_contract(monkeypatch: p
         def post(self, path: str, json=None):
             assert path == "/pooling"
             requests_seen.append(json)
-            return DummyResponse({"data": [float(idx) for idx in range(8)]})
+            text = json["data"]["text"]
+            if isinstance(text, list):
+                return DummyResponse(
+                    {
+                        "data": {
+                            "data": [
+                                [float(idx) for idx in range(8)],
+                                [float(idx) for idx in range(8, 16)],
+                            ]
+                        }
+                    }
+                )
+            return DummyResponse({"data": {"data": [float(idx) for idx in range(8)]}})
 
         def close(self):
             return None
@@ -494,12 +508,13 @@ def test_vllm_factory_moderncolbert_provider_uses_plugin_contract(monkeypatch: p
 
     assert len(embeddings) == 2
     assert all(embedding.shape == (2, 4) for embedding in embeddings)
-    assert all(request["task"] == "plugin" for request in requests_seen)
-    assert all(request["data"]["is_query"] is False for request in requests_seen)
-    assert {request["data"]["text"] for request in requests_seen} == {
+    assert len(requests_seen) == 1
+    assert requests_seen[0]["task"] == "token_embed"
+    assert requests_seen[0]["data"]["is_query"] == [False, False]
+    assert requests_seen[0]["data"]["text"] == [
         "alpha supports claim",
         "beta supports note",
-    }
+    ]
 
 
 @requires_voyager

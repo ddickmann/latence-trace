@@ -226,6 +226,7 @@ class ManagedVllmServer:
         self._assert_port_available()
         env = os.environ.copy()
         env["CUDA_VISIBLE_DEVICES"] = self.cuda_devices
+        env.setdefault("VLLM_ALLOW_LONG_MAX_MODEL_LEN", "1")
         if self.plugins:
             env["VLLM_PLUGINS"] = ",".join(self.plugins)
 

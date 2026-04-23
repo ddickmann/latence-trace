@@ -97,9 +97,14 @@ class ModernColBERTBatchedIOProcessor(FactoryIOProcessor):
             raise ValueError("'text' must be a string or a list of strings")
 
         flags = self._normalize_is_query(data.get("is_query", False), len(texts))
+        if len(set(flags)) > 1:
+            raise ValueError(
+                "Mixed query/document batches are not supported; send homogeneous batches "
+                "so ModernColBERT query/document semantics stay identical to the reference path."
+            )
         return ModernColBERTBatchedInput(texts=texts, is_query=flags, batched=batched)
 
-    def _token_ids(self, text: str, *, is_query: bool) -> list[int]:
+    def _prepare_prompt(self, text: str, *, is_query: bool) -> tuple[list[int], list[int]]:
         max_length = self._query_max_length if is_query else self._document_max_length
         encoded = self._tokenizer(
             text,
@@ -110,26 +115,48 @@ class ModernColBERTBatchedIOProcessor(FactoryIOProcessor):
             return_tensors=None,
         )
         input_ids = encoded["input_ids"]
+        attention_mask = encoded["attention_mask"]
         if input_ids and isinstance(input_ids[0], list):
             input_ids = input_ids[0]
+        if attention_mask and isinstance(attention_mask[0], list):
+            attention_mask = attention_mask[0]
         input_ids = list(input_ids)
+        attention_mask = list(attention_mask)
         if not input_ids:
-            return []
+            return [], []
         prefix_id = self.query_prefix_id if is_query else self.document_prefix_id
-        return [int(input_ids[0]), int(prefix_id), *[int(item) for item in input_ids[1:]]]
+        return (
+            [int(input_ids[0]), int(prefix_id), *[int(item) for item in input_ids[1:]]],
+            [int(attention_mask[0]), 1, *[int(item) for item in attention_mask[1:]]],
+        )
 
     def factory_pre_process(
         self,
         parsed_input: ModernColBERTBatchedInput,
         request_id: str | None,
     ) -> PromptType | Sequence[PromptType]:
-        prompts = [
-            TokensPrompt(prompt_token_ids=self._token_ids(text, is_query=is_query))
+        prepared = [
+            self._prepare_prompt(text, is_query=is_query)
             for text, is_query in zip(parsed_input.texts, parsed_input.is_query)
         ]
+        prompts = [TokensPrompt(prompt_token_ids=input_ids) for input_ids, _ in prepared]
+        seq_lengths = [len(input_ids) for input_ids, _ in prepared]
+        input_ids_payload = [input_ids for input_ids, _ in prepared]
+        attention_masks = [mask for _, mask in prepared]
+        extra_kwargs: dict[str, Any] = {
+            "is_query": parsed_input.is_query[0],
+            "sequence_length": seq_lengths[0] if len(seq_lengths) == 1 else seq_lengths,
+            "attention_mask": attention_masks[0] if len(attention_masks) == 1 else attention_masks,
+            "input_ids": input_ids_payload[0] if len(input_ids_payload) == 1 else input_ids_payload,
+        }
         self._stash(
+            extra_kwargs=extra_kwargs,
             request_id=request_id,
-            meta={"batched": parsed_input.batched, "n": len(prompts)},
+            meta={
+                "batched": parsed_input.batched,
+                "n": len(prompts),
+                "is_query": parsed_input.is_query[0],
+            },
         )
         if len(prompts) == 1:
             return prompts[0]
