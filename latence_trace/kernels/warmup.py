@@ -200,10 +200,84 @@ def warm_all(profile: str = "balanced", *, force: bool = False) -> WarmupResult:
         return result
 
 
+def warm_code_lane(*, force: bool = False) -> WarmupResult:
+    """Prime the code-lane singletons.
+
+    Loads tree-sitter grammars for every supported language and runs a
+    tiny :class:`~latence_trace.core.code_lane.GPUScorer` pass so its
+    dedicated CUDA stream is allocated before any user traffic arrives.
+
+    Like :func:`warm_all`, failures are logged and do not crash the
+    process — callers can inspect :attr:`WarmupResult.ok` on the
+    ``code_lane`` key of :func:`warmup_state`.
+    """
+
+    cache_key = "code_lane"
+    if not force:
+        cached = _WARMUP_STATE.get(cache_key)
+        if cached is not None:
+            return cached
+
+    with _WARMUP_LOCK:
+        if not force:
+            cached = _WARMUP_STATE.get(cache_key)
+            if cached is not None:
+                return cached
+
+        result = WarmupResult(profile=cache_key, shapes=[])
+        start = time.perf_counter()
+        cuda_ok = torch.cuda.is_available()
+        result.device = f"cuda:{torch.cuda.current_device()}" if cuda_ok else "cpu"
+
+        try:
+            from latence_trace.core.code_lane import (
+                AstSymbolExtractor,
+                GPUScorer,
+                SUPPORTED_LANGUAGES,
+            )
+
+            extractor = AstSymbolExtractor(enabled=True)
+            for language in SUPPORTED_LANGUAGES:
+                extractor.extract_from_text(
+                    "def sample():\n    pass\n", language_hint=language
+                )
+
+            device = "cuda" if cuda_ok else "cpu"
+            scorer = GPUScorer(device=device)
+            R = torch.randn(4, 8)
+            C = torch.randn(4, 8)
+            scorer(
+                response_tokens=["a", "b", "c", "d"],
+                response_embeddings=R,
+                support_units=[(("a", "b", "c", "d"), C)],
+                literal_tokens=["a"],
+                query_embeddings=None,
+            )
+            result.ok = True
+        except Exception as exc:
+            result.ok = False
+            result.error = str(exc)
+            logger.warning("code_lane_warmup_failed", extra={"error": str(exc)})
+
+        result.elapsed_ms = (time.perf_counter() - start) * 1000.0
+        _WARMUP_STATE[cache_key] = result
+        _WARMUP_DONE.set()
+        logger.info(
+            "code_lane_warmup_complete",
+            extra={
+                "ok": result.ok,
+                "elapsed_ms": round(result.elapsed_ms, 2),
+                "device": result.device,
+            },
+        )
+        return result
+
+
 __all__ = [
     "WarmupResult",
     "is_warm",
     "reset_warmup_state_for_tests",
     "warm_all",
+    "warm_code_lane",
     "warmup_state",
 ]

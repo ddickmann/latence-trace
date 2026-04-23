@@ -156,6 +156,32 @@ BUILD_INFO = _info(
     "build_info",
     "Version, profile and torch backend reported by this process.",
 )
+# --- Code-lane counters (sprint: code_lane_quality_boost) --------------
+# Per-turn counters so IDE-plugin dashboards (Claude Code, Cursor,
+# Codex, OpenCode) and on-call operators can plot lane mix, cascade
+# fire rate, backpressure events, and phantom verdicts without having
+# to parse JSONL logs. Labels are PII-safe: only enum-like values
+# (``rag``/``code``, ``true``/``false``) appear.
+LANE_REQUEST_COUNT = _counter(
+    "lane_requests_total",
+    "Total groundedness requests bucketed by scoring lane.",
+    ("lane",),
+)
+CASCADE_FIRE_COUNT = _counter(
+    "code_lane_cascade_fires_total",
+    "Number of times the code-lane NLI/semantic-entropy cascade fired.",
+    ("lane",),
+)
+BUDGET_EXCEEDED_COUNT = _counter(
+    "lane_budget_exceeded_total",
+    "Requests that waited on a full per-lane inflight semaphore.",
+    ("lane",),
+)
+PHANTOM_VERDICT_COUNT = _counter(
+    "code_lane_phantom_verdicts_total",
+    "Code-lane composite phantom verdicts (verdict=true|false).",
+    ("verdict",),
+)
 
 
 def register_default_collectors(*, profile: str, version: str, torch_version: str = "") -> None:

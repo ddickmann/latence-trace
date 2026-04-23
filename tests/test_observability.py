@@ -58,6 +58,35 @@ def test_request_id_generated_when_missing() -> None:
     assert response.headers["x-request-id"] == body["request_id"]
 
 
+def test_lane_counters_exposed_on_metrics_endpoint() -> None:
+    """The code-lane quality-boost sprint added counters for lane mix,
+    cascade fires, lane-budget backpressure, and phantom verdicts. This
+    guards that they are registered against the default registry and
+    scrapeable through ``/metrics`` — any accidental rename or removal
+    breaks the IDE-plugin Grafana board.
+    """
+
+    from latence_trace.observability.metrics import (
+        BUDGET_EXCEEDED_COUNT,
+        CASCADE_FIRE_COUNT,
+        LANE_REQUEST_COUNT,
+        PHANTOM_VERDICT_COUNT,
+    )
+
+    LANE_REQUEST_COUNT.labels(lane="rag").inc()
+    LANE_REQUEST_COUNT.labels(lane="code").inc()
+    CASCADE_FIRE_COUNT.labels(lane="code").inc()
+    BUDGET_EXCEEDED_COUNT.labels(lane="code").inc()
+    PHANTOM_VERDICT_COUNT.labels(verdict="false").inc()
+
+    client = _build_app()
+    body = client.get("/metrics").text
+    assert "latence_trace_lane_requests_total" in body
+    assert "latence_trace_code_lane_cascade_fires_total" in body
+    assert "latence_trace_lane_budget_exceeded_total" in body
+    assert "latence_trace_code_lane_phantom_verdicts_total" in body
+
+
 def test_json_formatter_emits_one_line_per_record() -> None:
     buf = StringIO()
     handler = logging.StreamHandler(buf)

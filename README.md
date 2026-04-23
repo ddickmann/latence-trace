@@ -1,20 +1,40 @@
 # latence-trace
 
-> Calibrated, auditable groundedness scoring for RAG and evidence-bearing LLM
-> outputs. **Multilingual: English + German out of the box.** Part of the
+> Calibrated, auditable groundedness scoring for **enterprise RAG** and
+> **coding agents**. Two lanes, one sidecar, ~100 ms p95.
+> **Multilingual: English + German out of the box.** Part of the
 > latence.ai product family.
 
 `latence-trace` is the standalone Groundedness Tracker extracted from
 the `voyager-index` retrieval engine. It scores how well an LLM response is
-grounded in its supporting context, returns auditable per-claim evidence, and
+grounded in its supplied context, returns auditable per-claim evidence, and
 classifies every output into a calibrated `green` / `amber` / `red` risk band.
 
+## Two lanes, one service
+
+Pick the lane per request via `scoring_mode` in the `/groundedness` body.
+Shared encoder, shared kernels, shared observability — the domain-specific
+signals fan out on the scoring path:
+
+| Lane | `scoring_mode` | Who it's for | What it answers |
+| --- | --- | --- | --- |
+| **RAG** | `"rag"` (default) | Enterprises running retrieval-augmented LLM apps | *"Is this answer anchored in the retrieved context? Which chunks are dead weight?"* |
+| **Code** | `"code"` | Teams shipping coding agents (Claude Code, Cursor, Codex, OpenCode …) | *"Is the generated code grounded in the opened files? Did the agent drift? Which files in the context window are genuinely unused?"* |
+
+The RAG lane remains untouched — same models, same thresholds, bitwise
+parity guaranteed by
+[`tests/api/test_rag_lane_parity.py`](tests/api/test_rag_lane_parity.py).
+The code lane adds AST-grounded literal matching, an ambiguity-triggered
+NLI cascade, a logistic composite, and per-session multi-turn signals on
+top of the shared MaxSim scorer. See the
+[coding-agent guide](docs/coding_agent_guide.md) and
+[docs/code_lane_v3.md](docs/code_lane_v3.md).
+
 > **Scope.** `latence-trace` answers **"is this response anchored in the
-> supplied context?"** (RAG-grounding / faithfulness). It does **not**
-> answer **"is this response factually correct against world
-> knowledge?"** (open-domain factuality). For the latter, pair with a
-> knowledge-base fact-checker; both questions look identical from
-> outside but require different tooling. See
+> supplied context?"** (RAG-grounding / faithfulness / code-grounding).
+> It does **not** answer **"is this response factually correct against
+> world knowledge?"** (open-domain factuality). For the latter, pair
+> with a knowledge-base fact-checker. See
 > [`docs/algorithm-audit.md`](docs/algorithm-audit.md) §"Scope and
 > Known Mismatches" for the empirical evidence.
 
@@ -324,6 +344,32 @@ curl -X POST http://127.0.0.1:8090/groundedness \
 The service returns `scores`, `risk_band`, per-token heatmaps,
 `literal_diagnostics`, `structured_diagnostics`, and per-claim NLI evidence
 for both languages with the same response schema.
+
+Code-lane request (same endpoint, `scoring_mode` discriminator):
+
+```bash
+curl -X POST http://127.0.0.1:8090/groundedness \
+  -H "Content-Type: application/json" \
+  -d '{
+    "scoring_mode": "code",
+    "session_id": "ide-session-abc123",
+    "response_language_hint": "python",
+    "query_text": "Rename `calibrate` to `calibrate_threshold` across the tracer.",
+    "raw_context": "# file: tracer.py\nclass Tracer:\n    def calibrate_threshold(self, x): ...\n",
+    "response_text": "```python\ntracer.calibrate(x)\n```"
+  }'
+```
+
+The response adds a `code_lane_diagnostics` block with AST-level drift
+counters, literal novelty, the NLI cascade verdict (when it fires), and
+per-file ownership with reason codes. Temporal signals (drift, EMA
+groundedness, eviction recommendations) ride on an optional
+caller-portable `session_state` blob — the API stays stateless, the
+caller carries memory. See
+[`docs/coding_agent_guide.md`](docs/coding_agent_guide.md) and
+[`docs/session_semantics.md`](docs/session_semantics.md) for
+copy-paste integration recipes for Claude Code, Cursor, OpenAI Codex,
+and OpenCode.
 
 Agents and humans can self-discover the request shape, active profile, and
 all sibling endpoints in a single GET:

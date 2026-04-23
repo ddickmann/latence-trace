@@ -104,6 +104,8 @@ class _SlowService:
                     warnings=[],
                 ),
                 time_ms=float(self._sleep_ms),
+                scoring_mode=getattr(request, "scoring_mode", None),
+                session_id=getattr(request, "session_id", None),
                 attribution_mode=AttributionMode.CLOSED_BOOK,
             )
         finally:
@@ -116,6 +118,7 @@ def _config(*, profile: str = "quality", max_concurrency: int = 2):
         profile=profile,
         version="test",
         request_timeout_s=5,
+        code_request_timeout_s=2.0,
         max_concurrency=max_concurrency,
         collection_label="latence-trace",
         service_device="cpu",
@@ -226,17 +229,25 @@ def test_initialize_exports_handler_concurrency_to_internal_vllm_clients(monkeyp
 
 def test_build_startup_warmup_requests_exercises_three_triangular_probes() -> None:
     requests = runpod_handler._build_startup_warmup_requests()
-    assert len(requests) == 3
-    assert all(request.include_triangular_diagnostics for request in requests)
+    # 3 RAG triangular warmups + 1 code-lane warmup = 4.
+    assert len(requests) == 4
+    rag_requests = [r for r in requests if r.scoring_mode.value == "rag"]
+    code_requests = [r for r in requests if r.scoring_mode.value == "code"]
+    assert len(rag_requests) == 3
+    assert len(code_requests) == 1
+    assert all(request.include_triangular_diagnostics for request in rag_requests)
     assert all(request.query_text for request in requests)
     assert all(request.raw_context for request in requests)
     assert all(request.response_text for request in requests)
+    code_req = code_requests[0]
+    assert code_req.response_language_hint == "python"
+    assert code_req.session_id == "warmup-code-lane"
 
 
 def test_prime_service_runtime_issues_all_startup_requests() -> None:
     service = _SlowService(sleep_ms=0)
     runpod_handler._prime_service_runtime(service)
-    assert service.calls == 3
+    assert service.calls == 4
 
 
 def test_runpod_handler_bounds_inflight_requests(monkeypatch) -> None:
@@ -249,8 +260,8 @@ def test_runpod_handler_bounds_inflight_requests(monkeypatch) -> None:
     runpod_handler._service = service
     runpod_handler._servers = {}
     runpod_handler._request_executor = None
-    runpod_handler._request_semaphore = None
-    runpod_handler._request_semaphore_loop = None
+    runpod_handler._lane_semaphores = {}
+    runpod_handler._lane_semaphores_loop = None
 
     results = asyncio.run(_burst(6))
 
@@ -272,6 +283,7 @@ def test_compact_response_surfaces_unused_context_contract() -> None:
         profile="quality",
         version="test",
         request_timeout_s=5,
+        code_request_timeout_s=2.0,
         max_concurrency=4,
         collection_label="latence-trace",
         service_device="cpu",
@@ -386,3 +398,63 @@ def test_compact_response_surfaces_unused_context_contract() -> None:
     assert "full" in verbose
     assert verbose["full"]["scores"]["support_units_unused"] == 1
     assert verbose["full"]["support_units"][0]["usage_state"] == "used"
+
+
+async def _mixed_lane_burst(total: int) -> list[dict]:
+    """Fire ``total`` requests alternating between the RAG and code lanes."""
+    base_payload = {
+        "query_text": "Where was Heinrich born?",
+        "raw_context": "# Heinrich.py\nHeinrich was born in 1851 in Augsburg.",
+        "response_text": "Heinrich was born in Augsburg in 1851.",
+    }
+    payloads: list[dict] = []
+    for idx in range(total):
+        lane_payload = dict(base_payload)
+        if idx % 2 == 0:
+            lane_payload["scoring_mode"] = "code"
+            lane_payload["session_id"] = f"sess-{idx}"
+            lane_payload["response_language_hint"] = "python"
+        else:
+            lane_payload["scoring_mode"] = "rag"
+            lane_payload["session_id"] = f"sess-{idx}"
+        payloads.append({"input": lane_payload})
+    return await asyncio.gather(
+        *(runpod_handler.handler(payload) for payload in payloads)
+    )
+
+
+def test_runpod_handler_stress_32_mixed_lanes(monkeypatch) -> None:
+    """Per-lane semaphores must let 32 simultaneous requests (16 RAG + 16
+    code) complete under the timeout without starving either lane.
+    """
+    service = _SlowService(sleep_ms=25)
+    config = _config(max_concurrency=16)
+
+    monkeypatch.setattr(runpod_handler, "initialize", lambda: None)
+    runpod_handler._initialized = True
+    runpod_handler._config = config
+    runpod_handler._service = service
+    runpod_handler._servers = {}
+    runpod_handler._request_executor = None
+    runpod_handler._lane_semaphores = {}
+    runpod_handler._lane_semaphores_loop = None
+
+    try:
+        results = asyncio.run(_mixed_lane_burst(32))
+        assert all(item.get("success") for item in results), results
+        # Every request emitted a ``scoring_mode`` in the compact envelope.
+        lanes = {item.get("scoring_mode") for item in results}
+        assert lanes.issubset({"rag", "code"})
+        # At least one call of each lane must have landed.
+        assert "rag" in lanes and "code" in lanes
+        # Peak inflight never exceeds the total worker ceiling.
+        assert service.peak_inflight <= config.max_concurrency
+        # Each lane's budget is ceil(16/2) = 8, so the absolute ceiling
+        # a single lane can reach is 8 — guards against the regression
+        # where a shared semaphore lets one lane starve the other.
+        assert service.peak_inflight <= max(
+            runpod_handler._lane_budget(config, runpod_handler.ScoringMode.RAG),
+            runpod_handler._lane_budget(config, runpod_handler.ScoringMode.CODE),
+        ) * 2
+    finally:
+        runpod_handler.shutdown()

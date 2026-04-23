@@ -157,20 +157,30 @@ def create_app(profile: Optional[str] = None) -> FastAPI:
         title="latence-trace Groundedness Tracker",
         version="1.0.0",
         description=(
-            "Calibrated, auditable groundedness scoring for RAG and "
-            "evidence-bearing LLM outputs. Part of the latence.ai product "
-            "family. Closed-book by default; supports `chunk_ids`, "
-            "`raw_context`, and structured `support_units[]` premise lanes "
-            "plus the bilingual EN + DE pipeline.\n\n"
+            "Calibrated, auditable groundedness scoring with **two lanes**:\n\n"
+            "- **RAG lane** (`scoring_mode=rag`, default) — enterprise "
+            "retrieval-augmented LLM apps. MaxSim + NLI + atomic claims + "
+            "structured-evidence AND-gate, calibrated thresholds, per-claim "
+            "evidence, `context_coverage_ratio` retrieval observability.\n"
+            "- **Code lane** (`scoring_mode=code`) — coding agents "
+            "(Claude Code, Cursor, Codex, OpenCode, …). AST-grounded "
+            "literal matching, ambiguity-triggered NLI cascade, logistic "
+            "composite, multi-turn per-file ownership with reason codes.\n\n"
+            "Part of the latence.ai product family. Closed-book by default; "
+            "supports `chunk_ids`, `raw_context`, and structured "
+            "`support_units[]` premise lanes plus the bilingual EN + DE "
+            "pipeline.\n\n"
             "**Discovery:**\n"
             "- `GET /agent-help` returns a compact agent-friendly contract "
             "(premise lanes, attribution modes, error envelope).\n"
             "- `GET /.well-known/ai-plugin.json` returns a standard tool "
-            "descriptor for ChatGPT, Claude and other AI agent runtimes."
+            "descriptor for ChatGPT, Claude and other AI agent runtimes.\n"
+            "- `GET /openapi.json` returns the full OpenAPI 3.1 schema "
+            "(includes the code-lane diagnostics block)."
         ),
         summary=(
-            "Closed-book groundedness scoring + hallucination detection for "
-            "RAG and evidence-bearing LLM outputs."
+            "Dual-lane groundedness scoring: RAG for enterprises, "
+            "Code lane for coding agents."
         ),
         openapi_url="/openapi.json",
         docs_url="/docs",

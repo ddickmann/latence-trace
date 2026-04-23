@@ -1,0 +1,104 @@
+[
+  {
+    "scores": {
+      "context_coverage_ratio": 0.0,
+      "literal_guarded": 0.21494470437367755,
+      "primary_name": "reverse_context",
+      "primary_score": 0.09512087371614245,
+      "reverse_context": 0.09512087371614245,
+      "risk_band": "red",
+      "support_units_total": 1,
+      "support_units_used": 0
+    },
+    "top_evidence": [
+      {
+        "index": null,
+        "score": 0.40667375922203064,
+        "text": null
+      },
+      {
+        "index": null,
+        "score": 0.04932781308889389,
+        "text": null
+      },
+      {
+        "index": null,
+        "score": 0.001434052363038063,
+        "text": null
+      },
+      {
+        "index": null,
+        "score": -0.030108710750937462,
+        "text": null
+      }
+    ]
+  },
+  {
+    "scores": {
+      "context_coverage_ratio": 0.0,
+      "literal_guarded": 0.5045375347137451,
+      "primary_name": "reverse_context",
+      "primary_score": 0.2923767301771376,
+      "reverse_context": 0.2923767301771376,
+      "risk_band": "red",
+      "support_units_total": 1,
+      "support_units_used": 0
+    },
+    "top_evidence": [
+      {
+        "index": null,
+        "score": 0.39076587557792664,
+        "text": null
+      },
+      {
+        "index": null,
+        "score": 0.31861045956611633,
+        "text": null
+      },
+      {
+        "index": null,
+        "score": 0.2382296770811081,
+        "text": null
+      },
+      {
+        "index": null,
+        "score": 0.17270633578300476,
+        "text": null
+      }
+    ]
+  },
+  {
+    "scores": {
+      "context_coverage_ratio": 0.0,
+      "literal_guarded": 0.5657289624214172,
+      "primary_name": "reverse_context",
+      "primary_score": 0.2805478274822235,
+      "reverse_context": 0.2805478274822235,
+      "risk_band": "red",
+      "support_units_total": 2,
+      "support_units_used": 0
+    },
+    "top_evidence": [
+      {
+        "index": null,
+        "score": 0.46137771010398865,
+        "text": null
+      },
+      {
+        "index": null,
+        "score": 0.2884182631969452,
+        "text": null
+      },
+      {
+        "index": null,
+        "score": 0.26964738965034485,
+        "text": null
+      },
+      {
+        "index": null,
+        "score": 0.10274789482355118,
+        "text": null
+      }
+    ]
+  }
+]

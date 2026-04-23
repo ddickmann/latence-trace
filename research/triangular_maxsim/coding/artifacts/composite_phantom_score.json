@@ -1,0 +1,55 @@
+{
+  "v1": {
+    "per_chunker": {
+      "sentence_packed": {
+        "weights": {
+          "w_rc": 0.0,
+          "w_pt": 0.95,
+          "w_lg": 0.05
+        },
+        "composite_auroc_v1": 0.984375,
+        "baselines": {
+          "rc_alone_auroc": 0.9375,
+          "p10_alone_auroc": 0.984375,
+          "lg_alone_auroc": 0.796875
+        },
+        "threshold_lock": {
+          "threshold": 0.8819802476809575,
+          "target_fp": 0.05,
+          "actual_fp": 0.0,
+          "recall": 0.875,
+          "flagged_phantoms": 7,
+          "flagged_correct": 0
+        },
+        "n_correct": 8,
+        "n_phantom": 8
+      },
+      "colgrep": {
+        "weights": {
+          "w_rc": 0.0,
+          "w_pt": 1.0,
+          "w_lg": 0.0
+        },
+        "composite_auroc_v1": 0.96875,
+        "baselines": {
+          "rc_alone_auroc": 0.9375,
+          "p10_alone_auroc": 0.96875,
+          "lg_alone_auroc": 0.796875
+        },
+        "threshold_lock": {
+          "threshold": 0.9060829877853394,
+          "target_fp": 0.05,
+          "actual_fp": 0.0,
+          "recall": 0.875,
+          "flagged_phantoms": 7,
+          "flagged_correct": 0
+        },
+        "n_correct": 8,
+        "n_phantom": 8
+      }
+    }
+  },
+  "v2": null,
+  "fit_step": 0.05,
+  "target_fp": 0.05
+}

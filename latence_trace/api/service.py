@@ -38,11 +38,25 @@ import torch
 
 from latence_trace.api.models import (
     AttributionMode,
+    CodeLaneAstDiagnostics,
+    CodeLaneCompositeContributions,
+    CodeLaneCompositeDiagnostics,
+    CodeLaneDiagnostics,
+    CodeLaneFileAttribution,
+    CodeLaneLiteralNovelty,
+    CodeLaneNLICascade,
+    CodeLanePerFileUsage,
+    CodeLanePerUnitOwnership,
     CollectionKind,
+    FileSessionStatsPayload,
     GroundednessEligibility,
     GroundednessRequest,
     GroundednessResponse,
     GroundednessScores,
+    RollingStatsPayload,
+    ScoringMode,
+    SessionSignals as SessionSignalsPayload,
+    SessionStatePayload,
 )
 from latence_trace.core.groundedness import (
     SupportUnitInput,
@@ -55,6 +69,21 @@ from latence_trace.core.groundedness import (
     score_groundedness_response_chunked,
     segment_text,
     tokenize_text,
+)
+from latence_trace.core.code_lane import (
+    AstSymbolExtractor,
+    CodeLaneConfig,
+    CodeLaneResult,
+    GPUScorer,
+    NLICascade,
+    SESSION_STATE_SCHEMA_VERSION,
+    SessionSignals as SessionSignalsData,
+    SessionState as SessionStateData,
+    SupportUnitPack,
+    TurnMetrics,
+    file_attribution_to_turn_inputs,
+    score_code_groundedness,
+    update_session_state,
 )
 from latence_trace.core.nli import (
     default_max_batch as nli_default_max_batch,
@@ -422,6 +451,13 @@ class GroundednessService:
         self._nli_provider_lock = threading.Lock()
         self._nli_reranker_lock = threading.Lock()
         self._null_bank_lock = threading.Lock()
+        # Code-lane singletons. Lazy + lock-protected so two concurrent
+        # cold code-lane requests don't each build their own GPU scorer
+        # or tree-sitter extractor.
+        self._code_scorer: Optional[GPUScorer] = None
+        self._code_ast_extractor: Optional[AstSymbolExtractor] = None
+        self._code_scorer_lock = threading.Lock()
+        self._code_ast_extractor_lock = threading.Lock()
 
     # --- provider plumbing ----------------------------------------------------
 
@@ -593,9 +629,54 @@ class GroundednessService:
             warnings=[],
         )
 
+    # --- lane singletons (lazy, lock-protected) -------------------------
+
+    def _get_code_scorer(self) -> GPUScorer:
+        """Return the process-wide :class:`GPUScorer` singleton.
+
+        Two concurrent cold code-lane requests must not each build their
+        own GPU scorer (dedicated CUDA stream creation is measurable).
+        Gate the construction the same way :meth:`_get_nli_provider` does.
+        """
+        if self._code_scorer is not None:
+            return self._code_scorer
+        with self._code_scorer_lock:
+            if self._code_scorer is not None:
+                return self._code_scorer
+            device = os.environ.get("LATENCE_TRACE_CODE_DEVICE") or (
+                "cuda" if torch.cuda.is_available() else "cpu"
+            )
+            self._code_scorer = GPUScorer(device=device)
+            return self._code_scorer
+
+    def _get_code_ast_extractor(self) -> AstSymbolExtractor:
+        if self._code_ast_extractor is not None:
+            return self._code_ast_extractor
+        with self._code_ast_extractor_lock:
+            if self._code_ast_extractor is not None:
+                return self._code_ast_extractor
+            self._code_ast_extractor = AstSymbolExtractor()
+            return self._code_ast_extractor
+
     # --- main entry point -----------------------------------------------------
 
     def groundedness(self, request: GroundednessRequest) -> GroundednessResponse:
+        """Score one groundedness request.
+
+        Dispatches by :attr:`GroundednessRequest.scoring_mode`:
+
+        - ``rag`` (default) — unchanged enterprise RAG pipeline.
+        - ``code`` — routes through
+          :func:`latence_trace.core.code_lane.score_code_groundedness`
+          after the shared encoder pass so all code-specific signals
+          (AST drift, literal novelty, NLI cascade, composite score,
+          file attribution) can layer on top of the MaxSim backbone.
+        """
+        if request.scoring_mode == ScoringMode.CODE:
+            return self._score_code(request)
+        return self._score_rag(request)
+
+    def _score_rag(self, request: GroundednessRequest) -> GroundednessResponse:
         start = time.perf_counter()
 
         # K1: refuse-to-score gates. Both branches return a fully-typed
@@ -904,8 +985,352 @@ class GroundednessService:
             semantic_entropy_diagnostics=scored.get("semantic_entropy_diagnostics"),
             structured_diagnostics=scored.get("structured_diagnostics"),
             time_ms=elapsed_ms,
+            scoring_mode=ScoringMode.RAG,
+            session_id=request.session_id,
             attribution_mode=request.attribution_mode,
         )
+
+    # --- code-lane ------------------------------------------------------
+
+    def _score_code(self, request: GroundednessRequest) -> GroundednessResponse:
+        """Score a request through the code lane.
+
+        The encoder pass reuses the same provider, segmentation, and
+        support-batch plumbing as the RAG lane so the MaxSim backbone is
+        bit-identical. On top of that the code lane runs:
+
+        - GPU MaxSim scorer with query-aware ownership
+          (:class:`latence_trace.core.code_lane.GPUScorer`)
+        - AST symbol extractor (multi-language tree-sitter)
+        - Literal novelty (per-identifier first-match unit score)
+        - Ambiguity-gated NLI cascade
+        - Optional semantic entropy when ``verification_samples`` is set
+        - Calibrated composite phantom score (linear or logistic)
+        - Per-file and per-unit attribution with reason codes
+        """
+        start = time.perf_counter()
+
+        has_chunk_ids = bool(request.chunk_ids)
+        has_raw_context = bool((request.raw_context or "").strip())
+        has_support_units = bool(request.support_units)
+        if request.attribution_mode == AttributionMode.OPEN_DOMAIN:
+            return self._refusal_response(
+                request=request,
+                started_at=start,
+                mode="open_domain",
+                risk_band="unsupported",
+                reason="open_domain_pending_v1_next",
+                warning=(
+                    "open_domain attribution_mode is reserved for the post-v1 "
+                    "retrieval-callback lane"
+                ),
+            )
+        if not (has_chunk_ids or has_raw_context or has_support_units):
+            return self._refusal_response(
+                request=request,
+                started_at=start,
+                mode="closed_book",
+                risk_band="unknown",
+                reason="no_premise_supplied",
+                warning=(
+                    "No premise supplied. Provide one of chunk_ids, raw_context, "
+                    "or support_units. closed_book attribution_mode refuses to "
+                    "score zero-evidence inputs by design."
+                ),
+            )
+
+        if has_chunk_ids:
+            mode = "chunk_ids"
+        elif has_support_units:
+            mode = "support_units"
+        else:
+            mode = "raw_context"
+        eligibility = self._eligibility(use_stored_vectors=(mode == "chunk_ids"))
+        provider = self._get_groundedness_provider(model_name=request.model)
+        warnings: List[str] = list(eligibility.warnings)
+
+        support_units: List[SupportUnitInput] = self._encode_support_units(
+            request=request,
+            mode=mode,
+            provider=provider,
+            warnings=warnings,
+        )
+
+        response_chunks = _build_response_chunks(
+            request.response_text,
+            provider=provider,
+            chunk_token_budget=request.response_chunk_tokens,
+            encode_fn=encode_texts,
+            document_prompt_name=request.document_prompt_name,
+        )
+        if not response_chunks:
+            raise ValidationError("response_text did not produce any embeddings")
+
+        query_embeddings: Optional[torch.Tensor] = None
+        query_tokens: Optional[List[str]] = None
+        if (request.query_text or "").strip():
+            query_embeddings = encode_texts(
+                provider,
+                [request.query_text],
+                is_query=True,
+                prompt_name=request.query_prompt_name,
+            )[0]
+            query_tokens = tokenize_text(
+                provider,
+                request.query_text,
+                expected_len=int(query_embeddings.shape[0]),
+                is_query=True,
+            )
+
+        response_tokens_flat, response_embeddings_flat, response_token_char_spans = (
+            _stitch_response_chunks(response_chunks)
+        )
+
+        support_packs = _support_units_to_packs(support_units)
+
+        code_config = CodeLaneConfig(
+            response_language_hint=request.response_language_hint,
+            coverage_threshold=float(request.coverage_threshold),
+        )
+
+        scorer = self._get_code_scorer()
+        ast_extractor = (
+            self._get_code_ast_extractor() if code_config.enable_ast else None
+        )
+        nli_provider = self._get_nli_provider() if code_config.enable_nli_cascade else None
+
+        code_result: CodeLaneResult = score_code_groundedness(
+            response_text=request.response_text,
+            response_tokens=response_tokens_flat,
+            response_embeddings=response_embeddings_flat,
+            support_units=support_packs,
+            query_text=request.query_text,
+            query_embeddings=query_embeddings,
+            verification_samples=(
+                list(request.verification_samples)
+                if request.verification_samples
+                else None
+            ),
+            config=code_config,
+            scorer=scorer,
+            ast_extractor=ast_extractor,
+            nli_provider=nli_provider,
+        )
+
+        # Build the API response payload from the code-lane result.
+        model_name = (
+            getattr(provider, "model_name", None)
+            or getattr(provider, "model_name_or_path", None)
+            or request.model
+            or os.environ.get("VOYAGER_GROUNDEDNESS_MODEL")
+            or os.environ.get("VOYAGER_ENCODE_MODEL")
+        )
+        elapsed_ms = (time.perf_counter() - start) * 1000.0
+
+        diagnostics = _code_lane_diagnostics(
+            code_result=code_result,
+            emit_chunk_ownership=bool(request.emit_chunk_ownership),
+        )
+
+        scores = _code_lane_scores(
+            code_result=code_result,
+            coverage_threshold=float(request.coverage_threshold),
+        )
+
+        # Caller-portable session state — opt-in via either an explicit
+        # ``session_state`` payload or just ``session_id``. The server is
+        # stateless: we run a pure deterministic transform and round-trip
+        # the blob back. Nothing is persisted anywhere.
+        next_session_state, session_signals_payload = self._advance_session_state(
+            request=request,
+            scores=scores,
+            code_result=code_result,
+        )
+
+        return GroundednessResponse(
+            collection=self._collection_label,
+            mode=mode,
+            model=model_name,
+            scores=scores,
+            response_tokens=[],
+            support_units=[],
+            top_evidence=[],
+            eligibility=eligibility,
+            query_tokens=None,
+            debug=None,
+            warnings=warnings,
+            literal_diagnostics=None,
+            nli_diagnostics=None,
+            semantic_entropy_diagnostics=None,
+            structured_diagnostics=None,
+            code_lane_diagnostics=diagnostics,
+            time_ms=elapsed_ms,
+            scoring_mode=ScoringMode.CODE,
+            session_id=request.session_id,
+            attribution_mode=request.attribution_mode,
+            next_session_state=next_session_state,
+            session_signals=session_signals_payload,
+        )
+
+    @staticmethod
+    def _advance_session_state(
+        *,
+        request: GroundednessRequest,
+        scores: GroundednessScores,
+        code_result: CodeLaneResult,
+    ) -> Tuple[Optional[SessionStatePayload], Optional[SessionSignalsPayload]]:
+        """Run the pure session-state transform and map the result back.
+
+        Opt-in rule: callers get ``next_session_state`` + ``session_signals``
+        if they either supplied a ``session_state`` payload (a real
+        multi-turn client) *or* a ``session_id`` (a first-turn client
+        that wants to bootstrap the session blob). Callers that pass
+        neither keep the previous code-lane contract byte-for-byte.
+        """
+        if request.session_state is None and not request.session_id:
+            return None, None
+
+        prior = _session_state_from_payload(request.session_state)
+        turn_metrics = _turn_metrics_from(scores=scores, code_result=code_result)
+
+        try:
+            next_state, signals = update_session_state(
+                prior,
+                turn_metrics,
+                session_id=request.session_id,
+            )
+        except Exception:  # pragma: no cover - defensive
+            logger.exception("session-state update failed; dropping session signals")
+            return None, None
+
+        return (
+            _session_state_to_payload(next_state),
+            _session_signals_to_payload(signals),
+        )
+
+    def _encode_support_units(
+        self,
+        *,
+        request: GroundednessRequest,
+        mode: str,
+        provider: Any,
+        warnings: List[str],
+    ) -> List[SupportUnitInput]:
+        """Shared encoder pass for both lanes.
+
+        Extracted from :meth:`_score_rag` verbatim so the code lane
+        reuses the identical segmentation + encoding logic — only the
+        downstream scoring orchestration diverges.
+        """
+        support_units: List[SupportUnitInput] = []
+        if mode == "chunk_ids":
+            for resolved in self._resolve_chunk_ids(request.chunk_ids or []):
+                tensor = torch.as_tensor(resolved.embeddings, dtype=torch.float32)
+                tokens = tokenize_text(
+                    provider,
+                    resolved.text or "",
+                    expected_len=int(tensor.shape[0]),
+                    is_query=False,
+                )
+                if not (resolved.text or "").strip():
+                    warnings.append(
+                        f"chunk_id '{resolved.chunk_id}' has no text/content payload; placeholder tokens will be used"
+                    )
+                support_units.append(
+                    SupportUnitInput(
+                        support_id=str(resolved.chunk_id),
+                        chunk_id=resolved.chunk_id,
+                        source_mode="chunk_ids",
+                        text=resolved.text or "",
+                        embeddings=tensor,
+                        tokens=tokens,
+                        metadata=dict(resolved.metadata or {}),
+                    )
+                )
+            return support_units
+
+        if mode == "support_units" and request.support_units:
+            unit_inputs = list(request.support_units)
+            unit_texts = [(u.text or "") for u in unit_inputs]
+            unit_embeddings = encode_texts(
+                provider,
+                unit_texts,
+                is_query=False,
+                prompt_name=request.document_prompt_name,
+            )
+            for idx, (unit, tensor) in enumerate(zip(unit_inputs, unit_embeddings)):
+                tokens = tokenize_text(
+                    provider,
+                    unit.text or "",
+                    expected_len=int(tensor.shape[0]),
+                    is_query=False,
+                )
+                support_id = (unit.source_id or f"support-{idx}").strip() or f"support-{idx}"
+                support_units.append(
+                    SupportUnitInput(
+                        support_id=support_id,
+                        chunk_id=None,
+                        source_mode="support_units",
+                        text=unit.text or "",
+                        embeddings=tensor,
+                        tokens=tokens,
+                        source_id=unit.source_id,
+                        speaker=unit.speaker,
+                        timestamp=unit.timestamp,
+                        metadata=dict(unit.metadata) if unit.metadata else {},
+                    )
+                )
+            return support_units
+
+        # raw_context path
+        encoder_token_limit = provider_token_limit(provider, is_query=False)
+        if (
+            request.segmentation_mode.value == "sentence_packed"
+            and encoder_token_limit is not None
+            and request.raw_context_chunk_tokens > encoder_token_limit
+        ):
+            warnings.append(
+                "raw_context_chunk_tokens={} exceeds the groundedness encoder token limit {}; "
+                "support windows may be truncated during encoding. Lower the budget or use a longer-context encoder.".format(
+                    request.raw_context_chunk_tokens,
+                    encoder_token_limit,
+                )
+            )
+        segments = segment_text(
+            request.raw_context or "",
+            request.segmentation_mode.value,
+            provider=provider,
+            chunk_token_budget=request.raw_context_chunk_tokens,
+        )
+        if not segments:
+            raise ValidationError("raw_context did not produce any support units")
+        segment_texts = [segment["text"] for segment in segments]
+        segment_embeddings = encode_texts(
+            provider,
+            segment_texts,
+            is_query=False,
+            prompt_name=request.document_prompt_name,
+        )
+        for idx, (segment, tensor) in enumerate(zip(segments, segment_embeddings)):
+            tokens = tokenize_text(
+                provider,
+                segment["text"],
+                expected_len=int(tensor.shape[0]),
+                is_query=False,
+            )
+            support_units.append(
+                SupportUnitInput(
+                    support_id=f"raw-{idx}",
+                    chunk_id=None,
+                    source_mode="raw_context",
+                    text=segment["text"],
+                    embeddings=tensor,
+                    tokens=tokens,
+                    offset_start=int(segment["offset_start"]),
+                    offset_end=int(segment["offset_end"]),
+                )
+            )
+        return support_units
 
     def _refusal_response(
         self,
@@ -950,9 +1375,466 @@ class GroundednessService:
             semantic_entropy_diagnostics=None,
             structured_diagnostics=None,
             time_ms=elapsed_ms,
+            scoring_mode=request.scoring_mode,
+            session_id=request.session_id,
             attribution_mode=request.attribution_mode,
             reason=reason,
         )
+
+
+# ---------------------------------------------------------------------------
+# Code-lane helpers
+# ---------------------------------------------------------------------------
+
+
+def _stitch_response_chunks(
+    response_chunks: Sequence[Any],
+) -> Tuple[List[str], torch.Tensor, List[Tuple[Optional[int], Optional[int]]]]:
+    """Concatenate per-chunk response embeddings/tokens into a flat sequence.
+
+    The code-lane scorer operates on a single ``(T, d)`` response
+    embedding and a parallel ``List[str]`` of tokens. The RAG lane
+    ships response chunks as a list, so here we flatten — preserving
+    chunk order — and accumulate each token's global char span so the
+    downstream attribution layer can locate evidence inside the
+    original response text.
+    """
+    tokens: List[str] = []
+    embeddings: List[torch.Tensor] = []
+    char_spans: List[Tuple[Optional[int], Optional[int]]] = []
+    for chunk in response_chunks:
+        chunk_tokens = list(getattr(chunk, "tokens", []) or [])
+        tokens.extend(chunk_tokens)
+        embeddings.append(torch.as_tensor(chunk.embeddings, dtype=torch.float32))
+        spans = getattr(chunk, "token_char_spans", None)
+        base = int(getattr(chunk, "offset_start", 0) or 0)
+        if spans:
+            for span in spans:
+                if span is None:
+                    char_spans.append((None, None))
+                else:
+                    char_spans.append((base + int(span[0]), base + int(span[1])))
+        else:
+            char_spans.extend([(None, None)] * len(chunk_tokens))
+    if not embeddings:
+        return [], torch.zeros((0, 0), dtype=torch.float32), []
+    return tokens, torch.cat(embeddings, dim=0), char_spans
+
+
+def _support_units_to_packs(
+    support_units: Sequence[SupportUnitInput],
+) -> List[SupportUnitPack]:
+    """Adapt the shared :class:`SupportUnitInput` to :class:`SupportUnitPack`.
+
+    Best-effort path extraction: caller-supplied ``metadata.path`` wins,
+    otherwise we look for a ``# path/to/file.py`` header in the text,
+    otherwise the support_id is used as the attribution key.
+    """
+    packs: List[SupportUnitPack] = []
+    for unit in support_units:
+        metadata_map: Dict[str, Any] = dict(unit.metadata or {})
+        metadata_map.setdefault("text", unit.text)
+        path: Optional[str] = None
+        raw_path = metadata_map.get("path")
+        if raw_path:
+            path = str(raw_path)
+        elif unit.text:
+            first_line = unit.text.split("\n", 1)[0].strip()
+            if first_line.startswith("#"):
+                candidate = first_line.lstrip("# ").strip()
+                if candidate and (
+                    "/" in candidate
+                    or "." in candidate
+                    or candidate.endswith((".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs"))
+                ):
+                    path = candidate
+        packs.append(
+            SupportUnitPack(
+                support_id=unit.support_id,
+                path=path,
+                tokens=tuple(unit.tokens or ()),
+                embeddings=torch.as_tensor(unit.embeddings, dtype=torch.float32),
+                offset_start=unit.offset_start,
+                offset_end=unit.offset_end,
+                metadata=metadata_map,
+            )
+        )
+    return packs
+
+
+# ---------------------------------------------------------------------------
+# Session-state marshalling (pure, lives next to the other mappers)
+# ---------------------------------------------------------------------------
+
+
+def _session_state_from_payload(
+    payload: Optional[SessionStatePayload],
+) -> Optional[SessionStateData]:
+    if payload is None:
+        return None
+    # Treat version mismatches as a fresh session — safer than trying to
+    # upgrade across schema bumps on the hot path.
+    if int(payload.schema_version) != SESSION_STATE_SCHEMA_VERSION:
+        return None
+    return SessionStateData(
+        schema_version=SESSION_STATE_SCHEMA_VERSION,
+        session_id=payload.session_id,
+        total_turns=int(payload.total_turns),
+        cascade_fires=int(payload.cascade_fires),
+        per_token_rolling=_rolling_from_payload(payload.per_token_rolling),
+        composite_rolling=_rolling_from_payload(payload.composite_rolling),
+        groundedness_rolling=_rolling_from_payload(payload.groundedness_rolling),
+        groundedness_baseline=_rolling_from_payload(payload.groundedness_baseline),
+        ema_groundedness=payload.ema_groundedness,
+        file_stats={
+            path: _file_stats_from_payload(entry)
+            for path, entry in (payload.file_stats or {}).items()
+        },
+        phantom_trail=list(payload.phantom_trail or []),
+        risk_band_trail=list(payload.risk_band_trail or []),
+        ema_half_life_turns=int(payload.ema_half_life_turns or 5),
+        groundedness_ema_half_life=int(payload.groundedness_ema_half_life or 3),
+        verdict_window=int(payload.verdict_window or 20),
+        risk_band_window=int(payload.risk_band_window or 20),
+    )
+
+
+def _rolling_from_payload(payload: RollingStatsPayload):  # type: ignore[no-untyped-def]
+    from latence_trace.core.code_lane.session import RollingStats
+
+    return RollingStats(
+        n=int(payload.n),
+        mean=float(payload.mean),
+        m2=float(payload.m2),
+    )
+
+
+def _file_stats_from_payload(payload: FileSessionStatsPayload):  # type: ignore[no-untyped-def]
+    from latence_trace.core.code_lane.session import FileSessionStats
+
+    return FileSessionStats(
+        ema_owner_share=float(payload.ema_owner_share),
+        ema_query_owner_share=float(payload.ema_query_owner_share),
+        dead_turns=int(payload.dead_turns),
+        total_turns=int(payload.total_turns),
+    )
+
+
+def _session_state_to_payload(state: SessionStateData) -> SessionStatePayload:
+    return SessionStatePayload(
+        schema_version=state.schema_version,
+        session_id=state.session_id,
+        total_turns=state.total_turns,
+        cascade_fires=state.cascade_fires,
+        per_token_rolling=RollingStatsPayload(
+            n=state.per_token_rolling.n,
+            mean=state.per_token_rolling.mean,
+            m2=state.per_token_rolling.m2,
+        ),
+        composite_rolling=RollingStatsPayload(
+            n=state.composite_rolling.n,
+            mean=state.composite_rolling.mean,
+            m2=state.composite_rolling.m2,
+        ),
+        groundedness_rolling=RollingStatsPayload(
+            n=state.groundedness_rolling.n,
+            mean=state.groundedness_rolling.mean,
+            m2=state.groundedness_rolling.m2,
+        ),
+        groundedness_baseline=RollingStatsPayload(
+            n=state.groundedness_baseline.n,
+            mean=state.groundedness_baseline.mean,
+            m2=state.groundedness_baseline.m2,
+        ),
+        ema_groundedness=state.ema_groundedness,
+        file_stats={
+            path: FileSessionStatsPayload(
+                ema_owner_share=stats.ema_owner_share,
+                ema_query_owner_share=stats.ema_query_owner_share,
+                dead_turns=stats.dead_turns,
+                total_turns=stats.total_turns,
+            )
+            for path, stats in state.file_stats.items()
+        },
+        phantom_trail=list(state.phantom_trail),
+        risk_band_trail=list(state.risk_band_trail),
+        ema_half_life_turns=state.ema_half_life_turns,
+        groundedness_ema_half_life=state.groundedness_ema_half_life,
+        verdict_window=state.verdict_window,
+        risk_band_window=state.risk_band_window,
+    )
+
+
+def _session_signals_to_payload(
+    signals: SessionSignalsData,
+) -> SessionSignalsPayload:
+    return SessionSignalsPayload(
+        total_turns=signals.total_turns,
+        drift_z_score=signals.drift_z_score,
+        ema_groundedness=signals.ema_groundedness,
+        groundedness_drift=signals.groundedness_drift,
+        dead_file_candidates=list(signals.dead_file_candidates),
+        dead_weight_streak=signals.dead_weight_streak,
+        cascade_density=signals.cascade_density,
+        phantom_rate=signals.phantom_rate,
+        red_streak=signals.red_streak,
+        recommendation=signals.recommendation,
+    )
+
+
+def _turn_metrics_from(
+    *,
+    scores: GroundednessScores,
+    code_result: CodeLaneResult,
+) -> TurnMetrics:
+    attribution = code_result.file_attribution
+    file_updates = file_attribution_to_turn_inputs(
+        [
+            {
+                "path": entry.path,
+                "owner_share": entry.owner_share,
+                "query_owner_share": entry.query_owner_share,
+                "dead_weight": entry.dead_weight,
+            }
+            for entry in attribution.per_file
+        ]
+    )
+    ast_result = code_result.ast
+    cascade = code_result.nli_cascade
+    # On the code lane the headline groundedness is the calibrated
+    # composite score (range [0, 1]); fall back to the legacy
+    # ``groundedness_v2`` field if downstream mappers expose it so the
+    # session EMA and drift signals remain meaningful for the RAG lane
+    # too once it opts in.
+    groundedness = getattr(scores, "groundedness_v2", None)
+    if groundedness is None:
+        groundedness = getattr(scores, "composite_phantom_score", None)
+    return TurnMetrics(
+        groundedness=(None if groundedness is None else float(groundedness)),
+        per_token_p10=code_result.scorer.per_token_p10,
+        composite=code_result.composite.composite_score,
+        dead_weight_ratio=attribution.dead_weight_ratio,
+        cascade_fired=bool(cascade and cascade.triggered),
+        phantom_verdict=(
+            None if ast_result is None else bool(ast_result.ast_phantom_verdict)
+        ),
+        phantom_probability=(
+            None
+            if cascade is None
+            else float(cascade.nli_contradiction_prob_max)
+        ),
+        risk_band=_risk_band_from_scores(scores),
+        file_updates=file_updates,
+    )
+
+
+def _risk_band_from_scores(scores: GroundednessScores) -> Optional[str]:
+    band = getattr(scores, "risk_band", None)
+    if band is None:
+        return None
+    return str(band.value) if hasattr(band, "value") else str(band)
+
+
+def _code_lane_diagnostics(
+    *,
+    code_result: CodeLaneResult,
+    emit_chunk_ownership: bool,
+) -> CodeLaneDiagnostics:
+    """Project a :class:`CodeLaneResult` into the API diagnostics payload."""
+    composite_result = code_result.composite
+    composite_diag = CodeLaneCompositeDiagnostics(
+        kind=composite_result.kind,
+        composite_score=float(composite_result.composite_score),
+        phantom_probability=float(composite_result.phantom_probability),
+        verdict=bool(composite_result.verdict),
+        threshold=float(composite_result.threshold),
+        contributions=[
+            CodeLaneCompositeContributions(name=name, value=float(value))
+            for name, value in (composite_result.contributions or {}).items()
+        ],
+    )
+
+    ast_diag: Optional[CodeLaneAstDiagnostics] = None
+    if code_result.ast is not None:
+        ast_diag = CodeLaneAstDiagnostics(
+            language=code_result.ast.language,
+            parser_backend=code_result.ast.parser_backend,
+            ast_literal_drift_count=int(code_result.ast.ast_literal_drift_count),
+            ast_phantom_symbol_count=int(code_result.ast.ast_phantom_symbol_count),
+            ast_phantom_verdict=bool(code_result.ast.ast_phantom_verdict),
+            drift_symbols=list(code_result.ast.drift_symbols),
+            phantom_symbols=list(code_result.ast.phantom_symbols),
+            latency_ms=float(code_result.ast.latency_ms),
+        )
+
+    ln_diag: Optional[CodeLaneLiteralNovelty] = None
+    if code_result.literal_novelty is not None:
+        ln_diag = CodeLaneLiteralNovelty(
+            literal_novelty_min=float(code_result.literal_novelty.literal_novelty_min),
+            literal_novelty_mean=float(code_result.literal_novelty.literal_novelty_mean),
+            literal_novelty_count=int(code_result.literal_novelty.literal_novelty_count),
+            missing_literal_count=int(
+                code_result.literal_novelty.missing_literal_count
+            ),
+        )
+
+    nli_diag: Optional[CodeLaneNLICascade] = None
+    if code_result.nli_cascade is not None:
+        nli_diag = CodeLaneNLICascade(
+            triggered=bool(code_result.nli_cascade.triggered),
+            skipped_reason=code_result.nli_cascade.skipped_reason,
+            nli_contradiction_prob_max=float(
+                code_result.nli_cascade.nli_contradiction_prob_max
+            ),
+            nli_entailment_prob_mean=float(
+                code_result.nli_cascade.nli_entailment_prob_mean
+            ),
+            nli_aggregate=(
+                None
+                if code_result.nli_cascade.nli_aggregate is None
+                else float(code_result.nli_cascade.nli_aggregate)
+            ),
+            claim_count=int(code_result.nli_cascade.claim_count),
+            verified_claim_count=int(code_result.nli_cascade.verified_claim_count),
+            latency_ms=float(code_result.nli_cascade.latency_ms),
+        )
+
+    fa = code_result.file_attribution
+    per_file = [
+        CodeLanePerFileUsage(
+            path=rec.path,
+            n_units=int(rec.n_units),
+            used=int(rec.used),
+            uncertain=int(rec.uncertain),
+            unused=int(rec.unused),
+            coverage=float(rec.coverage),
+            mean_score=float(rec.mean_score),
+            max_evidence=float(rec.max_evidence),
+            owner_tokens=int(rec.owner_tokens),
+            owner_share=float(rec.owner_share),
+            query_owner_tokens=int(rec.query_owner_tokens),
+            query_owner_share=float(rec.query_owner_share),
+            dead_weight=bool(rec.dead_weight),
+            reason_codes=[rc.value for rc in rec.reason_codes],
+            dominating_peer=rec.dominating_peer,
+        )
+        for rec in fa.per_file
+    ]
+    per_unit = (
+        [
+            CodeLanePerUnitOwnership(
+                support_id=rec.support_id,
+                path=rec.path,
+                unit_index=int(rec.unit_index),
+                max_cos=float(rec.max_cos),
+                response_owner_count=int(rec.response_owner_count),
+                query_owner_count=int(rec.query_owner_count),
+                response_owner_share=float(rec.response_owner_share),
+                query_owner_share=float(rec.query_owner_share),
+                offset_start=rec.offset_start,
+                offset_end=rec.offset_end,
+                usage_state=rec.usage_state,
+            )
+            for rec in fa.per_unit
+        ]
+        if emit_chunk_ownership
+        else []
+    )
+
+    fa_diag = CodeLaneFileAttribution(
+        per_file=per_file,
+        per_unit=per_unit,
+        dead_weight_files=list(fa.dead_weight_files),
+        dead_weight_ratio=float(fa.dead_weight_ratio),
+        n_files=int(fa.n_files),
+        n_response_tokens=int(fa.n_response_tokens),
+        n_query_tokens=int(fa.n_query_tokens),
+        min_owner_share=float(fa.min_owner_share),
+        coverage_threshold=float(fa.coverage_threshold),
+        low_cosine_threshold=float(fa.low_cosine_threshold),
+    )
+
+    return CodeLaneDiagnostics(
+        config=code_result.config.as_dict(),
+        total_latency_ms=float(code_result.total_latency_ms),
+        component_latency_ms={
+            k: float(v) for k, v in code_result.component_latency_ms.items()
+        },
+        composite=composite_diag,
+        ast=ast_diag,
+        literal_novelty=ln_diag,
+        nli_cascade=nli_diag,
+        file_attribution=fa_diag,
+    )
+
+
+def _code_lane_scores(
+    *,
+    code_result: CodeLaneResult,
+    coverage_threshold: float,
+) -> GroundednessScores:
+    """Project code-lane diagnostics into the top-level scores payload.
+
+    Fills in the primary metric + back-compatible coverage fields used
+    by the RAG UI plus the new code-specific headline numbers (composite
+    verdict, AST phantom counts, literal novelty, dead-weight ratio) so
+    IDE plugins can render a one-bit "green / yellow / red" indicator
+    without reading the nested diagnostics bundle.
+    """
+    scorer = code_result.scorer
+    composite = code_result.composite
+    fa = code_result.file_attribution
+    literal = code_result.literal_novelty
+    ast_res = code_result.ast
+    nli = code_result.nli_cascade
+
+    used_units = sum(1 for s in scorer.usage_states if s == "used")
+    unused_units = sum(1 for s in scorer.usage_states if s == "unused")
+    uncertain_units = sum(1 for s in scorer.usage_states if s == "uncertain")
+    total_units = max(1, len(scorer.usage_states))
+
+    return GroundednessScores(
+        primary_name="composite_phantom_score",
+        primary_score=float(composite.composite_score),
+        reverse_context=float(scorer.reverse_context),
+        literal_guarded=float(scorer.literal_guard),
+        context_coverage_ratio=float(used_units) / total_units,
+        context_coverage_threshold=float(coverage_threshold),
+        support_units_used=int(used_units),
+        support_units_total=int(total_units),
+        support_units_usage_used=int(used_units),
+        support_units_unused=int(unused_units),
+        support_units_uncertain=int(uncertain_units),
+        context_usage_ratio=float(used_units) / total_units,
+        context_unused_ratio=float(unused_units) / total_units,
+        context_uncertain_ratio=float(uncertain_units) / total_units,
+        composite_phantom_score=float(composite.composite_score),
+        composite_phantom_probability=float(composite.phantom_probability),
+        composite_phantom_verdict=bool(composite.verdict),
+        literal_novelty_min=(
+            None if literal is None else float(literal.literal_novelty_min)
+        ),
+        literal_novelty_missing_count=(
+            None if literal is None else int(literal.missing_literal_count)
+        ),
+        ast_phantom_symbol_count=(
+            None if ast_res is None else int(ast_res.ast_phantom_symbol_count)
+        ),
+        ast_literal_drift_count=(
+            None if ast_res is None else int(ast_res.ast_literal_drift_count)
+        ),
+        ast_phantom_verdict=(
+            None if ast_res is None else bool(ast_res.ast_phantom_verdict)
+        ),
+        nli_contradiction_prob_max=(
+            None
+            if nli is None or not nli.triggered
+            else float(nli.nli_contradiction_prob_max)
+        ),
+        nli_cascade_triggered=(None if nli is None else bool(nli.triggered)),
+        dead_weight_ratio=float(fa.dead_weight_ratio),
+        dead_weight_file_count=int(len(fa.dead_weight_files)),
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,117 @@
+{
+  "v1": {
+    "per_chunker": {
+      "sentence_packed": {
+        "weights": {
+          "w_rc": 0.0,
+          "w_pt": 0.95,
+          "w_lg": 0.05
+        },
+        "composite_auroc_v1": 0.984375,
+        "baselines": {
+          "rc_alone_auroc": 0.9375,
+          "p10_alone_auroc": 0.984375,
+          "lg_alone_auroc": 0.796875
+        },
+        "threshold_lock": {
+          "threshold": 0.8819802476809575,
+          "target_fp": 0.05,
+          "actual_fp": 0.0,
+          "recall": 0.875,
+          "flagged_phantoms": 7,
+          "flagged_correct": 0
+        },
+        "n_correct": 8,
+        "n_phantom": 8
+      },
+      "colgrep": {
+        "weights": {
+          "w_rc": 0.0,
+          "w_pt": 1.0,
+          "w_lg": 0.0
+        },
+        "composite_auroc_v1": 0.96875,
+        "baselines": {
+          "rc_alone_auroc": 0.9375,
+          "p10_alone_auroc": 0.96875,
+          "lg_alone_auroc": 0.796875
+        },
+        "threshold_lock": {
+          "threshold": 0.9060829877853394,
+          "target_fp": 0.05,
+          "actual_fp": 0.0,
+          "recall": 0.875,
+          "flagged_phantoms": 7,
+          "flagged_correct": 0
+        },
+        "n_correct": 8,
+        "n_phantom": 8
+      }
+    }
+  },
+  "v2": {
+    "auroc_correct_vs_wrong": 0.8075,
+    "auroc_correct_vs_ambiguous": 0.5375,
+    "flagged_at_v1_threshold": {
+      "correct": 1,
+      "wrong": 1,
+      "ambiguous": 1
+    },
+    "counts_by_tier": {
+      "correct": 20,
+      "wrong": 20,
+      "ambiguous": 20
+    },
+    "v2_threshold_lock": {
+      "threshold": 0.8627712124683818,
+      "target_fp": 0.05,
+      "actual_fp": 0.0,
+      "recall": 0.05,
+      "flagged_phantoms": 1,
+      "flagged_correct": 0
+    },
+    "v2_threshold_sweep": [
+      {
+        "target_fp": 0.02,
+        "threshold": 0.8627712124683818,
+        "actual_fp": 0.0,
+        "recall": 0.05,
+        "flagged_phantoms": 1,
+        "flagged_correct": 0
+      },
+      {
+        "target_fp": 0.05,
+        "threshold": 0.8627712124683818,
+        "actual_fp": 0.0,
+        "recall": 0.05,
+        "flagged_phantoms": 1,
+        "flagged_correct": 0
+      },
+      {
+        "target_fp": 0.1,
+        "threshold": 0.9002406559042307,
+        "actual_fp": 0.05,
+        "recall": 0.25,
+        "flagged_phantoms": 5,
+        "flagged_correct": 1
+      },
+      {
+        "target_fp": 0.2,
+        "threshold": 0.9146726531452603,
+        "actual_fp": 0.15,
+        "recall": 0.6,
+        "flagged_phantoms": 12,
+        "flagged_correct": 3
+      }
+    ],
+    "source_chunker_for_weights": "sentence_packed",
+    "weights": {
+      "w_rc": 0.0,
+      "w_pt": 0.95,
+      "w_lg": 0.05
+    },
+    "threshold": 0.8819802476809575
+  },
+  "fit_step": 0.05,
+  "target_fp": 0.05
+}

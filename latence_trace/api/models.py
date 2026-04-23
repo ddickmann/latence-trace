@@ -7,7 +7,7 @@ latence-trace without touching their request/response shapes.
 """
 
 from enum import Enum
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -24,6 +24,28 @@ class CollectionKind(str, Enum):
     LATE_INTERACTION = "late_interaction"
     MULTIMODAL = "multimodal"
     SHARD = "shard"
+
+
+class ScoringMode(str, Enum):
+    """Top-level scoring lane selector.
+
+    ``rag`` (default) keeps the long-standing retrieval-augmented
+    groundedness behaviour used by enterprise RAG pipelines — every
+    existing client continues to work untouched when ``scoring_mode``
+    is omitted.
+
+    ``code`` routes through the code-lane orchestrator
+    (:mod:`latence_trace.core.code_lane.orchestrator`) which layers
+    AST drift detection, per-identifier novelty, an ambiguity-gated
+    NLI cascade, optional semantic entropy, a calibrated composite
+    score, and per-file / per-unit attribution with reason codes on
+    top of the shared ColBERT MaxSim backbone. Pick this lane when
+    scoring agentic coding turns (Cursor, Claude Code, OpenAI Codex,
+    OpenCode, aider, ...).
+    """
+
+    RAG = "rag"
+    CODE = "code"
 
 
 class GroundednessSegmentationMode(str, Enum):
@@ -105,14 +127,32 @@ class GroundednessRequest(BaseModel):
 
     model_config = ConfigDict(
         json_schema_extra={
-            "example": {
-                "chunk_ids": ["doc-1", "doc-7"],
-                "query_text": "When was Teardrops released in the United States?",
-                "response_text": "Teardrops was released in the United States on 20 July 1981.",
-                "evidence_limit": 5,
-                "primary_metric": "reverse_context",
-                "raw_context_chunk_tokens": 256,
-            }
+            "examples": [
+                {
+                    "summary": "RAG lane (default) — enterprise retrieval grounding",
+                    "value": {
+                        "chunk_ids": ["doc-1", "doc-7"],
+                        "query_text": "When was Teardrops released in the United States?",
+                        "response_text": "Teardrops was released in the United States on 20 July 1981.",
+                        "evidence_limit": 5,
+                        "primary_metric": "reverse_context",
+                        "raw_context_chunk_tokens": 256,
+                    },
+                },
+                {
+                    "summary": "Code lane — agentic coding turn",
+                    "value": {
+                        "scoring_mode": "code",
+                        "session_id": "hashed-session-abc123",
+                        "response_language_hint": "python",
+                        "query_text": "Add retry logic to fetch_user",
+                        "response_text": "```python\nfrom httpx import AsyncClient\n\nasync def fetch_user(id: int):\n    client = AsyncClient()\n    return await client.get(f'/users/{id}')\n```",
+                        "raw_context": "# fetch_user.py\nasync def fetch_user(id: int):\n    async with httpx.AsyncClient() as client:\n        return await client.get(f'/users/{id}')\n",
+                        "emit_chunk_ownership": True,
+                        "evidence_limit": 5,
+                    },
+                },
+            ]
         }
     )
 
@@ -257,6 +297,63 @@ class GroundednessRequest(BaseModel):
             "'unit_swap', 'negation', 'role_swap', 'partial', or 'default' "
             "(the conservative maximum). When omitted the classifier uses the "
             "hardest calibrated threshold so the green band stays honest."
+        ),
+    )
+    scoring_mode: ScoringMode = Field(
+        default=ScoringMode.RAG,
+        description=(
+            "Lane selector. ``rag`` (default) keeps the existing enterprise "
+            "RAG groundedness pipeline untouched. ``code`` routes through the "
+            "code lane — AST drift, literal novelty, ambiguity-gated NLI, "
+            "semantic entropy, calibrated composite score, and per-file / "
+            "per-unit attribution with reason codes — designed for agentic "
+            "coding harnesses like Cursor, Claude Code, OpenAI Codex, and "
+            "OpenCode. Backwards compatible: clients that do not set this "
+            "field stay on the RAG lane."
+        ),
+    )
+    session_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "Optional opaque session identifier echoed back in the response "
+            "and structured logs so plugins can correlate turn events for "
+            "multi-turn EMA / z-score analysis client-side. The server is "
+            "stateless — this field is a passthrough label, nothing more. "
+            "PII concerns: do *not* put user text in here; use a hashed "
+            "session token."
+        ),
+    )
+    response_language_hint: Optional[str] = Field(
+        default=None,
+        description=(
+            "Optional programming-language hint for the code lane. Accepts "
+            "any of ``python``, ``typescript``, ``tsx``, ``javascript``, "
+            "``jsx``, ``go``, ``rust`` and their short aliases. When omitted "
+            "the AST extractor falls back to the language declared on the "
+            "response's first fenced code block, then to content heuristics. "
+            "Ignored by the RAG lane."
+        ),
+    )
+    emit_chunk_ownership: bool = Field(
+        default=False,
+        description=(
+            "Code lane only. When True the response carries the full "
+            "per-unit ownership table (one entry per support chunk with "
+            "max cosine, owner counts, offsets, and usage state) so IDE "
+            "plugins can drop sub-file regions at the 200k-token wall. "
+            "Costs a few extra KB over the wire; keep False for UI-only "
+            "dashboards that just need the file rollup."
+        ),
+    )
+    session_state: Optional["SessionStatePayload"] = Field(
+        default=None,
+        description=(
+            "Caller-portable session blob for code-lane temporal signals "
+            "(drift, EMA groundedness, dead-weight streaks, "
+            "recommendations). The server is stateless: echo back the "
+            "``next_session_state`` from the previous response on each "
+            "subsequent turn. Omit on the first turn to initialise. "
+            "Ignored by the RAG lane. See ``docs/session_semantics.md``."
         ),
     )
 
@@ -434,6 +531,101 @@ class GroundednessScores(BaseModel):
             "Fraction of support units emitted as ``usage_state = uncertain``."
         ),
     )
+    # --- Code-lane additions ------------------------------------------
+    composite_phantom_score: Optional[float] = Field(
+        default=None,
+        description=(
+            "Code lane only. Calibrated composite phantom-guard score in "
+            "``[0, 1]``; 1.0 = maximally grounded, 0.0 = flagged as phantom. "
+            "Combines reverse_context, per_token_p10, literal_guard, "
+            "literal_novelty_min, AST drift/phantom counts, and (when "
+            "triggered) NLI contradiction. Threshold defaults to 0.5."
+        ),
+    )
+    composite_phantom_probability: Optional[float] = Field(
+        default=None,
+        description=(
+            "Code lane only. Calibrated probability that the turn is a "
+            "phantom / hallucination. This is ``1 - composite_phantom_score`` "
+            "when the logistic composite is active."
+        ),
+    )
+    composite_phantom_verdict: Optional[bool] = Field(
+        default=None,
+        description=(
+            "Code lane only. True when "
+            "``composite_phantom_probability > threshold``. Designed to be "
+            "the one-bit signal IDE plugins consume."
+        ),
+    )
+    literal_novelty_min: Optional[float] = Field(
+        default=None,
+        description=(
+            "Code lane only. Minimum first-match score over every response "
+            "identifier. Low values mean at least one identifier only matches "
+            "low-cosine support units — a classic phantom-import signature."
+        ),
+    )
+    literal_novelty_missing_count: Optional[int] = Field(
+        default=None,
+        description=(
+            "Code lane only. Count of response identifiers that had no match "
+            "in any support unit."
+        ),
+    )
+    ast_phantom_symbol_count: Optional[int] = Field(
+        default=None,
+        description=(
+            "Code lane only. Count of imports / classes the response uses "
+            "that do not appear in any context unit. Precision-1.0 phantom "
+            "signal when > 0."
+        ),
+    )
+    ast_literal_drift_count: Optional[int] = Field(
+        default=None,
+        description=(
+            "Code lane only. Count of response identifiers (class / function "
+            "/ method / kwarg) not present in any context unit's symbol "
+            "table. Catches identifier-swap drift that the literal guard "
+            "misses because sub-word tokens overlap."
+        ),
+    )
+    ast_phantom_verdict: Optional[bool] = Field(
+        default=None,
+        description=(
+            "Code lane only. True when at least one phantom import / class "
+            "was detected."
+        ),
+    )
+    nli_contradiction_prob_max: Optional[float] = Field(
+        default=None,
+        description=(
+            "Code lane only. Maximum per-claim NLI contradiction probability "
+            "produced by the ambiguity-triggered cascade. ``None`` when the "
+            "cascade did not fire (composite outside ``[0.65, 0.90]``)."
+        ),
+    )
+    nli_cascade_triggered: Optional[bool] = Field(
+        default=None,
+        description=(
+            "Code lane only. True when the NLI cascade ran for this turn."
+        ),
+    )
+    dead_weight_ratio: Optional[float] = Field(
+        default=None,
+        description=(
+            "Code lane only. Fraction of context files whose "
+            "``owner_share < min_owner_share`` — i.e. contributed zero (or "
+            "negligible) evidence to the response."
+        ),
+    )
+    dead_weight_file_count: Optional[int] = Field(
+        default=None,
+        description=(
+            "Code lane only. Raw count of context files flagged as dead "
+            "weight this turn."
+        ),
+    )
 
 
 class GroundednessLiteral(BaseModel):
@@ -534,6 +726,275 @@ class GroundednessStructuredDiagnostics(BaseModel):
     response_triple_count: int = 0
     matches: List[GroundednessStructuredTripleMatch] = Field(default_factory=list)
     mismatches: List[GroundednessStructuredTripleMatch] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Code-lane diagnostics
+# ---------------------------------------------------------------------------
+
+
+class CodeLaneCompositeContributions(BaseModel):
+    """Per-feature contribution breakdown of the composite score."""
+
+    name: str = Field(..., description="Feature or interaction term name.")
+    value: float = Field(..., description="Signed contribution to the composite.")
+
+
+class CodeLaneCompositeDiagnostics(BaseModel):
+    """Diagnostics for the calibrated composite phantom-guard score."""
+
+    kind: str = Field(..., description="'linear' or 'logistic' depending on which composite ran.")
+    composite_score: float
+    phantom_probability: float
+    verdict: bool
+    threshold: float
+    contributions: List[CodeLaneCompositeContributions] = Field(default_factory=list)
+
+
+class CodeLaneAstDiagnostics(BaseModel):
+    """Multi-language AST drift diagnostics."""
+
+    language: Optional[str] = Field(
+        default=None,
+        description="Detected language (python/typescript/javascript/go/rust) or None.",
+    )
+    parser_backend: str = Field(
+        ...,
+        description="'tree_sitter' when a grammar loaded, 'regex_fallback' otherwise, 'disabled' when the AST pass is off.",
+    )
+    ast_literal_drift_count: int = 0
+    ast_phantom_symbol_count: int = 0
+    ast_phantom_verdict: bool = False
+    drift_symbols: List[str] = Field(default_factory=list)
+    phantom_symbols: List[str] = Field(default_factory=list)
+    latency_ms: float = 0.0
+
+
+class CodeLaneNLICascade(BaseModel):
+    """Ambiguity-gated NLI cascade diagnostics."""
+
+    triggered: bool
+    skipped_reason: Optional[str] = None
+    nli_contradiction_prob_max: float = 0.0
+    nli_entailment_prob_mean: float = 0.0
+    nli_aggregate: Optional[float] = None
+    claim_count: int = 0
+    verified_claim_count: int = 0
+    latency_ms: float = 0.0
+
+
+class CodeLaneLiteralNovelty(BaseModel):
+    """Per-identifier first-match novelty diagnostics."""
+
+    literal_novelty_min: float = 1.0
+    literal_novelty_mean: float = 1.0
+    literal_novelty_count: int = 0
+    missing_literal_count: int = 0
+
+
+class CodeLanePerUnitOwnership(BaseModel):
+    """Chunk-level ownership record."""
+
+    support_id: str
+    path: Optional[str] = None
+    unit_index: int
+    max_cos: float
+    response_owner_count: int
+    query_owner_count: int
+    response_owner_share: float
+    query_owner_share: float
+    offset_start: Optional[int] = None
+    offset_end: Optional[int] = None
+    usage_state: str
+
+
+class CodeLanePerFileUsage(BaseModel):
+    """Per-file rollup with reason codes."""
+
+    path: str
+    n_units: int
+    used: int
+    uncertain: int
+    unused: int
+    coverage: float
+    mean_score: float
+    max_evidence: float
+    owner_tokens: int
+    owner_share: float
+    query_owner_tokens: int
+    query_owner_share: float
+    dead_weight: bool
+    reason_codes: List[str] = Field(default_factory=list)
+    dominating_peer: Optional[str] = None
+
+
+class CodeLaneFileAttribution(BaseModel):
+    """File-level attribution bundle for the code lane."""
+
+    per_file: List[CodeLanePerFileUsage] = Field(default_factory=list)
+    per_unit: List[CodeLanePerUnitOwnership] = Field(default_factory=list)
+    dead_weight_files: List[str] = Field(default_factory=list)
+    dead_weight_ratio: float = 0.0
+    n_files: int = 0
+    n_response_tokens: int = 0
+    n_query_tokens: int = 0
+    min_owner_share: float = 0.01
+    coverage_threshold: float = 0.20
+    low_cosine_threshold: float = 0.40
+
+
+class CodeLaneDiagnostics(BaseModel):
+    """Full diagnostics payload for ``scoring_mode == "code"`` responses."""
+
+    config: dict = Field(default_factory=dict, description="Snapshot of the code-lane config used.")
+    total_latency_ms: float = 0.0
+    component_latency_ms: dict = Field(
+        default_factory=dict,
+        description="Per-component latency breakdown: scorer_ms, literal_novelty_ms, ast_ms, nli_ms, file_attribution_ms.",
+    )
+    composite: Optional[CodeLaneCompositeDiagnostics] = None
+    ast: Optional[CodeLaneAstDiagnostics] = None
+    literal_novelty: Optional[CodeLaneLiteralNovelty] = None
+    nli_cascade: Optional[CodeLaneNLICascade] = None
+    file_attribution: Optional[CodeLaneFileAttribution] = None
+
+
+class RollingStatsPayload(BaseModel):
+    """Welford-style running mean + variance accumulator (wire shape)."""
+
+    n: int = 0
+    mean: float = 0.0
+    m2: float = 0.0
+
+
+class FileSessionStatsPayload(BaseModel):
+    """Per-file rolling stats inside the portable session blob."""
+
+    ema_owner_share: float = 0.0
+    ema_query_owner_share: float = 0.0
+    dead_turns: int = 0
+    total_turns: int = 0
+
+
+class SessionStatePayload(BaseModel):
+    """Caller-portable session blob for temporal code-lane signals.
+
+    The API is stateless for per-turn measurement. Temporal judgments
+    (drift, EMA groundedness, dead-weight streaks, recommendations)
+    require memory *somewhere* — this payload makes that memory a
+    first-class, **caller-carried** concern.
+
+    Protocol
+    --------
+    - Turn 1: omit ``session_state`` entirely. The response carries a
+      freshly initialised ``next_session_state``.
+    - Turn N+1: echo the previous ``next_session_state`` back as
+      ``session_state``. The server runs a pure deterministic
+      transform and returns an updated blob.
+    - The server never persists this blob. It round-trips verbatim
+      on the request/response boundary.
+
+    Schema is versioned via ``schema_version``; mismatched versions
+    are treated as a fresh session (safe default).
+
+    See :mod:`latence_trace.core.code_lane.session` for the transform
+    and ``docs/session_semantics.md`` for the full protocol spec.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    schema_version: int = Field(
+        default=1,
+        description="Session-state schema version. Bumped on breaking changes.",
+    )
+    session_id: Optional[str] = Field(
+        default=None,
+        description="Opaque session identifier. Not used for lookup — just echoed.",
+    )
+    total_turns: int = 0
+    cascade_fires: int = 0
+    per_token_rolling: RollingStatsPayload = Field(default_factory=RollingStatsPayload)
+    composite_rolling: RollingStatsPayload = Field(default_factory=RollingStatsPayload)
+    groundedness_rolling: RollingStatsPayload = Field(
+        default_factory=RollingStatsPayload
+    )
+    groundedness_baseline: RollingStatsPayload = Field(
+        default_factory=RollingStatsPayload
+    )
+    ema_groundedness: Optional[float] = None
+    file_stats: Dict[str, FileSessionStatsPayload] = Field(default_factory=dict)
+    phantom_trail: List[Optional[bool]] = Field(default_factory=list)
+    risk_band_trail: List[str] = Field(default_factory=list)
+    ema_half_life_turns: int = 5
+    groundedness_ema_half_life: int = 3
+    verdict_window: int = 20
+    risk_band_window: int = 20
+
+
+class SessionSignals(BaseModel):
+    """Derived session-level signals emitted next to ``next_session_state``.
+
+    These are cheap rollups the caller can render directly without
+    cracking the opaque state blob open. They are *advisory* — every
+    per-turn metric in ``scores`` / ``code_lane_diagnostics`` is still
+    available independently.
+    """
+
+    total_turns: int = 0
+    drift_z_score: float = Field(
+        default=0.0,
+        description=(
+            "Absolute per-session z-score of the current ``per_token_p10`` "
+            "against the session's rolling baseline. A value >= 2.0 is a "
+            "strong drift signal."
+        ),
+    )
+    ema_groundedness: Optional[float] = Field(
+        default=None,
+        description="EMA of the turn-level groundedness headline over the session.",
+    )
+    groundedness_drift: float = Field(
+        default=0.0,
+        description=(
+            "``ema_groundedness - baseline_mean`` where the baseline is "
+            "the mean of the first ~10 turns. Negative = session is "
+            "degrading vs its early behaviour."
+        ),
+    )
+    dead_file_candidates: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Files whose EMA owner_share has stayed below the dead-weight "
+            "threshold for at least 5 consecutive turns. Safe to evict "
+            "from the agent's context window."
+        ),
+    )
+    dead_weight_streak: int = Field(
+        default=0,
+        description="Length of the longest active dead-turn run across tracked files.",
+    )
+    cascade_density: float = Field(
+        default=0.0,
+        description=(
+            "Fraction of turns that triggered the NLI cascade. A sustained "
+            "value > 0.5 suggests the session has entered an ambiguous regime."
+        ),
+    )
+    phantom_rate: float = Field(
+        default=0.0,
+        description="Rolling fraction of turns flagged ``ast_phantom_verdict=True``.",
+    )
+    red_streak: int = Field(
+        default=0,
+        description="Trailing count of consecutive ``red`` risk-band turns.",
+    )
+    recommendation: str = Field(
+        default="continue",
+        description=(
+            "Session-level recommendation derived from the signals above. "
+            "One of ``continue``, ``re-anchor``, ``fresh-chat``."
+        ),
+    )
 
 
 class GroundednessQueryToken(BaseModel):
@@ -802,7 +1263,24 @@ class GroundednessResponse(BaseModel):
     nli_diagnostics: Optional[GroundednessNLIDiagnostics] = None
     semantic_entropy_diagnostics: Optional[GroundednessSemanticEntropyDiagnostics] = None
     structured_diagnostics: Optional[GroundednessStructuredDiagnostics] = None
+    code_lane_diagnostics: Optional[CodeLaneDiagnostics] = Field(
+        default=None,
+        description=(
+            "Populated when ``scoring_mode == 'code'``. Carries every "
+            "code-lane signal: composite score, AST drift, literal novelty, "
+            "NLI cascade, and per-file / per-unit attribution with reason "
+            "codes. RAG-lane responses leave this field ``None``."
+        ),
+    )
     time_ms: float
+    scoring_mode: ScoringMode = Field(
+        default=ScoringMode.RAG,
+        description="Echo of the request scoring_mode so callers can tell which lane ran.",
+    )
+    session_id: Optional[str] = Field(
+        default=None,
+        description="Echo of the request session_id when supplied; used by IDE plugins for turn-event correlation.",
+    )
     attribution_mode: Optional[AttributionMode] = Field(
         default=None,
         description="Echo of the request attribution_mode for downstream auditing.",
@@ -815,3 +1293,29 @@ class GroundednessResponse(BaseModel):
             "'open_domain_pending_v1_next' (open_domain not yet wired in v1)."
         ),
     )
+    next_session_state: Optional[SessionStatePayload] = Field(
+        default=None,
+        description=(
+            "Updated caller-portable session blob. Populated when the "
+            "caller either supplied ``session_state`` or a ``session_id`` "
+            "on the request — opt-in in both directions. Echo this "
+            "verbatim as ``session_state`` on the next turn; the server "
+            "never persists it."
+        ),
+    )
+    session_signals: Optional[SessionSignals] = Field(
+        default=None,
+        description=(
+            "Derived session-level signals (drift z-score, EMA "
+            "groundedness, dead-file candidates, recommendation). "
+            "Populated alongside ``next_session_state``. Purely "
+            "advisory — every per-turn metric remains available in "
+            "``scores`` and ``code_lane_diagnostics``."
+        ),
+    )
+
+
+# ``GroundednessRequest.session_state`` uses a forward reference to
+# ``SessionStatePayload`` (defined further down for schema readability);
+# rebuild the model so pydantic resolves the annotation.
+GroundednessRequest.model_rebuild()

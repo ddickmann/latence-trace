@@ -1,0 +1,16 @@
+{
+  "turns": 10,
+  "device": "cuda",
+  "p50_ms": 5.169661715626717,
+  "p95_ms": 8.895400911569595,
+  "p99_ms": 8.895400911569595,
+  "mean_ms": 6.601791083812714,
+  "max_ms": 8.895400911569595,
+  "cascade_fires": 5,
+  "cascade_fire_rate": 0.5,
+  "cascade_target_rate": 0.3,
+  "slo_p95_ms": 150.0,
+  "slo_met": true,
+  "cascade_on_p95_ms": 8.895400911569595,
+  "cascade_off_p95_ms": 5.169661715626717
+}

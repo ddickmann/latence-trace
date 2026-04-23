@@ -1,0 +1,117 @@
+{
+  "v1": {
+    "per_chunker": {
+      "sentence_packed": {
+        "weights": {
+          "w_rc": 0.0,
+          "w_pt": 0.95,
+          "w_lg": 0.05
+        },
+        "composite_auroc_v1": 0.984375,
+        "baselines": {
+          "rc_alone_auroc": 0.9375,
+          "p10_alone_auroc": 0.984375,
+          "lg_alone_auroc": 0.796875
+        },
+        "threshold_lock": {
+          "threshold": 0.8819802476809575,
+          "target_fp": 0.05,
+          "actual_fp": 0.0,
+          "recall": 0.875,
+          "flagged_phantoms": 7,
+          "flagged_correct": 0
+        },
+        "n_correct": 8,
+        "n_phantom": 8
+      },
+      "colgrep": {
+        "weights": {
+          "w_rc": 0.0,
+          "w_pt": 1.0,
+          "w_lg": 0.0
+        },
+        "composite_auroc_v1": 0.96875,
+        "baselines": {
+          "rc_alone_auroc": 0.9375,
+          "p10_alone_auroc": 0.96875,
+          "lg_alone_auroc": 0.796875
+        },
+        "threshold_lock": {
+          "threshold": 0.9060829877853394,
+          "target_fp": 0.05,
+          "actual_fp": 0.0,
+          "recall": 0.875,
+          "flagged_phantoms": 7,
+          "flagged_correct": 0
+        },
+        "n_correct": 8,
+        "n_phantom": 8
+      }
+    }
+  },
+  "v2": {
+    "auroc_correct_vs_wrong": 0.8027777777777778,
+    "auroc_correct_vs_ambiguous": 0.5597222222222222,
+    "flagged_at_v1_threshold": {
+      "correct": 3,
+      "wrong": 6,
+      "ambiguous": 3
+    },
+    "counts_by_tier": {
+      "correct": 60,
+      "wrong": 60,
+      "ambiguous": 60
+    },
+    "v2_threshold_lock": {
+      "threshold": 0.8672490688257439,
+      "target_fp": 0.05,
+      "actual_fp": 0.03333333333333333,
+      "recall": 0.05,
+      "flagged_phantoms": 3,
+      "flagged_correct": 2
+    },
+    "v2_threshold_sweep": [
+      {
+        "target_fp": 0.02,
+        "threshold": 0.8594445386758217,
+        "actual_fp": 0.0,
+        "recall": 0.03333333333333333,
+        "flagged_phantoms": 2,
+        "flagged_correct": 0
+      },
+      {
+        "target_fp": 0.05,
+        "threshold": 0.8672490688257439,
+        "actual_fp": 0.03333333333333333,
+        "recall": 0.05,
+        "flagged_phantoms": 3,
+        "flagged_correct": 2
+      },
+      {
+        "target_fp": 0.1,
+        "threshold": 0.8918266241550445,
+        "actual_fp": 0.08333333333333333,
+        "recall": 0.31666666666666665,
+        "flagged_phantoms": 19,
+        "flagged_correct": 5
+      },
+      {
+        "target_fp": 0.2,
+        "threshold": 0.9146726531452603,
+        "actual_fp": 0.18333333333333332,
+        "recall": 0.7333333333333333,
+        "flagged_phantoms": 44,
+        "flagged_correct": 11
+      }
+    ],
+    "source_chunker_for_weights": "sentence_packed",
+    "weights": {
+      "w_rc": 0.0,
+      "w_pt": 0.95,
+      "w_lg": 0.05
+    },
+    "threshold": 0.8819802476809575
+  },
+  "fit_step": 0.05,
+  "target_fp": 0.05
+}

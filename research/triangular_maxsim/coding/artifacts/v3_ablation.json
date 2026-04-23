@@ -1,0 +1,89 @@
+{
+  "source": "research/triangular_maxsim/coding/artifacts/v2_full_gpu_scorer_rescore.json",
+  "n_rows": 180,
+  "label_counts": {
+    "ambiguous": 60,
+    "grounded": 60,
+    "ungrounded": 60
+  },
+  "phases": {
+    "baseline": {
+      "description": "reverse_context only",
+      "metrics": {
+        "auroc_correct_vs_wrong": 0.7875,
+        "auroc_correct_vs_ambiguous": 0.5544444444444444,
+        "auroc_grounded_vs_ungrounded": 0.7758333333333334,
+        "monotonicity_rate": 0.8833333333333333,
+        "n_correct": 60,
+        "n_ambiguous": 60,
+        "n_wrong": 60
+      },
+      "available": true
+    },
+    "+literal_guard": {
+      "description": "0.7*reverse_context + 0.3*literal_guarded",
+      "metrics": {
+        "auroc_correct_vs_wrong": 0.6652777777777777,
+        "auroc_correct_vs_ambiguous": 0.5330555555555555,
+        "auroc_grounded_vs_ungrounded": 0.6526388888888889,
+        "monotonicity_rate": 0.65,
+        "n_correct": 60,
+        "n_ambiguous": 60,
+        "n_wrong": 60
+      },
+      "available": true
+    },
+    "+per_token_p10": {
+      "description": "v2 linear composite (0.55/0.25/0.20)",
+      "metrics": {
+        "auroc_correct_vs_wrong": 0.6905555555555556,
+        "auroc_correct_vs_ambiguous": 0.5369444444444444,
+        "auroc_grounded_vs_ungrounded": 0.6775,
+        "monotonicity_rate": 0.7333333333333333,
+        "n_correct": 60,
+        "n_ambiguous": 60,
+        "n_wrong": 60
+      },
+      "available": true
+    },
+    "+literal_novelty": {
+      "description": "literal-novelty-at-high-confidence (requires full rerun)",
+      "metrics": null,
+      "available": false,
+      "note": "literal_novelty_min is computed only by the production code-lane orchestrator; this rescore bank predates the signal. Rerun score_code_groundedness over transcripts_v2 to activate this phase."
+    },
+    "+ast": {
+      "description": "tree-sitter AST drift + phantom symbol counts",
+      "metrics": null,
+      "available": false,
+      "note": "ast_literal_drift_count / ast_phantom_symbol_count require the multi-language extractor from latence_trace.core.code_lane.ast_grounding; not captured in the pre-sprint rescore bank."
+    },
+    "+nli_cascade": {
+      "description": "ambiguity-triggered NLI on top-3 evidence",
+      "metrics": null,
+      "available": false,
+      "note": "Requires a live vLLM NLI server; run the full code lane against transcripts_v2 with NLI enabled to collect this column."
+    },
+    "+logistic": {
+      "description": "LogisticRegression over (reverse_context, literal_guarded, per_token_p10, reverse_context*literal_guarded); trained in-sample (correct=0, ambiguous+wrong=1)",
+      "metrics": {
+        "auroc_correct_vs_wrong": 0.6705555555555556,
+        "auroc_correct_vs_ambiguous": 0.5322222222222223,
+        "auroc_grounded_vs_ungrounded": 0.6566666666666666,
+        "monotonicity_rate": 0.7166666666666667,
+        "n_correct": 60,
+        "n_ambiguous": 60,
+        "n_wrong": 60,
+        "pooled_train_auroc": 0.601388888888889,
+        "coef": [
+          -0.12054477650520198,
+          -0.4665212758871845,
+          -0.5193397114518902,
+          -0.5264819700006653
+        ],
+        "intercept": 1.1239236422188406
+      },
+      "available": true
+    }
+  }
+}

@@ -1,0 +1,161 @@
+{
+  "dim": 128,
+  "response_len": 96,
+  "chunks_per_file": 3,
+  "tokens_per_chunk": 40,
+  "dead_weight_threshold": 0.2,
+  "n_cases_per_cell": 6,
+  "device": "cuda",
+  "cells": [
+    {
+      "cell": "noise_25pct_strong_clean",
+      "config": {
+        "n_signal": 12,
+        "n_noise": 4,
+        "signal_cosine_min": 0.7,
+        "signal_cosine_max": 1.0,
+        "signal_chunk_signal_ratio": 1.0
+      },
+      "n_cases": 6,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "signal_coverage_mean": 1.0,
+      "signal_coverage_min": 1.0,
+      "noise_coverage_mean": 0.0,
+      "noise_coverage_max": 0.0,
+      "scorer_latency_ms_mean": 41.44763698180517,
+      "confusion_sum": {
+        "tp": 24,
+        "fp": 0,
+        "fn": 0,
+        "tn": 72
+      }
+    },
+    {
+      "cell": "noise_50pct_strong_clean",
+      "config": {
+        "n_signal": 8,
+        "n_noise": 8,
+        "signal_cosine_min": 0.7,
+        "signal_cosine_max": 1.0,
+        "signal_chunk_signal_ratio": 1.0
+      },
+      "n_cases": 6,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "signal_coverage_mean": 1.0,
+      "signal_coverage_min": 1.0,
+      "noise_coverage_mean": 0.0,
+      "noise_coverage_max": 0.0,
+      "scorer_latency_ms_mean": 5.863785433272521,
+      "confusion_sum": {
+        "tp": 48,
+        "fp": 0,
+        "fn": 0,
+        "tn": 48
+      }
+    },
+    {
+      "cell": "noise_75pct_strong_clean",
+      "config": {
+        "n_signal": 4,
+        "n_noise": 12,
+        "signal_cosine_min": 0.7,
+        "signal_cosine_max": 1.0,
+        "signal_chunk_signal_ratio": 1.0
+      },
+      "n_cases": 6,
+      "precision": 1.0,
+      "recall": 0.9722222222222222,
+      "f1": 0.9855072463768116,
+      "signal_coverage_mean": 1.0,
+      "signal_coverage_min": 1.0,
+      "noise_coverage_mean": 0.0,
+      "noise_coverage_max": 0.0,
+      "scorer_latency_ms_mean": 5.882355384528637,
+      "confusion_sum": {
+        "tp": 70,
+        "fp": 0,
+        "fn": 2,
+        "tn": 24
+      }
+    },
+    {
+      "cell": "partial_signal_1_of_3_chunks",
+      "config": {
+        "n_signal": 8,
+        "n_noise": 8,
+        "signal_cosine_min": 0.7,
+        "signal_cosine_max": 1.0,
+        "signal_chunk_signal_ratio": 0.3333333333333333
+      },
+      "n_cases": 6,
+      "precision": 1.0,
+      "recall": 0.8333333333333334,
+      "f1": 0.9063492063492063,
+      "signal_coverage_mean": 0.3333333333333333,
+      "signal_coverage_min": 0.3333333333333333,
+      "noise_coverage_mean": 0.0,
+      "noise_coverage_max": 0.0,
+      "scorer_latency_ms_mean": 5.906654521822929,
+      "confusion_sum": {
+        "tp": 40,
+        "fp": 0,
+        "fn": 8,
+        "tn": 48
+      }
+    },
+    {
+      "cell": "adversarial_all_uncertain_below_used",
+      "config": {
+        "n_signal": 8,
+        "n_noise": 8,
+        "signal_cosine_min": 0.4,
+        "signal_cosine_max": 0.54,
+        "signal_chunk_signal_ratio": 1.0
+      },
+      "n_cases": 6,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "signal_coverage_mean": 0.0,
+      "signal_coverage_min": 0.0,
+      "noise_coverage_mean": 0.0,
+      "noise_coverage_max": 0.0,
+      "scorer_latency_ms_mean": 5.8775811145703,
+      "confusion_sum": {
+        "tp": 48,
+        "fp": 0,
+        "fn": 0,
+        "tn": 48
+      }
+    },
+    {
+      "cell": "adversarial_sub_uncertain",
+      "config": {
+        "n_signal": 8,
+        "n_noise": 8,
+        "signal_cosine_min": 0.3,
+        "signal_cosine_max": 0.44,
+        "signal_chunk_signal_ratio": 1.0
+      },
+      "n_cases": 6,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "signal_coverage_mean": 0.0,
+      "signal_coverage_min": 0.0,
+      "noise_coverage_mean": 0.0,
+      "noise_coverage_max": 0.0,
+      "scorer_latency_ms_mean": 5.888169941802819,
+      "confusion_sum": {
+        "tp": 48,
+        "fp": 0,
+        "fn": 0,
+        "tn": 48
+      }
+    }
+  ]
+}

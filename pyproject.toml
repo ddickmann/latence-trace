@@ -65,6 +65,7 @@ packages = [
   "latence_trace.auth",
   "latence_trace.cli",
   "latence_trace.core",
+  "latence_trace.core.code_lane",
   "latence_trace.kernels",
   "latence_trace.mcp",
   "latence_trace.middleware",
@@ -75,4 +76,60 @@ include-package-data = true
 
 [tool.setuptools.package-data]
 "latence_trace.core" = ["thresholds.json"]
+# ``composite_logistic_v3.json`` is fit offline via
+# ``research/triangular_maxsim/coding/experiments/v3_ablation.py`` and
+# dropped next to ``composite.py`` for packaging. The file is optional:
+# when absent the code lane falls back to :class:`LinearComposite` (see
+# docs/code_lane_v3.md). The glob below keeps the artefact in the wheel
+# whenever it is present without making the build fail when it is not.
+"latence_trace.core.code_lane" = ["composite_logistic_v3.json"]
 "latence_trace.auth" = ["license_pubkey.pem"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+filterwarnings = [
+  "ignore::DeprecationWarning:pydantic.*",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = [
+  "research/**",
+  "plugin_client/**",
+]
+
+[tool.ruff.lint]
+# Base rules on the whole repo; stricter rules pinned to the new code lane.
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "PIE", "RET", "ARG"]
+ignore = [
+  "E501",  # line length handled by formatter
+  "B008",  # FastAPI Depends() default-arg pattern
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ARG", "B"]
+
+# --- mypy: strict only on the new code-lane surface ---
+[tool.mypy]
+python_version = "3.10"
+warn_unused_configs = true
+# Repo-wide we stay lenient to avoid churn on legacy modules.
+ignore_missing_imports = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+  "latence_trace.core.code_lane.*",
+  "latence_trace.api.models",
+]
+# Strict typing for the new code-lane modules and the public schema.
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_optional = true
+warn_unused_ignores = true
+warn_return_any = true
+strict_equality = true
+check_untyped_defs = true

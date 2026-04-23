@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import logging
 import re
@@ -282,6 +283,7 @@ def _normalize(x: torch.Tensor) -> torch.Tensor:
     return torch.nn.functional.normalize(x.float(), p=2, dim=-1)
 
 
+@functools.lru_cache(maxsize=131072)
 def _strip_marker(token: str) -> str:
     out = token
     for prefix in ("Ġ", "▁"):
@@ -292,12 +294,16 @@ def _strip_marker(token: str) -> str:
     return out
 
 
+@functools.lru_cache(maxsize=131072)
 def _is_content_token(token: str) -> bool:
     """Mirror of :func:`token_weights`'s positive cases used for support-side masking.
 
     A token counts as content-bearing when it is not a special/whitespace marker,
     not pure punctuation, and not in the curated stopword list. Numeric, alphabetic,
     and mixed-content tokens all count as content.
+
+    Cached because support tokens are highly repetitive (typical code corpora see
+    <5% unique tokens across 100k+ token banks, per benchmarks on transcripts_v1).
     """
 
     if token in _SPECIAL_TOKENS:
@@ -1030,7 +1036,7 @@ def _clamp01(value: float) -> float:
     return max(0.0, min(1.0, float(value)))
 
 
-def _usage_content_token_set(tokens: Sequence[str]) -> set[str]:
+def _usage_content_token_set_raw(tokens: Sequence[str]) -> set[str]:
     out: set[str] = set()
     for token in tokens:
         if not _is_content_token(token):
@@ -1041,19 +1047,53 @@ def _usage_content_token_set(tokens: Sequence[str]) -> set[str]:
     return out
 
 
+def _usage_content_token_set(unit_or_tokens: Any) -> set[str]:
+    """Memoized wrapper.
+
+    Accepts either a ``SupportUnitInput`` (preferred, allows per-unit caching)
+    or a raw token sequence (legacy path).
+    """
+
+    if isinstance(unit_or_tokens, SupportUnitInput):
+        cached = getattr(unit_or_tokens, "_cached_token_set", None)
+        if cached is not None:
+            return cached
+        computed = _usage_content_token_set_raw(unit_or_tokens.tokens)
+        try:
+            object.__setattr__(unit_or_tokens, "_cached_token_set", computed)
+        except AttributeError:  # frozen dataclass or slotted fallback
+            pass
+        return computed
+    return _usage_content_token_set_raw(unit_or_tokens)
+
+
 def _usage_unit_centroid(unit: SupportUnitInput) -> Optional[torch.Tensor]:
+    cached = getattr(unit, "_cached_centroid", _CENTROID_SENTINEL)
+    if cached is not _CENTROID_SENTINEL:
+        return cached
     embeddings = unit.embeddings.float()
     if embeddings.numel() == 0:
-        return None
-    token_mask = support_content_mask(unit.tokens)
-    if token_mask.numel() == int(embeddings.shape[0]) and bool(token_mask.any().item()):
-        embeddings = embeddings[token_mask]
-    if embeddings.numel() == 0:
-        return None
-    centroid = embeddings.mean(dim=0, keepdim=True)
-    if not bool(torch.isfinite(centroid).all().item()):
-        return None
-    return _normalize(centroid)[0]
+        result: Optional[torch.Tensor] = None
+    else:
+        token_mask = support_content_mask(unit.tokens)
+        if token_mask.numel() == int(embeddings.shape[0]) and bool(token_mask.any().item()):
+            embeddings = embeddings[token_mask]
+        if embeddings.numel() == 0:
+            result = None
+        else:
+            centroid = embeddings.mean(dim=0, keepdim=True)
+            if not bool(torch.isfinite(centroid).all().item()):
+                result = None
+            else:
+                result = _normalize(centroid)[0]
+    try:
+        object.__setattr__(unit, "_cached_centroid", result)
+    except AttributeError:  # pragma: no cover - frozen slot fallback
+        pass
+    return result
+
+
+_CENTROID_SENTINEL: Any = object()
 
 
 def _usage_redundancy_similarity(
@@ -1312,7 +1352,7 @@ def apply_support_unit_usage_classification(
     )
 
     signatures = [support_unit_signature(unit) for unit in support_inputs]
-    token_sets = [_usage_content_token_set(unit.tokens) for unit in support_inputs]
+    token_sets = [_usage_content_token_set(unit) for unit in support_inputs]
     centroids = [_usage_unit_centroid(unit) for unit in support_inputs]
 
     strong_coverage_min = max(
@@ -1924,15 +1964,7 @@ def _normalize_literal_value(kind: str, value: str) -> str:
     return text
 
 
-def extract_literals(text: str) -> List[Dict[str, Any]]:
-    """Extract narrow-scope literals (dates, numbers, units, identifiers).
-
-    Each literal is represented as ``{"kind": str, "value": str,
-    "normalized": str, "start": int, "end": int}``. Overlapping spans are
-    resolved greedily by length so the most informative literal wins (e.g. a
-    full date beats an embedded year).
-    """
-
+def _extract_literals_uncached(text: str) -> List[Dict[str, Any]]:
     if not text:
         return []
 
@@ -1964,6 +1996,32 @@ def extract_literals(text: str) -> List[Dict[str, Any]]:
         occupied.append(span)
     accepted.sort(key=lambda item: item["start"])
     return accepted
+
+
+@functools.lru_cache(maxsize=8192)
+def _extract_literals_cached(text: str) -> Tuple[Dict[str, Any], ...]:
+    return tuple(_extract_literals_uncached(text))
+
+
+def extract_literals(text: str) -> List[Dict[str, Any]]:
+    """Extract narrow-scope literals (dates, numbers, units, identifiers).
+
+    Each literal is represented as ``{"kind": str, "value": str,
+    "normalized": str, "start": int, "end": int}``. Overlapping spans are
+    resolved greedily by length so the most informative literal wins (e.g. a
+    full date beats an embedded year).
+
+    Cached: the same support-unit text is repeatedly re-scanned across
+    response chunks, support batches, and scorer configs. Callers iterate
+    the returned list; do not mutate.
+    """
+
+    if not text:
+        return []
+    # ``lru_cache`` keys on the string identity / hash; Python interns short
+    # strings and hashes longer ones in O(n) once. The hot path (support unit
+    # text repeated across batches & encoder configs) hits the cache.
+    return list(_extract_literals_cached(text))
 
 
 def collect_support_literal_set(support_units: Sequence[Any]) -> Dict[str, set]:

@@ -1,0 +1,2918 @@
+{
+  "per_case": [
+    {
+      "id": "base_01_f0afeaf2_t952_f1__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0048.md",
+        "session_notes/turn_0059.md",
+        "session_notes/turn_0107.md",
+        "session_notes/turn_0111.md",
+        "session_notes/turn_0119.md",
+        "session_notes/turn_0146.md",
+        "session_notes/turn_0198.md",
+        "session_notes/turn_0205.md",
+        "session_notes/turn_0235.md",
+        "session_notes/turn_0332.md",
+        "session_notes/turn_0559.md",
+        "session_notes/turn_0707.md",
+        "session_notes/turn_0852.md",
+        "session_notes/turn_0946.md"
+      ],
+      "dead_weight_ratio": 0.625,
+      "n_files": 24
+    },
+    {
+      "id": "base_01_f0afeaf2_t952_f1__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0048.md",
+        "session_notes/turn_0107.md",
+        "session_notes/turn_0111.md",
+        "session_notes/turn_0119.md",
+        "session_notes/turn_0146.md",
+        "session_notes/turn_0198.md",
+        "session_notes/turn_0235.md",
+        "session_notes/turn_0332.md",
+        "session_notes/turn_0559.md",
+        "session_notes/turn_0707.md",
+        "session_notes/turn_0852.md",
+        "session_notes/turn_0946.md"
+      ],
+      "dead_weight_ratio": 0.5416666666666666,
+      "n_files": 24
+    },
+    {
+      "id": "base_01_f0afeaf2_t952_f1__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0048.md",
+        "session_notes/turn_0059.md",
+        "session_notes/turn_0107.md",
+        "session_notes/turn_0111.md",
+        "session_notes/turn_0119.md",
+        "session_notes/turn_0146.md",
+        "session_notes/turn_0198.md",
+        "session_notes/turn_0205.md",
+        "session_notes/turn_0235.md",
+        "session_notes/turn_0332.md",
+        "session_notes/turn_0559.md",
+        "session_notes/turn_0707.md",
+        "session_notes/turn_0852.md",
+        "session_notes/turn_0946.md"
+      ],
+      "dead_weight_ratio": 0.625,
+      "n_files": 24
+    },
+    {
+      "id": "base_02_61e1f5a1_t258_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0039.md",
+        "session_notes/turn_0090.md",
+        "session_notes/turn_0103.md",
+        "session_notes/turn_0108.md",
+        "session_notes/turn_0140.md",
+        "session_notes/turn_0153.md",
+        "session_notes/turn_0173.md",
+        "session_notes/turn_0205.md",
+        "session_notes/turn_0249.md"
+      ],
+      "dead_weight_ratio": 0.42857142857142855,
+      "n_files": 21
+    },
+    {
+      "id": "base_02_61e1f5a1_t258_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0039.md",
+        "session_notes/turn_0083.md",
+        "session_notes/turn_0090.md",
+        "session_notes/turn_0103.md",
+        "session_notes/turn_0108.md",
+        "session_notes/turn_0140.md",
+        "session_notes/turn_0153.md",
+        "session_notes/turn_0173.md",
+        "session_notes/turn_0249.md"
+      ],
+      "dead_weight_ratio": 0.42857142857142855,
+      "n_files": 21
+    },
+    {
+      "id": "base_02_61e1f5a1_t258_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0039.md",
+        "session_notes/turn_0083.md",
+        "session_notes/turn_0090.md",
+        "session_notes/turn_0103.md",
+        "session_notes/turn_0108.md",
+        "session_notes/turn_0140.md",
+        "session_notes/turn_0153.md",
+        "session_notes/turn_0173.md",
+        "session_notes/turn_0205.md",
+        "session_notes/turn_0249.md"
+      ],
+      "dead_weight_ratio": 0.47619047619047616,
+      "n_files": 21
+    },
+    {
+      "id": "base_03_f0afeaf2_t2082_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 10
+    },
+    {
+      "id": "base_03_f0afeaf2_t2082_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 10
+    },
+    {
+      "id": "base_03_f0afeaf2_t2082_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 10
+    },
+    {
+      "id": "base_04_8a0f6f68_t521_f3__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0020.md",
+        "session_notes/turn_0239.md",
+        "session_notes/turn_0248.md",
+        "session_notes/turn_0303.md",
+        "session_notes/turn_0305.md",
+        "session_notes/turn_0340.md",
+        "session_notes/turn_0343.md",
+        "session_notes/turn_0363.md",
+        "session_notes/turn_0377.md",
+        "session_notes/turn_0420.md",
+        "session_notes/turn_0457.md"
+      ],
+      "dead_weight_ratio": 0.5789473684210527,
+      "n_files": 19
+    },
+    {
+      "id": "base_04_8a0f6f68_t521_f3__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0020.md",
+        "session_notes/turn_0239.md",
+        "session_notes/turn_0248.md",
+        "session_notes/turn_0303.md",
+        "session_notes/turn_0305.md",
+        "session_notes/turn_0340.md",
+        "session_notes/turn_0343.md",
+        "session_notes/turn_0363.md",
+        "session_notes/turn_0377.md",
+        "session_notes/turn_0420.md",
+        "session_notes/turn_0457.md"
+      ],
+      "dead_weight_ratio": 0.5789473684210527,
+      "n_files": 19
+    },
+    {
+      "id": "base_04_8a0f6f68_t521_f3__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0020.md",
+        "session_notes/turn_0239.md",
+        "session_notes/turn_0248.md",
+        "session_notes/turn_0303.md",
+        "session_notes/turn_0305.md",
+        "session_notes/turn_0340.md",
+        "session_notes/turn_0343.md",
+        "session_notes/turn_0363.md",
+        "session_notes/turn_0377.md",
+        "session_notes/turn_0420.md",
+        "session_notes/turn_0457.md"
+      ],
+      "dead_weight_ratio": 0.5789473684210527,
+      "n_files": 19
+    },
+    {
+      "id": "base_05_126e38fc_t1159_f4__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0155.md",
+        "session_notes/turn_0230.md",
+        "session_notes/turn_0511.md",
+        "session_notes/turn_0784.md",
+        "session_notes/turn_0863.md",
+        "session_notes/turn_1023.md"
+      ],
+      "dead_weight_ratio": 0.24,
+      "n_files": 25
+    },
+    {
+      "id": "base_05_126e38fc_t1159_f4__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0230.md",
+        "session_notes/turn_0511.md",
+        "session_notes/turn_0720.md",
+        "session_notes/turn_0784.md",
+        "session_notes/turn_0863.md",
+        "session_notes/turn_0990.md",
+        "session_notes/turn_1023.md"
+      ],
+      "dead_weight_ratio": 0.28,
+      "n_files": 25
+    },
+    {
+      "id": "base_05_126e38fc_t1159_f4__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/recover_quota_and_oom_dc7a2663.plan.md",
+        "session_notes/turn_0155.md",
+        "session_notes/turn_0230.md",
+        "session_notes/turn_0261.md",
+        "session_notes/turn_0511.md",
+        "session_notes/turn_0784.md",
+        "session_notes/turn_0863.md",
+        "session_notes/turn_1023.md"
+      ],
+      "dead_weight_ratio": 0.32,
+      "n_files": 25
+    },
+    {
+      "id": "base_06_f0afeaf2_t1771_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0059.md",
+        "session_notes/turn_0064.md",
+        "session_notes/turn_0146.md",
+        "session_notes/turn_0198.md",
+        "session_notes/turn_0205.md",
+        "session_notes/turn_0559.md",
+        "session_notes/turn_0707.md",
+        "session_notes/turn_0956.md",
+        "session_notes/turn_1142.md",
+        "session_notes/turn_1159.md",
+        "session_notes/turn_1414.md",
+        "session_notes/turn_1701.md"
+      ],
+      "dead_weight_ratio": 0.46153846153846156,
+      "n_files": 26
+    },
+    {
+      "id": "base_06_f0afeaf2_t1771_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/groundedness_beta_docs_9b4d1731.plan.md",
+        "plans/chunked_rawcontext_groundedness_358d3172.plan.md",
+        "session_notes/turn_0059.md",
+        "session_notes/turn_0064.md",
+        "session_notes/turn_0146.md",
+        "session_notes/turn_0198.md",
+        "session_notes/turn_0205.md",
+        "session_notes/turn_0559.md",
+        "session_notes/turn_0707.md",
+        "session_notes/turn_0956.md",
+        "session_notes/turn_1142.md",
+        "session_notes/turn_1159.md",
+        "session_notes/turn_1414.md",
+        "session_notes/turn_1701.md"
+      ],
+      "dead_weight_ratio": 0.5384615384615384,
+      "n_files": 26
+    },
+    {
+      "id": "base_06_f0afeaf2_t1771_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0059.md",
+        "session_notes/turn_0064.md",
+        "session_notes/turn_0146.md",
+        "session_notes/turn_0198.md",
+        "session_notes/turn_0205.md",
+        "session_notes/turn_0559.md",
+        "session_notes/turn_0707.md",
+        "session_notes/turn_0956.md",
+        "session_notes/turn_1142.md",
+        "session_notes/turn_1159.md",
+        "session_notes/turn_1414.md",
+        "session_notes/turn_1701.md"
+      ],
+      "dead_weight_ratio": 0.46153846153846156,
+      "n_files": 26
+    },
+    {
+      "id": "base_07_7b7fb621_t328_f1__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0107.md",
+        "session_notes/turn_0311.md"
+      ],
+      "dead_weight_ratio": 0.18181818181818182,
+      "n_files": 11
+    },
+    {
+      "id": "base_07_7b7fb621_t328_f1__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0311.md"
+      ],
+      "dead_weight_ratio": 0.09090909090909091,
+      "n_files": 11
+    },
+    {
+      "id": "base_07_7b7fb621_t328_f1__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0107.md",
+        "session_notes/turn_0311.md"
+      ],
+      "dead_weight_ratio": 0.18181818181818182,
+      "n_files": 11
+    },
+    {
+      "id": "base_08_126e38fc_t1785_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/recover_quota_and_oom_dc7a2663.plan.md",
+        "plans/production_surface_unlock_3629d92a.plan.md",
+        "session_notes/turn_0155.md",
+        "session_notes/turn_0261.md",
+        "session_notes/turn_0532.md",
+        "session_notes/turn_0706.md",
+        "session_notes/turn_1000.md",
+        "session_notes/turn_1155.md",
+        "session_notes/turn_1160.md",
+        "session_notes/turn_1303.md",
+        "session_notes/turn_1416.md",
+        "session_notes/turn_1461.md",
+        "session_notes/turn_1674.md",
+        "session_notes/turn_1683.md"
+      ],
+      "dead_weight_ratio": 0.4666666666666667,
+      "n_files": 30
+    },
+    {
+      "id": "base_08_126e38fc_t1785_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/recover_quota_and_oom_dc7a2663.plan.md",
+        "plans/production_surface_unlock_3629d92a.plan.md",
+        "plans/shard_surface_refresh_b1324dcb.plan.md",
+        "session_notes/turn_0155.md",
+        "session_notes/turn_0261.md",
+        "session_notes/turn_0532.md",
+        "session_notes/turn_0706.md",
+        "session_notes/turn_1000.md",
+        "session_notes/turn_1155.md",
+        "session_notes/turn_1160.md",
+        "session_notes/turn_1303.md",
+        "session_notes/turn_1416.md",
+        "session_notes/turn_1461.md",
+        "session_notes/turn_1674.md",
+        "session_notes/turn_1683.md"
+      ],
+      "dead_weight_ratio": 0.5,
+      "n_files": 30
+    },
+    {
+      "id": "base_08_126e38fc_t1785_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/production_surface_unlock_3629d92a.plan.md",
+        "session_notes/turn_0155.md",
+        "session_notes/turn_0261.md",
+        "session_notes/turn_0532.md",
+        "session_notes/turn_0706.md",
+        "session_notes/turn_1000.md",
+        "session_notes/turn_1155.md",
+        "session_notes/turn_1160.md",
+        "session_notes/turn_1303.md",
+        "session_notes/turn_1416.md",
+        "session_notes/turn_1461.md",
+        "session_notes/turn_1674.md",
+        "session_notes/turn_1683.md"
+      ],
+      "dead_weight_ratio": 0.43333333333333335,
+      "n_files": 30
+    },
+    {
+      "id": "base_09_0b1422bb_t571_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0390.md"
+      ],
+      "dead_weight_ratio": 0.09090909090909091,
+      "n_files": 11
+    },
+    {
+      "id": "base_09_0b1422bb_t571_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0390.md"
+      ],
+      "dead_weight_ratio": 0.09090909090909091,
+      "n_files": 11
+    },
+    {
+      "id": "base_09_0b1422bb_t571_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0390.md"
+      ],
+      "dead_weight_ratio": 0.09090909090909091,
+      "n_files": 11
+    },
+    {
+      "id": "base_10_d7fd7127_t1579_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0021.md",
+        "session_notes/turn_0177.md",
+        "session_notes/turn_0236.md",
+        "session_notes/turn_0318.md",
+        "session_notes/turn_0432.md",
+        "session_notes/turn_0798.md",
+        "session_notes/turn_0808.md",
+        "session_notes/turn_0911.md",
+        "session_notes/turn_1204.md",
+        "session_notes/turn_1291.md",
+        "session_notes/turn_1341.md",
+        "session_notes/turn_1345.md"
+      ],
+      "dead_weight_ratio": 0.48,
+      "n_files": 25
+    },
+    {
+      "id": "base_10_d7fd7127_t1579_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0000.md",
+        "session_notes/turn_0021.md",
+        "session_notes/turn_0177.md",
+        "session_notes/turn_0236.md",
+        "session_notes/turn_0318.md",
+        "session_notes/turn_0432.md",
+        "session_notes/turn_0798.md",
+        "session_notes/turn_0808.md",
+        "session_notes/turn_0911.md",
+        "session_notes/turn_1204.md",
+        "session_notes/turn_1291.md",
+        "session_notes/turn_1341.md",
+        "session_notes/turn_1345.md"
+      ],
+      "dead_weight_ratio": 0.52,
+      "n_files": 25
+    },
+    {
+      "id": "base_10_d7fd7127_t1579_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0021.md",
+        "session_notes/turn_0177.md",
+        "session_notes/turn_0236.md",
+        "session_notes/turn_0318.md",
+        "session_notes/turn_0432.md",
+        "session_notes/turn_0798.md",
+        "session_notes/turn_0808.md",
+        "session_notes/turn_0911.md",
+        "session_notes/turn_1204.md",
+        "session_notes/turn_1291.md",
+        "session_notes/turn_1341.md",
+        "session_notes/turn_1345.md"
+      ],
+      "dead_weight_ratio": 0.48,
+      "n_files": 25
+    },
+    {
+      "id": "base_11_f0afeaf2_t1418_f1__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/groundedness_beta_docs_9b4d1731.plan.md",
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0048.md",
+        "session_notes/turn_0064.md",
+        "session_notes/turn_0111.md",
+        "session_notes/turn_0144.md",
+        "session_notes/turn_0205.md",
+        "session_notes/turn_0235.md",
+        "session_notes/turn_0520.md",
+        "session_notes/turn_0707.md",
+        "session_notes/turn_0852.md",
+        "session_notes/turn_0956.md",
+        "session_notes/turn_1142.md",
+        "session_notes/turn_1159.md"
+      ],
+      "dead_weight_ratio": 0.5384615384615384,
+      "n_files": 26
+    },
+    {
+      "id": "base_11_f0afeaf2_t1418_f1__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/groundedness_beta_docs_9b4d1731.plan.md",
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0048.md",
+        "session_notes/turn_0064.md",
+        "session_notes/turn_0111.md",
+        "session_notes/turn_0144.md",
+        "session_notes/turn_0205.md",
+        "session_notes/turn_0235.md",
+        "session_notes/turn_0520.md",
+        "session_notes/turn_0707.md",
+        "session_notes/turn_0852.md",
+        "session_notes/turn_0956.md",
+        "session_notes/turn_1142.md",
+        "session_notes/turn_1159.md"
+      ],
+      "dead_weight_ratio": 0.5384615384615384,
+      "n_files": 26
+    },
+    {
+      "id": "base_11_f0afeaf2_t1418_f1__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0048.md",
+        "session_notes/turn_0064.md",
+        "session_notes/turn_0111.md",
+        "session_notes/turn_0144.md",
+        "session_notes/turn_0146.md",
+        "session_notes/turn_0205.md",
+        "session_notes/turn_0235.md",
+        "session_notes/turn_0520.md",
+        "session_notes/turn_0707.md",
+        "session_notes/turn_0852.md",
+        "session_notes/turn_0956.md",
+        "session_notes/turn_1142.md",
+        "session_notes/turn_1159.md"
+      ],
+      "dead_weight_ratio": 0.5384615384615384,
+      "n_files": 26
+    },
+    {
+      "id": "base_12_f0afeaf2_t955_f2__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0048.md",
+        "session_notes/turn_0059.md",
+        "session_notes/turn_0107.md",
+        "session_notes/turn_0111.md",
+        "session_notes/turn_0119.md",
+        "session_notes/turn_0198.md",
+        "session_notes/turn_0205.md",
+        "session_notes/turn_0235.md",
+        "session_notes/turn_0332.md",
+        "session_notes/turn_0559.md",
+        "session_notes/turn_0946.md"
+      ],
+      "dead_weight_ratio": 0.5,
+      "n_files": 24
+    },
+    {
+      "id": "base_12_f0afeaf2_t955_f2__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0048.md",
+        "session_notes/turn_0059.md",
+        "session_notes/turn_0107.md",
+        "session_notes/turn_0119.md",
+        "session_notes/turn_0146.md",
+        "session_notes/turn_0198.md",
+        "session_notes/turn_0205.md",
+        "session_notes/turn_0235.md",
+        "session_notes/turn_0332.md",
+        "session_notes/turn_0559.md",
+        "session_notes/turn_0707.md",
+        "session_notes/turn_0852.md",
+        "session_notes/turn_0946.md"
+      ],
+      "dead_weight_ratio": 0.5833333333333334,
+      "n_files": 24
+    },
+    {
+      "id": "base_12_f0afeaf2_t955_f2__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0048.md",
+        "session_notes/turn_0059.md",
+        "session_notes/turn_0107.md",
+        "session_notes/turn_0111.md",
+        "session_notes/turn_0119.md",
+        "session_notes/turn_0198.md",
+        "session_notes/turn_0205.md",
+        "session_notes/turn_0235.md",
+        "session_notes/turn_0332.md",
+        "session_notes/turn_0559.md",
+        "session_notes/turn_0946.md"
+      ],
+      "dead_weight_ratio": 0.5,
+      "n_files": 24
+    },
+    {
+      "id": "base_13_d7fd7127_t1553_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0021.md",
+        "session_notes/turn_0236.md",
+        "session_notes/turn_0432.md",
+        "session_notes/turn_0808.md",
+        "session_notes/turn_0911.md",
+        "session_notes/turn_1204.md",
+        "session_notes/turn_1291.md",
+        "session_notes/turn_1341.md",
+        "session_notes/turn_1345.md"
+      ],
+      "dead_weight_ratio": 0.36,
+      "n_files": 25
+    },
+    {
+      "id": "base_13_d7fd7127_t1553_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0021.md",
+        "session_notes/turn_0177.md",
+        "session_notes/turn_0432.md",
+        "session_notes/turn_0808.md",
+        "session_notes/turn_0911.md",
+        "session_notes/turn_1204.md",
+        "session_notes/turn_1291.md",
+        "session_notes/turn_1341.md",
+        "session_notes/turn_1345.md",
+        "session_notes/turn_1417.md"
+      ],
+      "dead_weight_ratio": 0.4,
+      "n_files": 25
+    },
+    {
+      "id": "base_13_d7fd7127_t1553_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0021.md",
+        "session_notes/turn_0236.md",
+        "session_notes/turn_0432.md",
+        "session_notes/turn_0808.md",
+        "session_notes/turn_0911.md",
+        "session_notes/turn_1204.md",
+        "session_notes/turn_1291.md",
+        "session_notes/turn_1341.md",
+        "session_notes/turn_1345.md"
+      ],
+      "dead_weight_ratio": 0.36,
+      "n_files": 25
+    },
+    {
+      "id": "base_14_f0afeaf2_t2825_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 10
+    },
+    {
+      "id": "base_14_f0afeaf2_t2825_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 10
+    },
+    {
+      "id": "base_14_f0afeaf2_t2825_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 10
+    },
+    {
+      "id": "base_15_91cf0ec9_t419_f2__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0015.md",
+        "session_notes/turn_0073.md",
+        "session_notes/turn_0316.md",
+        "session_notes/turn_0386.md"
+      ],
+      "dead_weight_ratio": 0.26666666666666666,
+      "n_files": 15
+    },
+    {
+      "id": "base_15_91cf0ec9_t419_f2__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0015.md",
+        "session_notes/turn_0073.md",
+        "session_notes/turn_0316.md",
+        "session_notes/turn_0333.md"
+      ],
+      "dead_weight_ratio": 0.26666666666666666,
+      "n_files": 15
+    },
+    {
+      "id": "base_15_91cf0ec9_t419_f2__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0015.md",
+        "session_notes/turn_0073.md",
+        "session_notes/turn_0316.md",
+        "session_notes/turn_0386.md"
+      ],
+      "dead_weight_ratio": 0.26666666666666666,
+      "n_files": 15
+    },
+    {
+      "id": "base_16_8a0f6f68_t1002_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0000.md",
+        "session_notes/turn_0148.md",
+        "session_notes/turn_0239.md",
+        "session_notes/turn_0304.md",
+        "session_notes/turn_0323.md",
+        "session_notes/turn_0342.md",
+        "session_notes/turn_0344.md",
+        "session_notes/turn_0376.md",
+        "session_notes/turn_0379.md",
+        "session_notes/turn_0486.md",
+        "session_notes/turn_0523.md",
+        "session_notes/turn_0756.md",
+        "session_notes/turn_0885.md",
+        "session_notes/turn_0995.md"
+      ],
+      "dead_weight_ratio": 0.6086956521739131,
+      "n_files": 23
+    },
+    {
+      "id": "base_16_8a0f6f68_t1002_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0000.md",
+        "session_notes/turn_0148.md",
+        "session_notes/turn_0239.md",
+        "session_notes/turn_0304.md",
+        "session_notes/turn_0323.md",
+        "session_notes/turn_0342.md",
+        "session_notes/turn_0344.md",
+        "session_notes/turn_0376.md",
+        "session_notes/turn_0379.md",
+        "session_notes/turn_0486.md",
+        "session_notes/turn_0523.md",
+        "session_notes/turn_0691.md",
+        "session_notes/turn_0756.md",
+        "session_notes/turn_0995.md"
+      ],
+      "dead_weight_ratio": 0.6086956521739131,
+      "n_files": 23
+    },
+    {
+      "id": "base_16_8a0f6f68_t1002_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0000.md",
+        "session_notes/turn_0148.md",
+        "session_notes/turn_0239.md",
+        "session_notes/turn_0304.md",
+        "session_notes/turn_0323.md",
+        "session_notes/turn_0342.md",
+        "session_notes/turn_0344.md",
+        "session_notes/turn_0376.md",
+        "session_notes/turn_0379.md",
+        "session_notes/turn_0486.md",
+        "session_notes/turn_0523.md",
+        "session_notes/turn_0756.md",
+        "session_notes/turn_0885.md",
+        "session_notes/turn_0995.md"
+      ],
+      "dead_weight_ratio": 0.6086956521739131,
+      "n_files": 23
+    },
+    {
+      "id": "base_17_126e38fc_t712_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0000.md",
+        "session_notes/turn_0142.md",
+        "session_notes/turn_0210.md",
+        "session_notes/turn_0296.md",
+        "session_notes/turn_0532.md",
+        "session_notes/turn_0562.md"
+      ],
+      "dead_weight_ratio": 0.4,
+      "n_files": 15
+    },
+    {
+      "id": "base_17_126e38fc_t712_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0000.md",
+        "session_notes/turn_0210.md",
+        "session_notes/turn_0296.md",
+        "session_notes/turn_0532.md",
+        "session_notes/turn_0562.md"
+      ],
+      "dead_weight_ratio": 0.3333333333333333,
+      "n_files": 15
+    },
+    {
+      "id": "base_17_126e38fc_t712_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0000.md",
+        "session_notes/turn_0142.md",
+        "session_notes/turn_0210.md",
+        "session_notes/turn_0296.md",
+        "session_notes/turn_0532.md",
+        "session_notes/turn_0562.md"
+      ],
+      "dead_weight_ratio": 0.4,
+      "n_files": 15
+    },
+    {
+      "id": "base_18_f0afeaf2_t457_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0048.md",
+        "session_notes/turn_0064.md",
+        "session_notes/turn_0144.md",
+        "session_notes/turn_0295.md"
+      ],
+      "dead_weight_ratio": 0.3125,
+      "n_files": 16
+    },
+    {
+      "id": "base_18_f0afeaf2_t457_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0048.md",
+        "session_notes/turn_0064.md",
+        "session_notes/turn_0144.md",
+        "session_notes/turn_0295.md"
+      ],
+      "dead_weight_ratio": 0.3125,
+      "n_files": 16
+    },
+    {
+      "id": "base_18_f0afeaf2_t457_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0048.md",
+        "session_notes/turn_0064.md",
+        "session_notes/turn_0144.md",
+        "session_notes/turn_0295.md"
+      ],
+      "dead_weight_ratio": 0.3125,
+      "n_files": 16
+    },
+    {
+      "id": "base_19_5e875b7e_t1360_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 5
+    },
+    {
+      "id": "base_19_5e875b7e_t1360_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0670.md"
+      ],
+      "dead_weight_ratio": 0.2,
+      "n_files": 5
+    },
+    {
+      "id": "base_19_5e875b7e_t1360_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 5
+    },
+    {
+      "id": "base_20_d7fd7127_t1617_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0000.md",
+        "session_notes/turn_0093.md",
+        "session_notes/turn_0186.md",
+        "session_notes/turn_0318.md",
+        "session_notes/turn_0353.md",
+        "session_notes/turn_0379.md",
+        "session_notes/turn_0829.md",
+        "session_notes/turn_1204.md",
+        "session_notes/turn_1291.md",
+        "session_notes/turn_1341.md",
+        "session_notes/turn_1386.md",
+        "session_notes/turn_1580.md",
+        "session_notes/turn_1588.md",
+        "session_notes/turn_1594.md"
+      ],
+      "dead_weight_ratio": 0.56,
+      "n_files": 25
+    },
+    {
+      "id": "base_20_d7fd7127_t1617_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0000.md",
+        "session_notes/turn_0093.md",
+        "session_notes/turn_0186.md",
+        "session_notes/turn_0318.md",
+        "session_notes/turn_0353.md",
+        "session_notes/turn_0379.md",
+        "session_notes/turn_0829.md",
+        "session_notes/turn_1204.md",
+        "session_notes/turn_1291.md",
+        "session_notes/turn_1341.md",
+        "session_notes/turn_1386.md",
+        "session_notes/turn_1580.md",
+        "session_notes/turn_1588.md",
+        "session_notes/turn_1594.md"
+      ],
+      "dead_weight_ratio": 0.56,
+      "n_files": 25
+    },
+    {
+      "id": "base_20_d7fd7127_t1617_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/rroq158-production-hardening_e85c37a7.plan.md",
+        "session_notes/turn_0000.md",
+        "session_notes/turn_0093.md",
+        "session_notes/turn_0186.md",
+        "session_notes/turn_0318.md",
+        "session_notes/turn_0353.md",
+        "session_notes/turn_0379.md",
+        "session_notes/turn_0829.md",
+        "session_notes/turn_1204.md",
+        "session_notes/turn_1291.md",
+        "session_notes/turn_1341.md",
+        "session_notes/turn_1386.md",
+        "session_notes/turn_1580.md",
+        "session_notes/turn_1588.md",
+        "session_notes/turn_1594.md"
+      ],
+      "dead_weight_ratio": 0.6,
+      "n_files": 25
+    },
+    {
+      "id": "base_21_a4d14a56_t732_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/test_bidirnli_pipeline_c15f05a9.plan.md",
+        "session_notes/turn_0011.md",
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0088.md",
+        "session_notes/turn_0120.md",
+        "session_notes/turn_0251.md",
+        "session_notes/turn_0257.md",
+        "session_notes/turn_0369.md",
+        "session_notes/turn_0447.md",
+        "session_notes/turn_0489.md",
+        "session_notes/turn_0539.md",
+        "session_notes/turn_0577.md",
+        "session_notes/turn_0640.md"
+      ],
+      "dead_weight_ratio": 0.65,
+      "n_files": 20
+    },
+    {
+      "id": "base_21_a4d14a56_t732_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0088.md",
+        "session_notes/turn_0120.md",
+        "session_notes/turn_0251.md",
+        "session_notes/turn_0369.md",
+        "session_notes/turn_0447.md",
+        "session_notes/turn_0539.md",
+        "session_notes/turn_0577.md",
+        "session_notes/turn_0640.md"
+      ],
+      "dead_weight_ratio": 0.45,
+      "n_files": 20
+    },
+    {
+      "id": "base_21_a4d14a56_t732_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/test_bidirnli_pipeline_c15f05a9.plan.md",
+        "session_notes/turn_0011.md",
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0088.md",
+        "session_notes/turn_0120.md",
+        "session_notes/turn_0251.md",
+        "session_notes/turn_0257.md",
+        "session_notes/turn_0369.md",
+        "session_notes/turn_0447.md",
+        "session_notes/turn_0489.md",
+        "session_notes/turn_0539.md",
+        "session_notes/turn_0577.md",
+        "session_notes/turn_0640.md"
+      ],
+      "dead_weight_ratio": 0.65,
+      "n_files": 20
+    },
+    {
+      "id": "base_22_d7fd7127_t1209_f1__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0021.md",
+        "session_notes/turn_0177.md",
+        "session_notes/turn_0236.md",
+        "session_notes/turn_0318.md",
+        "session_notes/turn_0374.md",
+        "session_notes/turn_0432.md",
+        "session_notes/turn_0783.md",
+        "session_notes/turn_0798.md",
+        "session_notes/turn_0808.md",
+        "session_notes/turn_0904.md",
+        "session_notes/turn_1085.md",
+        "session_notes/turn_1204.md"
+      ],
+      "dead_weight_ratio": 0.6666666666666666,
+      "n_files": 18
+    },
+    {
+      "id": "base_22_d7fd7127_t1209_f1__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0000.md",
+        "session_notes/turn_0021.md",
+        "session_notes/turn_0177.md",
+        "session_notes/turn_0236.md",
+        "session_notes/turn_0318.md",
+        "session_notes/turn_0374.md",
+        "session_notes/turn_0432.md",
+        "session_notes/turn_0783.md",
+        "session_notes/turn_0798.md",
+        "session_notes/turn_0808.md",
+        "session_notes/turn_0904.md",
+        "session_notes/turn_1085.md",
+        "session_notes/turn_1204.md"
+      ],
+      "dead_weight_ratio": 0.7222222222222222,
+      "n_files": 18
+    },
+    {
+      "id": "base_22_d7fd7127_t1209_f1__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0000.md",
+        "session_notes/turn_0021.md",
+        "session_notes/turn_0177.md",
+        "session_notes/turn_0236.md",
+        "session_notes/turn_0318.md",
+        "session_notes/turn_0374.md",
+        "session_notes/turn_0432.md",
+        "session_notes/turn_0783.md",
+        "session_notes/turn_0798.md",
+        "session_notes/turn_0808.md",
+        "session_notes/turn_0904.md",
+        "session_notes/turn_1085.md",
+        "session_notes/turn_1204.md"
+      ],
+      "dead_weight_ratio": 0.7222222222222222,
+      "n_files": 18
+    },
+    {
+      "id": "base_23_a4d14a56_t579_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0025.md",
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0251.md",
+        "session_notes/turn_0369.md",
+        "session_notes/turn_0489.md"
+      ],
+      "dead_weight_ratio": 0.2631578947368421,
+      "n_files": 19
+    },
+    {
+      "id": "base_23_a4d14a56_t579_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0025.md",
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0251.md",
+        "session_notes/turn_0257.md",
+        "session_notes/turn_0369.md",
+        "session_notes/turn_0489.md"
+      ],
+      "dead_weight_ratio": 0.3157894736842105,
+      "n_files": 19
+    },
+    {
+      "id": "base_23_a4d14a56_t579_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/test_bidirnli_pipeline_c15f05a9.plan.md",
+        "session_notes/turn_0025.md",
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0251.md",
+        "session_notes/turn_0369.md",
+        "session_notes/turn_0489.md"
+      ],
+      "dead_weight_ratio": 0.3157894736842105,
+      "n_files": 19
+    },
+    {
+      "id": "base_24_126e38fc_t1774_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/recover_quota_and_oom_dc7a2663.plan.md",
+        "plans/production_surface_unlock_3629d92a.plan.md",
+        "plans/shard_surface_refresh_b1324dcb.plan.md",
+        "plans/elite_repo_cleanup_6847be82.plan.md",
+        "session_notes/turn_0155.md",
+        "session_notes/turn_0261.md",
+        "session_notes/turn_0532.md",
+        "session_notes/turn_0706.md",
+        "session_notes/turn_1000.md",
+        "session_notes/turn_1155.md",
+        "session_notes/turn_1160.md",
+        "session_notes/turn_1416.md",
+        "session_notes/turn_1461.md",
+        "session_notes/turn_1674.md"
+      ],
+      "dead_weight_ratio": 0.4666666666666667,
+      "n_files": 30
+    },
+    {
+      "id": "base_24_126e38fc_t1774_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/recover_quota_and_oom_dc7a2663.plan.md",
+        "plans/production_surface_unlock_3629d92a.plan.md",
+        "plans/shard_surface_refresh_b1324dcb.plan.md",
+        "session_notes/turn_0155.md",
+        "session_notes/turn_0261.md",
+        "session_notes/turn_0532.md",
+        "session_notes/turn_0706.md",
+        "session_notes/turn_1000.md",
+        "session_notes/turn_1155.md",
+        "session_notes/turn_1160.md",
+        "session_notes/turn_1416.md",
+        "session_notes/turn_1461.md",
+        "session_notes/turn_1674.md"
+      ],
+      "dead_weight_ratio": 0.43333333333333335,
+      "n_files": 30
+    },
+    {
+      "id": "base_24_126e38fc_t1774_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/residual_compression_i_o_f0a62f38.plan.md",
+        "plans/recover_quota_and_oom_dc7a2663.plan.md",
+        "plans/production_surface_unlock_3629d92a.plan.md",
+        "plans/shard_surface_refresh_b1324dcb.plan.md",
+        "plans/elite_repo_cleanup_6847be82.plan.md",
+        "session_notes/turn_0155.md",
+        "session_notes/turn_0261.md",
+        "session_notes/turn_0532.md",
+        "session_notes/turn_0706.md",
+        "session_notes/turn_1000.md",
+        "session_notes/turn_1155.md",
+        "session_notes/turn_1416.md",
+        "session_notes/turn_1461.md",
+        "session_notes/turn_1674.md"
+      ],
+      "dead_weight_ratio": 0.4666666666666667,
+      "n_files": 30
+    },
+    {
+      "id": "base_25_8a0f6f68_t1261_f1__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0148.md",
+        "session_notes/turn_0239.md",
+        "session_notes/turn_0305.md",
+        "session_notes/turn_0323.md",
+        "session_notes/turn_0343.md",
+        "session_notes/turn_0376.md",
+        "session_notes/turn_0486.md",
+        "session_notes/turn_0525.md",
+        "session_notes/turn_0750.md",
+        "session_notes/turn_0887.md",
+        "session_notes/turn_1047.md",
+        "session_notes/turn_1145.md",
+        "session_notes/turn_1176.md",
+        "session_notes/turn_1187.md"
+      ],
+      "dead_weight_ratio": 0.5,
+      "n_files": 28
+    },
+    {
+      "id": "base_25_8a0f6f68_t1261_f1__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0148.md",
+        "session_notes/turn_0239.md",
+        "session_notes/turn_0323.md",
+        "session_notes/turn_0343.md",
+        "session_notes/turn_0376.md",
+        "session_notes/turn_0486.md",
+        "session_notes/turn_0525.md",
+        "session_notes/turn_0750.md",
+        "session_notes/turn_0887.md",
+        "session_notes/turn_1047.md",
+        "session_notes/turn_1145.md",
+        "session_notes/turn_1176.md",
+        "session_notes/turn_1187.md",
+        "session_notes/turn_1252.md"
+      ],
+      "dead_weight_ratio": 0.5,
+      "n_files": 28
+    },
+    {
+      "id": "base_25_8a0f6f68_t1261_f1__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0148.md",
+        "session_notes/turn_0239.md",
+        "session_notes/turn_0305.md",
+        "session_notes/turn_0323.md",
+        "session_notes/turn_0343.md",
+        "session_notes/turn_0376.md",
+        "session_notes/turn_0486.md",
+        "session_notes/turn_0525.md",
+        "session_notes/turn_0750.md",
+        "session_notes/turn_0887.md",
+        "session_notes/turn_1047.md",
+        "session_notes/turn_1145.md",
+        "session_notes/turn_1176.md",
+        "session_notes/turn_1187.md",
+        "session_notes/turn_1252.md"
+      ],
+      "dead_weight_ratio": 0.5357142857142857,
+      "n_files": 28
+    },
+    {
+      "id": "base_26_f0afeaf2_t1530_f1__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/groundedness_beta_docs_9b4d1731.plan.md",
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0064.md",
+        "session_notes/turn_0111.md",
+        "session_notes/turn_0144.md",
+        "session_notes/turn_0205.md",
+        "session_notes/turn_0235.md",
+        "session_notes/turn_0559.md",
+        "session_notes/turn_0707.md",
+        "session_notes/turn_0956.md",
+        "session_notes/turn_0997.md",
+        "session_notes/turn_1142.md",
+        "session_notes/turn_1159.md"
+      ],
+      "dead_weight_ratio": 0.5,
+      "n_files": 26
+    },
+    {
+      "id": "base_26_f0afeaf2_t1530_f1__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/groundedness_beta_docs_9b4d1731.plan.md",
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0064.md",
+        "session_notes/turn_0111.md",
+        "session_notes/turn_0144.md",
+        "session_notes/turn_0205.md",
+        "session_notes/turn_0235.md",
+        "session_notes/turn_0559.md",
+        "session_notes/turn_0707.md",
+        "session_notes/turn_0956.md",
+        "session_notes/turn_0997.md",
+        "session_notes/turn_1142.md",
+        "session_notes/turn_1159.md"
+      ],
+      "dead_weight_ratio": 0.5,
+      "n_files": 26
+    },
+    {
+      "id": "base_26_f0afeaf2_t1530_f1__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/groundedness_beta_docs_9b4d1731.plan.md",
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0064.md",
+        "session_notes/turn_0111.md",
+        "session_notes/turn_0144.md",
+        "session_notes/turn_0205.md",
+        "session_notes/turn_0235.md",
+        "session_notes/turn_0559.md",
+        "session_notes/turn_0707.md",
+        "session_notes/turn_0997.md",
+        "session_notes/turn_1142.md",
+        "session_notes/turn_1159.md"
+      ],
+      "dead_weight_ratio": 0.46153846153846156,
+      "n_files": 26
+    },
+    {
+      "id": "base_27_8a0f6f68_t1163_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0024.md",
+        "session_notes/turn_0239.md",
+        "session_notes/turn_0302.md",
+        "session_notes/turn_0343.md",
+        "session_notes/turn_0376.md",
+        "session_notes/turn_0486.md",
+        "session_notes/turn_0525.md",
+        "session_notes/turn_0750.md",
+        "session_notes/turn_0763.md",
+        "session_notes/turn_0995.md",
+        "session_notes/turn_1103.md",
+        "session_notes/turn_1145.md"
+      ],
+      "dead_weight_ratio": 0.48,
+      "n_files": 25
+    },
+    {
+      "id": "base_27_8a0f6f68_t1163_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0024.md",
+        "session_notes/turn_0239.md",
+        "session_notes/turn_0302.md",
+        "session_notes/turn_0343.md",
+        "session_notes/turn_0486.md",
+        "session_notes/turn_0525.md",
+        "session_notes/turn_0750.md",
+        "session_notes/turn_0763.md",
+        "session_notes/turn_0995.md",
+        "session_notes/turn_1103.md",
+        "session_notes/turn_1145.md"
+      ],
+      "dead_weight_ratio": 0.44,
+      "n_files": 25
+    },
+    {
+      "id": "base_27_8a0f6f68_t1163_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0024.md",
+        "session_notes/turn_0239.md",
+        "session_notes/turn_0302.md",
+        "session_notes/turn_0343.md",
+        "session_notes/turn_0376.md",
+        "session_notes/turn_0486.md",
+        "session_notes/turn_0525.md",
+        "session_notes/turn_0750.md",
+        "session_notes/turn_0763.md",
+        "session_notes/turn_0995.md",
+        "session_notes/turn_1103.md",
+        "session_notes/turn_1145.md"
+      ],
+      "dead_weight_ratio": 0.48,
+      "n_files": 25
+    },
+    {
+      "id": "base_28_126e38fc_t1892_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/restore_t2_+_implement_t3_820a53e7.plan.md",
+        "plans/fix_100k_quality_562e1b15.plan.md",
+        "plans/latency_opportunity_map_e7cddf1a.plan.md",
+        "plans/audit_production_hardening_c98f63ce.plan.md",
+        "plans/shard_surface_refresh_b1324dcb.plan.md",
+        "session_notes/turn_0142.md",
+        "session_notes/turn_0223.md",
+        "session_notes/turn_0255.md",
+        "session_notes/turn_0532.md",
+        "session_notes/turn_1155.md",
+        "session_notes/turn_1188.md",
+        "session_notes/turn_1416.md",
+        "session_notes/turn_1461.md",
+        "session_notes/turn_1674.md",
+        "session_notes/turn_1683.md",
+        "session_notes/turn_1813.md",
+        "session_notes/turn_1817.md",
+        "session_notes/turn_1864.md"
+      ],
+      "dead_weight_ratio": 0.5294117647058824,
+      "n_files": 34
+    },
+    {
+      "id": "base_28_126e38fc_t1892_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/restore_t2_+_implement_t3_820a53e7.plan.md",
+        "plans/fix_100k_quality_562e1b15.plan.md",
+        "plans/latency_opportunity_map_e7cddf1a.plan.md",
+        "plans/audit_production_hardening_c98f63ce.plan.md",
+        "session_notes/turn_0142.md",
+        "session_notes/turn_0223.md",
+        "session_notes/turn_0255.md",
+        "session_notes/turn_0532.md",
+        "session_notes/turn_1155.md",
+        "session_notes/turn_1160.md",
+        "session_notes/turn_1188.md",
+        "session_notes/turn_1416.md",
+        "session_notes/turn_1461.md",
+        "session_notes/turn_1674.md",
+        "session_notes/turn_1683.md",
+        "session_notes/turn_1864.md"
+      ],
+      "dead_weight_ratio": 0.47058823529411764,
+      "n_files": 34
+    },
+    {
+      "id": "base_28_126e38fc_t1892_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/restore_t2_+_implement_t3_820a53e7.plan.md",
+        "plans/fix_100k_quality_562e1b15.plan.md",
+        "plans/latency_opportunity_map_e7cddf1a.plan.md",
+        "plans/audit_production_hardening_c98f63ce.plan.md",
+        "plans/shard_surface_refresh_b1324dcb.plan.md",
+        "session_notes/turn_0142.md",
+        "session_notes/turn_0223.md",
+        "session_notes/turn_0255.md",
+        "session_notes/turn_0532.md",
+        "session_notes/turn_1155.md",
+        "session_notes/turn_1160.md",
+        "session_notes/turn_1188.md",
+        "session_notes/turn_1416.md",
+        "session_notes/turn_1461.md",
+        "session_notes/turn_1674.md",
+        "session_notes/turn_1683.md",
+        "session_notes/turn_1813.md",
+        "session_notes/turn_1817.md",
+        "session_notes/turn_1864.md"
+      ],
+      "dead_weight_ratio": 0.5588235294117647,
+      "n_files": 34
+    },
+    {
+      "id": "base_29_8a0f6f68_t1278_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/bisect_vllm_regression_3c8da71a.plan.md",
+        "session_notes/turn_0248.md",
+        "session_notes/turn_0376.md",
+        "session_notes/turn_0750.md",
+        "session_notes/turn_0887.md",
+        "session_notes/turn_1103.md"
+      ],
+      "dead_weight_ratio": 0.2,
+      "n_files": 30
+    },
+    {
+      "id": "base_29_8a0f6f68_t1278_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/bisect_vllm_regression_3c8da71a.plan.md",
+        "session_notes/turn_0148.md",
+        "session_notes/turn_0248.md",
+        "session_notes/turn_0305.md",
+        "session_notes/turn_0376.md",
+        "session_notes/turn_0486.md",
+        "session_notes/turn_0525.md",
+        "session_notes/turn_0750.md",
+        "session_notes/turn_0887.md",
+        "session_notes/turn_1047.md",
+        "session_notes/turn_1103.md",
+        "session_notes/turn_1187.md"
+      ],
+      "dead_weight_ratio": 0.4,
+      "n_files": 30
+    },
+    {
+      "id": "base_29_8a0f6f68_t1278_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/bisect_vllm_regression_3c8da71a.plan.md",
+        "session_notes/turn_0248.md",
+        "session_notes/turn_0376.md",
+        "session_notes/turn_0486.md",
+        "session_notes/turn_0525.md",
+        "session_notes/turn_0750.md",
+        "session_notes/turn_0887.md",
+        "session_notes/turn_1047.md",
+        "session_notes/turn_1103.md",
+        "session_notes/turn_1187.md"
+      ],
+      "dead_weight_ratio": 0.3333333333333333,
+      "n_files": 30
+    },
+    {
+      "id": "base_30_d7fd7127_t807_f1__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0021.md",
+        "session_notes/turn_0168.md",
+        "session_notes/turn_0186.md",
+        "session_notes/turn_0353.md",
+        "session_notes/turn_0379.md"
+      ],
+      "dead_weight_ratio": 0.4166666666666667,
+      "n_files": 12
+    },
+    {
+      "id": "base_30_d7fd7127_t807_f1__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0021.md",
+        "session_notes/turn_0168.md",
+        "session_notes/turn_0186.md",
+        "session_notes/turn_0353.md",
+        "session_notes/turn_0379.md"
+      ],
+      "dead_weight_ratio": 0.4166666666666667,
+      "n_files": 12
+    },
+    {
+      "id": "base_30_d7fd7127_t807_f1__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0021.md",
+        "session_notes/turn_0168.md",
+        "session_notes/turn_0186.md",
+        "session_notes/turn_0353.md",
+        "session_notes/turn_0379.md",
+        "session_notes/turn_0665.md"
+      ],
+      "dead_weight_ratio": 0.5,
+      "n_files": 12
+    },
+    {
+      "id": "base_31_8a0f6f68_t1301_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/fix_benchmark_configuration_b4cd440c.plan.md",
+        "session_notes/turn_0000.md",
+        "session_notes/turn_0148.md",
+        "session_notes/turn_0248.md",
+        "session_notes/turn_0305.md",
+        "session_notes/turn_0343.md",
+        "session_notes/turn_0376.md",
+        "session_notes/turn_0486.md",
+        "session_notes/turn_0525.md",
+        "session_notes/turn_0750.md",
+        "session_notes/turn_0887.md",
+        "session_notes/turn_1047.md",
+        "session_notes/turn_1103.md",
+        "session_notes/turn_1145.md",
+        "session_notes/turn_1176.md",
+        "session_notes/turn_1252.md"
+      ],
+      "dead_weight_ratio": 0.5333333333333333,
+      "n_files": 30
+    },
+    {
+      "id": "base_31_8a0f6f68_t1301_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0000.md",
+        "session_notes/turn_0148.md",
+        "session_notes/turn_0305.md",
+        "session_notes/turn_0343.md",
+        "session_notes/turn_0525.md",
+        "session_notes/turn_0750.md",
+        "session_notes/turn_0887.md",
+        "session_notes/turn_1047.md",
+        "session_notes/turn_1103.md",
+        "session_notes/turn_1145.md",
+        "session_notes/turn_1252.md"
+      ],
+      "dead_weight_ratio": 0.36666666666666664,
+      "n_files": 30
+    },
+    {
+      "id": "base_31_8a0f6f68_t1301_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/fix_benchmark_configuration_b4cd440c.plan.md",
+        "session_notes/turn_0000.md",
+        "session_notes/turn_0305.md",
+        "session_notes/turn_0343.md",
+        "session_notes/turn_0525.md",
+        "session_notes/turn_0750.md",
+        "session_notes/turn_0887.md",
+        "session_notes/turn_1047.md",
+        "session_notes/turn_1103.md",
+        "session_notes/turn_1145.md",
+        "session_notes/turn_1176.md",
+        "session_notes/turn_1252.md",
+        "session_notes/turn_1265.md"
+      ],
+      "dead_weight_ratio": 0.43333333333333335,
+      "n_files": 30
+    },
+    {
+      "id": "base_32_126e38fc_t1007_f1__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/fix_100k_quality_562e1b15.plan.md",
+        "session_notes/turn_0230.md",
+        "session_notes/turn_0532.md",
+        "session_notes/turn_0595.md",
+        "session_notes/turn_0784.md",
+        "session_notes/turn_0863.md",
+        "session_notes/turn_0927.md"
+      ],
+      "dead_weight_ratio": 0.30434782608695654,
+      "n_files": 23
+    },
+    {
+      "id": "base_32_126e38fc_t1007_f1__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0230.md",
+        "session_notes/turn_0532.md",
+        "session_notes/turn_0595.md",
+        "session_notes/turn_0784.md",
+        "session_notes/turn_0863.md",
+        "session_notes/turn_0927.md"
+      ],
+      "dead_weight_ratio": 0.2608695652173913,
+      "n_files": 23
+    },
+    {
+      "id": "base_32_126e38fc_t1007_f1__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0230.md",
+        "session_notes/turn_0532.md",
+        "session_notes/turn_0595.md",
+        "session_notes/turn_0784.md",
+        "session_notes/turn_0863.md",
+        "session_notes/turn_0927.md"
+      ],
+      "dead_weight_ratio": 0.2608695652173913,
+      "n_files": 23
+    },
+    {
+      "id": "base_33_d7fd7127_t1397_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0021.md",
+        "session_notes/turn_0186.md",
+        "session_notes/turn_0318.md",
+        "session_notes/turn_0353.md",
+        "session_notes/turn_0379.md",
+        "session_notes/turn_0665.md",
+        "session_notes/turn_0808.md",
+        "session_notes/turn_0902.md",
+        "session_notes/turn_1085.md",
+        "session_notes/turn_1266.md",
+        "session_notes/turn_1291.md",
+        "session_notes/turn_1386.md"
+      ],
+      "dead_weight_ratio": 0.5217391304347826,
+      "n_files": 23
+    },
+    {
+      "id": "base_33_d7fd7127_t1397_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/production_rroq158_default_+_rroq4_riemannian_upgrade_ac704f2b.plan.md",
+        "session_notes/turn_0021.md",
+        "session_notes/turn_0186.md",
+        "session_notes/turn_0318.md",
+        "session_notes/turn_0353.md",
+        "session_notes/turn_0379.md",
+        "session_notes/turn_0665.md",
+        "session_notes/turn_0808.md",
+        "session_notes/turn_1085.md",
+        "session_notes/turn_1266.md",
+        "session_notes/turn_1291.md",
+        "session_notes/turn_1386.md"
+      ],
+      "dead_weight_ratio": 0.5217391304347826,
+      "n_files": 23
+    },
+    {
+      "id": "base_33_d7fd7127_t1397_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/production_rroq158_default_+_rroq4_riemannian_upgrade_ac704f2b.plan.md",
+        "session_notes/turn_0021.md",
+        "session_notes/turn_0186.md",
+        "session_notes/turn_0318.md",
+        "session_notes/turn_0353.md",
+        "session_notes/turn_0379.md",
+        "session_notes/turn_0665.md",
+        "session_notes/turn_0808.md",
+        "session_notes/turn_0902.md",
+        "session_notes/turn_1085.md",
+        "session_notes/turn_1266.md",
+        "session_notes/turn_1291.md",
+        "session_notes/turn_1386.md"
+      ],
+      "dead_weight_ratio": 0.5652173913043478,
+      "n_files": 23
+    },
+    {
+      "id": "base_34_5e875b7e_t1637_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0670.md",
+        "session_notes/turn_0771.md"
+      ],
+      "dead_weight_ratio": 0.3333333333333333,
+      "n_files": 6
+    },
+    {
+      "id": "base_34_5e875b7e_t1637_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0670.md",
+        "session_notes/turn_0771.md"
+      ],
+      "dead_weight_ratio": 0.3333333333333333,
+      "n_files": 6
+    },
+    {
+      "id": "base_34_5e875b7e_t1637_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0670.md",
+        "session_notes/turn_0771.md"
+      ],
+      "dead_weight_ratio": 0.3333333333333333,
+      "n_files": 6
+    },
+    {
+      "id": "base_35_a4d14a56_t1005_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 4
+    },
+    {
+      "id": "base_35_a4d14a56_t1005_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 4
+    },
+    {
+      "id": "base_35_a4d14a56_t1005_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 4
+    },
+    {
+      "id": "base_36_a4d14a56_t693_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0011.md",
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0088.md",
+        "session_notes/turn_0120.md",
+        "session_notes/turn_0251.md",
+        "session_notes/turn_0369.md",
+        "session_notes/turn_0447.md",
+        "session_notes/turn_0489.md",
+        "session_notes/turn_0539.md",
+        "session_notes/turn_0640.md"
+      ],
+      "dead_weight_ratio": 0.5,
+      "n_files": 20
+    },
+    {
+      "id": "base_36_a4d14a56_t693_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0088.md",
+        "session_notes/turn_0251.md",
+        "session_notes/turn_0369.md",
+        "session_notes/turn_0447.md",
+        "session_notes/turn_0489.md",
+        "session_notes/turn_0640.md"
+      ],
+      "dead_weight_ratio": 0.35,
+      "n_files": 20
+    },
+    {
+      "id": "base_36_a4d14a56_t693_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "8",
+        "session_notes/turn_0011.md",
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0088.md",
+        "session_notes/turn_0251.md",
+        "session_notes/turn_0369.md",
+        "session_notes/turn_0447.md",
+        "session_notes/turn_0489.md",
+        "session_notes/turn_0539.md",
+        "session_notes/turn_0640.md"
+      ],
+      "dead_weight_ratio": 0.5,
+      "n_files": 20
+    },
+    {
+      "id": "base_37_126e38fc_t1936_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/merged_mmap_fast-plaid_1346b4cf.plan.md",
+        "plans/fix_100k_quality_562e1b15.plan.md",
+        "plans/latency_opportunity_map_e7cddf1a.plan.md"
+      ],
+      "dead_weight_ratio": 0.15789473684210525,
+      "n_files": 19
+    },
+    {
+      "id": "base_37_126e38fc_t1936_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/shard_surface_refresh_b1324dcb.plan.md"
+      ],
+      "dead_weight_ratio": 0.05263157894736842,
+      "n_files": 19
+    },
+    {
+      "id": "base_37_126e38fc_t1936_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/merged_mmap_fast-plaid_1346b4cf.plan.md",
+        "plans/latency_opportunity_map_e7cddf1a.plan.md",
+        "plans/shard_surface_refresh_b1324dcb.plan.md"
+      ],
+      "dead_weight_ratio": 0.15789473684210525,
+      "n_files": 19
+    },
+    {
+      "id": "base_38_a4d14a56_t869_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 4
+    },
+    {
+      "id": "base_38_a4d14a56_t869_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 4
+    },
+    {
+      "id": "base_38_a4d14a56_t869_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 4
+    },
+    {
+      "id": "base_39_5e875b7e_t2278_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_2022.md",
+        "session_notes/turn_2023.md",
+        "session_notes/turn_2068.md",
+        "session_notes/turn_2099.md",
+        "session_notes/turn_2144.md",
+        "session_notes/turn_2169.md"
+      ],
+      "dead_weight_ratio": 0.46153846153846156,
+      "n_files": 13
+    },
+    {
+      "id": "base_39_5e875b7e_t2278_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0670.md",
+        "session_notes/turn_2022.md",
+        "session_notes/turn_2023.md",
+        "session_notes/turn_2068.md",
+        "session_notes/turn_2099.md",
+        "session_notes/turn_2144.md",
+        "session_notes/turn_2169.md"
+      ],
+      "dead_weight_ratio": 0.5384615384615384,
+      "n_files": 13
+    },
+    {
+      "id": "base_39_5e875b7e_t2278_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_2023.md",
+        "session_notes/turn_2068.md",
+        "session_notes/turn_2099.md",
+        "session_notes/turn_2144.md",
+        "session_notes/turn_2169.md"
+      ],
+      "dead_weight_ratio": 0.38461538461538464,
+      "n_files": 13
+    },
+    {
+      "id": "base_40_ed69b0cd_t395_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0044.md",
+        "session_notes/turn_0080.md",
+        "session_notes/turn_0125.md",
+        "session_notes/turn_0155.md",
+        "session_notes/turn_0303.md",
+        "session_notes/turn_0331.md",
+        "session_notes/turn_0361.md"
+      ],
+      "dead_weight_ratio": 0.4666666666666667,
+      "n_files": 15
+    },
+    {
+      "id": "base_40_ed69b0cd_t395_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0044.md",
+        "session_notes/turn_0125.md",
+        "session_notes/turn_0155.md",
+        "session_notes/turn_0331.md",
+        "session_notes/turn_0361.md"
+      ],
+      "dead_weight_ratio": 0.3333333333333333,
+      "n_files": 15
+    },
+    {
+      "id": "base_40_ed69b0cd_t395_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0044.md",
+        "session_notes/turn_0080.md",
+        "session_notes/turn_0125.md",
+        "session_notes/turn_0155.md",
+        "session_notes/turn_0303.md",
+        "session_notes/turn_0331.md",
+        "session_notes/turn_0361.md"
+      ],
+      "dead_weight_ratio": 0.4666666666666667,
+      "n_files": 15
+    },
+    {
+      "id": "base_41_a4d14a56_t994_f1__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 4
+    },
+    {
+      "id": "base_41_a4d14a56_t994_f1__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 4
+    },
+    {
+      "id": "base_41_a4d14a56_t994_f1__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 4
+    },
+    {
+      "id": "base_42_a4d14a56_t531_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0025.md",
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0090.md",
+        "session_notes/turn_0129.md",
+        "session_notes/turn_0251.md",
+        "session_notes/turn_0257.md",
+        "session_notes/turn_0264.md",
+        "session_notes/turn_0447.md",
+        "session_notes/turn_0489.md",
+        "session_notes/turn_0507.md"
+      ],
+      "dead_weight_ratio": 0.5555555555555556,
+      "n_files": 18
+    },
+    {
+      "id": "base_42_a4d14a56_t531_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0025.md",
+        "session_notes/turn_0090.md",
+        "session_notes/turn_0129.md",
+        "session_notes/turn_0251.md",
+        "session_notes/turn_0257.md",
+        "session_notes/turn_0264.md",
+        "session_notes/turn_0489.md",
+        "session_notes/turn_0507.md"
+      ],
+      "dead_weight_ratio": 0.4444444444444444,
+      "n_files": 18
+    },
+    {
+      "id": "base_42_a4d14a56_t531_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0025.md",
+        "session_notes/turn_0029.md",
+        "session_notes/turn_0090.md",
+        "session_notes/turn_0129.md",
+        "session_notes/turn_0251.md",
+        "session_notes/turn_0257.md",
+        "session_notes/turn_0264.md",
+        "session_notes/turn_0447.md",
+        "session_notes/turn_0489.md",
+        "session_notes/turn_0507.md"
+      ],
+      "dead_weight_ratio": 0.5555555555555556,
+      "n_files": 18
+    },
+    {
+      "id": "base_43_ed69b0cd_t364_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0044.md",
+        "session_notes/turn_0080.md",
+        "session_notes/turn_0229.md",
+        "session_notes/turn_0303.md",
+        "session_notes/turn_0331.md",
+        "session_notes/turn_0361.md"
+      ],
+      "dead_weight_ratio": 0.4,
+      "n_files": 15
+    },
+    {
+      "id": "base_43_ed69b0cd_t364_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0044.md",
+        "session_notes/turn_0080.md",
+        "session_notes/turn_0303.md",
+        "session_notes/turn_0331.md",
+        "session_notes/turn_0361.md"
+      ],
+      "dead_weight_ratio": 0.3333333333333333,
+      "n_files": 15
+    },
+    {
+      "id": "base_43_ed69b0cd_t364_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "plans/fix_shard_bench_perf_1f40d2fb.plan.md",
+        "session_notes/turn_0044.md",
+        "session_notes/turn_0080.md",
+        "session_notes/turn_0155.md",
+        "session_notes/turn_0303.md",
+        "session_notes/turn_0331.md",
+        "session_notes/turn_0361.md"
+      ],
+      "dead_weight_ratio": 0.4666666666666667,
+      "n_files": 15
+    },
+    {
+      "id": "base_44_a4d14a56_t568_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "8",
+        "session_notes/turn_0257.md",
+        "session_notes/turn_0264.md",
+        "session_notes/turn_0369.md",
+        "session_notes/turn_0489.md",
+        "session_notes/turn_0539.md"
+      ],
+      "dead_weight_ratio": 0.3333333333333333,
+      "n_files": 18
+    },
+    {
+      "id": "base_44_a4d14a56_t568_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0090.md",
+        "session_notes/turn_0257.md",
+        "session_notes/turn_0264.md",
+        "session_notes/turn_0369.md",
+        "session_notes/turn_0447.md",
+        "session_notes/turn_0489.md"
+      ],
+      "dead_weight_ratio": 0.3333333333333333,
+      "n_files": 18
+    },
+    {
+      "id": "base_44_a4d14a56_t568_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "8",
+        "session_notes/turn_0257.md",
+        "session_notes/turn_0264.md",
+        "session_notes/turn_0369.md",
+        "session_notes/turn_0489.md"
+      ],
+      "dead_weight_ratio": 0.2777777777777778,
+      "n_files": 18
+    },
+    {
+      "id": "base_45_ed69b0cd_t367_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0044.md",
+        "session_notes/turn_0229.md",
+        "session_notes/turn_0303.md",
+        "session_notes/turn_0331.md",
+        "session_notes/turn_0361.md"
+      ],
+      "dead_weight_ratio": 0.3333333333333333,
+      "n_files": 15
+    },
+    {
+      "id": "base_45_ed69b0cd_t367_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0044.md",
+        "session_notes/turn_0303.md",
+        "session_notes/turn_0331.md",
+        "session_notes/turn_0361.md"
+      ],
+      "dead_weight_ratio": 0.26666666666666666,
+      "n_files": 15
+    },
+    {
+      "id": "base_45_ed69b0cd_t367_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0044.md",
+        "session_notes/turn_0303.md",
+        "session_notes/turn_0331.md",
+        "session_notes/turn_0361.md"
+      ],
+      "dead_weight_ratio": 0.26666666666666666,
+      "n_files": 15
+    },
+    {
+      "id": "base_46_d7fd7127_t317_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0093.md"
+      ],
+      "dead_weight_ratio": 0.16666666666666666,
+      "n_files": 6
+    },
+    {
+      "id": "base_46_d7fd7127_t317_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0093.md"
+      ],
+      "dead_weight_ratio": 0.16666666666666666,
+      "n_files": 6
+    },
+    {
+      "id": "base_46_d7fd7127_t317_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0093.md"
+      ],
+      "dead_weight_ratio": 0.16666666666666666,
+      "n_files": 6
+    },
+    {
+      "id": "base_47_0b1422bb_t847_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0390.md"
+      ],
+      "dead_weight_ratio": 0.07142857142857142,
+      "n_files": 14
+    },
+    {
+      "id": "base_47_0b1422bb_t847_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0390.md"
+      ],
+      "dead_weight_ratio": 0.07142857142857142,
+      "n_files": 14
+    },
+    {
+      "id": "base_47_0b1422bb_t847_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0390.md"
+      ],
+      "dead_weight_ratio": 0.07142857142857142,
+      "n_files": 14
+    },
+    {
+      "id": "base_48_ed69b0cd_t10_f2__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 2
+    },
+    {
+      "id": "base_48_ed69b0cd_t10_f2__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 2
+    },
+    {
+      "id": "base_48_ed69b0cd_t10_f2__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 2
+    },
+    {
+      "id": "base_49_fa052757_t213_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0088.md",
+        "session_notes/turn_0092.md",
+        "session_notes/turn_0149.md"
+      ],
+      "dead_weight_ratio": 0.3,
+      "n_files": 10
+    },
+    {
+      "id": "base_49_fa052757_t213_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0088.md",
+        "session_notes/turn_0092.md",
+        "session_notes/turn_0149.md"
+      ],
+      "dead_weight_ratio": 0.3,
+      "n_files": 10
+    },
+    {
+      "id": "base_49_fa052757_t213_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0088.md",
+        "session_notes/turn_0092.md",
+        "session_notes/turn_0149.md"
+      ],
+      "dead_weight_ratio": 0.3,
+      "n_files": 10
+    },
+    {
+      "id": "base_50_0b1422bb_t839_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0348.md",
+        "session_notes/turn_0390.md"
+      ],
+      "dead_weight_ratio": 0.14285714285714285,
+      "n_files": 14
+    },
+    {
+      "id": "base_50_0b1422bb_t839_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0348.md",
+        "session_notes/turn_0390.md"
+      ],
+      "dead_weight_ratio": 0.14285714285714285,
+      "n_files": 14
+    },
+    {
+      "id": "base_50_0b1422bb_t839_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0390.md"
+      ],
+      "dead_weight_ratio": 0.07142857142857142,
+      "n_files": 14
+    },
+    {
+      "id": "base_51_5e875b7e_t1929_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 6
+    },
+    {
+      "id": "base_51_5e875b7e_t1929_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0013.md",
+        "session_notes/turn_0771.md"
+      ],
+      "dead_weight_ratio": 0.3333333333333333,
+      "n_files": 6
+    },
+    {
+      "id": "base_51_5e875b7e_t1929_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 6
+    },
+    {
+      "id": "base_52_7b7fb621_t310_f3__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0124.md"
+      ],
+      "dead_weight_ratio": 0.125,
+      "n_files": 8
+    },
+    {
+      "id": "base_52_7b7fb621_t310_f3__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0238.md"
+      ],
+      "dead_weight_ratio": 0.125,
+      "n_files": 8
+    },
+    {
+      "id": "base_52_7b7fb621_t310_f3__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0124.md"
+      ],
+      "dead_weight_ratio": 0.125,
+      "n_files": 8
+    },
+    {
+      "id": "base_53_7b7fb621_t347_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0107.md",
+        "session_notes/turn_0148.md",
+        "session_notes/turn_0206.md",
+        "session_notes/turn_0238.md"
+      ],
+      "dead_weight_ratio": 0.36363636363636365,
+      "n_files": 11
+    },
+    {
+      "id": "base_53_7b7fb621_t347_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0107.md",
+        "session_notes/turn_0148.md",
+        "session_notes/turn_0206.md"
+      ],
+      "dead_weight_ratio": 0.2727272727272727,
+      "n_files": 11
+    },
+    {
+      "id": "base_53_7b7fb621_t347_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0107.md",
+        "session_notes/turn_0148.md",
+        "session_notes/turn_0206.md"
+      ],
+      "dead_weight_ratio": 0.2727272727272727,
+      "n_files": 11
+    },
+    {
+      "id": "base_54_5e875b7e_t630_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0294.md"
+      ],
+      "dead_weight_ratio": 0.25,
+      "n_files": 4
+    },
+    {
+      "id": "base_54_5e875b7e_t630_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0013.md"
+      ],
+      "dead_weight_ratio": 0.25,
+      "n_files": 4
+    },
+    {
+      "id": "base_54_5e875b7e_t630_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0294.md"
+      ],
+      "dead_weight_ratio": 0.25,
+      "n_files": 4
+    },
+    {
+      "id": "base_55_0b1422bb_t652_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0390.md"
+      ],
+      "dead_weight_ratio": 0.07692307692307693,
+      "n_files": 13
+    },
+    {
+      "id": "base_55_0b1422bb_t652_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0390.md"
+      ],
+      "dead_weight_ratio": 0.07692307692307693,
+      "n_files": 13
+    },
+    {
+      "id": "base_55_0b1422bb_t652_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0390.md"
+      ],
+      "dead_weight_ratio": 0.07692307692307693,
+      "n_files": 13
+    },
+    {
+      "id": "base_56_7b7fb621_t406_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "5",
+        "session_notes/turn_0206.md",
+        "session_notes/turn_0390.md"
+      ],
+      "dead_weight_ratio": 0.23076923076923078,
+      "n_files": 13
+    },
+    {
+      "id": "base_56_7b7fb621_t406_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0238.md",
+        "session_notes/turn_0390.md"
+      ],
+      "dead_weight_ratio": 0.15384615384615385,
+      "n_files": 13
+    },
+    {
+      "id": "base_56_7b7fb621_t406_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0206.md",
+        "session_notes/turn_0390.md"
+      ],
+      "dead_weight_ratio": 0.15384615384615385,
+      "n_files": 13
+    },
+    {
+      "id": "base_57_91cf0ec9_t84_f10__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0073.md"
+      ],
+      "dead_weight_ratio": 0.25,
+      "n_files": 4
+    },
+    {
+      "id": "base_57_91cf0ec9_t84_f10__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0073.md"
+      ],
+      "dead_weight_ratio": 0.25,
+      "n_files": 4
+    },
+    {
+      "id": "base_57_91cf0ec9_t84_f10__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0073.md"
+      ],
+      "dead_weight_ratio": 0.25,
+      "n_files": 4
+    },
+    {
+      "id": "base_58_7b7fb621_t237_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0107.md"
+      ],
+      "dead_weight_ratio": 0.14285714285714285,
+      "n_files": 7
+    },
+    {
+      "id": "base_58_7b7fb621_t237_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 7
+    },
+    {
+      "id": "base_58_7b7fb621_t237_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0107.md"
+      ],
+      "dead_weight_ratio": 0.14285714285714285,
+      "n_files": 7
+    },
+    {
+      "id": "base_59_ee0ad405_t137_f0__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 5
+    },
+    {
+      "id": "base_59_ee0ad405_t137_f0__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 5
+    },
+    {
+      "id": "base_59_ee0ad405_t137_f0__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [],
+      "dead_weight_ratio": 0.0,
+      "n_files": 5
+    },
+    {
+      "id": "base_60_7b7fb621_t178_f1__correct",
+      "tier": "correct",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0124.md",
+        "session_notes/turn_0148.md"
+      ],
+      "dead_weight_ratio": 0.4,
+      "n_files": 5
+    },
+    {
+      "id": "base_60_7b7fb621_t178_f1__wrong",
+      "tier": "wrong",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0124.md"
+      ],
+      "dead_weight_ratio": 0.2,
+      "n_files": 5
+    },
+    {
+      "id": "base_60_7b7fb621_t178_f1__ambiguous",
+      "tier": "ambiguous",
+      "chunker": "sentence_packed",
+      "scorer": "gte_only_gpu_slim",
+      "dead_weight_files": [
+        "session_notes/turn_0124.md",
+        "session_notes/turn_0148.md"
+      ],
+      "dead_weight_ratio": 0.4,
+      "n_files": 5
+    }
+  ],
+  "mean_dead_weight_ratio": 0.31611018154038195
+}

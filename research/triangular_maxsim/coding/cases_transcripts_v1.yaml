@@ -1,0 +1,352 @@
+schema: transcripts_v1
+version: 1
+
+context:
+  max_files: 40
+  context_token_cap_chars: 160000
+  scope_before_chars: 500
+  scope_after_chars: 250
+
+# Each scenario defines a base point: (transcript_id, response_turn, fence_idx).
+# The loader auto-extracts the "correct" variant: prose around the fence + fence
+# unchanged. Wrong + ambiguous variants embed the full response text so the edits
+# are explicit and reviewable.
+
+scenarios:
+  - id: base_01_pooler_helper
+    transcript_id: 8a0f6f68
+    response_turn: 543
+    fence_idx: 0
+    description: >-
+      Python helper that composes pooling primitives. Rich symbol surface
+      (TokenPooler, AllPool, TokenEmbeddingPoolerHead, PoolerNormalize,
+      _load_st_projector, get_tok_pooling_method) makes both a heavy and a
+      subtle edit meaningful.
+    variants:
+      - tier: wrong
+        id: base_01_pooler_helper_wrong
+        notes: >-
+          Rename all factory + component symbols to invented-but-plausible
+          names; add phantom import from a module that was never quoted in
+          context. Same prose so only the code-body signal differs.
+        response: |
+          Let me look at what `build_token_pooling_stack` creates:
+
+          ```python
+          from vllm.extensions.pooling_v2 import FullSpanPool, L2NormalizationLayer
+
+          def build_token_pooling_stack(pooler_config, projector=None):
+              pooling = resolve_pooling_strategy(pooler_config.token_pool_kind)  # FullSpanPool()
+              head = TokenEmbeddingHeadV2(
+                  head_dtype=model_config.head_dtype,
+                  projector=projector if projector is not None else _materialize_projector_from_hf(model_config),
+                  activation=L2NormalizationLayer(),
+              )
+              return CompositeTokenPooler(pooling=pooling, head=head)
+          ```
+
+          So it's building a `CompositeTokenPooler` that combines `FullSpanPool()` for splitting with a `TokenEmbeddingHeadV2` that includes its own projector and normalization.
+      - tier: ambiguous
+        id: base_01_pooler_helper_ambiguous
+        notes: >-
+          Single surgical swap: read the pool type off a phantom attribute
+          `token_pool_kind` instead of calling the real `get_tok_pooling_type()`
+          method. Everything else grounded.
+        response: |
+          Let me look at what `pooler_for_token_embed` creates:
+
+          ```python
+          def pooler_for_token_embed(pooler_config, projector=None):
+              pooling = get_tok_pooling_method(pooler_config.token_pool_kind)  # AllPool()
+              head = TokenEmbeddingPoolerHead(
+                  head_dtype=model_config.head_dtype,
+                  projector=projector if projector is not None else _load_st_projector(model_config),
+                  activation=PoolerNormalize(),
+              )
+              return TokenPooler(pooling=pooling, head=head)
+          ```
+
+          So it's building a `TokenPooler` that combines `AllPool()` for splitting with a `TokenEmbeddingPoolerHead` that includes its own projector and normalization.
+
+  - id: base_02_nli_source_init
+    transcript_id: a4d14a56
+    response_turn: 732
+    fence_idx: 0
+    description: >-
+      NLI sample source constructor. Corruption targets dataset slugs,
+      tracking helper names, and cache-dir naming. Ambiguous variant renames
+      a single kwarg to a near-synonym that callers upstream don't use.
+    variants:
+      - tier: wrong
+        id: base_02_nli_source_init_wrong
+        notes: >-
+          Drift dataset slugs to phantom corpora, rename bookkeeping
+          attributes, and replace Counter with a phantom DefaultCounter;
+          import from a package that does not exist in context.
+        response: |
+          Actually wait, looking at lines 1118-1126:
+
+          ```python
+              from nli_datasets.sources import DefaultCounter, register_source
+
+              def __init__(
+                  self,
+                  tokenizer: Any,
+                  datasets_to_load: Sequence[str] = ("multinli_matched", "snli_v2"),
+                  pickle_cache_directory: Path | None = None,
+                  max_per_dataset: int | None = None,
+              ) -> None:
+                  self._examples: list[NLIExample] = []
+                  self._class_frequency_table: dict[int, int] = DefaultCounter()
+          ```
+
+          There's no pickle caching! It always loads from HF directly. And `_load_snli_v2` loads directly from `load_dataset("snli_v2", split=round_name, ...)` which will try to hit HF.
+      - tier: ambiguous
+        id: base_02_nli_source_init_ambiguous
+        notes: >-
+          Rename a single kwarg (`max_per_dataset` -> `max_samples_per_dataset`)
+          to a plausible synonym. Upstream callers visible in the context
+          still use the original name, so this is a subtle drift.
+        response: |
+          Actually wait, looking at lines 1118-1126:
+
+          ```python
+              def __init__(
+                  self,
+                  tokenizer: Any,
+                  datasets_to_load: Sequence[str] = ("multinli", "anli"),
+                  max_samples_per_dataset: int | None = None,
+                  cache_dir: Path | None = None,
+              ) -> None:
+                  self._samples: list[NLITrainingSample] = []
+                  self._label_counts: dict[int, int] = Counter()
+          ```
+
+          There's no pickle caching! It always loads from HF directly. And `_load_anli` loads directly from `load_dataset("anli", split=round_name, ...)` which will try to hit HF.
+
+  - id: base_03_benchmark_measure
+    transcript_id: 126e38fc
+    response_turn: 1007
+    fence_idx: 0
+    description: >-
+      Function signature for a benchmark timing helper. Small surface; wrong
+      variant swaps out both types and the helper method on pipeline.
+    variants:
+      - tier: wrong
+        id: base_03_benchmark_measure_wrong
+        notes: >-
+          Rename function, drift types to phantom DocShardBackend /
+          RetrievalPipeline, replace fetch_candidate_docs with an async
+          phantom.
+        response: |
+          Let me check the function signature I wrote:
+
+          ```python
+          def _profile_doc_retrieval_ms(
+              store: DocShardBackend,
+              pipeline: RetrievalPipeline,
+              query_plan: Mapping[str, Sequence[Qid]],
+          ```
+
+          I'm iterating through each query batch, calling `pipeline.retrieve_candidate_docs_async` to get the fetch time from the stats dict, and collecting all the timings. The `store` parameter isn't actually needed here, so I should remove it.
+
+  - id: base_04_structured_evidence_detector
+    transcript_id: f0afeaf2
+    response_turn: 1771
+    fence_idx: 0
+    description: >-
+      Heuristic function returning an enum over evidence kinds. Rich surface
+      for both heavy renames (enum drift) and a subtle one-branch swap.
+    variants:
+      - tier: wrong
+        id: base_04_structured_evidence_detector_wrong
+        notes: >-
+          Rename the function, drift the enum name and all four members,
+          replace re.search with re.fullmatch (semantically wrong), import
+          from a phantom LayoutClassifier package.
+        response: |
+          Typed evidence detector — `latence_trace/core/structured_evidence.py`
+
+          Heuristic per support unit:
+
+          ```python
+          from latence_trace.evidence.layout_engine import LayoutClassifier
+
+          def classify_evidence_layout(text: str) -> EvidenceFormat:
+              # Returns PROSE | BULLETS | KEY_PAIR | GRID
+              digits = sum(c.isdigit() for c in text) / max(1, len(text))
+              has_currency = bool(re.fullmatch(r"[\$\€\£]|USD|EUR|GBP", text))
+              has_percent = "%" in text or "percent" in text.lower()
+              has_columnar = bool(re.fullmatch(r"(?:[A-Za-z][^:]{2,30}: ?[\$\d][\d,\.]*[MBmb]?\b[;,] ?){2,}", text))
+              has_kv = bool(re.fullmatch(r"^\s*[A-Z][\w\s/-]{2,40}:\s*[\d\$]", text, re.MULTILINE))
+              if has_columnar: return GRID
+              if has_kv:       return KEY_PAIR
+              if digits > 0.08 and (has_currency or has_percent):
+                  return BULLETS
+              return PROSE
+          ```
+
+          This is a heuristic, not ML — and that's a feature. We tested heuristic chunk classifiers in the original chunking work and they're within ~1% of a trained classifier and never bring a model dependency.
+      - tier: ambiguous
+        id: base_04_structured_evidence_detector_ambiguous
+        notes: >-
+          One enum value drift (`KEY_VALUE` -> `KV_PAIR`) in a single branch.
+          Everything else grounded. Hard case.
+        response: |
+          Typed evidence detector — `latence_trace/core/structured_evidence.py`
+
+          Heuristic per support unit:
+
+          ```python
+          def is_structured(text: str) -> StructuredEvidenceKind:
+              # Returns NARRATIVE | LIST | KEY_VALUE | TABLE
+              digits = sum(c.isdigit() for c in text) / max(1, len(text))
+              has_currency = bool(re.search(r"[\$\€\£]|USD|EUR|GBP", text))
+              has_percent = "%" in text or "percent" in text.lower()
+              has_columnar = bool(re.search(r"(?:[A-Za-z][^:]{2,30}: ?[\$\d][\d,\.]*[MBmb]?\b[;,] ?){2,}", text))
+              has_kv = bool(re.search(r"^\s*[A-Z][\w\s/-]{2,40}:\s*[\d\$]", text, re.MULTILINE))
+              if has_columnar: return TABLE
+              if has_kv:       return KV_PAIR
+              if digits > 0.08 and (has_currency or has_percent):
+                  return LIST
+              return NARRATIVE
+          ```
+
+          This is a heuristic, not ML — and that's a feature. We tested heuristic chunk classifiers in the original chunking work and they're within ~1% of a trained classifier and never bring a model dependency.
+
+  - id: base_05_maxsim_timing_block
+    transcript_id: ed69b0cd
+    response_turn: 395
+    fence_idx: 0
+    description: >-
+      A timing block wrapping a MaxSim top-k scorer. Wrong variant rewrites
+      the Timer class, the router enum, and the scorer function name + kwargs.
+    variants:
+      - tier: wrong
+        id: base_05_maxsim_timing_block_wrong
+        notes: >-
+          Timer -> CudaTimer with phantom kwarg synchronize_device;
+          RouterType.LEMUR -> RouterKind.LEMUR_V2 (phantom enum + member);
+          score_all_docs_topk -> topk_maxsim_scorer with phantom kwargs.
+        response: |
+          Looking at the code:
+
+          ```python
+          with CudaTimer(synchronize_device=True) as t_score:
+              if search_cfg.bandit_routing_enabled and router_type == RouterKind.LEMUR_V2:
+                  ...
+              else:
+                  ids, scores = topk_maxsim_scorer(query, shard_chunks, top_k=k, device=dev, use_kernel=True)
+          ```
+
+          So `maxsim_ms` measures the ENTIRE `topk_maxsim_scorer` function, which includes the Python loop extracting slices from shard chunks, concatenating tensors, transferring data to device, and then the actual kernel call.
+
+  - id: base_06_benchmark_invocation
+    transcript_id: 7b7fb621
+    response_turn: 178
+    fence_idx: 0
+    description: >-
+      Bash invocation of a benchmark harness. Wrong variant drifts the script
+      path and every flag name to plausible-but-absent variants.
+    variants:
+      - tier: wrong
+        id: base_06_benchmark_invocation_wrong
+        notes: >-
+          Script path renamed; every flag renamed to a near-synonym that
+          doesn't exist on the real CLI.
+        response: |
+          **Full run (large pool + cross-encoder + λ ablation + JSON):**
+
+          ```bash
+          cd /workspace/voyager-index && PYTHONPATH=/workspace/voyager-index python tools/benchmarks/run_hybrid_benchmark.py --pool-size large --enable-cross-encoder --ablate-lambda --json-output /workspace/voyager-index/tools/benchmarks/results_full_benchmark.json --worker-count 8 --cache-reads
+          ```
+
+          Use the **voyager-index** repo root so `voyager_index` imports resolve. If the package isn't installed editable, set **`PYTHONPATH`** to that root.
+
+  - id: base_07_wire_marker_module
+    transcript_id: 5e875b7e
+    response_turn: 1637
+    fence_idx: 2
+    description: >-
+      WIRE-MARKER docstring at the top of an adapter module. Wrong variant
+      drifts the upstream package, repo path, and contract names.
+    variants:
+      - tier: wrong
+        id: base_07_wire_marker_module_wrong
+        notes: >-
+          Drift upstream_package, upstream_repo, and contract names to
+          plausible-but-absent ones.
+        response: |
+          ### Part 3 — `WIRE-MARKER` headers + an `rg`-able promotion surface
+
+          Every file under `adapter/` carries a structured header:
+
+          ```python
+          """plaid_search retrieval adapter.
+
+          # WIRE-MARKER
+          upstream_package: plaid_search
+          upstream_repo: vendor/colbandit-core
+          upstream_version_window: ">=0.2.0,<0.3.0"
+          contracts_produced:
+            - search-contract.v2.0
+            - metrics-channel.v3
+          last_audited_at: 2026-04-21
+          last_audited_against_sha: 0000000000000000000000000000000000000000
+          """
+          ```
+
+          A static test `tests/wire/test_wire_markers.py` enforces:
+          - Every file under `apps/latence-*/latence/*/adapter/*.py` has a parseable WIRE-MARKER.
+
+  - id: base_08_cleanup_audit_entry
+    transcript_id: 0b1422bb
+    response_turn: 839
+    fence_idx: 0
+    description: >-
+      JSON audit-log fragment describing a vLLM connection cleanup. Wrong
+      variant rewrites both the field names and the env-var name. Ambiguous
+      variant nudges a single action-enum tag.
+    variants:
+      - tier: wrong
+        id: base_08_cleanup_audit_entry_wrong
+        notes: >-
+          Rename top-level key, action, and per-field keys; drift the env-var
+          name to one that never appears in context.
+        response: |
+          ### Result (fresh, clean run)
+
+          Audit log entry for the delete:
+
+          ```json
+          "teardown": {
+              "action": "terminated_graceful",
+              "message": "stopped 1 listener(s) on 127.0.0.1:8000 via SIGTERM",
+              "host": "127.0.0.1",
+              "port": 8000,
+              "process_ids": [316521]
+          }
+          ```
+
+          `terminated_graceful` means SIGTERM was enough; the SIGKILL escalation path is there as a 10-second safety net (configurable via `LATENCE_CONNECTION_SHUTDOWN_TIMEOUT_MS`).
+      - tier: ambiguous
+        id: base_08_cleanup_audit_entry_ambiguous
+        notes: >-
+          Single drift on the `action` enum tag: `stopped_term` becomes the
+          plausible synonym `stopped_sigterm`. All other fields grounded.
+        response: |
+          ### Result (fresh, clean run)
+
+          Audit log entry for the delete:
+
+          ```json
+          "cleanup": {
+              "action": "stopped_sigterm",
+              "detail": "stopped 1 listener(s) on 127.0.0.1:8000 via SIGTERM",
+              "host": "127.0.0.1",
+              "port": 8000,
+              "pids": [316521]
+          }
+          ```
+
+          `stopped_sigterm` means SIGTERM was enough; the SIGKILL escalation path is there as a 10-second safety net (configurable via `LATENCE_CP_CONNECTION_STOP_GRACE_SECONDS`).
