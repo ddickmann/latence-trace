@@ -180,14 +180,14 @@ class VllmFactoryModernColBERTProvider:
 
         return len(self._token_ids(text, is_query=is_query))
 
-    def build_payload(self, text: str, *, is_query: bool) -> dict[str, Any]:
+    def build_payload(self, text: Any, *, is_query: Any) -> dict[str, Any]:
         return {
             "model": self.model,
             "data": {
                 "text": text,
-                "is_query": bool(is_query),
+                "is_query": is_query,
             },
-            "task": "plugin",
+            "task": "token_embed",
         }
 
     def _decode_embedding(self, payload: Any) -> np.ndarray:
@@ -232,26 +232,31 @@ class VllmFactoryModernColBERTProvider:
             return array
         raise TypeError("Unsupported ModernColBERT /pooling payload shape")
 
-    def _pool_text(self, text: str, *, is_query: bool) -> np.ndarray:
+    def _pool_texts(self, texts: list[str], *, is_query: bool) -> list[np.ndarray]:
         client = self._get_http_client()
-        response = client.post("/pooling", json=self.build_payload(text, is_query=is_query))
+        payload = self.build_payload(
+            texts[0] if len(texts) == 1 else texts,
+            is_query=bool(is_query) if len(texts) == 1 else [bool(is_query)] * len(texts),
+        )
+        response = client.post("/pooling", json=payload)
         response.raise_for_status()
-        return self._decode_embedding(response.json())
+        body = response.json()
+        raw = body.get("data", body) if isinstance(body, dict) else body
+        if len(texts) == 1:
+            return [self._decode_embedding(raw)]
+        if not isinstance(raw, list):
+            raise TypeError(f"Unsupported batched ModernColBERT payload: {type(raw)!r}")
+        return [self._decode_embedding(item) for item in raw]
 
     def encode(self, inputs: Any, **kwargs: Any) -> list[np.ndarray]:
         texts = [inputs] if isinstance(inputs, str) else list(inputs)
         if not texts:
             return []
         is_query = bool(kwargs.get("is_query", False))
-
-        if self._executor is None or len(texts) <= 1:
-            return [self._pool_text(text, is_query=is_query) for text in texts]
-
-        futures = [
-            self._executor.submit(self._pool_text, text, is_query=is_query)
-            for text in texts
-        ]
-        return [future.result() for future in futures]
+        outputs: list[np.ndarray] = []
+        for start in range(0, len(texts), self.batch_size):
+            outputs.extend(self._pool_texts(texts[start : start + self.batch_size], is_query=is_query))
+        return outputs
 
 
 def load_pylate_colbert(

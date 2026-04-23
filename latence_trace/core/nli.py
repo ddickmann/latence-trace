@@ -1175,9 +1175,9 @@ def env_float(name: str, default: float) -> float:
 def resolve_default_provider() -> Optional[NLIProvider]:
     """Build the default HuggingFace NLI provider when enabled.
 
-    Returns ``None`` if the feature flag is off or ``transformers`` is missing.
-    Failures inside :py:class:`HuggingFaceNLIProvider` itself are deferred to
-    the first entail call so we don't pay model-load cost for unused services.
+    When ``LATENCE_TRACE_NLI_VLLM_ENDPOINT`` is set, prefer the live vLLM lane
+    and keep the in-process HuggingFace implementation as a fallback. Returns
+    ``None`` if the feature flag is off.
     """
 
     if not is_enabled():
@@ -1190,6 +1190,25 @@ def resolve_default_provider() -> Optional[NLIProvider]:
         "VOYAGER_GROUNDEDNESS_NLI_MODEL",
         "MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7",
     )
+    vllm_endpoint = os.environ.get("LATENCE_TRACE_NLI_VLLM_ENDPOINT", "").strip()
+    if vllm_endpoint:
+        try:
+            from latence_trace.providers.nli import VllmFactoryNLIProvider
+
+            provider = VllmFactoryNLIProvider(
+                endpoint=vllm_endpoint,
+                model=os.environ.get("LATENCE_TRACE_NLI_VLLM_MODEL", model_id),
+                timeout=env_float("LATENCE_TRACE_NLI_VLLM_TIMEOUT", _DEFAULT_NLI_MAX_LATENCY_MS / 1000.0),
+                health_timeout=env_float("LATENCE_TRACE_NLI_VLLM_HEALTH_TIMEOUT", 10.0),
+                max_concurrency=env_int("LATENCE_TRACE_NLI_VLLM_MAX_CONCURRENCY", _DEFAULT_NLI_MAX_BATCH),
+            )
+            provider.healthcheck()
+            return provider
+        except Exception as exc:
+            logger.warning(
+                "nli_vllm_provider_init_failed",
+                extra={"endpoint": vllm_endpoint, "model": model_id, "error": str(exc)},
+            )
     try:
         return HuggingFaceNLIProvider(
             model_id=model_id,
