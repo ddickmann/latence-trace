@@ -33,4 +33,4 @@ RUN python -m spacy download en_core_web_sm \
 
 RUN chmod +x /workspace/latence-trace/runpod/start.sh
 
-CMD ["bash", "/workspace/latence-trace/runpod/start.sh"]
+CMD ["bash", "runpod/start.sh"]
