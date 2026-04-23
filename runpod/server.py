@@ -59,6 +59,7 @@ class ManagedVllmServer:
         max_num_batched_tokens: int | None = None,
         dtype: str = "bfloat16",
         trust_remote_code: bool = True,
+        enforce_eager: bool | None = None,
         enable_prefix_caching: bool = False,
         enable_chunked_prefill: bool = False,
         startup_timeout: int = 600,
@@ -77,6 +78,7 @@ class ManagedVllmServer:
         self.max_num_batched_tokens = max_num_batched_tokens
         self.dtype = dtype
         self.trust_remote_code = bool(trust_remote_code)
+        self.enforce_eager = enforce_eager
         self.enable_prefix_caching = bool(enable_prefix_caching)
         self.enable_chunked_prefill = bool(enable_chunked_prefill)
         self.startup_timeout = int(startup_timeout)
@@ -120,6 +122,10 @@ class ManagedVllmServer:
             cmd.extend(["--max-num-batched-tokens", str(self.max_num_batched_tokens)])
         if self.trust_remote_code:
             cmd.append("--trust-remote-code")
+        if self.enforce_eager is True:
+            cmd.append("--enforce-eager")
+        elif self.enforce_eager is False:
+            cmd.append("--no-enforce-eager")
         if not self.enable_prefix_caching:
             cmd.append("--no-enable-prefix-caching")
         if not self.enable_chunked_prefill:

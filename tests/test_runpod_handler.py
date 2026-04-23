@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
+import os
 import sys
 import threading
 import time
@@ -87,13 +88,13 @@ def _config(*, profile: str = "quality", max_concurrency: int = 2):
         colbert_port=18001,
         colbert_gpu_mem=0.34,
         colbert_max_model_len=8192,
-        colbert_max_num_seqs=192,
-        colbert_max_batched_tokens=32768,
+        colbert_max_num_seqs=128,
+        colbert_max_batched_tokens=8192,
         nli_model="MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7",
         nli_port=18002,
         nli_gpu_mem=0.24,
         nli_max_model_len=512,
-        nli_max_num_seqs=256,
+        nli_max_num_seqs=128,
         nli_max_batched_tokens=8192,
     )
 
@@ -112,7 +113,79 @@ async def _burst(size: int) -> list[dict]:
 def test_create_config_uses_fixed_runpod_max_concurrency(monkeypatch) -> None:
     monkeypatch.setenv("MAX_CONCURRENCY", "7")
     monkeypatch.setenv("LATENCE_TRACE_PROFILE", "quality")
-    assert runpod_handler.create_config().max_concurrency == 32
+    assert runpod_handler.create_config().max_concurrency == 64
+
+
+def test_create_config_pins_vllm_runtime_defaults(monkeypatch) -> None:
+    monkeypatch.setenv("LATENCE_TRACE_PROFILE", "quality")
+    monkeypatch.delenv("LATENCE_TRACE_COLBERT_MAX_NUM_SEQS", raising=False)
+    monkeypatch.delenv("LATENCE_TRACE_COLBERT_MAX_BATCHED_TOKENS", raising=False)
+    monkeypatch.delenv("LATENCE_TRACE_NLI_MAX_NUM_SEQS", raising=False)
+    monkeypatch.delenv("LATENCE_TRACE_NLI_MAX_BATCHED_TOKENS", raising=False)
+
+    config = runpod_handler.create_config()
+
+    assert config.colbert_max_num_seqs == 128
+    assert config.colbert_max_batched_tokens == 8192
+    assert config.nli_max_num_seqs == 128
+    assert config.nli_max_batched_tokens == 8192
+
+
+def test_build_servers_pin_requested_vllm_settings() -> None:
+    servers = runpod_handler._build_servers(_config(max_concurrency=64))
+
+    assert servers["colbert"].max_num_seqs == 128
+    assert servers["colbert"].max_num_batched_tokens == 8192
+    assert servers["colbert"].enforce_eager is False
+    assert servers["nli"].max_num_seqs == 128
+    assert servers["nli"].max_num_batched_tokens == 8192
+    assert servers["nli"].enforce_eager is False
+
+
+def test_initialize_exports_handler_concurrency_to_internal_vllm_clients(monkeypatch) -> None:
+    class _FakeServer:
+        def __init__(self, name: str, base_url: str) -> None:
+            self.name = name
+            self.base_url = base_url
+
+        def start(self) -> None:
+            return None
+
+        def stop(self) -> None:
+            return None
+
+        def health(self) -> dict[str, str]:
+            return {"status": "healthy", "name": self.name}
+
+    class _FakeGroundednessService:
+        def __init__(self, *args, **kwargs) -> None:
+            self.args = args
+            self.kwargs = kwargs
+
+        def groundedness(self, request) -> GroundednessResponse:
+            return _SlowService(sleep_ms=0).groundedness(request)
+
+    monkeypatch.setattr(runpod_handler, "apply_profile", lambda _profile: None)
+    monkeypatch.setattr(
+        runpod_handler,
+        "_build_servers",
+        lambda _config: {
+            "colbert": _FakeServer("colbert", "http://127.0.0.1:18001"),
+            "nli": _FakeServer("nli", "http://127.0.0.1:18002"),
+        },
+    )
+    monkeypatch.setattr(runpod_handler, "GroundednessService", _FakeGroundednessService)
+    monkeypatch.setattr(runpod_handler, "_ensure_kernel_warmup", lambda _profile: None)
+    monkeypatch.setattr(runpod_handler, "_prime_service_runtime", lambda _service: None)
+
+    runpod_handler.shutdown()
+    runpod_handler.initialize()
+
+    try:
+        assert os.environ["VOYAGER_GROUNDEDNESS_VLLM_MAX_CONCURRENCY"] == "64"
+        assert os.environ["LATENCE_TRACE_NLI_VLLM_MAX_CONCURRENCY"] == "64"
+    finally:
+        runpod_handler.shutdown()
 
 
 def test_build_startup_warmup_requests_exercises_three_triangular_probes() -> None:

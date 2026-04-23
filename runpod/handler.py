@@ -109,7 +109,7 @@ def create_config() -> WorkerConfig:
         profile=profile,
         version=os.environ.get("LATENCE_TRACE_RUNPOD_VERSION", __version__),
         request_timeout_s=_env_int("LATENCE_TRACE_RUNPOD_REQUEST_TIMEOUT", 120),
-        max_concurrency=32,
+        max_concurrency=64,
         collection_label=os.environ.get("LATENCE_TRACE_COLLECTION_LABEL", "latence-trace"),
         service_device=os.environ.get("LATENCE_TRACE_SERVICE_DEVICE", _detect_device()),
         docs_url=os.environ.get("LATENCE_TRACE_DOCS_URL", ""),
@@ -117,13 +117,13 @@ def create_config() -> WorkerConfig:
         colbert_port=_env_int("LATENCE_TRACE_COLBERT_PORT", 8001),
         colbert_gpu_mem=_env_float("LATENCE_TRACE_COLBERT_GPU_MEM", 0.34),
         colbert_max_model_len=_env_int("LATENCE_TRACE_COLBERT_MAX_MODEL_LEN", 8192),
-        colbert_max_num_seqs=_env_int("LATENCE_TRACE_COLBERT_MAX_NUM_SEQS", 192),
-        colbert_max_batched_tokens=_env_int("LATENCE_TRACE_COLBERT_MAX_BATCHED_TOKENS", 32768),
+        colbert_max_num_seqs=_env_int("LATENCE_TRACE_COLBERT_MAX_NUM_SEQS", 128),
+        colbert_max_batched_tokens=_env_int("LATENCE_TRACE_COLBERT_MAX_BATCHED_TOKENS", 8192),
         nli_model=nli_model,
         nli_port=_env_int("LATENCE_TRACE_NLI_PORT", 8002),
         nli_gpu_mem=_env_float("LATENCE_TRACE_NLI_GPU_MEM", 0.24),
         nli_max_model_len=_env_int("LATENCE_TRACE_NLI_MAX_MODEL_LEN", 512),
-        nli_max_num_seqs=_env_int("LATENCE_TRACE_NLI_MAX_NUM_SEQS", 256),
+        nli_max_num_seqs=_env_int("LATENCE_TRACE_NLI_MAX_NUM_SEQS", 128),
         nli_max_batched_tokens=_env_int("LATENCE_TRACE_NLI_MAX_BATCHED_TOKENS", 8192),
     )
 
@@ -231,6 +231,7 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
             max_num_seqs=config.colbert_max_num_seqs,
             max_num_batched_tokens=config.colbert_max_batched_tokens,
             plugins=["moderncolbert", "moderncolbert_batched_io"],
+            enforce_eager=False,
         ),
         "nli": ManagedVllmServer(
             name="nli",
@@ -242,6 +243,7 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
             max_num_seqs=config.nli_max_num_seqs,
             max_num_batched_tokens=config.nli_max_batched_tokens,
             plugins=["nli_mdeberta"],
+            enforce_eager=False,
         ),
     }
 
@@ -271,8 +273,10 @@ def initialize() -> None:
 
             os.environ["VOYAGER_GROUNDEDNESS_VLLM_ENDPOINT"] = servers["colbert"].base_url
             os.environ["VOYAGER_GROUNDEDNESS_VLLM_MODEL"] = config.colbert_model
+            os.environ["VOYAGER_GROUNDEDNESS_VLLM_MAX_CONCURRENCY"] = str(config.max_concurrency)
             os.environ["LATENCE_TRACE_NLI_VLLM_ENDPOINT"] = servers["nli"].base_url
             os.environ["LATENCE_TRACE_NLI_VLLM_MODEL"] = config.nli_model
+            os.environ["LATENCE_TRACE_NLI_VLLM_MAX_CONCURRENCY"] = str(config.max_concurrency)
             os.environ["VOYAGER_GROUNDEDNESS_NLI_MODEL"] = config.nli_model
             os.environ.setdefault("VOYAGER_GROUNDEDNESS_NLI_ENABLED", "1")
             os.environ.setdefault(
@@ -510,6 +514,6 @@ if __name__ == "__main__":  # pragma: no cover - exercised in container
     runpod.serverless.start(
         {
             "handler": handler,
-            "concurrency_modifier": lambda _current: _config.max_concurrency if _config else 32,
+            "concurrency_modifier": lambda _current: _config.max_concurrency if _config else 64,
         }
     )
