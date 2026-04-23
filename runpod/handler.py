@@ -393,6 +393,25 @@ def _compact_response(response: GroundednessResponse, *, verbose: bool) -> dict[
         "structured_score": scores.structured_source,
         "nli_aggregate": scores.nli_aggregate,
         "context_coverage_ratio": scores.context_coverage_ratio,
+        "context_unused_ratio": scores.context_unused_ratio,
+        "context_uncertain_ratio": scores.context_uncertain_ratio,
+        "context_usage_ratio": scores.context_usage_ratio,
+        "support_units_usage": {
+            "used": scores.support_units_usage_used,
+            "unused": scores.support_units_unused,
+            "uncertain": scores.support_units_uncertain,
+        },
+        "support_units": [
+            {
+                "support_id": unit.support_id,
+                "usage_state": unit.usage_state.value,
+                "usage_confidence": unit.usage_confidence,
+                "unused_confidence": unit.unused_confidence,
+                "coverage_score": unit.coverage_score,
+                "used": unit.used,
+            }
+            for unit in response.support_units
+        ],
         "latency_ms": float(response.time_ms),
         "version": _config.version if _config else __version__,
     }

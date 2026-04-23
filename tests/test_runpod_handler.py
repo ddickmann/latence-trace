@@ -14,11 +14,28 @@ from latence_trace.api.models import (
     GroundednessEligibility,
     GroundednessResponse,
     GroundednessScores,
+    GroundednessSupportUnit,
+    GroundednessUsageState,
 )
 
 _RUNPOD_DIR = Path(__file__).resolve().parents[1] / "runpod"
+# Temporarily expose ``runpod/`` on sys.path so ``handler.py``'s
+# ``from server import ManagedVllmServer`` resolves to ``runpod/server.py``.
+# We must tear this down immediately after loading because ``runpod/server.py``
+# shadows the workspace-root ``server/`` *package* in ``sys.modules``; leaving
+# it in place breaks later tests that need ``server.main`` (the real FastAPI
+# entrypoint) for profile / agent-help coverage.
+_RUNPOD_PATH_INSERTED = False
 if str(_RUNPOD_DIR) not in sys.path:
     sys.path.insert(0, str(_RUNPOD_DIR))
+    _RUNPOD_PATH_INSERTED = True
+
+_REAL_SERVER_MODULE = sys.modules.pop("server", None)
+_RUNPOD_SERVER_BACKUP_KEYS = {
+    name
+    for name in list(sys.modules.keys())
+    if name == "server" or name.startswith("server.")
+}
 
 _SPEC = importlib.util.spec_from_file_location(
     "latence_trace_runpod_handler",
@@ -28,6 +45,25 @@ assert _SPEC is not None and _SPEC.loader is not None
 runpod_handler = importlib.util.module_from_spec(_SPEC)
 sys.modules[_SPEC.name] = runpod_handler
 _SPEC.loader.exec_module(runpod_handler)
+
+# Handler holds a direct reference to ``ManagedVllmServer``; drop the
+# ``server`` module alias that pointed at ``runpod/server.py`` so the
+# workspace-root ``server/`` package can be imported fresh by downstream
+# tests. Also pull the ``runpod/`` entry back off ``sys.path`` so a new
+# ``import server`` resolves to the package, not the shadow module.
+_runpod_server_module = sys.modules.pop("server", None)
+if _runpod_server_module is not None:
+    sys.modules["latence_trace_runpod_vllm_server"] = _runpod_server_module
+for _name in list(sys.modules.keys()):
+    if (_name == "server" or _name.startswith("server.")) and _name not in _RUNPOD_SERVER_BACKUP_KEYS:
+        del sys.modules[_name]
+if _REAL_SERVER_MODULE is not None:
+    sys.modules["server"] = _REAL_SERVER_MODULE
+if _RUNPOD_PATH_INSERTED:
+    try:
+        sys.path.remove(str(_RUNPOD_DIR))
+    except ValueError:
+        pass
 
 
 class _SlowService:
@@ -223,3 +259,130 @@ def test_runpod_handler_bounds_inflight_requests(monkeypatch) -> None:
         assert service.peak_inflight <= config.max_concurrency
     finally:
         runpod_handler.shutdown()
+
+
+def test_compact_response_surfaces_unused_context_contract() -> None:
+    """Regression guard: the RunPod serverless envelope must expose the
+    precision-first tri-state unused-context signals without requiring
+    callers to opt into ``verbose=true``. If this slips, agents hitting
+    the serverless endpoint silently lose access to a SOTA feature.
+    """
+
+    runpod_handler._config = runpod_handler.WorkerConfig(
+        profile="quality",
+        version="test",
+        request_timeout_s=5,
+        max_concurrency=4,
+        collection_label="latence-trace",
+        service_device="cpu",
+        docs_url="",
+        colbert_model="lightonai/LateOn",
+        colbert_port=18001,
+        colbert_gpu_mem=0.34,
+        colbert_max_model_len=8192,
+        colbert_max_num_seqs=128,
+        colbert_max_batched_tokens=8192,
+        nli_model="MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7",
+        nli_port=18002,
+        nli_gpu_mem=0.24,
+        nli_max_model_len=512,
+        nli_max_num_seqs=128,
+        nli_max_batched_tokens=8192,
+    )
+
+    response = GroundednessResponse(
+        collection="latence-trace",
+        mode="raw_context",
+        model="test-model",
+        scores=GroundednessScores(
+            primary_name="reverse_context",
+            primary_score=0.82,
+            reverse_context=0.82,
+            risk_band="amber",
+            context_coverage_ratio=0.5,
+            context_usage_ratio=0.5,
+            context_unused_ratio=0.25,
+            context_uncertain_ratio=0.25,
+            support_units_usage_used=2,
+            support_units_unused=1,
+            support_units_uncertain=1,
+        ),
+        response_tokens=[],
+        support_units=[
+            GroundednessSupportUnit(
+                index=0,
+                support_id="unit-0",
+                source_mode="raw_context",
+                text="Berlin is the capital of Germany.",
+                token_count=6,
+                tokens=["Berlin", "is", "the", "capital", "of", "Germany"],
+                token_scores=[0.9, 0.0, 0.0, 0.9, 0.0, 0.9],
+                score=0.9,
+                matched_response_tokens=3,
+                coverage_score=0.9,
+                used=True,
+                usage_state=GroundednessUsageState.USED,
+                usage_confidence=0.91,
+                unused_confidence=0.03,
+            ),
+            GroundednessSupportUnit(
+                index=1,
+                support_id="unit-1",
+                source_mode="raw_context",
+                text="Penguins are flightless aquatic birds.",
+                token_count=5,
+                tokens=["Penguins", "are", "flightless", "aquatic", "birds"],
+                token_scores=[0.0, 0.0, 0.0, 0.0, 0.0],
+                score=0.05,
+                matched_response_tokens=0,
+                coverage_score=0.05,
+                used=False,
+                usage_state=GroundednessUsageState.UNUSED,
+                usage_confidence=0.88,
+                unused_confidence=0.88,
+            ),
+        ],
+        top_evidence=[],
+        eligibility=GroundednessEligibility(
+            collection_kind=CollectionKind.LATE_INTERACTION,
+            vector_source="encoded_raw_context",
+            storage_compression=None,
+            quantization_mode=None,
+            dequantized=True,
+            user_facing_supported=True,
+            warnings=[],
+        ),
+        time_ms=42.0,
+        attribution_mode=AttributionMode.CLOSED_BOOK,
+    )
+
+    compact = runpod_handler._compact_response(response, verbose=False)
+
+    assert compact["success"] is True
+    assert compact["context_coverage_ratio"] == 0.5
+    assert compact["context_unused_ratio"] == 0.25
+    assert compact["context_uncertain_ratio"] == 0.25
+    assert compact["context_usage_ratio"] == 0.5
+    assert compact["support_units_usage"] == {
+        "used": 2,
+        "unused": 1,
+        "uncertain": 1,
+    }
+
+    assert "full" not in compact, "verbose=False must stay compact"
+    assert len(compact["support_units"]) == 2
+    unit0, unit1 = compact["support_units"]
+    assert unit0["support_id"] == "unit-0"
+    assert unit0["usage_state"] == "used"
+    assert unit0["usage_confidence"] == 0.91
+    assert unit0["unused_confidence"] == 0.03
+    assert unit0["coverage_score"] == 0.9
+    assert unit0["used"] is True
+    assert unit1["support_id"] == "unit-1"
+    assert unit1["usage_state"] == "unused"
+    assert unit1["unused_confidence"] == 0.88
+
+    verbose = runpod_handler._compact_response(response, verbose=True)
+    assert "full" in verbose
+    assert verbose["full"]["scores"]["support_units_unused"] == 1
+    assert verbose["full"]["support_units"][0]["usage_state"] == "used"
