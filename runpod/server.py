@@ -6,6 +6,7 @@ import logging
 import os
 import select
 import signal
+import socket
 import subprocess
 import threading
 import time
@@ -110,7 +111,6 @@ class ManagedVllmServer:
             self.dtype,
             "--uvicorn-log-level",
             "warning",
-            "--disable-log-requests",
         ]
         if self.io_processor_plugin:
             cmd.extend(["--io-processor-plugin", self.io_processor_plugin])
@@ -126,6 +126,15 @@ class ManagedVllmServer:
             cmd.append("--no-enable-chunked-prefill")
         cmd.extend(self.extra_args)
         return cmd
+
+    def _assert_port_available(self) -> None:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(0.2)
+            in_use = sock.connect_ex(("127.0.0.1", self.port)) == 0
+        if in_use:
+            raise RuntimeError(
+                f"{self.name} cannot bind 127.0.0.1:{self.port}; the port is already in use"
+            )
 
     def _release_gpu_lock_if_held(self) -> None:
         if self._gpu_phase_acquired:
@@ -214,6 +223,7 @@ class ManagedVllmServer:
         if self.process is not None and self.process.poll() is None:
             return
 
+        self._assert_port_available()
         env = os.environ.copy()
         env["CUDA_VISIBLE_DEVICES"] = self.cuda_devices
         if self.plugins:
