@@ -15,13 +15,48 @@ Validates that:
 from __future__ import annotations
 
 import importlib
+import os
+import sys
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from latence_trace.api.routes import create_router
 from latence_trace.api.service import GroundednessService
 from latence_trace.kernels import warmup as warmup_mod
+
+
+@pytest.fixture(autouse=True)
+def _isolate_env_state():
+    """Snapshot & restore env + ``server.*`` module state around each test.
+
+    ``test_disable_warmup_env_short_circuits_to_ready`` imports ``server.main``,
+    whose eager ``app = create_app()`` call runs ``apply_profile("balanced")``
+    and permanently mutates ``VOYAGER_GROUNDEDNESS_*`` env vars in the
+    pytest process. That leakage changes downstream ``GroundednessService``
+    configuration (NLI on/off, fusion weights, threshold path) and silently
+    flips tri-state usage classifications in later test files. Snapshotting
+    ``os.environ`` and unloading the ``server.*`` subpackage after every
+    warmup test keeps each test hermetic.
+    """
+
+    env_snapshot = dict(os.environ)
+    server_modules_before = {
+        name for name in sys.modules if name == "server" or name.startswith("server.")
+    }
+    try:
+        yield
+    finally:
+        for key in list(os.environ.keys()):
+            if key not in env_snapshot:
+                del os.environ[key]
+        for key, value in env_snapshot.items():
+            if os.environ.get(key) != value:
+                os.environ[key] = value
+        for name in list(sys.modules.keys()):
+            if (name == "server" or name.startswith("server.")) and name not in server_modules_before:
+                del sys.modules[name]
 
 
 class _StubProvider:

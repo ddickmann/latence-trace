@@ -322,6 +322,28 @@ def create_router(service_provider: Callable[[], GroundednessService]) -> APIRou
                             "dead weight."
                         ),
                     },
+                    "unused_context": {
+                        "response_globals": [
+                            "scores.support_units_usage_used",
+                            "scores.support_units_unused",
+                            "scores.support_units_uncertain",
+                            "scores.context_usage_ratio",
+                            "scores.context_unused_ratio",
+                            "scores.context_uncertain_ratio",
+                        ],
+                        "response_per_unit": [
+                            "support_units[*].usage_state",
+                            "support_units[*].usage_confidence",
+                            "support_units[*].unused_confidence",
+                        ],
+                        "description": (
+                            "Precision-first unused-context contract. "
+                            "``usage_state=unused`` is emitted only for high-"
+                            "confidence negatives; semantically overlapping, "
+                            "partially used, or otherwise ambiguous units are "
+                            "surfaced as ``uncertain`` instead."
+                        ),
+                    },
                 },
                 "docs_url": "https://latence.ai/trace/docs",
             },

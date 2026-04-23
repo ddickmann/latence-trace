@@ -58,6 +58,14 @@ class AttributionMode(str, Enum):
     OPEN_DOMAIN = "open_domain"
 
 
+class GroundednessUsageState(str, Enum):
+    """Tri-state precision-first support-unit usage label."""
+
+    USED = "used"
+    UNUSED = "unused"
+    UNCERTAIN = "uncertain"
+
+
 class GroundednessSupportUnitInput(BaseModel):
     """Caller-supplied structured premise for the ``support_units`` lane.
 
@@ -382,6 +390,50 @@ class GroundednessScores(BaseModel):
             "Numerator of context_attribution_ratio."
         ),
     )
+    support_units_usage_used: Optional[int] = Field(
+        default=None,
+        description=(
+            "Count of support units whose precision-first tri-state "
+            "``usage_state`` is ``used``. Unlike ``support_units_used`` this "
+            "can include low-overlap units rescued by NLI evidence."
+        ),
+    )
+    support_units_unused: Optional[int] = Field(
+        default=None,
+        description=(
+            "Count of support units whose tri-state ``usage_state`` is "
+            "``unused``. This label is precision-first: ambiguous or "
+            "redundant units should fall into ``uncertain`` instead."
+        ),
+    )
+    support_units_uncertain: Optional[int] = Field(
+        default=None,
+        description=(
+            "Count of support units whose tri-state ``usage_state`` is "
+            "``uncertain`` because the engine abstained instead of forcing a "
+            "binary used/unused verdict."
+        ),
+    )
+    context_usage_ratio: Optional[float] = Field(
+        default=None,
+        description=(
+            "Fraction of support units whose tri-state ``usage_state`` is "
+            "``used``."
+        ),
+    )
+    context_unused_ratio: Optional[float] = Field(
+        default=None,
+        description=(
+            "Fraction of support units emitted as high-confidence "
+            "``usage_state = unused``."
+        ),
+    )
+    context_uncertain_ratio: Optional[float] = Field(
+        default=None,
+        description=(
+            "Fraction of support units emitted as ``usage_state = uncertain``."
+        ),
+    )
 
 
 class GroundednessLiteral(BaseModel):
@@ -416,6 +468,8 @@ class GroundednessNLIAtom(BaseModel):
     skipped: bool
     skip_reason: Optional[str] = None
     premise_count: int
+    support_ids: List[str] = Field(default_factory=list)
+    support_unit_indices: List[int] = Field(default_factory=list)
 
 
 class GroundednessNLIClaim(BaseModel):
@@ -432,6 +486,8 @@ class GroundednessNLIClaim(BaseModel):
     skipped: bool
     skip_reason: Optional[str] = None
     premise_count: int
+    support_ids: List[str] = Field(default_factory=list)
+    support_unit_indices: List[int] = Field(default_factory=list)
     atoms: List[GroundednessNLIAtom] = Field(default_factory=list)
 
 
@@ -569,9 +625,32 @@ class GroundednessSupportUnit(BaseModel):
         default=False,
         description=(
             "True when coverage_score >= scores.context_coverage_threshold. "
-            "Retrieval-efficiency observability: units with used=False were "
-            "fetched by the retriever but contributed nothing strong to the "
-            "response, so the retriever pulled dead weight for this query."
+            "Compatibility coverage view only. Retrieval-efficiency "
+            "observability: units with used=False were fetched by the "
+            "retriever but contributed nothing strong to the response. Use "
+            "``usage_state`` for the newer precision-first tri-state contract."
+        ),
+    )
+    usage_state: GroundednessUsageState = Field(
+        default=GroundednessUsageState.UNCERTAIN,
+        description=(
+            "Precision-first tri-state usage label. ``unused`` is emitted only "
+            "for high-confidence negatives; borderline cases fall into "
+            "``uncertain`` instead of forcing a binary verdict."
+        ),
+    )
+    usage_confidence: Optional[float] = Field(
+        default=None,
+        description=(
+            "Confidence in the emitted ``usage_state``. Range ``[0, 1]``."
+        ),
+    )
+    unused_confidence: Optional[float] = Field(
+        default=None,
+        description=(
+            "Confidence that this support unit is truly unused. Especially "
+            "useful for sorting or filtering units with "
+            "``usage_state = unused``."
         ),
     )
     source_id: Optional[str] = Field(
@@ -641,6 +720,12 @@ class GroundednessResponse(BaseModel):
                     "consensus_hardened": 0.96,
                     "reverse_query_context": 0.98,
                     "triangular": 0.82,
+                    "support_units_usage_used": 1,
+                    "support_units_unused": 0,
+                    "support_units_uncertain": 0,
+                    "context_usage_ratio": 1.0,
+                    "context_unused_ratio": 0.0,
+                    "context_uncertain_ratio": 0.0,
                 },
                 "response_tokens": [
                     {
@@ -671,6 +756,11 @@ class GroundednessResponse(BaseModel):
                         "token_scores": [0.99, 0.35, 0.0, 0.71],
                         "score": 0.93,
                         "matched_response_tokens": 4,
+                        "coverage_score": 0.99,
+                        "used": True,
+                        "usage_state": "used",
+                        "usage_confidence": 0.98,
+                        "unused_confidence": 0.01,
                     }
                 ],
                 "top_evidence": [

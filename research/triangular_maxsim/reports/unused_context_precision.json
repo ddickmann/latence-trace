@@ -1,0 +1,350 @@
+{
+  "target_unused_precision": 0.9,
+  "gate_status": "passed",
+  "gate_reasons": [],
+  "calibration_cases": 16,
+  "heldout_cases": 16,
+  "selected_thresholds": {
+    "strong_coverage_min": 0.62,
+    "unused_coverage_max": 0.22,
+    "attribution_score_min": 0.34,
+    "support_token_ratio_min": 0.2,
+    "support_token_score_threshold": 0.45,
+    "nli_entailment_min": 0.55,
+    "nli_score_min": 0.15,
+    "redundancy_overlap_min": 0.75,
+    "redundancy_jaccard_min": 0.55,
+    "redundancy_centroid_cosine_min": 0.92,
+    "redundancy_centroid_overlap_floor": 0.4
+  },
+  "selected_thresholds_meets_target_on_calibration": true,
+  "calibration": {
+    "total_units": 40,
+    "accuracy": 0.85,
+    "unused_precision": 1.0,
+    "unused_precision_defined": true,
+    "unused_recall": 0.85,
+    "unused_recall_defined": true,
+    "predicted_unused": 17,
+    "gold_unused": 20,
+    "true_unused": 17,
+    "confusion": {
+      "used": {
+        "used": 12
+      },
+      "unused": {
+        "unused": 17,
+        "uncertain": 3
+      },
+      "uncertain": {
+        "uncertain": 5,
+        "used": 3
+      }
+    },
+    "emitted_unused_examples": [
+      {
+        "case": "berlin_exact",
+        "unit_index": 1,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Penguins are flightless aquatic birds native to Antarctica."
+      },
+      {
+        "case": "berlin_exact",
+        "unit_index": 2,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Lanterns glow above the quiet harbor at dusk."
+      },
+      {
+        "case": "berlin_near_duplicate",
+        "unit_index": 2,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Penguins are flightless aquatic birds native to Antarctica."
+      },
+      {
+        "case": "berlin_mixed_window",
+        "unit_index": 1,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Ancient stone bridges span the river near the village square."
+      },
+      {
+        "case": "berlin_nli_rescue",
+        "unit_index": 1,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Penguins are flightless aquatic birds native to Antarctica."
+      },
+      {
+        "case": "coffee_exact",
+        "unit_index": 1,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Mars has two small moons named Phobos and Deimos."
+      },
+      {
+        "case": "coffee_exact",
+        "unit_index": 2,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Lanterns glow above the quiet harbor at dusk."
+      },
+      {
+        "case": "coffee_near_duplicate",
+        "unit_index": 2,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Mars has two small moons named Phobos and Deimos."
+      },
+      {
+        "case": "coffee_mixed_window",
+        "unit_index": 1,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Ancient stone bridges span the river near the village square."
+      },
+      {
+        "case": "python_exact",
+        "unit_index": 1,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Oak trees can live for several centuries."
+      },
+      {
+        "case": "python_exact",
+        "unit_index": 2,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Lanterns glow above the quiet harbor at dusk."
+      },
+      {
+        "case": "python_near_duplicate",
+        "unit_index": 2,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Oak trees can live for several centuries."
+      }
+    ],
+    "meets_target": true
+  },
+  "heldout": {
+    "total_units": 40,
+    "accuracy": 0.9,
+    "unused_precision": 1.0,
+    "unused_precision_defined": true,
+    "unused_recall": 1.0,
+    "unused_recall_defined": true,
+    "predicted_unused": 20,
+    "gold_unused": 20,
+    "true_unused": 20,
+    "confusion": {
+      "used": {
+        "used": 12
+      },
+      "unused": {
+        "unused": 20
+      },
+      "uncertain": {
+        "used": 4,
+        "uncertain": 4
+      }
+    },
+    "emitted_unused_examples": [
+      {
+        "case": "saturn_exact",
+        "unit_index": 1,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Bamboo grows quickly in warm climates."
+      },
+      {
+        "case": "saturn_exact",
+        "unit_index": 2,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Lanterns glow above the quiet harbor at dusk."
+      },
+      {
+        "case": "saturn_near_duplicate",
+        "unit_index": 2,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Bamboo grows quickly in warm climates."
+      },
+      {
+        "case": "saturn_mixed_window",
+        "unit_index": 1,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Ancient stone bridges span the river near the village square."
+      },
+      {
+        "case": "saturn_nli_rescue",
+        "unit_index": 1,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Bamboo grows quickly in warm climates."
+      },
+      {
+        "case": "curie_exact",
+        "unit_index": 1,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Coral reefs host diverse marine ecosystems."
+      },
+      {
+        "case": "curie_exact",
+        "unit_index": 2,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Lanterns glow above the quiet harbor at dusk."
+      },
+      {
+        "case": "curie_near_duplicate",
+        "unit_index": 2,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Coral reefs host diverse marine ecosystems."
+      },
+      {
+        "case": "curie_mixed_window",
+        "unit_index": 1,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Ancient stone bridges span the river near the village square."
+      },
+      {
+        "case": "curie_nli_rescue",
+        "unit_index": 1,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Coral reefs host diverse marine ecosystems."
+      },
+      {
+        "case": "meeting_exact",
+        "unit_index": 1,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Maple syrup is made from tree sap."
+      },
+      {
+        "case": "meeting_exact",
+        "unit_index": 2,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Lanterns glow above the quiet harbor at dusk."
+      }
+    ]
+  },
+  "heldout_default_thresholds": {
+    "total_units": 40,
+    "accuracy": 0.9,
+    "unused_precision": 1.0,
+    "unused_precision_defined": true,
+    "unused_recall": 1.0,
+    "unused_recall_defined": true,
+    "predicted_unused": 20,
+    "gold_unused": 20,
+    "true_unused": 20,
+    "confusion": {
+      "used": {
+        "used": 12
+      },
+      "unused": {
+        "unused": 20
+      },
+      "uncertain": {
+        "used": 4,
+        "uncertain": 4
+      }
+    },
+    "emitted_unused_examples": [
+      {
+        "case": "saturn_exact",
+        "unit_index": 1,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Bamboo grows quickly in warm climates."
+      },
+      {
+        "case": "saturn_exact",
+        "unit_index": 2,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Lanterns glow above the quiet harbor at dusk."
+      },
+      {
+        "case": "saturn_near_duplicate",
+        "unit_index": 2,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Bamboo grows quickly in warm climates."
+      },
+      {
+        "case": "saturn_mixed_window",
+        "unit_index": 1,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Ancient stone bridges span the river near the village square."
+      },
+      {
+        "case": "saturn_nli_rescue",
+        "unit_index": 1,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Bamboo grows quickly in warm climates."
+      },
+      {
+        "case": "curie_exact",
+        "unit_index": 1,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Coral reefs host diverse marine ecosystems."
+      },
+      {
+        "case": "curie_exact",
+        "unit_index": 2,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Lanterns glow above the quiet harbor at dusk."
+      },
+      {
+        "case": "curie_near_duplicate",
+        "unit_index": 2,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Coral reefs host diverse marine ecosystems."
+      },
+      {
+        "case": "curie_mixed_window",
+        "unit_index": 1,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Ancient stone bridges span the river near the village square."
+      },
+      {
+        "case": "curie_nli_rescue",
+        "unit_index": 1,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Coral reefs host diverse marine ecosystems."
+      },
+      {
+        "case": "meeting_exact",
+        "unit_index": 1,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Maple syrup is made from tree sap."
+      },
+      {
+        "case": "meeting_exact",
+        "unit_index": 2,
+        "gold": "unused",
+        "pred": "unused",
+        "text": "Lanterns glow above the quiet harbor at dusk."
+      }
+    ]
+  }
+}

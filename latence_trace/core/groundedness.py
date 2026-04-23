@@ -1006,6 +1006,513 @@ def support_unit_signature(unit: SupportUnitInput) -> str:
     return f"text:{digest}"
 
 
+@dataclass(frozen=True)
+class UsageClassifierThresholds:
+    """Threshold bundle for precision-first support-unit usage classification."""
+
+    strong_coverage_min: float = 0.62
+    unused_coverage_max: float = 0.22
+    attribution_score_min: float = 0.34
+    support_token_ratio_min: float = 0.2
+    support_token_score_threshold: float = 0.45
+    nli_entailment_min: float = 0.55
+    nli_score_min: float = 0.15
+    redundancy_overlap_min: float = 0.75
+    redundancy_jaccard_min: float = 0.55
+    redundancy_centroid_cosine_min: float = 0.92
+    redundancy_centroid_overlap_floor: float = 0.4
+
+
+_DEFAULT_USAGE_THRESHOLDS = UsageClassifierThresholds()
+
+
+def _clamp01(value: float) -> float:
+    return max(0.0, min(1.0, float(value)))
+
+
+def _usage_content_token_set(tokens: Sequence[str]) -> set[str]:
+    out: set[str] = set()
+    for token in tokens:
+        if not _is_content_token(token):
+            continue
+        normalized = _strip_marker(str(token)).strip().lower()
+        if normalized:
+            out.add(normalized)
+    return out
+
+
+def _usage_unit_centroid(unit: SupportUnitInput) -> Optional[torch.Tensor]:
+    embeddings = unit.embeddings.float()
+    if embeddings.numel() == 0:
+        return None
+    token_mask = support_content_mask(unit.tokens)
+    if token_mask.numel() == int(embeddings.shape[0]) and bool(token_mask.any().item()):
+        embeddings = embeddings[token_mask]
+    if embeddings.numel() == 0:
+        return None
+    centroid = embeddings.mean(dim=0, keepdim=True)
+    if not bool(torch.isfinite(centroid).all().item()):
+        return None
+    return _normalize(centroid)[0]
+
+
+def _usage_redundancy_similarity(
+    *,
+    signature_a: str,
+    signature_b: str,
+    tokens_a: set[str],
+    tokens_b: set[str],
+    centroid_a: Optional[torch.Tensor],
+    centroid_b: Optional[torch.Tensor],
+    thresholds: UsageClassifierThresholds,
+) -> float:
+    if signature_a == signature_b:
+        return 1.0
+    if tokens_a and tokens_b:
+        overlap = len(tokens_a & tokens_b)
+        overlap_coeff = overlap / float(max(1, min(len(tokens_a), len(tokens_b))))
+        jaccard = overlap / float(max(1, len(tokens_a | tokens_b)))
+    else:
+        overlap_coeff = 0.0
+        jaccard = 0.0
+    centroid_cosine = 0.0
+    if centroid_a is not None and centroid_b is not None:
+        centroid_cosine = max(0.0, float(torch.dot(centroid_a, centroid_b).item()))
+
+    if overlap_coeff >= thresholds.redundancy_overlap_min:
+        return max(overlap_coeff, jaccard, centroid_cosine)
+    if jaccard >= thresholds.redundancy_jaccard_min:
+        return max(jaccard, centroid_cosine)
+    if (
+        centroid_cosine >= thresholds.redundancy_centroid_cosine_min
+        and overlap_coeff >= thresholds.redundancy_centroid_overlap_floor
+    ):
+        return max(centroid_cosine, overlap_coeff)
+    return 0.0
+
+
+def _compute_redundancy_matrix(
+    signatures: Sequence[str],
+    token_sets: Sequence[set[str]],
+    centroids: Sequence[Optional[torch.Tensor]],
+    thresholds: UsageClassifierThresholds,
+) -> torch.Tensor:
+    """Vectorised pairwise redundancy similarity matrix.
+
+    The returned ``(U, U)`` float32 tensor is mathematically identical to the
+    per-pair scalar ``_usage_redundancy_similarity``: same gating tiers, same
+    priority order, same token-overlap / Jaccard / centroid-cosine semantics,
+    and the same signature-equality short circuit. The diagonal is set to
+    ``1.0`` (identical-to-self); the consumer is expected to exclude the
+    diagonal when taking a per-row max.
+    """
+
+    u = len(signatures)
+    if u == 0:
+        return torch.zeros((0, 0), dtype=torch.float32)
+
+    vocab: Dict[str, int] = {}
+    for tokens in token_sets:
+        for token in tokens:
+            if token not in vocab:
+                vocab[token] = len(vocab)
+
+    v_size = len(vocab)
+    if v_size > 0:
+        b_matrix = torch.zeros((u, v_size), dtype=torch.float32)
+        for i, tokens in enumerate(token_sets):
+            if not tokens:
+                continue
+            idx = torch.tensor(
+                [vocab[token] for token in tokens], dtype=torch.long
+            )
+            b_matrix[i, idx] = 1.0
+        overlap = b_matrix @ b_matrix.T
+        sizes = b_matrix.sum(dim=1)
+        size_rows = sizes.unsqueeze(1)
+        size_cols = sizes.unsqueeze(0)
+        both_have_tokens = (size_rows > 0) & (size_cols > 0)
+        min_sizes = torch.minimum(size_rows, size_cols).clamp(min=1.0)
+        union = (size_rows + size_cols - overlap).clamp(min=1.0)
+        zero_uu = torch.zeros_like(overlap)
+        overlap_coeff = torch.where(both_have_tokens, overlap / min_sizes, zero_uu)
+        jaccard = torch.where(both_have_tokens, overlap / union, zero_uu)
+    else:
+        overlap_coeff = torch.zeros((u, u), dtype=torch.float32)
+        jaccard = torch.zeros((u, u), dtype=torch.float32)
+
+    centroid_cosine = torch.zeros((u, u), dtype=torch.float32)
+    centroid_dim: Optional[int] = None
+    for centroid in centroids:
+        if centroid is not None and centroid.numel() > 0:
+            centroid_dim = int(centroid.shape[-1])
+            break
+    if centroid_dim is not None:
+        c_matrix = torch.zeros((u, centroid_dim), dtype=torch.float32)
+        centroid_valid = torch.zeros(u, dtype=torch.bool)
+        for i, centroid in enumerate(centroids):
+            if centroid is None or centroid.numel() == 0:
+                continue
+            if int(centroid.shape[-1]) != centroid_dim:
+                continue
+            c_matrix[i] = centroid.detach().to(dtype=torch.float32).cpu().view(-1)
+            centroid_valid[i] = True
+        if bool(centroid_valid.any().item()):
+            raw_cosine = (c_matrix @ c_matrix.T).clamp(min=0.0)
+            both_valid = centroid_valid.unsqueeze(1) & centroid_valid.unsqueeze(0)
+            centroid_cosine = torch.where(
+                both_valid, raw_cosine, torch.zeros_like(raw_cosine)
+            )
+
+    pair_matrix = torch.zeros((u, u), dtype=torch.float32)
+
+    tier1_mask = overlap_coeff >= thresholds.redundancy_overlap_min
+    tier1_val = torch.maximum(torch.maximum(overlap_coeff, jaccard), centroid_cosine)
+    pair_matrix = torch.where(tier1_mask, tier1_val, pair_matrix)
+
+    tier2_mask = (jaccard >= thresholds.redundancy_jaccard_min) & (~tier1_mask)
+    tier2_val = torch.maximum(jaccard, centroid_cosine)
+    pair_matrix = torch.where(tier2_mask, tier2_val, pair_matrix)
+
+    tier3_mask = (
+        (centroid_cosine >= thresholds.redundancy_centroid_cosine_min)
+        & (overlap_coeff >= thresholds.redundancy_centroid_overlap_floor)
+        & (~tier1_mask)
+        & (~tier2_mask)
+    )
+    tier3_val = torch.maximum(centroid_cosine, overlap_coeff)
+    pair_matrix = torch.where(tier3_mask, tier3_val, pair_matrix)
+
+    signature_buckets: Dict[str, List[int]] = {}
+    for idx, signature in enumerate(signatures):
+        signature_buckets.setdefault(signature, []).append(idx)
+    for bucket in signature_buckets.values():
+        if len(bucket) < 2:
+            if bucket:
+                bucket_idx = bucket[0]
+                pair_matrix[bucket_idx, bucket_idx] = 1.0
+            continue
+        group = torch.tensor(bucket, dtype=torch.long)
+        pair_matrix[group.unsqueeze(1), group.unsqueeze(0)] = 1.0
+
+    return pair_matrix
+
+
+def _usage_support_indices_for_record(
+    record: Dict[str, Any],
+    *,
+    support_id_to_index: Dict[str, int],
+    support_count: int,
+) -> List[int]:
+    indices: List[int] = []
+    seen: set[int] = set()
+    for raw_index in record.get("support_unit_indices") or []:
+        try:
+            index = int(raw_index)
+        except (TypeError, ValueError):
+            continue
+        if not (0 <= index < support_count) or index in seen:
+            continue
+        seen.add(index)
+        indices.append(index)
+    if indices:
+        return indices
+    for support_id in record.get("support_ids") or []:
+        index = support_id_to_index.get(str(support_id))
+        if index is None or index in seen:
+            continue
+        seen.add(index)
+        indices.append(index)
+    return indices
+
+
+def _collect_usage_nli_stats(
+    claim_records: Optional[Sequence[Dict[str, Any]]],
+    *,
+    support_id_to_index: Dict[str, int],
+    support_count: int,
+    thresholds: UsageClassifierThresholds,
+) -> List[Dict[str, float | int]]:
+    stats: List[Dict[str, float | int]] = [
+        {
+            "evidence_count": 0,
+            "positive_count": 0,
+            "entailment_max": 0.0,
+            "score_max": 0.0,
+        }
+        for _ in range(support_count)
+    ]
+    if not claim_records:
+        return stats
+
+    for claim_record in claim_records:
+        if not isinstance(claim_record, dict):
+            continue
+        atom_records = [
+            atom
+            for atom in (claim_record.get("atoms") or [])
+            if isinstance(atom, dict)
+        ]
+        record_candidates = atom_records if atom_records else [claim_record]
+        for record in record_candidates:
+            if bool(record.get("skipped")):
+                continue
+            indices = _usage_support_indices_for_record(
+                record,
+                support_id_to_index=support_id_to_index,
+                support_count=support_count,
+            )
+            if not indices:
+                continue
+            entailment = float(record.get("entailment") or 0.0)
+            score = float(record.get("score") or 0.0)
+            is_positive = (
+                entailment >= thresholds.nli_entailment_min
+                or score >= thresholds.nli_score_min
+            )
+            for index in indices:
+                stat = stats[index]
+                stat["evidence_count"] = int(stat["evidence_count"]) + 1
+                stat["entailment_max"] = max(float(stat["entailment_max"]), entailment)
+                stat["score_max"] = max(float(stat["score_max"]), score)
+                if is_positive:
+                    stat["positive_count"] = int(stat["positive_count"]) + 1
+    return stats
+
+
+def apply_support_unit_usage_classification(
+    *,
+    support_units_payload: List[Dict[str, Any]],
+    support_inputs: Sequence[SupportUnitInput],
+    coverage_threshold: float,
+    claim_records: Optional[Sequence[Dict[str, Any]]] = None,
+    thresholds: UsageClassifierThresholds = _DEFAULT_USAGE_THRESHOLDS,
+) -> Dict[str, float | int]:
+    """Classify support units into precision-first used/unused/uncertain."""
+
+    if not support_units_payload or not support_inputs:
+        return {
+            "support_units_usage_used": 0,
+            "support_units_unused": 0,
+            "support_units_uncertain": 0,
+            "context_usage_ratio": 0.0,
+            "context_unused_ratio": 0.0,
+            "context_uncertain_ratio": 0.0,
+        }
+
+    support_id_to_index = {
+        str(payload.get("support_id")): int(payload.get("index", idx))
+        for idx, payload in enumerate(support_units_payload)
+    }
+    nli_stats = _collect_usage_nli_stats(
+        claim_records,
+        support_id_to_index=support_id_to_index,
+        support_count=len(support_units_payload),
+        thresholds=thresholds,
+    )
+
+    signatures = [support_unit_signature(unit) for unit in support_inputs]
+    token_sets = [_usage_content_token_set(unit.tokens) for unit in support_inputs]
+    centroids = [_usage_unit_centroid(unit) for unit in support_inputs]
+
+    strong_coverage_min = max(
+        thresholds.strong_coverage_min,
+        min(0.85, float(coverage_threshold) + 0.08),
+    )
+    unused_coverage_max = min(
+        thresholds.unused_coverage_max,
+        max(0.05, float(coverage_threshold) - 0.18),
+    )
+    support_token_score_threshold = max(
+        0.25,
+        min(float(coverage_threshold), thresholds.support_token_score_threshold),
+    )
+
+    provisional_used: List[bool] = []
+    used_confidences: List[float] = []
+    usage_signals: List[Dict[str, Any]] = []
+    for idx, payload in enumerate(support_units_payload):
+        token_count = int(payload.get("token_count") or len(payload.get("tokens") or []))
+        token_count = max(token_count, 1)
+        token_scores = [float(score) for score in (payload.get("token_scores") or [])]
+        support_token_hits = sum(
+            1 for score in token_scores if score >= support_token_score_threshold
+        )
+        support_token_ratio = (
+            float(support_token_hits) / float(token_count)
+            if token_count > 0
+            else 0.0
+        )
+        coverage_score = float(payload.get("coverage_score") or 0.0)
+        attribution_score = float(payload.get("score") or 0.0)
+        matched_response_tokens = int(payload.get("matched_response_tokens") or 0)
+        nli_stat = nli_stats[idx] if idx < len(nli_stats) else {
+            "evidence_count": 0,
+            "positive_count": 0,
+            "entailment_max": 0.0,
+            "score_max": 0.0,
+        }
+        nli_positive = int(nli_stat["positive_count"]) > 0
+        strong_coverage = coverage_score >= strong_coverage_min
+        dense_local_use = support_token_ratio >= thresholds.support_token_ratio_min
+        direct_attribution = matched_response_tokens > 0 and dense_local_use
+        coverage_only_positive = (
+            strong_coverage
+            and matched_response_tokens == 0
+            and not nli_positive
+        )
+        provisional = bool(
+            direct_attribution
+            or coverage_only_positive
+            or nli_positive
+        )
+        provisional_used.append(provisional)
+
+        coverage_conf = _clamp01(
+            (coverage_score - strong_coverage_min)
+            / max(1e-6, 1.0 - strong_coverage_min)
+        )
+        attribution_conf = _clamp01(
+            max(attribution_score, support_token_ratio)
+        ) if matched_response_tokens > 0 else 0.0
+        nli_conf = _clamp01(
+            max(
+                float(nli_stat["entailment_max"]),
+                0.5 + (0.5 * float(nli_stat["score_max"])),
+            )
+        ) if nli_positive else 0.0
+        used_confidence = max(coverage_conf, attribution_conf, nli_conf)
+        used_confidences.append(used_confidence)
+        usage_signals.append(
+            {
+                "coverage_score": coverage_score,
+                "attribution_score": attribution_score,
+                "matched_response_tokens": matched_response_tokens,
+                "coverage_only_positive": coverage_only_positive,
+                "dense_local_use": dense_local_use,
+                "support_token_ratio": support_token_ratio,
+                "nli_positive": nli_positive,
+                "nli_positive_count": int(nli_stat["positive_count"]),
+                "nli_entailment_max": float(nli_stat["entailment_max"]),
+                "nli_score_max": float(nli_stat["score_max"]),
+            }
+        )
+
+    usage_used_count = 0
+    unused_count = 0
+    uncertain_count = 0
+
+    total_units = len(support_units_payload)
+    if total_units >= 2:
+        redundancy_matrix = _compute_redundancy_matrix(
+            signatures=signatures,
+            token_sets=token_sets,
+            centroids=centroids,
+            thresholds=thresholds,
+        )
+        redundancy_matrix = redundancy_matrix.clone()
+        if redundancy_matrix.numel() > 0:
+            redundancy_matrix.fill_diagonal_(0.0)
+        used_mask_tensor = torch.tensor(provisional_used, dtype=torch.bool)
+        any_used = bool(used_mask_tensor.any().item())
+    else:
+        redundancy_matrix = None
+        used_mask_tensor = None
+        any_used = False
+
+    for idx, payload in enumerate(support_units_payload):
+        signals = usage_signals[idx]
+        coverage_score = float(signals["coverage_score"])
+        matched_response_tokens = int(signals["matched_response_tokens"])
+        attribution_score = float(signals["attribution_score"])
+        support_token_ratio = float(signals["support_token_ratio"])
+        nli_positive = bool(signals["nli_positive"])
+        coverage_only_positive = bool(signals["coverage_only_positive"])
+
+        redundancy_similarity = 0.0
+        if (
+            ((not provisional_used[idx]) or coverage_only_positive)
+            and redundancy_matrix is not None
+            and used_mask_tensor is not None
+            and any_used
+        ):
+            row = redundancy_matrix[idx]
+            row_mask = used_mask_tensor.clone()
+            row_mask[idx] = False
+            if bool(row_mask.any().item()):
+                selected = row[row_mask]
+                if selected.numel() > 0:
+                    redundancy_similarity = float(selected.max().item())
+
+        coverage_absence = _clamp01(
+            (unused_coverage_max - coverage_score)
+            / max(1e-6, unused_coverage_max)
+        )
+        redundancy_clear = _clamp01(1.0 - redundancy_similarity)
+        attribution_clear = 1.0 if matched_response_tokens == 0 else 0.0
+        nli_clear = 1.0 if not nli_positive else 0.0
+        unused_confidence = (
+            coverage_absence
+            + redundancy_clear
+            + attribution_clear
+            + nli_clear
+        ) / 4.0
+
+        if provisional_used[idx]:
+            if coverage_only_positive and redundancy_similarity > 1e-6:
+                usage_state = "uncertain"
+                usage_confidence = 0.5 * max(
+                    used_confidences[idx],
+                    _clamp01(redundancy_similarity),
+                )
+                uncertain_count += 1
+            else:
+                usage_state = "used"
+                usage_confidence = used_confidences[idx]
+                usage_used_count += 1
+        else:
+            is_unused = (
+                coverage_score <= unused_coverage_max
+                and matched_response_tokens == 0
+                and attribution_score <= 1e-6
+                and support_token_ratio <= 1e-6
+                and not nli_positive
+                and redundancy_similarity <= 1e-6
+            )
+            if is_unused:
+                usage_state = "unused"
+                usage_confidence = unused_confidence
+                unused_count += 1
+            else:
+                usage_state = "uncertain"
+                usage_confidence = 0.5 * max(
+                    used_confidences[idx],
+                    unused_confidence,
+                    _clamp01(redundancy_similarity),
+                )
+                uncertain_count += 1
+
+        payload["usage_state"] = usage_state
+        payload["usage_confidence"] = float(_clamp01(usage_confidence))
+        payload["unused_confidence"] = float(_clamp01(unused_confidence))
+
+    total = len(support_units_payload)
+    return {
+        "support_units_usage_used": int(usage_used_count),
+        "support_units_unused": int(unused_count),
+        "support_units_uncertain": int(uncertain_count),
+        "context_usage_ratio": (
+            float(usage_used_count) / float(total) if total > 0 else 0.0
+        ),
+        "context_unused_ratio": (
+            float(unused_count) / float(total) if total > 0 else 0.0
+        ),
+        "context_uncertain_ratio": (
+            float(uncertain_count) / float(total) if total > 0 else 0.0
+        ),
+    }
+
+
 def _dedup_unit_maxima(
     unit_maxima: torch.Tensor,
     signatures: Optional[Sequence[str]],
@@ -1953,6 +2460,14 @@ def score_groundedness(
     typed_structured_score = (
         structured_payload.get("typed_score") if structured_payload else None
     )
+    usage_aggregates = apply_support_unit_usage_classification(
+        support_units_payload=support_units_payload,
+        support_inputs=support_units,
+        coverage_threshold=coverage_threshold,
+        claim_records=(
+            nli_payload.get("claim_records") if nli_payload is not None else None
+        ),
+    )
 
     groundedness_v2 = fuse_groundedness_v2(
         reverse_context_calibrated=(
@@ -2042,6 +2557,12 @@ def score_groundedness(
             if coverage["total_count"] > 0 else 0.0
         ),
         "context_attribution_used_count": int(attribution_used_count),
+        "support_units_usage_used": int(usage_aggregates["support_units_usage_used"]),
+        "support_units_unused": int(usage_aggregates["support_units_unused"]),
+        "support_units_uncertain": int(usage_aggregates["support_units_uncertain"]),
+        "context_usage_ratio": float(usage_aggregates["context_usage_ratio"]),
+        "context_unused_ratio": float(usage_aggregates["context_unused_ratio"]),
+        "context_uncertain_ratio": float(usage_aggregates["context_uncertain_ratio"]),
     }
 
     return {
@@ -2290,6 +2811,8 @@ def _atom_to_dict(av: AtomicVerification) -> Dict[str, Any]:
         "skipped": bool(av.skipped),
         "skip_reason": av.skip_reason,
         "premise_count": int(len(av.premises)),
+        "support_ids": list(av.support_ids),
+        "support_unit_indices": [int(index) for index in av.support_unit_indices],
     }
 
 
@@ -2306,6 +2829,8 @@ def _claim_to_dict(verification: ClaimVerification) -> Dict[str, Any]:
         "skipped": bool(verification.skipped),
         "skip_reason": verification.skip_reason,
         "premise_count": int(len(verification.premises)),
+        "support_ids": list(verification.support_ids),
+        "support_unit_indices": [int(index) for index in verification.support_unit_indices],
         "atoms": [_atom_to_dict(a) for a in verification.atoms] if verification.atoms else [],
     }
 
@@ -2778,6 +3303,15 @@ def score_groundedness_chunked(
     nli_aggregate = nli_payload["aggregate_score"] if nli_payload else None
     nli_per_token_chunked = nli_payload["per_token"] if nli_payload else [None] * token_count
 
+    usage_aggregates = apply_support_unit_usage_classification(
+        support_units_payload=support_units_payload,
+        support_inputs=flat_support_units,
+        coverage_threshold=coverage_threshold,
+        claim_records=(
+            nli_payload.get("claim_records") if nli_payload is not None else None
+        ),
+    )
+
     semantic_entropy_payload = _maybe_run_semantic_entropy(
         verification_samples=verification_samples,
         nli_provider=nli_provider,
@@ -2897,6 +3431,12 @@ def score_groundedness_chunked(
             if coverage["total_count"] > 0 else 0.0
         ),
         "context_attribution_used_count": int(attribution_used_count),
+        "support_units_usage_used": int(usage_aggregates["support_units_usage_used"]),
+        "support_units_unused": int(usage_aggregates["support_units_unused"]),
+        "support_units_uncertain": int(usage_aggregates["support_units_uncertain"]),
+        "context_usage_ratio": float(usage_aggregates["context_usage_ratio"]),
+        "context_unused_ratio": float(usage_aggregates["context_unused_ratio"]),
+        "context_uncertain_ratio": float(usage_aggregates["context_uncertain_ratio"]),
     }
 
     return {
@@ -3498,6 +4038,16 @@ def score_groundedness_response_chunked(
         1 for payload in support_units_payload if int(payload["matched_response_tokens"]) > 0
     )
     coverage_total = unit_count
+    usage_aggregates = apply_support_unit_usage_classification(
+        support_units_payload=support_units_payload,
+        support_inputs=flat_support_units,
+        coverage_threshold=coverage_threshold,
+        claim_records=(
+            nli_diag.get("claims")
+            if isinstance(nli_diag, dict)
+            else None
+        ),
+    )
 
     evidence_candidates.sort(key=lambda item: item["_rank"], reverse=True)
     top_evidence = [
@@ -3616,6 +4166,12 @@ def score_groundedness_response_chunked(
         if coverage_total > 0 else 0.0
     )
     scores["context_attribution_used_count"] = int(coverage_attribution_used_count)
+    scores["support_units_usage_used"] = int(usage_aggregates["support_units_usage_used"])
+    scores["support_units_unused"] = int(usage_aggregates["support_units_unused"])
+    scores["support_units_uncertain"] = int(usage_aggregates["support_units_uncertain"])
+    scores["context_usage_ratio"] = float(usage_aggregates["context_usage_ratio"])
+    scores["context_unused_ratio"] = float(usage_aggregates["context_unused_ratio"])
+    scores["context_uncertain_ratio"] = float(usage_aggregates["context_uncertain_ratio"])
 
     return {
         "scores": scores,

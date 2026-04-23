@@ -25,25 +25,37 @@ read [`guides/tutorial.md`](guides/tutorial.md) first.
 
 ## Request: `GroundednessRequest`
 
-Top-level fields. `response_text` is required; one of the three
-premise lanes (`raw_context`, `chunk_ids`, `support_units`) is
-required unless you set `attribution_mode = "open_domain"`.
+Top-level fields. `response_text` is required. At most one premise lane
+(`raw_context`, `chunk_ids`, `support_units`) may be supplied per request.
+A request with zero premises is still valid: `closed_book` (default) short-
+circuits to `risk_band = "unknown"` with `reason = "no_premise_supplied"`;
+`open_domain` is reserved for the post-v1 retrieval-callback lane and
+currently refuses with `risk_band = "unsupported"` and
+`reason = "open_domain_pending_v1_next"` regardless of whether premises are
+supplied.
 
-| Field                       | Type             | Default        | Description                                                                                                  |
-|-----------------------------|------------------|----------------|--------------------------------------------------------------------------------------------------------------|
-| `response_text`             | `string`         | —              | The LLM-generated text to score. Required.                                                                   |
-| `query_text`                | `string`         | `null`         | The user query that produced the response. Required when `primary_metric = "triangular"`.                    |
-| `raw_context`               | `string`         | `null`         | Free-form premise text. Sentence-packed into windows of `raw_context_chunk_tokens`.                          |
-| `chunk_ids`                 | `string[]`       | `[]`           | Stable chunk IDs resolved by your `chunk_resolver`.                                                          |
-| `support_units`             | `SupportUnit[]`  | `[]`           | Structured premises with per-unit attribution metadata. See below.                                           |
-| `raw_context_chunk_tokens`  | `int`            | `256`          | Token budget per `raw_context` window. The engine packs sentences ≤ this budget per window.                  |
-| `response_chunk_tokens`     | `int`            | `256`          | Token budget per response window for long responses.                                                         |
-| `primary_metric`            | `enum`           | `reverse_context` | One of `reverse_context`, `triangular`. `triangular` requires `query_text`.                              |
-| `attribution_mode`          | `enum`           | `closed_book`  | `closed_book` refuses zero-evidence inputs (returns `risk_band = "unknown"`). `open_domain` is reserved for the post-v1 retrieval-callback lane. |
-| `evidence_limit`            | `int`            | `8`            | Cap on returned `evidence[]` entries.                                                                        |
-| `coverage_threshold`        | `float [0, 1]`   | `0.5`          | Threshold for the per-unit `used` flag and the global `context_coverage_ratio`. See §"Coverage" below.       |
-| `debug_dense_matrices`      | `bool`           | `false`        | When `true`, returns the full per-unit similarity matrix in `debug.dense_matrices`. Heavy; off in production. |
-| `profile`                   | `enum`           | env default    | `fast` / `balanced` / `quality`. Overrides `LATENCE_TRACE_PROFILE` for one request.                          |
+| Field                            | Type             | Default             | Description                                                                                                                                              |
+|----------------------------------|------------------|---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `response_text`                  | `string`         | —                   | The LLM-generated text to score. Required.                                                                                                                |
+| `query_text`                     | `string`         | `null`              | The user query that produced the response. Required when `primary_metric = "triangular"`.                                                                 |
+| `raw_context`                    | `string`         | `null`              | Free-form premise text. Sentence-packed into windows of `raw_context_chunk_tokens`.                                                                       |
+| `chunk_ids`                      | `(string\|int)[]`| `null`              | Stable chunk IDs resolved by the configured `chunk_resolver`.                                                                                             |
+| `support_units`                  | `SupportUnit[]`  | `null`              | Structured premises with per-unit attribution metadata. See below.                                                                                        |
+| `raw_context_chunk_tokens`       | `int [1, 8192]`  | `256`               | Token budget per `raw_context` window.                                                                                                                    |
+| `response_chunk_tokens`          | `int [1, 8192]`  | `256`               | Token budget per response window for long responses.                                                                                                      |
+| `primary_metric`                 | `enum`           | `reverse_context`   | One of `reverse_context`, `triangular`. `triangular` requires `query_text`.                                                                               |
+| `attribution_mode`               | `enum`           | `closed_book`       | `closed_book` refuses zero-premise requests with `risk_band = "unknown"` / `reason = "no_premise_supplied"`. `open_domain` is reserved for the post-v1 retrieval-callback lane and currently refuses with `risk_band = "unsupported"` / `reason = "open_domain_pending_v1_next"`, regardless of whether premises are supplied. |
+| `segmentation_mode`              | `enum`           | `sentence_packed`   | How `raw_context` is segmented into support units.                                                                                                        |
+| `coverage_threshold`             | `float [0, 1]`   | `0.5`               | Threshold for the per-unit legacy `used` flag and the global `context_coverage_ratio`. See §"Coverage" below.                                             |
+| `evidence_limit`                 | `int [1, 128]`   | `8`                 | Cap on returned `top_evidence[]` entries.                                                                                                                 |
+| `include_triangular_diagnostics` | `bool`           | `true`              | When `query_text` is provided, include optional query-conditioned diagnostics (triangular, echo, grounded coverage).                                       |
+| `debug_dense_matrices`           | `bool`           | `false`             | When `true`, returns the full per-unit similarity matrix in `debug`. Heavy; off in production.                                                            |
+| `model`                          | `string`         | `null`              | Optional encoder override for response / query / raw-context encoding.                                                                                    |
+| `query_prompt_name`              | `string`         | `null`              | Optional asymmetric prompt name for query encoding (e.g. `query`).                                                                                        |
+| `document_prompt_name`           | `string`         | `null`              | Optional asymmetric prompt name for response / raw-context encoding (e.g. `document`).                                                                    |
+| `verification_samples`           | `string[]`       | `null`              | Alternate responses for the semantic-entropy peer (temperature > 0 siblings).                                                                             |
+| `content_type`                   | `string`         | `null`              | Structured-source hint (`application/json`, `text/markdown`, `application/json+schema`). Auto-detected when omitted.                                      |
+| `risk_band_stratum`              | `string`         | `null`              | Optional failure-mode hint for the calibrated risk-band classifier (e.g. `entity_swap`, `negation`).                                                      |
 
 ### `SupportUnit`
 
@@ -63,91 +75,190 @@ Structured premise unit (the recommended lane for production).
 
 ```json
 {
-  "scores":  { ... },
-  "risk_band": "green",
-  "support_units":   [ ... ],
-  "response_tokens": [ ... ],
-  "claims":          [ ... ],
-  "evidence":        [ ... ],
-  "warnings":        [ ... ],
-  "debug":           { ... }
+  "collection":       "tutorial-li",
+  "mode":             "chunk_ids",
+  "model":            "lightonai/GTE-ModernColBERT-v1",
+  "attribution_mode": "closed_book",
+  "reason":           null,
+  "scores":           { "risk_band": "green", "...": "see below" },
+  "response_tokens":  [ ... ],
+  "support_units":    [ ... ],
+  "top_evidence":     [ ... ],
+  "eligibility":      { ... },
+  "query_tokens":     [ ... ],
+  "nli_diagnostics":  { "aggregate_score": 0.92, "claims": [ ... ] },
+  "literal_diagnostics":   { ... },
+  "semantic_entropy_diagnostics": { ... },
+  "structured_diagnostics":       { ... },
+  "warnings":         [ ... ],
+  "debug":            { ... },
+  "time_ms":          4.2
 }
 ```
 
 ### `scores: GroundednessScores`
 
-Headline scalars. All scoring fields are in `[0, 1]`. Coverage and
-attribution fields are `null` when scoring was refused
-(`risk_band = "unknown"`).
+Headline scalars and observability fields. All scoring fields are in
+`[0, 1]`. `scores.risk_band` carries the calibrated decision band (see
+next subsection). Coverage / attribution / usage fields are `null` when
+scoring was refused (`scores.risk_band = "unknown"` or `"unsupported"`).
 
-| Field                              | Type    | Description                                                                                                                                     |
-|------------------------------------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------|
-| `groundedness_v2`                  | `float` | Calibrated headline score (fused reverse-context + NLI when NLI is enabled).                                                                    |
-| `reverse_context_calibrated`       | `float` | Reverse-MaxSim score, null-bank-calibrated.                                                                                                     |
-| `triangular`                       | `float` | (Optional) triangular MaxSim, present when `primary_metric = "triangular"`.                                                                     |
-| `prompt_echo`                      | `float` | Mean prompt-echo signal across response tokens.                                                                                                 |
-| `nli_entailment_ratio`             | `float` | Fraction of NLI-tested claims that entailed.                                                                                                    |
-| **`context_coverage_ratio`**       | `float` | Retrieval-efficiency observability. Fraction of fetched units whose `coverage_score >= context_coverage_threshold`. **`0.4` ⇒ 60% dead weight.** |
-| **`context_coverage_threshold`**   | `float` | Threshold echoed from the request. Default `0.5`.                                                                                               |
-| **`support_units_used`**           | `int`   | Numerator of `context_coverage_ratio`.                                                                                                          |
-| **`support_units_total`**          | `int`   | Denominator of `context_coverage_ratio` (= number of distinct support units after dedup).                                                       |
-| **`context_attribution_ratio`**    | `float` | Threshold-free competitive signal. Fraction of units that won the argmax for at least one response token.                                       |
-| **`context_attribution_used_count`** | `int` | Numerator of `context_attribution_ratio`.                                                                                                       |
-| **`structured_source`**            | `float?`| Typed Structured Evidence Lane aggregate. `null` when the lane stayed silent (no `prose_table` / `numeric_fact` / `table_md` / `kv_pairs` / `json` source detected). When non-null, this is the AND-gate `min(entity_align, value_match, unit_match, sign_match)` aggregated `min` across all aligned response claims; with `VOYAGER_GROUNDEDNESS_STRUCTURED_GATE=1` the headline becomes `min(narrative_score, structured_source)`. |
-| **`structured_source_typed_aligned`** | `int?` | Number of typed response claims that aligned to a typed source cell.                                                                         |
-| **`structured_source_typed_count`**| `int?`  | Number of typed response claims extracted from `response_text`. The denominator of the lane's recall.                                            |
+| Field                                 | Type     | Description                                                                                                                                                                                                                                                                                                                            |
+|---------------------------------------|----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `primary_name`                        | `string` | Name of the headline metric (`reverse_context` or `triangular`).                                                                                                                                                                                                                                                                       |
+| `primary_score`                       | `float`  | Value of the headline metric.                                                                                                                                                                                                                                                                                                          |
+| `reverse_context`                     | `float`  | Raw reverse-MaxSim score.                                                                                                                                                                                                                                                                                                              |
+| `reverse_context_calibrated`          | `float?` | Reverse-MaxSim null-bank-calibrated score, when a null bank is configured.                                                                                                                                                                                                                                                             |
+| `groundedness_v2`                     | `float?` | Calibrated headline score fusing reverse-context, literal-guarded, NLI, semantic-entropy, and typed structured evidence.                                                                                                                                                                                                                |
+| `consensus_hardened`                  | `float?` | Mean consensus-hardened reverse-context score.                                                                                                                                                                                                                                                                                         |
+| `reverse_query_context`               | `float?` | Query-conditioned reverse-context score.                                                                                                                                                                                                                                                                                               |
+| `triangular`                          | `float?` | Triangular MaxSim, present when `primary_metric = "triangular"` or `include_triangular_diagnostics = true`.                                                                                                                                                                                                                            |
+| `echo_mean`                           | `float?` | Mean response-token echo signal.                                                                                                                                                                                                                                                                                                        |
+| `grounded_coverage`                   | `float?` | Query-token grounded-coverage signal.                                                                                                                                                                                                                                                                                                   |
+| `literal_guarded`                     | `float?` | Literal-guarded reverse-context score.                                                                                                                                                                                                                                                                                                  |
+| `literal_mismatch_count`              | `int?`   | Number of response literals with no support match.                                                                                                                                                                                                                                                                                     |
+| `literal_match_count`                 | `int?`   | Number of response literals matched against support.                                                                                                                                                                                                                                                                                   |
+| `literal_total_count`                 | `int?`   | Total number of literals extracted from the response.                                                                                                                                                                                                                                                                                  |
+| `nli_aggregate`                       | `float?` | Aggregate NLI entailment score across tested claims.                                                                                                                                                                                                                                                                                   |
+| `nli_claim_count`                     | `int?`   | Number of claims the NLI peer tested.                                                                                                                                                                                                                                                                                                   |
+| `nli_skipped_count`                   | `int?`   | Number of candidate claims the NLI peer skipped.                                                                                                                                                                                                                                                                                        |
+| `semantic_entropy_aggregate`          | `float?` | Semantic-entropy peer aggregate.                                                                                                                                                                                                                                                                                                       |
+| `semantic_entropy_raw`                | `float?` | Raw semantic-entropy value before fusion.                                                                                                                                                                                                                                                                                               |
+| `semantic_entropy_sample_count`       | `int?`   | Number of verification samples used by the semantic-entropy peer.                                                                                                                                                                                                                                                                       |
+| `null_bank_size`                      | `int?`   | Size of the calibration null bank used for `reverse_context_calibrated`.                                                                                                                                                                                                                                                                |
+| `structured_source`                   | `float?` | Typed structured-evidence AND-gate (`min(entity_align, value_match, unit_match, sign_match)`). `null` when no typed source was detected. When non-null and the AND-gate is enabled, the headline becomes `min(narrative, structured)`.                                                                                                 |
+| `structured_source_guarded`          | `float?` | Prose-triple guarded structured-source score.                                                                                                                                                                                                                                                                                           |
+| `structured_source_detected`         | `bool?`  | Whether the structured-source adapter detected any typed source.                                                                                                                                                                                                                                                                        |
+| `structured_source_typed_aligned`     | `int?`   | Number of typed response claims aligned to a typed source cell.                                                                                                                                                                                                                                                                        |
+| `structured_source_typed_count`       | `int?`   | Number of typed claims extracted from `response_text`.                                                                                                                                                                                                                                                                                 |
+| `risk_band`                           | `string?`| Calibrated decision band (see below).                                                                                                                                                                                                                                                                                                  |
+| **`context_coverage_ratio`**          | `float?` | Retrieval-efficiency observability. Fraction of fetched units whose `coverage_score >= context_coverage_threshold`. **`0.4` ⇒ 60% dead weight.**                                                                                                                                                                                        |
+| **`context_coverage_threshold`**      | `float?` | Threshold echoed from the request. Default `0.5`.                                                                                                                                                                                                                                                                                       |
+| **`support_units_used`**              | `int?`   | Numerator of `context_coverage_ratio` (legacy coverage view).                                                                                                                                                                                                                                                                          |
+| **`support_units_total`**             | `int?`   | Denominator of `context_coverage_ratio` (= number of distinct support units after dedup).                                                                                                                                                                                                                                              |
+| **`context_attribution_ratio`**       | `float?` | Threshold-free competitive signal. Fraction of units that won the argmax for at least one response token.                                                                                                                                                                                                                              |
+| **`context_attribution_used_count`**  | `int?`   | Numerator of `context_attribution_ratio`.                                                                                                                                                                                                                                                                                               |
+| **`support_units_usage_used`**        | `int?`   | Count of support units whose tri-state `usage_state` is `used`. Separate from the legacy coverage-based `support_units_used`.                                                                                                                                                                                                          |
+| **`support_units_unused`**            | `int?`   | Count of support units emitted as high-confidence `usage_state = "unused"`. Precision-first: borderline cases abstain instead of flipping here.                                                                                                                                                                                        |
+| **`support_units_uncertain`**         | `int?`   | Count of support units emitted as `usage_state = "uncertain"`.                                                                                                                                                                                                                                                                           |
+| **`context_usage_ratio`**             | `float?` | Fraction of support units whose tri-state `usage_state` is `used`.                                                                                                                                                                                                                                                                     |
+| **`context_unused_ratio`**            | `float?` | Fraction of support units emitted as `usage_state = "unused"`.                                                                                                                                                                                                                                                                           |
+| **`context_uncertain_ratio`**         | `float?` | Fraction of support units emitted as `usage_state = "uncertain"`.                                                                                                                                                                                                                                                                        |
 
-### `risk_band`
+### `scores.risk_band`
 
-`"green" | "amber" | "red" | "unknown"`. Calibrated decision band; use
-`"green"` as the gate for fast-path serving, route the others to
-human review or fallback prompts.
+`"green" | "amber" | "red" | "unknown" | "unsupported"`. Use `"green"`
+as the gate for fast-path serving; route the others to human review or
+fallback prompts.
+
+- `"green" | "amber" | "red"` are the calibrated decision bands for
+  successfully scored requests.
+- `"unknown"` is emitted when `attribution_mode = "closed_book"` and
+  the request carries zero premises; the companion
+  `GroundednessResponse.reason = "no_premise_supplied"` is the
+  machine-readable key. `warnings[]` is free-form and must not be
+  dispatch-keyed.
+- `"unsupported"` is emitted when `attribution_mode = "open_domain"`,
+  which is reserved for the post-v1 retrieval-callback lane; the
+  companion `reason = "open_domain_pending_v1_next"`.
 
 ### `support_units[i]: GroundednessSupportUnit`
 
-| Field                        | Type    | Description                                                                                                                                          |
-|------------------------------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `support_id`                 | `string`| The `source_id` you provided (or auto-assigned for `raw_context` / `chunk_ids` lanes).                                                               |
-| `index`                      | `int`   | Global index across all support batches (stable across response chunks).                                                                             |
-| `text`                       | `string`| The unit text.                                                                                                                                       |
-| `score`                      | `float` | Per-unit aggregate score, token-weight-aware.                                                                                                        |
-| `matched_response_tokens`    | `int`   | Number of response tokens that chose this unit as the **argmax** support (competitive signal).                                                       |
-| **`coverage_score`**         | `float` | Max similarity any response token had to this unit's tokens. Independent of argmax and of threshold. Range `[0, 1]`.                                 |
-| **`used`**                   | `bool`  | `True` when `coverage_score >= scores.context_coverage_threshold`. Filter `used == False` to surface dead-weight chunks.                            |
-| `token_scores`               | `float[]`| Per-token max-similarity profile of this unit; used to highlight the most cited spans inside the unit.                                              |
-| `metadata`                   | `object`| Echoed from the request `support_units[i].metadata`.                                                                                                 |
+| Field                        | Type          | Description                                                                                                                                                               |
+|------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `index`                      | `int`         | Global index across all support batches (stable across response chunks).                                                                                                  |
+| `support_id`                 | `string`      | The `source_id` you provided (or auto-assigned for `raw_context` / `chunk_ids` lanes).                                                                                    |
+| `chunk_id`                   | `string\|int?`| Stable chunk id when the `chunk_ids` lane is used.                                                                                                                        |
+| `source_mode`                | `string`      | Which request lane produced this unit: `chunk_ids`, `raw_context`, or `support_units`.                                                                                     |
+| `text`                       | `string`      | The unit text.                                                                                                                                                            |
+| `offset_start` / `offset_end`| `int?`        | Character offsets within the source document, when available.                                                                                                             |
+| `token_count`                | `int`         | Number of tokens in this unit.                                                                                                                                            |
+| `tokens`                     | `string[]`    | Token strings of this unit.                                                                                                                                               |
+| `token_scores`               | `float[]`     | Per-token max-similarity profile of this unit; used to highlight the most cited spans inside the unit.                                                                     |
+| `score`                      | `float`       | Per-unit aggregate score, token-weight-aware.                                                                                                                              |
+| `matched_response_tokens`    | `int`         | Number of response tokens that chose this unit as the **argmax** support (competitive signal).                                                                             |
+| **`coverage_score`**         | `float`       | Max similarity any response token had to this unit's tokens. Independent of argmax and of threshold. Range `[0, 1]`.                                                       |
+| **`used`**                   | `bool`        | Legacy compatibility view: `True` when `coverage_score >= scores.context_coverage_threshold`. Use `usage_state` for the precision-first tri-state contract.               |
+| **`usage_state`**            | `enum`        | Precision-first tri-state label: `used`, `unused`, or `uncertain`. `unused` is emitted only for high-confidence negatives.                                                 |
+| `usage_confidence`           | `float?`      | Confidence in the emitted `usage_state` (`[0, 1]`).                                                                                                                        |
+| `unused_confidence`          | `float?`      | Confidence that the unit is truly unused (`[0, 1]`). Helpful for sorting or filtering `usage_state = "unused"` units.                                                      |
+| `source_id`                  | `string?`     | Echoed from the request `support_units[i].source_id` when supplied.                                                                                                        |
+| `speaker`                    | `string?`     | Echoed from the request `support_units[i].speaker` when supplied.                                                                                                          |
+| `timestamp`                  | `string?`     | Echoed from the request `support_units[i].timestamp` when supplied.                                                                                                        |
+| `metadata`                   | `object?`     | Echoed verbatim from the request `support_units[i].metadata` when supplied.                                                                                                |
 
 ### `response_tokens[i]: GroundednessResponseToken`
 
 Per-response-token heatmap data. Use the character offsets to highlight
 the original `response_text` directly without re-tokenising.
 
-| Field                  | Type    | Description                                                                                          |
-|------------------------|---------|------------------------------------------------------------------------------------------------------|
-| `text`                 | `string`| The token text.                                                                                       |
-| `char_start` / `char_end` | `int` | Character offsets in `response_text`. Stable across chunked / unchunked paths.                       |
-| `groundedness`         | `float` | Per-token reverse-context score.                                                                      |
-| `prompt_echo`          | `float` | Per-token prompt-echo score.                                                                          |
-| `nli_score`            | `float?` | Per-token NLI score (when NLI is enabled). `null` for tokens outside any tested claim span.          |
-| `best_support_index`   | `int`   | Which support unit best supports this token (argmax).                                                |
-| `best_support_token`   | `int`   | Token index inside that support unit. Use this to draw provenance arrows.                            |
+| Field                            | Type           | Description                                                                                          |
+|----------------------------------|----------------|------------------------------------------------------------------------------------------------------|
+| `index`                          | `int`          | Zero-based index of the token in the aligned response token stream.                                  |
+| `token`                          | `string`       | Token text.                                                                                           |
+| `weight`                         | `float`        | Content-mask token weight (`0.0` for non-content tokens, `1.0` otherwise).                           |
+| `reverse_context`                | `float`        | Per-token reverse-context MaxSim score.                                                               |
+| `reverse_context_calibrated`     | `float?`       | Null-bank-calibrated per-token reverse-context score, when a null bank is configured.                 |
+| `reverse_context_z`              | `float?`       | Z-score of the token against the null bank.                                                           |
+| `null_mean` / `null_std`         | `float?`       | Null-bank mean / stddev for this token.                                                                |
+| `nli_score`                      | `float?`       | Per-token NLI score (when NLI is enabled). `null` for tokens outside any tested claim span.           |
+| `consensus_hardened`             | `float?`       | Consensus-hardened reverse-context score for this token.                                              |
+| `support_unit_hits_above_threshold` | `int?`      | Count of support units scoring above the consensus threshold for this token.                          |
+| `support_unit_soft_breadth`      | `float?`       | Soft count of supporting units above the consensus threshold.                                         |
+| `effective_support_units`        | `float?`       | Effective supporting units for consensus hardening.                                                    |
+| `reverse_query_context`          | `float?`       | Query-conditioned reverse-context score for this token.                                               |
+| `triangular`                     | `float?`       | Per-token triangular score, when triangular diagnostics are active.                                   |
+| `echo`                           | `float?`       | Per-token echo score.                                                                                 |
+| `support_unit_index`             | `int?`         | Index of the argmax support unit for this token.                                                       |
+| `support_token_index`            | `int?`         | Token index inside that support unit.                                                                 |
+| `support_token`                  | `string?`      | The argmax support token text (provenance arrows).                                                    |
+| `chunk_id`                       | `string\|int?` | Stable chunk id of the argmax support unit, when available.                                            |
+| `heatmap_score`                  | `float`        | Scalar used to drive UI heatmap intensity.                                                             |
+| `char_start` / `char_end`        | `int?`         | Character offsets in `response_text`. Populated when the encoder's tokenizer exposes offset mappings. |
+| `response_chunk_index`           | `int?`         | Index of the response chunk that produced this token when response chunking is active; `null` otherwise. |
 
-### `claims[i]: GroundednessClaim`
+### `nli_diagnostics.claims[i]: GroundednessNLIClaim`
 
-Present when NLI is enabled.
+Present when NLI is enabled. `nli_diagnostics.aggregate_score` carries
+the aggregate entailment across tested claims.
 
-| Field        | Type    | Description                                                |
-|--------------|---------|------------------------------------------------------------|
-| `text`       | `string`| The extracted claim.                                        |
-| `verdict`    | `enum`  | `entailed` / `neutral` / `contradicted`.                    |
-| `score`      | `float` | NLI confidence in the verdict.                              |
-| `support_id` | `string`| Which support unit was tested against.                      |
+| Field                   | Type                    | Description                                                                                                                                      |
+|-------------------------|-------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
+| `index`                 | `int`                   | Zero-based claim index.                                                                                                                          |
+| `text`                  | `string`                | The extracted claim text.                                                                                                                        |
+| `char_start`/`char_end` | `int`                   | Character offsets of the claim span within `response_text`.                                                                                      |
+| `entailment`            | `float`                 | NLI entailment probability for the claim.                                                                                                        |
+| `neutral`               | `float`                 | NLI neutral probability.                                                                                                                          |
+| `contradiction`         | `float`                 | NLI contradiction probability.                                                                                                                    |
+| `score`                 | `float`                 | Aggregate NLI score used by the fuser.                                                                                                           |
+| `skipped`               | `bool`                  | `true` when the NLI peer skipped this claim.                                                                                                      |
+| `skip_reason`           | `string?`               | Reason the claim was skipped, when applicable.                                                                                                    |
+| `premise_count`         | `int`                   | Number of premise support units tested against this claim.                                                                                        |
+| **`support_ids`**       | `string[]`              | Support ids (as in `support_units[i].support_id`) the claim was tested against. Used by the unused-context classifier to attribute NLI evidence. |
+| **`support_unit_indices`** | `int[]`              | Global support-unit indices the claim was tested against (mirrors `support_ids`, in sync with `GroundednessSupportUnit.index`).                  |
+| `atoms`                 | `GroundednessNLIAtom[]` | Per-atom entailment records produced by atomic-claim decomposition. Each atom mirrors the claim fields above, including `support_ids` and `support_unit_indices`. |
 
-### `warnings[]`
+### `top_evidence[i]: GroundednessEvidence`
 
-Free-form structured strings the engine emits when something
-non-fatal happens (e.g. `"truncated_response_to_max_tokens"`,
-`"no_premise_supplied"`). Always check this in production.
+| Field                   | Type           | Description                                                           |
+|-------------------------|----------------|-----------------------------------------------------------------------|
+| `response_token_index`  | `int`          | Response-token index that originated this evidence link.              |
+| `response_token`        | `string`       | Response token text.                                                  |
+| `support_unit_index`    | `int`          | Global support-unit index.                                            |
+| `support_token_index`   | `int`          | Token index inside that support unit.                                 |
+| `support_token`         | `string`       | Support token text.                                                   |
+| `chunk_id`              | `string\|int?` | Stable chunk id, when available.                                      |
+| `metric`                | `string`       | Metric used to rank the pair (e.g. `reverse_context`).                |
+| `score`                 | `float`        | Metric value.                                                          |
+
+### `warnings[]` and `reason`
+
+`warnings[]` is a free-form list of structured strings the engine emits
+for non-fatal conditions (e.g. `"truncated_response_to_max_tokens"`).
+It is *not* dispatch-keyed across releases. Use the top-level
+`GroundednessResponse.reason` (machine-readable) when you need to
+branch on refusal paths such as `"no_premise_supplied"` or
+`"open_domain_pending_v1_next"`.
 
 ---
 
@@ -191,6 +302,23 @@ The retrieval-efficiency observability surface in one paragraph:
 > §"Per-support-unit context coverage" of
 > [`algorithm-audit.md`](algorithm-audit.md) for the partition-
 > invariance proofs.
+
+---
+
+## Unused Context Contract
+
+`latence-trace` now emits a second, stricter per-unit usage surface on top of
+legacy coverage:
+
+- `support_units[*].usage_state = "used"` means the unit had direct attribution,
+  strong non-argmax coverage, or positive NLI evidence.
+- `support_units[*].usage_state = "unused"` is **precision-first**. The engine
+  only emits it when coverage is low, attribution is absent, NLI found no
+  support, and the unit is not just a near-duplicate of a used sibling.
+- `support_units[*].usage_state = "uncertain"` is the expected abstention path
+  for mixed packed windows, semantically overlapping siblings, or otherwise
+  ambiguous cases. Treat `uncertain` as "do not force a negative verdict", not
+  as an engine failure.
 
 ---
 

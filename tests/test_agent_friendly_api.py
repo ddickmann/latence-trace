@@ -55,12 +55,22 @@ def _client(app: FastAPI) -> httpx.AsyncClient:
 
 @pytest.fixture(autouse=True)
 def _restore_env() -> Iterator[None]:
-    saved = os.environ.get("VOYAGER_GROUNDEDNESS_NLI_ENABLED")
+    """Snapshot & restore the full env so ``apply_profile`` side-effects
+    (triggered when ``server.main`` is imported) do not leak into other
+    test files. Previously this fixture only restored
+    ``VOYAGER_GROUNDEDNESS_NLI_ENABLED`` which let FUSION_W_*, NLI
+    premise concat, and threshold-path env vars pollute the process and
+    silently reconfigure downstream ``GroundednessService`` instances.
+    """
+
+    snapshot = dict(os.environ)
     yield
-    if saved is None:
-        os.environ.pop("VOYAGER_GROUNDEDNESS_NLI_ENABLED", None)
-    else:
-        os.environ["VOYAGER_GROUNDEDNESS_NLI_ENABLED"] = saved
+    for key in list(os.environ.keys()):
+        if key not in snapshot:
+            del os.environ[key]
+    for key, value in snapshot.items():
+        if os.environ.get(key) != value:
+            os.environ[key] = value
 
 
 @pytest.mark.anyio("asyncio")

@@ -2335,7 +2335,11 @@ def test_premise_reranker_selects_highest_scored_candidate() -> None:
     selected = _select_premises_for_claim(
         claim, units, top_k=1, fallback_join=True, reranker=reranker
     )
-    assert selected == ["Alpha beats beta in 1981 according to records."]
+    assert [premise.text for premise in selected] == [
+        "Alpha beats beta in 1981 according to records."
+    ]
+    assert list(selected[0].support_ids) == ["a"]
+    assert list(selected[0].support_unit_indices) == [0]
     # Reranker must have been consulted with both candidates exactly once.
     assert reranker.calls and len(reranker.calls[0][1]) == 2
 
@@ -2358,7 +2362,7 @@ def test_premise_reranker_falls_back_to_lexical_when_score_returns_empty() -> No
     selected = _select_premises_for_claim(
         claim, units, top_k=1, fallback_join=False, reranker=_BrokenReranker()
     )
-    assert selected and "Apples are sweet" in selected[0]
+    assert selected and "Apples are sweet" in selected[0].text
 
 
 def test_concat_premises_respects_word_budget_and_keeps_first_premise_intact() -> None:

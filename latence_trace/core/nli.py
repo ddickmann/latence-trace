@@ -115,6 +115,8 @@ class AtomicVerification:
     contradiction: float
     score: float
     premises: List[str] = field(default_factory=list)
+    support_ids: List[str] = field(default_factory=list)
+    support_unit_indices: List[int] = field(default_factory=list)
     skipped: bool = False
     skip_reason: Optional[str] = None
 
@@ -129,9 +131,20 @@ class ClaimVerification:
     contradiction: float
     score: float
     premises: List[str] = field(default_factory=list)
+    support_ids: List[str] = field(default_factory=list)
+    support_unit_indices: List[int] = field(default_factory=list)
     skipped: bool = False
     skip_reason: Optional[str] = None
     atoms: List[AtomicVerification] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class SelectedPremise:
+    """One candidate premise plus the support units it aliases."""
+
+    text: str
+    support_ids: Tuple[str, ...] = ()
+    support_unit_indices: Tuple[int, ...] = ()
 
 
 class NLIProvider(Protocol):
@@ -236,42 +249,84 @@ def _content_set(text: str) -> set:
     }
 
 
-def _candidate_premise_texts(support_units: Sequence[Any]) -> List[str]:
+def _candidate_premises(support_units: Sequence[Any]) -> List[SelectedPremise]:
     """Pull deduplicated, non-empty premise texts out of support units."""
 
-    seen: set = set()
-    out: List[str] = []
-    for unit in support_units:
+    seen: Dict[str, int] = {}
+    out: List[SelectedPremise] = []
+    for unit_idx, unit in enumerate(support_units):
         text = getattr(unit, "text", "") or ""
         if not text:
             continue
         # Some support units repeat verbatim across batches — dedupe to
         # avoid feeding identical premises to the cross-encoder.
         key = text.strip()
-        if not key or key in seen:
+        if not key:
             continue
-        seen.add(key)
-        out.append(text)
+        support_id = str(getattr(unit, "support_id", "") or f"support-{unit_idx}")
+        bucket = seen.get(key)
+        if bucket is None:
+            seen[key] = len(out)
+            out.append(
+                SelectedPremise(
+                    text=text,
+                    support_ids=(support_id,),
+                    support_unit_indices=(int(unit_idx),),
+                )
+            )
+            continue
+        prior = out[bucket]
+        if support_id in prior.support_ids and int(unit_idx) in prior.support_unit_indices:
+            continue
+        out[bucket] = SelectedPremise(
+            text=prior.text,
+            support_ids=tuple(list(prior.support_ids) + [support_id]),
+            support_unit_indices=tuple(list(prior.support_unit_indices) + [int(unit_idx)]),
+        )
     return out
 
 
-def _lexical_rank(claim_text: str, candidate_texts: Sequence[str]) -> List[Tuple[float, int, str]]:
+def _lexical_rank(
+    claim_text: str,
+    candidates: Sequence[SelectedPremise],
+) -> List[Tuple[float, int, SelectedPremise]]:
     """Lexical overlap ranking; higher count first, stable on idx."""
 
     claim_terms = _content_set(claim_text)
     if not claim_terms:
         return []
-    scored: List[Tuple[float, int, str]] = []
-    for idx, text in enumerate(candidate_texts):
-        text_terms = _content_set(text)
+    scored: List[Tuple[float, int, SelectedPremise]] = []
+    for idx, candidate in enumerate(candidates):
+        text_terms = _content_set(candidate.text)
         if not text_terms:
             continue
         overlap = len(claim_terms & text_terms)
         if overlap == 0:
             continue
-        scored.append((-float(overlap), idx, text))
+        scored.append((-float(overlap), idx, candidate))
     scored.sort()
     return scored
+
+
+def _selected_support_metadata(
+    premises: Sequence[SelectedPremise],
+) -> Tuple[List[str], List[int]]:
+    support_ids: List[str] = []
+    support_unit_indices: List[int] = []
+    seen_ids: set[str] = set()
+    seen_indices: set[int] = set()
+    for premise in premises:
+        for support_id in premise.support_ids:
+            if support_id in seen_ids:
+                continue
+            seen_ids.add(support_id)
+            support_ids.append(str(support_id))
+        for support_unit_index in premise.support_unit_indices:
+            if int(support_unit_index) in seen_indices:
+                continue
+            seen_indices.add(int(support_unit_index))
+            support_unit_indices.append(int(support_unit_index))
+    return support_ids, support_unit_indices
 
 
 def _select_premises_for_claim(
@@ -281,7 +336,7 @@ def _select_premises_for_claim(
     top_k: int,
     fallback_join: bool,
     reranker: Optional[PremiseReranker] = None,
-) -> List[str]:
+) -> List[SelectedPremise]:
     """Pick the top-k support unit texts most likely to entail the claim.
 
     Selection priority:
@@ -299,32 +354,39 @@ def _select_premises_for_claim(
     if not claim_text:
         return []
 
-    candidate_texts = _candidate_premise_texts(support_units)
-    if not candidate_texts:
+    candidates = _candidate_premises(support_units)
+    if not candidates:
         return []
 
     if reranker is not None:
         try:
-            scores = reranker.score(claim_text, candidate_texts)
+            scores = reranker.score(claim_text, [candidate.text for candidate in candidates])
         except Exception as exc:  # noqa: BLE001 — fall back deterministically
             logger.warning("premise_reranker_failed", extra={"error": str(exc)})
             scores = []
-        if scores and len(scores) == len(candidate_texts):
+        if scores and len(scores) == len(candidates):
             indexed = sorted(
                 ((-float(score), idx) for idx, score in enumerate(scores)),
                 key=lambda item: (item[0], item[1]),
             )
-            ranked = [candidate_texts[idx] for _score, idx in indexed]
+            ranked = [candidates[idx] for _score, idx in indexed]
             return ranked[: max(1, top_k)]
 
-    lexical = _lexical_rank(claim_text, candidate_texts)
+    lexical = _lexical_rank(claim_text, candidates)
     if lexical:
-        return [text for _score, _idx, text in lexical[: max(1, top_k)]]
+        return [candidate for _score, _idx, candidate in lexical[: max(1, top_k)]]
 
     if not fallback_join:
         return []
-    joined = " ".join(candidate_texts)
-    return [joined] if joined else []
+    joined = " ".join(candidate.text for candidate in candidates)
+    support_ids, support_unit_indices = _selected_support_metadata(candidates)
+    return [
+        SelectedPremise(
+            text=joined,
+            support_ids=tuple(support_ids),
+            support_unit_indices=tuple(support_unit_indices),
+        )
+    ] if joined else []
 
 
 def is_premise_concat_enabled() -> bool:
@@ -594,7 +656,7 @@ def verify_claims(
             ]
 
     pairs: List[Tuple[int, int, str, str]] = []  # (claim_idx, atom_idx, premise, hypothesis)
-    selected_premises: Dict[Tuple[int, int], List[str]] = {}
+    selected_premises: Dict[Tuple[int, int], List[SelectedPremise]] = {}
     skipped: Dict[Tuple[int, int], str] = {}
 
     for claim in claims:
@@ -612,7 +674,7 @@ def verify_claims(
             selected_premises[(claim.index, atom.atom_index)] = premises
             if concat_premises:
                 composite = _concat_premises_for_nli(
-                    premises,
+                    [premise.text for premise in premises],
                     token_budget=premise_concat_word_budget,
                 )
                 if not composite:
@@ -621,7 +683,7 @@ def verify_claims(
                 pairs.append((claim.index, atom.atom_index, composite, atom.text))
             else:
                 for premise in premises:
-                    pairs.append((claim.index, atom.atom_index, premise, atom.text))
+                    pairs.append((claim.index, atom.atom_index, premise.text, atom.text))
 
     if not pairs:
         return [
@@ -632,6 +694,8 @@ def verify_claims(
                 contradiction=0.0,
                 score=0.0,
                 premises=[],
+                support_ids=[],
+                support_unit_indices=[],
                 skipped=True,
                 skip_reason="no_premises",
                 atoms=[
@@ -642,6 +706,8 @@ def verify_claims(
                         contradiction=0.0,
                         score=0.0,
                         premises=[],
+                        support_ids=[],
+                        support_unit_indices=[],
                         skipped=True,
                         skip_reason=skipped.get((claim.index, atom.atom_index), "no_premises"),
                     )
@@ -685,7 +751,13 @@ def verify_claims(
                 neutral=0.0,
                 contradiction=0.0,
                 score=0.0,
-                premises=selected_premises.get((claim.index, 0), []),
+                premises=[premise.text for premise in selected_premises.get((claim.index, 0), [])],
+                support_ids=_selected_support_metadata(
+                    selected_premises.get((claim.index, 0), [])
+                )[0],
+                support_unit_indices=_selected_support_metadata(
+                    selected_premises.get((claim.index, 0), [])
+                )[1],
                 skipped=True,
                 skip_reason="nli_provider_error",
                 atoms=[
@@ -695,7 +767,16 @@ def verify_claims(
                         neutral=0.0,
                         contradiction=0.0,
                         score=0.0,
-                        premises=selected_premises.get((claim.index, atom.atom_index), []),
+                        premises=[
+                            premise.text
+                            for premise in selected_premises.get((claim.index, atom.atom_index), [])
+                        ],
+                        support_ids=_selected_support_metadata(
+                            selected_premises.get((claim.index, atom.atom_index), [])
+                        )[0],
+                        support_unit_indices=_selected_support_metadata(
+                            selected_premises.get((claim.index, atom.atom_index), [])
+                        )[1],
                         skipped=True,
                         skip_reason="nli_provider_error",
                     )
@@ -717,6 +798,10 @@ def verify_claims(
         atom_records: List[AtomicVerification] = []
         for atom in atoms_per_claim[claim.index]:
             atom_key = (claim.index, atom.atom_index)
+            atom_premises = selected_premises.get(atom_key, [])
+            atom_support_ids, atom_support_unit_indices = _selected_support_metadata(
+                atom_premises
+            )
             if atom_key in skipped:
                 atom_records.append(
                     AtomicVerification(
@@ -726,6 +811,8 @@ def verify_claims(
                         contradiction=0.0,
                         score=0.0,
                         premises=[],
+                        support_ids=[],
+                        support_unit_indices=[],
                         skipped=True,
                         skip_reason=skipped[atom_key],
                     )
@@ -744,7 +831,9 @@ def verify_claims(
                         neutral=0.0,
                         contradiction=0.0,
                         score=0.0,
-                        premises=selected_premises.get(atom_key, []),
+                        premises=[premise.text for premise in atom_premises],
+                        support_ids=atom_support_ids,
+                        support_unit_indices=atom_support_unit_indices,
                         skipped=True,
                         skip_reason="latency_budget",
                     )
@@ -758,10 +847,26 @@ def verify_claims(
                     neutral=neutral,
                     contradiction=contradict,
                     score=score,
-                    premises=selected_premises.get(atom_key, []),
+                    premises=[premise.text for premise in atom_premises],
+                    support_ids=atom_support_ids,
+                    support_unit_indices=atom_support_unit_indices,
                 )
             )
         if not atom_records or all(a.skipped for a in atom_records):
+            claim_support_ids: List[str] = []
+            claim_support_unit_indices: List[int] = []
+            if atom_records:
+                for record in atom_records:
+                    for support_id in record.support_ids:
+                        if support_id not in claim_support_ids:
+                            claim_support_ids.append(support_id)
+                    for support_unit_index in record.support_unit_indices:
+                        if support_unit_index not in claim_support_unit_indices:
+                            claim_support_unit_indices.append(support_unit_index)
+            else:
+                claim_support_ids, claim_support_unit_indices = _selected_support_metadata(
+                    selected_premises.get((claim.index, 0), [])
+                )
             verifications.append(
                 ClaimVerification(
                     claim=claim,
@@ -769,7 +874,9 @@ def verify_claims(
                     neutral=0.0,
                     contradiction=0.0,
                     score=0.0,
-                    premises=selected_premises.get((claim.index, 0), []),
+                    premises=[premise.text for premise in selected_premises.get((claim.index, 0), [])],
+                    support_ids=claim_support_ids,
+                    support_unit_indices=claim_support_unit_indices,
                     skipped=True,
                     skip_reason=(
                         atom_records[0].skip_reason
@@ -783,6 +890,8 @@ def verify_claims(
         if len(atom_records) == 1 and not atom_records[0].skipped:
             base = atom_records[0]
             premises = base.premises
+            support_ids = list(base.support_ids)
+            support_unit_indices = list(base.support_unit_indices)
             entail, neutral, contradict, score = (
                 base.entailment,
                 base.neutral,
@@ -794,12 +903,20 @@ def verify_claims(
             # Surface the union of all premises that fed this claim's atoms.
             seen_premise: set = set()
             premises = []
+            support_ids = []
+            support_unit_indices = []
             for a in atom_records:
                 for p in a.premises:
                     if p in seen_premise:
                         continue
                     seen_premise.add(p)
                     premises.append(p)
+                for support_id in a.support_ids:
+                    if support_id not in support_ids:
+                        support_ids.append(support_id)
+                for support_unit_index in a.support_unit_indices:
+                    if support_unit_index not in support_unit_indices:
+                        support_unit_indices.append(support_unit_index)
         verifications.append(
             ClaimVerification(
                 claim=claim,
@@ -808,6 +925,8 @@ def verify_claims(
                 contradiction=contradict,
                 score=score,
                 premises=premises,
+                support_ids=support_ids,
+                support_unit_indices=support_unit_indices,
                 atoms=atom_records,
             )
         )
