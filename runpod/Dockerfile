@@ -26,6 +26,8 @@ COPY runpod /workspace/latence-trace/runpod
 
 RUN python -m pip install --upgrade pip setuptools wheel
 RUN python -m pip install "vllm==0.19.0" "runpod>=1.7.0" "hf_transfer>=0.1.4"
+# Overlay a wheel install so pip does not try to uninstall Debian's cryptography.
+RUN python -m pip install --ignore-installed "cryptography>=42.0"
 
 RUN git clone --depth 1 --branch "${VLLM_FACTORY_REF}" https://github.com/ddickmann/vllm-factory.git /opt/vllm-factory \
     && python -m pip install --no-deps /opt/vllm-factory \
