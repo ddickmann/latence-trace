@@ -110,6 +110,10 @@ class NLIDebertaV2IOProcessor(FactoryIOProcessor):
 
     def __init__(self, vllm_config: VllmConfig, *args: Any, **kwargs: Any) -> None:
         super().__init__(vllm_config, *args, **kwargs)
+        from .vllm_pooling_token_type_ids import apply_pooling_token_type_ids_patch
+
+        apply_pooling_token_type_ids_patch()
+
         model_id = vllm_config.model_config.model
         self._tokenizer = AutoTokenizer.from_pretrained(
             model_id,
