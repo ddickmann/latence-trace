@@ -62,19 +62,26 @@ RUN git clone --depth 1 --branch "${VLLM_FACTORY_REF}" https://github.com/ddickm
 RUN python -m pip install --no-deps /workspace/latence-trace/runpod/vllm_plugins/moderncolbert_batched
 RUN python -m pip install --no-deps /workspace/latence-trace/runpod/vllm_plugins/nli_mdeberta
 
-# Build-time smoke tests: fail the image build (instead of the container
-# start) if vLLM's C++ extension or the latence-trace runtime entry points
-# are not importable.
+# Build-time smoke tests: validate Python imports and vLLM plugin
+# registration. Docker builds do not have the NVIDIA driver mounted, so
+# `vllm._C` can only be imported when `libcuda.so.1` is available.
 RUN python - <<'PY'
+from ctypes import CDLL
 from importlib.metadata import entry_points
 
 import torch
 import vllm
-import vllm._C  # triggers the c10 ABI check that broke startup before
 import vllm_factory  # noqa: F401
 import moderncolbert_batched  # noqa: F401
 import latence_trace_nli_plugin  # noqa: F401
 import latence_trace  # noqa: F401
+
+try:
+    CDLL("libcuda.so.1")
+except OSError:
+    print("build smoke note: skipping vllm._C import because libcuda.so.1 is unavailable")
+else:
+    import vllm._C  # noqa: F401
 
 io_plugins = {ep.name for ep in entry_points(group="vllm.io_processor_plugins")}
 required = {"moderncolbert_batched_io", "nli_mdeberta"}
@@ -82,7 +89,7 @@ missing = required - io_plugins
 if missing:
     raise SystemExit(f"missing vllm io_processor_plugins entry points: {sorted(missing)}")
 
-print(f"smoke ok: torch={torch.__version__} cuda={torch.version.cuda} vllm={vllm.__version__}")
+print(f"build smoke ok: torch={torch.__version__} cuda={torch.version.cuda} vllm={vllm.__version__}")
 PY
 
 RUN chmod +x /workspace/latence-trace/runpod/start.sh
