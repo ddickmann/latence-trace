@@ -295,13 +295,42 @@ class LogisticComposite:
 def default_composite() -> Any:
     """Return the best available composite.
 
-    - If the calibrated logistic artefact exists *and* can be loaded,
-      use it.
-    - Otherwise fall back to the linear composite with the v2 weights.
+    Resolution order:
+
+    1. If ``LATENCE_TRACE_COMPOSITE`` is set to ``linear`` (or ``force_linear``),
+       return :class:`LinearComposite`. This is an operator escape hatch for
+       rolling back to the deterministic weighted-sum composite without a
+       redeploy, e.g. if a freshly fit logistic artefact regresses in the wild.
+    2. Otherwise, if the calibrated logistic artefact exists *and* can be
+       loaded, use it.
+    3. Otherwise fall back to the linear composite with the v2 weights and
+       emit a ``WARNING`` so the lane-quality audit surfaces that the
+       signed-off logistic is not active (typical cause: missing
+       ``composite_logistic_v3.json`` in the wheel or container).
     """
+    override = (os.getenv("LATENCE_TRACE_COMPOSITE") or "").strip().lower()
+    if override in {"linear", "force_linear"}:
+        logger.info("composite_override_linear", extra={"env": "LATENCE_TRACE_COMPOSITE"})
+        return LinearComposite()
     logistic = LogisticComposite.try_load()
     if logistic is not None:
+        logger.info(
+            "composite_active_logistic",
+            extra={
+                "artifact_path": str(LogisticComposite.default_path()),
+                "feature_order": logistic.artifact.feature_order,
+                "auroc_pooled": logistic.artifact.auroc_pooled,
+                "version": logistic.artifact.version,
+            },
+        )
         return logistic
+    logger.warning(
+        "composite_fallback_linear",
+        extra={
+            "artifact_path": str(LogisticComposite.default_path()),
+            "reason": "logistic_artifact_missing_or_unreadable",
+        },
+    )
     return LinearComposite()
 
 

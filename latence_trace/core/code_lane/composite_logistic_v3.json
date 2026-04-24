@@ -1,0 +1,24 @@
+{
+  "feature_order": [
+    "reverse_context",
+    "per_token_p10",
+    "literal_guard"
+  ],
+  "interactions": [
+    [
+      "per_token_p10",
+      "literal_guard"
+    ]
+  ],
+  "coef": [
+    -0.1517474573545622,
+    -0.5988734383301915,
+    -0.7430124206592364,
+    -0.9997788478324643
+  ],
+  "intercept": 1.5920783033834276,
+  "threshold": 0.5,
+  "auroc_pooled": 0.6433823529411765,
+  "trained_on": "pooled v1 phantom_bank + v2_full_gpu_scorer_rescore (212 rows)",
+  "version": "v3.0"
+}
