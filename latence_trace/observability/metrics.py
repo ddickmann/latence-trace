@@ -182,6 +182,18 @@ PHANTOM_VERDICT_COUNT = _counter(
     "Code-lane composite phantom verdicts (verdict=true|false).",
     ("verdict",),
 )
+AST_TREE_SITTER_PARSE_FAILURES = _counter(
+    "code_lane_ast_tree_sitter_parse_failures_total",
+    "Tree-sitter parse errors on code-lane requests (by language).",
+    ("language",),
+)
+AST_REGEX_FALLBACK_ON_SUPPORTED_LANG = _counter(
+    "code_lane_ast_regex_fallback_on_supported_lang_total",
+    "Supported-language code-lane requests that hit the regex fallback. "
+    "In production this should stay at 0 — any non-zero value means "
+    "tree-sitter grammars are not loaded.",
+    ("language",),
+)
 
 
 def register_default_collectors(*, profile: str, version: str, torch_version: str = "") -> None:

@@ -315,13 +315,18 @@ def _ensure_kernel_warmup(profile: str) -> None:
                 error=result.error or "unknown error",
             )
         )
-    # Code lane warmup is best-effort — failures are logged and surfaced
-    # on /readyz but must not block the worker from serving RAG traffic.
+    # Code lane warmup is now a hard gate: tree-sitter grammars are a
+    # first-class production dependency and a missing grammar would
+    # silently degrade the AST phantom / drift signals to a regex
+    # fallback. We refuse to serve traffic in that state.
     code_result = warm_code_lane()
     if not code_result.ok:
-        logger.warning(
-            "code_lane_warmup_failed",
-            extra={"error": code_result.error, "device": code_result.device},
+        raise RuntimeError(
+            "Code-lane warmup failed on {device}: {error} (details={details})".format(
+                device=code_result.device,
+                error=code_result.error,
+                details=code_result.details,
+            )
         )
 
 
@@ -446,6 +451,43 @@ def shutdown() -> None:
     _lane_semaphores_loop = None
 
 
+def _code_lane_health() -> dict[str, Any]:
+    """Snapshot code-lane readiness for the /healthz probe.
+
+    Reports the current tree-sitter parser backend, which grammars
+    loaded, and whether the code-lane warmup pass succeeded. Allows
+    operators and alerting to instantly flag a deploy that slipped
+    into the regex fallback path.
+    """
+
+    payload: dict[str, Any] = {
+        "parser_backend": None,
+        "loaded_grammars": [],
+        "required_grammars": [],
+        "warmup_ok": None,
+        "warmup_error": None,
+    }
+    try:
+        from latence_trace.core.code_lane.ast_grounding import (
+            AstSymbolExtractor,
+            SUPPORTED_LANGUAGES,
+        )
+        from latence_trace.kernels.warmup import warmup_state
+
+        payload["required_grammars"] = sorted(SUPPORTED_LANGUAGES)
+        payload["parser_backend"] = AstSymbolExtractor(
+            enabled=True
+        ).parser_backend
+        payload["loaded_grammars"] = AstSymbolExtractor.available_languages()
+        code_result = warmup_state().get("code_lane")
+        if code_result is not None:
+            payload["warmup_ok"] = bool(code_result.ok)
+            payload["warmup_error"] = code_result.error
+    except Exception as exc:  # pragma: no cover - defensive
+        payload["warmup_error"] = str(exc)
+    return payload
+
+
 def _health_payload() -> dict[str, Any]:
     return {
         "success": True,
@@ -455,6 +497,7 @@ def _health_payload() -> dict[str, Any]:
         "max_concurrency": _config.max_concurrency if _config else None,
         "startup_warmup_requests": _STARTUP_WARMUP_REQUEST_COUNT,
         "servers": {name: server.health() for name, server in _servers.items()},
+        "code_lane": _code_lane_health(),
     }
 
 
@@ -617,6 +660,11 @@ def _log_turn_event(
     lane = response.scoring_mode.value if response.scoring_mode else "rag"
     cascade_fired = bool(scores.nli_cascade_triggered)
     phantom_verdict = scores.composite_phantom_verdict
+    ast_parser_backend: str | None = None
+    ast_language: str | None = None
+    if diag and diag.ast is not None:
+        ast_parser_backend = getattr(diag.ast, "parser_backend", None)
+        ast_language = getattr(diag.ast, "language", None)
     # Caller-carried session signals (opt-in, derived from the pure
     # transform in ``latence_trace.core.code_lane.session``). We log
     # the *signals*, not the opaque state blob, so the log volume stays
@@ -631,6 +679,8 @@ def _log_turn_event(
             "phantom_verdict": phantom_verdict,
             "phantom_probability": scores.composite_phantom_probability,
             "dead_weight_ratio": scores.dead_weight_ratio,
+            "ast_parser_backend": ast_parser_backend,
+            "ast_language": ast_language,
             "nli_ms": component.get("nli_ms"),
             "ast_ms": component.get("ast_ms"),
             "scorer_ms": component.get("scorer_ms"),
@@ -654,6 +704,24 @@ def _log_turn_event(
             ),
         },
     )
+    # Loud WARNING when a code-lane request landed on the regex
+    # fallback for a language tree-sitter was supposed to cover. This
+    # must never fire in production — if it does, grammars are not
+    # installed and the AST drift signal has degraded in quality.
+    if (
+        lane == "code"
+        and ast_parser_backend is not None
+        and ast_parser_backend != "tree_sitter"
+    ):
+        logger.warning(
+            "ast_regex_fallback_on_supported_lang",
+            extra={
+                "lane": lane,
+                "ast_parser_backend": ast_parser_backend,
+                "ast_language": ast_language,
+                "session_id": response.session_id,
+            },
+        )
     # Prometheus counters — keep cardinality bounded; labels are
     # enum-like so no PII leaks into the metric store.
     try:

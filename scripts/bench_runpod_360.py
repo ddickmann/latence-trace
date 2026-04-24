@@ -910,6 +910,13 @@ async def _dim_code(
             all(row.get(f) is not None for f in contract_fields) for row in rows
         )
     )
+    # Hard gate: the live endpoint MUST run tree-sitter. Any other
+    # backend (regex_fallback, disabled) is a production quality
+    # regression — we refuse to mark the run green until it's fixed.
+    parser_backend_ok = (
+        len(rows) > 0
+        and set(parser_backends.keys()) == {"tree_sitter"}
+    )
 
     return {
         "name": "code_phantom",
@@ -927,6 +934,7 @@ async def _dim_code(
         "grounded_ast_false_positives": grounded_false_positives,
         "grounded_total": grounded_total,
         "parser_backends": parser_backends,
+        "parser_backend_ok": parser_backend_ok,
         "cascade_fires": cascade_fires,
         "mean_dead_weight_grounded": _mean(dead_weight_grounded),
         "mean_dead_weight_ungrounded": _mean(dead_weight_ungrounded),
@@ -939,11 +947,14 @@ async def _dim_code(
         # responses in transcripts_v2, not on unified-diff fixtures, so we
         # don't gate on it here):
         #   - feature-surface contract OK
+        #   - parser backend is tree-sitter on every response (no regex
+        #     fallback in production)
         #   - every ungrounded case trips >=1 phantom/drift signal
         #   - grounded cases never trip the deterministic AST phantom verdict
         #   - AST phantom precision is perfect when it does fire
         "passed": (
             contract_ok
+            and parser_backend_ok
             and (ungrounded_recall is None or ungrounded_recall >= 0.8)
             and grounded_false_positives == 0
             and (ast_precision is None or ast_precision >= 0.9)
@@ -1401,7 +1412,12 @@ def _print_report(dims: Dict[str, Dict[str, Any]]) -> int:
             f"  grounded AST false positives  : "
             f"{d.get('grounded_ast_false_positives', 0)} / {d.get('grounded_total', 0)}"
         )
-        print(f"  AST parser backends    : {d.get('parser_backends') or {}}")
+        _backends = d.get("parser_backends") or {}
+        _backend_ok = d.get("parser_backend_ok")
+        print(
+            f"  AST parser backends    : {_backends}  "
+            f"(tree_sitter_only={_backend_ok})"
+        )
         print(f"  NLI cascade fires      : {d.get('cascade_fires', 0)}")
         print(
             f"  mean dead_weight ratio grounded / ungrounded : "

@@ -304,6 +304,16 @@ def _extract_fenced_blocks(text: str) -> List[Tuple[Optional[str], str]]:
 
 _IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]{1,}")
 
+# Keywords that appear inside ``import`` / ``from`` statements across
+# the supported languages. Stripped from the per-statement identifier
+# sweep so they never surface as phantom symbols.
+_IMPORT_STATEMENT_KEYWORDS: FrozenSet[str] = frozenset({
+    "import", "from", "as",                  # python, js/ts
+    "type", "default", "export", "require",  # typescript / javascript
+    "use", "mod", "crate", "super", "self", "pub",  # rust
+    "package",                                # go
+})
+
 
 # Tree-sitter node-type sets per language.
 _NODE_TYPES: Dict[str, Dict[str, Sequence[str]]] = {
@@ -376,8 +386,22 @@ def _extract_with_tree_sitter(language: str, code: str) -> SymbolSet:
         try:
             tree = bundle.parser.parse(source)
         except Exception as exc:
-            logger.info("ast_parse_failed", extra={"language": language, "error": str(exc)})
-            return _extract_with_regex(code)
+            logger.warning(
+                "ast_parse_failed",
+                extra={"language": language, "error": str(exc)},
+            )
+            try:
+                from latence_trace.observability.metrics import (
+                    AST_TREE_SITTER_PARSE_FAILURES,
+                )
+
+                AST_TREE_SITTER_PARSE_FAILURES.labels(language=language).inc()
+            except Exception:
+                pass
+            # Return an empty SymbolSet so downstream logic clearly
+            # sees "no AST coverage" instead of silently pretending
+            # regex == tree-sitter.
+            return SymbolSet()
     root = tree.root_node
     for node in _walk(root, source):
         ntype = node.type
@@ -389,7 +413,7 @@ def _extract_with_tree_sitter(language: str, code: str) -> SymbolSet:
             # Pull every identifier token inside the import statement.
             for ident in _IDENT_RE.finditer(text):
                 name = ident.group(0)
-                if name:
+                if name and name not in _IMPORT_STATEMENT_KEYWORDS:
                     imports.add(name)
         if ntype in node_types.get("class", ()):  # type: ignore[operator]
             name_node = node.child_by_field_name("name") if hasattr(node, "child_by_field_name") else None
@@ -505,8 +529,29 @@ class AstSymbolExtractor:
     def extract_block(self, language: Optional[str], code: str) -> SymbolSet:
         if not self.enabled or not code:
             return SymbolSet()
-        if language and language in _bundles():
+        bundles = _bundles()
+        if language and language in bundles:
             return _extract_with_tree_sitter(language, code)
+        if language and language in SUPPORTED_LANGUAGES:
+            # Supported language but its grammar did not load. This is
+            # a deploy bug, not a runtime condition: we refuse to
+            # silently degrade to regex and ship a worse signal.
+            try:
+                from latence_trace.observability.metrics import (
+                    AST_REGEX_FALLBACK_ON_SUPPORTED_LANG,
+                )
+
+                AST_REGEX_FALLBACK_ON_SUPPORTED_LANG.labels(
+                    language=language
+                ).inc()
+            except Exception:
+                pass
+            raise RuntimeError(
+                f"tree-sitter grammar for {language!r} not loaded; "
+                f"loaded={sorted(bundles.keys())}"
+            )
+        # Unknown / unresolved language only — fall back to the
+        # conservative regex extractor, as per module docstring.
         return _extract_with_regex(code)
 
     def extract_from_text(

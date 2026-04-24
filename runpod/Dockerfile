@@ -89,7 +89,51 @@ missing = required - io_plugins
 if missing:
     raise SystemExit(f"missing vllm io_processor_plugins entry points: {sorted(missing)}")
 
-print(f"build smoke ok: torch={torch.__version__} cuda={torch.version.cuda} vllm={vllm.__version__}")
+# Tree-sitter parity check. The code lane MUST ship with every grammar
+# preinstalled so there is no silent regex fallback in production.
+# Failing here is intentional: a production image without the grammars
+# is a quality regression we refuse to release.
+from tree_sitter import Language, Parser
+import tree_sitter_python
+import tree_sitter_typescript
+import tree_sitter_javascript
+import tree_sitter_go
+import tree_sitter_rust
+
+_grammar_factories = [
+    ("python", tree_sitter_python.language),
+    ("typescript", tree_sitter_typescript.language_typescript),
+    ("javascript", tree_sitter_javascript.language),
+    ("go", tree_sitter_go.language),
+    ("rust", tree_sitter_rust.language),
+]
+for _name, _factory in _grammar_factories:
+    _lang = Language(_factory())
+    Parser(_lang).parse(b"x = 1")
+
+from latence_trace.core.code_lane.ast_grounding import (
+    AstSymbolExtractor,
+    SUPPORTED_LANGUAGES,
+    preload_grammars,
+)
+_loaded = set(preload_grammars())
+_missing = set(SUPPORTED_LANGUAGES) - _loaded
+if _missing:
+    raise SystemExit(
+        f"tree-sitter grammar coverage gap: {sorted(_missing)}; "
+        f"loaded={_loaded}"
+    )
+_backend = AstSymbolExtractor(enabled=True).parser_backend
+if _backend != "tree_sitter":
+    raise SystemExit(
+        f"AstSymbolExtractor parser_backend={_backend!r}; "
+        "tree-sitter grammars must be installed for production."
+    )
+
+print(
+    f"build smoke ok: torch={torch.__version__} cuda={torch.version.cuda} "
+    f"vllm={vllm.__version__} tree_sitter_langs={sorted(_loaded)}"
+)
 PY
 
 RUN chmod +x /workspace/latence-trace/runpod/start.sh

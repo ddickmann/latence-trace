@@ -73,6 +73,9 @@ class WarmupResult:
     records the list of (S, T, U, H) tuples that were exercised.
     ``elapsed_ms`` records the total wall time. ``device`` records the
     CUDA device used (or ``"cpu"`` when warmup ran the reference path).
+    ``details`` carries optional per-profile diagnostics surfaced on the
+    ``/healthz`` probe (used by ``warm_code_lane`` to report which
+    tree-sitter grammars loaded).
     """
 
     ok: bool = False
@@ -81,6 +84,7 @@ class WarmupResult:
     elapsed_ms: float = 0.0
     device: str = "cpu"
     error: Optional[str] = None
+    details: Dict[str, object] = field(default_factory=dict)
 
 
 # Process-wide warmup state. We use a lock so two concurrent worker
@@ -207,9 +211,13 @@ def warm_code_lane(*, force: bool = False) -> WarmupResult:
     tiny :class:`~latence_trace.core.code_lane.GPUScorer` pass so its
     dedicated CUDA stream is allocated before any user traffic arrives.
 
-    Like :func:`warm_all`, failures are logged and do not crash the
-    process — callers can inspect :attr:`WarmupResult.ok` on the
-    ``code_lane`` key of :func:`warmup_state`.
+    Fail-closed: if any supported tree-sitter grammar fails to load, or
+    if :class:`~latence_trace.core.code_lane.AstSymbolExtractor` reports
+    a non-``tree_sitter`` backend, this warmup marks ``ok=False`` with a
+    descriptive error. The caller (``_ensure_kernel_warmup`` in the
+    RunPod handler) then refuses to serve traffic, so a deploy missing
+    grammars is an obvious boot-time failure instead of a silent
+    quality regression.
     """
 
     cache_key = "code_lane"
@@ -237,6 +245,29 @@ def warm_code_lane(*, force: bool = False) -> WarmupResult:
             )
 
             extractor = AstSymbolExtractor(enabled=True)
+
+            # Hard gate: every supported language must have a loaded
+            # tree-sitter grammar. We deliberately do NOT silently
+            # fall back to regex in production.
+            loaded = set(AstSymbolExtractor.available_languages())
+            required = set(SUPPORTED_LANGUAGES)
+            missing = sorted(required - loaded)
+            result.details["loaded_grammars"] = sorted(loaded)
+            result.details["required_grammars"] = sorted(required)
+            result.details["parser_backend"] = extractor.parser_backend
+            if missing:
+                raise RuntimeError(
+                    f"tree_sitter_grammars_missing: {missing}; "
+                    f"loaded={sorted(loaded)}"
+                )
+            if extractor.parser_backend != "tree_sitter":
+                raise RuntimeError(
+                    "ast_parser_backend_not_tree_sitter: "
+                    f"backend={extractor.parser_backend!r}"
+                )
+
+            # Touch every grammar on a trivial snippet so the first
+            # user request never pays the cold-parse cost.
             for language in SUPPORTED_LANGUAGES:
                 extractor.extract_from_text(
                     "def sample():\n    pass\n", language_hint=language
@@ -268,6 +299,7 @@ def warm_code_lane(*, force: bool = False) -> WarmupResult:
                 "ok": result.ok,
                 "elapsed_ms": round(result.elapsed_ms, 2),
                 "device": result.device,
+                "details": result.details,
             },
         )
         return result
