@@ -91,7 +91,10 @@ POST /groundedness
 ### Bands
 
 The same three-band vocabulary is used for tokens and files, with
-different cut-offs that reflect their different scales:
+different cut-offs that reflect their different scales. These thresholds
+only color the heatmap internals; the response-level `risk_band` is a
+separate headline classifier over `groundedness_v2` and profile-specific
+threshold artefacts.
 
 | Band     | Token (`heatmap_score`)       | File (`owner_share`)          |
 | -------- | ----------------------------- | ----------------------------- |

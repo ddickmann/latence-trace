@@ -28,11 +28,19 @@ logger = logging.getLogger(__name__)
 _DEFAULT_PATH_ENV = "VOYAGER_GROUNDEDNESS_THRESHOLDS_PATH"
 _DEFAULT_FILENAME = "thresholds.json"
 
+# Product-default thresholds used for normal RAG calls when callers do not
+# provide a failure-mode stratum. Explicit strata preserve precision-first
+# thresholds for known failure modes; the default band should be intuitive for
+# users reading a 0-1 groundedness score.
+_PRODUCT_DEFAULT_THRESHOLDS: Dict[str, float] = {
+    "green_min": 0.80,
+    "amber_min": 0.60,
+}
+
 # Conservative fallback thresholds used when no calibration artefact is
-# available. These were sampled from the Phase F+G evaluation runs with
-# NLI enabled; they intentionally err on the side of rejecting borderline
-# responses so the "green" band never silently loosens when the file is
-# missing.
+# available. Stratum-specific entries still err on the side of rejecting
+# borderline responses, but the product default maps high groundedness scores
+# to the user-facing green band.
 _FALLBACK_PAYLOAD: Dict[str, Any] = {
     "schema_version": 1,
     "headline": "groundedness_v2",
@@ -40,7 +48,7 @@ _FALLBACK_PAYLOAD: Dict[str, Any] = {
     "nli_enabled": True,
     "pair_count": 0,
     "strata": {
-        "default": {"green_min": 0.70, "amber_min": 0.55},
+        "default": dict(_PRODUCT_DEFAULT_THRESHOLDS),
         "entity_swap": {"green_min": 0.70, "amber_min": 0.55},
         "date_swap": {"green_min": 0.72, "amber_min": 0.60},
         "number_swap": {"green_min": 0.70, "amber_min": 0.55},
@@ -70,8 +78,12 @@ class RiskBandPolicy:
         else:
             entry = self.strata.get("default", {})
         return {
-            "green_min": float(entry.get("green_min", 0.70)),
-            "amber_min": float(entry.get("amber_min", 0.55)),
+            "green_min": float(
+                entry.get("green_min", _PRODUCT_DEFAULT_THRESHOLDS["green_min"])
+            ),
+            "amber_min": float(
+                entry.get("amber_min", _PRODUCT_DEFAULT_THRESHOLDS["amber_min"])
+            ),
         }
 
 
@@ -83,25 +95,20 @@ def _artefact_path() -> Path:
 
 
 def _resolve_default_stratum(strata: Dict[str, Dict[str, float]]) -> Dict[str, Dict[str, float]]:
-    """Ensure a ``default`` entry exists by picking the hardest calibrated stratum.
+    """Ensure a product-default ``default`` entry exists.
 
-    Without a default the classifier has no safe answer when the caller
-    does not supply a stratum hint. Picking the maximum ``green_min``
-    across known strata keeps the fallback honest for the worst known
-    failure mode.
+    Stratum-specific thresholds are calibrated for precision on explicit
+    failure modes (number swaps, negation, hard dialogue, etc.). For ordinary
+    RAG calls without ``risk_band_stratum`` we need a stable, intuitive
+    headline band: high groundedness should be green, mid confidence amber,
+    and low support red. Do not synthesize the default from the hardest
+    stratum, because a single pathological stratum can make a 0.94 score red.
     """
 
     if "default" in strata:
         return strata
-    if not strata:
-        return strata
-    worst_green = max(entry.get("green_min", 0.0) for entry in strata.values())
-    worst_amber = max(entry.get("amber_min", 0.0) for entry in strata.values())
     strata = dict(strata)
-    strata["default"] = {
-        "green_min": float(worst_green),
-        "amber_min": float(worst_amber),
-    }
+    strata["default"] = dict(_PRODUCT_DEFAULT_THRESHOLDS)
     return strata
 
 

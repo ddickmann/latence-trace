@@ -2800,6 +2800,34 @@ def test_classify_risk_band_maps_thresholds_correctly() -> None:
     assert classify_risk_band(0.40, policy=policy) == "red"
 
 
+def test_product_default_risk_band_matches_groundedness_ux(tmp_path) -> None:
+    artefact = tmp_path / "thresholds.json"
+    artefact.write_text(
+        __import__("json").dumps(
+            {
+                "schema_version": 1,
+                "headline": "groundedness_v2",
+                "nli_enabled": True,
+                "strata": {
+                    # Pathological calibrated stratum should not become the
+                    # default for ordinary RAG calls.
+                    "hard_dialogue_distributed": {
+                        "green_min": 0.9843,
+                        "amber_min": 0.9725,
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    policy = load_risk_band_policy(artefact)
+
+    assert classify_risk_band(0.947, policy=policy) == "green"
+    assert classify_risk_band(0.839, policy=policy) == "green"
+    assert classify_risk_band(0.70, policy=policy) == "amber"
+    assert classify_risk_band(0.50, policy=policy) == "red"
+
+
 def test_classify_risk_band_uses_stratum_specific_threshold_when_given() -> None:
     policy = _policy_with(
         {
@@ -2811,9 +2839,26 @@ def test_classify_risk_band_uses_stratum_specific_threshold_when_given() -> None
     assert classify_risk_band(0.72, stratum="default", policy=policy) == "green"
 
 
-def test_classify_risk_band_defaults_to_hardest_stratum_when_no_default_provided() -> None:
-    policy = load_risk_band_policy(Path("/nonexistent/does_not_exist.json"))
+def test_classify_risk_band_synthesizes_product_default_when_missing(tmp_path) -> None:
+    artefact = tmp_path / "thresholds.json"
+    artefact.write_text(
+        __import__("json").dumps(
+            {
+                "schema_version": 1,
+                "headline": "groundedness_v2",
+                "nli_enabled": True,
+                "strata": {"unit_swap": {"green_min": 0.98, "amber_min": 0.90}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    policy = load_risk_band_policy(artefact)
+
     assert "default" in policy.strata
+    assert policy.strata["default"]["green_min"] == pytest.approx(0.80)
+    assert policy.strata["default"]["amber_min"] == pytest.approx(0.60)
+    assert classify_risk_band(0.947, policy=policy) == "green"
+    assert classify_risk_band(0.947, stratum="unit_swap", policy=policy) == "amber"
 
 
 def test_load_risk_band_policy_falls_back_when_file_missing(tmp_path) -> None:

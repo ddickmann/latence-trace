@@ -174,14 +174,39 @@ def test_runtime_loads_per_profile_threshold_artefact(profile, monkeypatch):
     assert policy.nli_enabled == payload["nli_enabled"]
 
 
+@pytest.mark.parametrize(
+    ("profile", "expected_green", "expected_amber"),
+    [
+        ("fast", 0.95, 0.85),
+        ("balanced", 0.80, 0.60),
+        ("quality", 0.80, 0.60),
+    ],
+)
+def test_profile_threshold_artefacts_define_product_default(
+    profile, expected_green, expected_amber
+):
+    """Bundled artefacts must not derive default from the hardest stratum."""
+
+    policy = load_risk_band_policy(path=_DATA_DIR / f"thresholds.{profile}.json")
+    assert policy.strata["default"]["green_min"] == pytest.approx(expected_green)
+    assert policy.strata["default"]["amber_min"] == pytest.approx(expected_amber)
+
+
 def test_classify_risk_band_uses_profile_thresholds(monkeypatch):
     """End-to-end: a quality-profile policy should rate easy positives green."""
 
     policy = load_risk_band_policy(path=_DATA_DIR / "thresholds.balanced.json")
+    assert classify_risk_band(0.947, policy=policy) == "green"
+    assert classify_risk_band(0.839, policy=policy) == "green"
+    assert classify_risk_band(0.70, policy=policy) == "amber"
+    assert classify_risk_band(0.50, policy=policy) == "red"
     # The balanced policy is calibrated against minimal pairs so a
     # very high headline score must hit the green band on a known
     # stratum.
     assert classify_risk_band(0.99, stratum="entity_swap", policy=policy) == "green"
+    # Explicit strata remain stricter than the user-facing default.
+    assert classify_risk_band(0.839, stratum="unit_swap", policy=policy) == "amber"
+    assert classify_risk_band(0.947, stratum="hard_dialogue_distributed", policy=policy) == "red"
     # A clearly ungrounded score must end up in the red band.
     assert classify_risk_band(0.05, stratum="entity_swap", policy=policy) == "red"
     # Missing scores always degrade to red so the classifier is safe
