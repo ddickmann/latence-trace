@@ -21,7 +21,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 
-from latence_trace.api.models import GroundednessRequest, GroundednessResponse
+from latence_trace.api.models import (
+    GroundednessRequest,
+    GroundednessResponse,
+    RollupRequest,
+    RollupResponse,
+)
 from latence_trace.api.service import (
     DEFAULT_PROFILE,
     PROFILE_NAMES,
@@ -134,6 +139,29 @@ def create_router(service_provider: Callable[[], GroundednessService]) -> APIRou
             except (ValidationError, NotFoundError, ServiceError) as exc:
                 _raise_service_error(exc)
                 raise  # pragma: no cover - _raise_service_error always raises
+
+    @router.post(
+        "/groundedness/rollup",
+        response_model=RollupResponse,
+        summary="Stateless session-level rollup",
+        operation_id="rollup_groundedness",
+        description=(
+            "Aggregate a sequence of per-turn records into conversation-level "
+            "metrics (noise %, model drift %, retrieval waste %, reason-code "
+            "histogram, top dead files, risk-band trail, recommendations). "
+            "Purely stateless — nothing is persisted. CPU-only; no GPU or "
+            "model calls."
+        ),
+    )
+    async def groundedness_rollup(
+        request: RollupRequest,
+        service: GroundednessService = Depends(get_service),
+    ) -> RollupResponse:
+        try:
+            return service.rollup(request)
+        except (ValidationError, NotFoundError, ServiceError) as exc:
+            _raise_service_error(exc)
+            raise  # pragma: no cover - _raise_service_error always raises
 
     @router.get(
         "/health",

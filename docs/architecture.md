@@ -121,9 +121,81 @@ protocol, derived signals, and recommendation policy. The TypeScript
 helpers in [`plugin_client/`](../plugin_client) implement the same
 algorithm locally for plugins that want fully-offline computation.
 
+## Shared attribution kernel (lane-neutral)
+
+Both lanes converge on a single per-file attribution kernel:
+`latence_trace/core/attribution/file_attribution.py`. The code lane has
+always used it; the RAG lane now projects its per-unit argmax evidence
+through the same kernel so that every response — regardless of scoring
+mode — emits:
+
+- a top-level `file_attribution` payload
+  (`per_file` + `per_unit` + `reason_code_histogram`),
+- `dead_weight_ratio` and `dead_weight_file_count` on the scores dict,
+- the same `ReasonCode` enum values
+  (`never_won_argmax`, `all_tokens_below_0_40`,
+  `dominated_by_single_file`).
+
+File grouping follows the same precedence rule on both lanes:
+`metadata.path` → `metadata.source` → `metadata.source_id` →
+`support_id`. This means an IDE plugin that already renders code-lane
+attribution needs no extra branching for the RAG lane — the payload
+shape is identical.
+
+```text
+          per-unit argmax records
+          (RAG: MaxSim + tri-state usage,
+           Code: GPUScorer + owner / query-owner)
+                     │
+                     ▼
+     resolve_attribution_key(support_unit) ── metadata.path / source / id
+                     │
+                     ▼
+     attribute_files(...)   ⇒  FileAttributionResult
+                                    ├── per_file
+                                    ├── per_unit
+                                    ├── reason_code_histogram  ◀─ new
+                                    └── dead_weight_ratio / count
+```
+
+## Heatmap (convenience payload)
+
+`latence_trace/api/heatmap.py` is a pure, dependency-free renderer that
+projects the per-response scoring output into two surfaces:
+
+- a structured `heatmap` data payload
+  (`tokens` + `files` + `summary` + `thresholds`),
+- an opt-in self-contained `heatmap_html` fragment — a single
+  `<div class="lt-heatmap">` with an inline `<style>` block that scopes
+  three band classes (`.lt-band-green` / `.lt-band-amber` /
+  `.lt-band-red`). No external stylesheets, no JavaScript, no
+  fonts fetched from the network.
+
+Callers opt in via `heatmap_format: "none" | "data" | "html"` on
+`GroundednessRequest`. Default is `"data"` — the structured payload
+ships on every response with no wire cost unless the caller explicitly
+opts out. The HTML fragment is only emitted for `"html"`. See
+[`docs/heatmap.md`](heatmap.md) for the exact band thresholds and a
+copy-pasteable integration snippet.
+
+## Stateless rollup (session-level aggregation)
+
+`action="rollup"` is a pure, CPU-only transform served by the same
+handler. It takes a list of per-turn records (the compact outputs a
+plugin already has from scoring) and returns session-level aggregates
+(`noise_pct`, `model_drift_pct`, `retrieval_waste_pct`,
+`reason_code_histogram`, `risk_band_trail`, `drift_trend`,
+`top_dead_files`). No I/O, no model calls, no state — the endpoint is
+safe to call on every keystroke if a plugin wants a live session
+scoreboard. See [`docs/rollup.md`](rollup.md) for the full request /
+response shape and an IDE-plugin integration snippet.
+
 ## Also see
 
 - [`docs/code_lane_v3.md`](code_lane_v3.md) — full code-lane design doc.
+- [`docs/heatmap.md`](heatmap.md) — band thresholds + HTML template.
+- [`docs/rollup.md`](rollup.md) — rollup request / response shape +
+  plugin integration snippet.
 - [`docs/session_semantics.md`](session_semantics.md) — the
   caller-portable session-state protocol.
 - [`docs/code_lane_performance.md`](code_lane_performance.md) —

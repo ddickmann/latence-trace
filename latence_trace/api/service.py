@@ -48,16 +48,25 @@ from latence_trace.api.models import (
     CodeLanePerFileUsage,
     CodeLanePerUnitOwnership,
     CollectionKind,
+    DriftTrend,
+    FileAttributionDiagnostics,
     FileSessionStatsPayload,
     GroundednessEligibility,
     GroundednessRequest,
     GroundednessResponse,
     GroundednessScores,
+    HeatmapPayload,
     RollingStatsPayload,
+    RollupRequest,
+    RollupResponse,
+    RollupTopDeadFile,
+    RollupTurnInput,
     ScoringMode,
     SessionSignals as SessionSignalsPayload,
     SessionStatePayload,
 )
+from latence_trace.api.heatmap import build_heatmap, render_heatmap_html
+from latence_trace.api.rollup import aggregate_turns
 from latence_trace.core.groundedness import (
     SupportUnitInput,
     _build_null_bank_pack,
@@ -676,6 +685,78 @@ class GroundednessService:
             return self._score_code(request)
         return self._score_rag(request)
 
+    def rollup(self, request: RollupRequest) -> RollupResponse:
+        """Aggregate a sequence of per-turn records into session metrics.
+
+        Stateless and CPU-only. The service holds no memory between
+        calls — the caller owns the list of turns. Typical wall-clock
+        is sub-millisecond for reasonable session lengths (<200
+        turns). See :mod:`latence_trace.api.rollup` for the aggregation
+        formulas.
+        """
+        response = aggregate_turns(
+            list(request.turns or []),
+            session_id=request.session_id,
+        )
+        # Optional conversation-level heatmap: synthesize a compact
+        # payload from the rollup aggregates so dashboards can render
+        # the session story in the same visual vocabulary as the
+        # per-turn response.
+        fmt = (request.heatmap_format or "none").lower()
+        if fmt in {"data", "html"}:
+            scores_dict: Dict[str, Any] = {
+                "composite_phantom_score": 1.0 - response.model_drift_pct,
+                "groundedness_v2": 1.0 - response.noise_pct,
+                "primary_score": 1.0 - response.noise_pct,
+                "dead_weight_ratio": response.noise_pct,
+                "risk_band": _risk_band_for_rollup(response),
+            }
+            # Synthetic "files" view using the top dead-file candidates.
+            per_file_stubs = [
+                CodeLanePerFileUsage(
+                    path=entry.path,
+                    n_units=0,
+                    used=0,
+                    uncertain=0,
+                    unused=0,
+                    coverage=0.0,
+                    mean_score=0.0,
+                    max_evidence=0.0,
+                    owner_tokens=0,
+                    owner_share=float(entry.ema_owner_share),
+                    query_owner_tokens=0,
+                    query_owner_share=0.0,
+                    dead_weight=entry.dead_turns > 0,
+                    reason_codes=(
+                        ["never_won_argmax"] if entry.dead_turns > 0 else []
+                    ),
+                    dominating_peer=None,
+                )
+                for entry in response.top_dead_files
+            ]
+            fa_stub = CodeLaneFileAttribution(
+                per_file=per_file_stubs,
+                per_unit=[],
+                dead_weight_files=[f.path for f in response.top_dead_files if f.dead_turns > 0],
+                dead_weight_ratio=float(response.noise_pct),
+                n_files=len(response.top_dead_files),
+                n_response_tokens=0,
+                n_query_tokens=0,
+                reason_code_histogram=dict(response.reason_code_histogram),
+            )
+            payload = build_heatmap(
+                scores_dict=scores_dict,
+                file_attribution=fa_stub,
+                response_tokens=[],
+                session_signals=None,
+            )
+            response.heatmap = payload
+            if fmt == "html":
+                response.heatmap_html = render_heatmap_html(
+                    payload, title="session rollup"
+                )
+        return response
+
     def _score_rag(self, request: GroundednessRequest) -> GroundednessResponse:
         start = time.perf_counter()
 
@@ -968,6 +1049,17 @@ class GroundednessService:
             or os.environ.get("VOYAGER_ENCODE_MODEL")
         )
         elapsed_ms = (time.perf_counter() - start) * 1000.0
+        file_attribution_wire = _file_attribution_to_wire(
+            scored.get("file_attribution"),
+            emit_chunk_ownership=bool(request.emit_chunk_ownership),
+        )
+        heatmap_payload, heatmap_html_str = _build_heatmap_fields(
+            heatmap_format=request.heatmap_format,
+            scores_dict=scored["scores"],
+            file_attribution=file_attribution_wire,
+            response_tokens=scored.get("response_tokens") or [],
+            session_signals=None,
+        )
         return GroundednessResponse(
             collection=self._collection_label,
             mode=mode,
@@ -984,6 +1076,9 @@ class GroundednessService:
             nli_diagnostics=scored.get("nli_diagnostics"),
             semantic_entropy_diagnostics=scored.get("semantic_entropy_diagnostics"),
             structured_diagnostics=scored.get("structured_diagnostics"),
+            file_attribution=file_attribution_wire,
+            heatmap=heatmap_payload,
+            heatmap_html=heatmap_html_str,
             time_ms=elapsed_ms,
             scoring_mode=ScoringMode.RAG,
             session_id=request.session_id,
@@ -1147,6 +1242,20 @@ class GroundednessService:
             code_result=code_result,
         )
 
+        # Mirror the code-lane file-attribution onto the lane-neutral
+        # top-level field so downstream dashboards have one canonical
+        # place to read from regardless of ``scoring_mode``.
+        top_level_file_attribution = (
+            diagnostics.file_attribution if diagnostics is not None else None
+        )
+        heatmap_payload, heatmap_html_str = _build_heatmap_fields(
+            heatmap_format=request.heatmap_format,
+            scores_dict=scores.model_dump(exclude_none=True),
+            file_attribution=top_level_file_attribution,
+            response_tokens=[],
+            session_signals=session_signals_payload,
+        )
+
         return GroundednessResponse(
             collection=self._collection_label,
             mode=mode,
@@ -1164,6 +1273,9 @@ class GroundednessService:
             semantic_entropy_diagnostics=None,
             structured_diagnostics=None,
             code_lane_diagnostics=diagnostics,
+            file_attribution=top_level_file_attribution,
+            heatmap=heatmap_payload,
+            heatmap_html=heatmap_html_str,
             time_ms=elapsed_ms,
             scoring_mode=ScoringMode.CODE,
             session_id=request.session_id,
@@ -1628,11 +1740,128 @@ def _turn_metrics_from(
     )
 
 
+def _risk_band_for_rollup(response: RollupResponse) -> str:
+    """Coarse session-level risk banding for the rollup heatmap.
+
+    The rollup is a summary, not a scored turn, so we synthesise a
+    single risk band from ``model_drift_pct`` + ``noise_pct`` using the
+    same thresholds the token/file bands document.
+    """
+    drift = float(response.model_drift_pct or 0.0)
+    noise = float(response.noise_pct or 0.0)
+    worst = max(drift, noise)
+    if worst >= 0.50:
+        return "red"
+    if worst >= 0.25:
+        return "amber"
+    return "green"
+
+
 def _risk_band_from_scores(scores: GroundednessScores) -> Optional[str]:
     band = getattr(scores, "risk_band", None)
     if band is None:
         return None
     return str(band.value) if hasattr(band, "value") else str(band)
+
+
+def _file_attribution_to_wire(
+    result: Any,
+    *,
+    emit_chunk_ownership: bool = False,
+) -> Optional[FileAttributionDiagnostics]:
+    """Project a :class:`FileAttributionResult` into the wire model.
+
+    Shared between lanes: the RAG scorer returns a
+    :class:`latence_trace.core.attribution.file_attribution.FileAttributionResult`
+    directly; the code lane already goes through ``_code_lane_diagnostics``
+    which builds its own wire model. This helper keeps the projection in
+    one place so both lanes produce identical-shape JSON.
+    """
+    if result is None:
+        return None
+
+    per_file = [
+        CodeLanePerFileUsage(
+            path=rec.path,
+            n_units=int(rec.n_units),
+            used=int(rec.used),
+            uncertain=int(rec.uncertain),
+            unused=int(rec.unused),
+            coverage=float(rec.coverage),
+            mean_score=float(rec.mean_score),
+            max_evidence=float(rec.max_evidence),
+            owner_tokens=int(rec.owner_tokens),
+            owner_share=float(rec.owner_share),
+            query_owner_tokens=int(rec.query_owner_tokens),
+            query_owner_share=float(rec.query_owner_share),
+            dead_weight=bool(rec.dead_weight),
+            reason_codes=[rc.value for rc in rec.reason_codes],
+            dominating_peer=rec.dominating_peer,
+        )
+        for rec in result.per_file
+    ]
+    per_unit = (
+        [
+            CodeLanePerUnitOwnership(
+                support_id=rec.support_id,
+                path=rec.path,
+                unit_index=int(rec.unit_index),
+                max_cos=float(rec.max_cos),
+                response_owner_count=int(rec.response_owner_count),
+                query_owner_count=int(rec.query_owner_count),
+                response_owner_share=float(rec.response_owner_share),
+                query_owner_share=float(rec.query_owner_share),
+                offset_start=rec.offset_start,
+                offset_end=rec.offset_end,
+                usage_state=rec.usage_state,
+            )
+            for rec in result.per_unit
+        ]
+        if emit_chunk_ownership
+        else []
+    )
+    return CodeLaneFileAttribution(
+        per_file=per_file,
+        per_unit=per_unit,
+        dead_weight_files=list(result.dead_weight_files),
+        dead_weight_ratio=float(result.dead_weight_ratio),
+        n_files=int(result.n_files),
+        n_response_tokens=int(result.n_response_tokens),
+        n_query_tokens=int(result.n_query_tokens),
+        min_owner_share=float(result.min_owner_share),
+        coverage_threshold=float(result.coverage_threshold),
+        low_cosine_threshold=float(result.low_cosine_threshold),
+        reason_code_histogram=dict(result.reason_code_histogram or {}),
+    )
+
+
+def _build_heatmap_fields(
+    *,
+    heatmap_format: str,
+    scores_dict: Mapping[str, Any],
+    file_attribution: Optional[FileAttributionDiagnostics],
+    response_tokens: Sequence[Any],
+    session_signals: Optional[SessionSignalsPayload],
+) -> Tuple[Optional[HeatmapPayload], Optional[str]]:
+    """Build the (heatmap, heatmap_html) pair for the response.
+
+    ``heatmap_format`` follows ``GroundednessRequest.heatmap_format`` —
+    ``"none"`` returns ``(None, None)``, ``"data"`` returns
+    ``(HeatmapPayload, None)``, and ``"html"`` returns
+    ``(HeatmapPayload, html_fragment)``.
+    """
+    fmt = (heatmap_format or "data").lower()
+    if fmt == "none":
+        return None, None
+    payload = build_heatmap(
+        scores_dict=scores_dict,
+        file_attribution=file_attribution,
+        response_tokens=response_tokens,
+        session_signals=session_signals,
+    )
+    if fmt == "html":
+        return payload, render_heatmap_html(payload)
+    return payload, None
 
 
 def _code_lane_diagnostics(
@@ -1752,6 +1981,7 @@ def _code_lane_diagnostics(
         min_owner_share=float(fa.min_owner_share),
         coverage_threshold=float(fa.coverage_threshold),
         low_cosine_threshold=float(fa.low_cosine_threshold),
+        reason_code_histogram=dict(fa.reason_code_histogram),
     )
 
     return CodeLaneDiagnostics(

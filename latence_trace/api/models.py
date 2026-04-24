@@ -7,7 +7,7 @@ latence-trace without touching their request/response shapes.
 """
 
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Literal, Optional, Tuple, Union
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -343,6 +343,20 @@ class GroundednessRequest(BaseModel):
             "plugins can drop sub-file regions at the 200k-token wall. "
             "Costs a few extra KB over the wire; keep False for UI-only "
             "dashboards that just need the file rollup."
+        ),
+    )
+    heatmap_format: Literal["none", "data", "html"] = Field(
+        default="data",
+        description=(
+            "Controls the ``heatmap`` convenience field on the response. "
+            "``'data'`` (default) emits a compact structured payload "
+            "(tokens + files + summary + thresholds) that any HTML "
+            "template can bind to. ``'html'`` additionally returns "
+            "``heatmap_html`` — a self-contained ``<div>`` with inline "
+            "CSS that renders without a frontend dev. ``'none'`` "
+            "disables both fields and saves a few KB for callers that "
+            "render their own visualisations from ``scores`` + "
+            "``file_attribution``."
         ),
     )
     session_state: Optional["SessionStatePayload"] = Field(
@@ -829,7 +843,17 @@ class CodeLanePerFileUsage(BaseModel):
 
 
 class CodeLaneFileAttribution(BaseModel):
-    """File-level attribution bundle for the code lane."""
+    """File-level attribution bundle (shared between code and RAG lanes).
+
+    Despite the historical ``CodeLane`` prefix this model is lane-neutral
+    — both ``scoring_mode == "code"`` and ``scoring_mode == "rag"``
+    populate it via the shared
+    :mod:`latence_trace.core.attribution.file_attribution` kernel.
+
+    ``reason_code_histogram`` rolls the per-file ``reason_codes`` up into
+    a small aggregate so dashboards can render the "53 % of the waste is
+    ``dominated_by_single_file``" narrative without custom aggregation.
+    """
 
     per_file: List[CodeLanePerFileUsage] = Field(default_factory=list)
     per_unit: List[CodeLanePerUnitOwnership] = Field(default_factory=list)
@@ -841,6 +865,22 @@ class CodeLaneFileAttribution(BaseModel):
     min_owner_share: float = 0.01
     coverage_threshold: float = 0.20
     low_cosine_threshold: float = 0.40
+    reason_code_histogram: Dict[str, int] = Field(
+        default_factory=dict,
+        description=(
+            "Aggregate count of reason codes across files. "
+            "Keys are ReasonCode wire values (never_won_argmax, "
+            "all_tokens_below_0_40, dominated_by_single_file, "
+            "query_relevant_but_ignored, not_query_relevant)."
+        ),
+    )
+
+
+# Lane-neutral alias — same schema, product-friendly name. Use this in
+# new code (e.g. the top-level ``GroundednessResponse.file_attribution``
+# field) so downstream consumers are not confused by the ``CodeLane``
+# prefix when the data is coming from the RAG path.
+FileAttributionDiagnostics = CodeLaneFileAttribution
 
 
 class CodeLaneDiagnostics(BaseModel):
@@ -1165,6 +1205,65 @@ class GroundednessDebugPayload(BaseModel):
     triangular_gated: Optional[List[List[float]]] = None
 
 
+class HeatmapToken(BaseModel):
+    """Per-response-token visualisation record.
+
+    ``band`` is one of ``"green"`` / ``"amber"`` / ``"red"`` and maps
+    directly to a CSS class name in the bundled HTML template.
+    """
+
+    index: int
+    token: str
+    score: float
+    band: str
+
+
+class HeatmapFile(BaseModel):
+    """Per-file visualisation record."""
+
+    path: str
+    owner_share: float
+    band: str
+    reason_codes: List[str] = Field(default_factory=list)
+    dead_weight: bool = False
+
+
+class HeatmapSummary(BaseModel):
+    """Headline numbers rendered at the top of the heatmap card."""
+
+    headline_score: Optional[float] = None
+    risk_band: Optional[str] = None
+    recommendation: Optional[str] = None
+    groundedness_pct: Optional[float] = None
+    dead_weight_pct: Optional[float] = None
+    reason_code_histogram: Dict[str, int] = Field(default_factory=dict)
+
+
+class HeatmapThresholds(BaseModel):
+    """Exact cut-offs used to bucket tokens / files into colour bands.
+
+    Exposed on the response so callers can reproduce the exact
+    bucketing server-side or explain it in their UI.
+    """
+
+    token_green_min: float = 0.60
+    token_amber_min: float = 0.35
+    file_green_min: float = 0.20
+    file_amber_min: float = 0.05
+
+
+class HeatmapPayload(BaseModel):
+    """Compact visualisation bundle ready for copy-paste HTML rendering.
+
+    See ``docs/heatmap.md`` for the reference template and CSS.
+    """
+
+    summary: HeatmapSummary = Field(default_factory=HeatmapSummary)
+    tokens: List[HeatmapToken] = Field(default_factory=list)
+    files: List[HeatmapFile] = Field(default_factory=list)
+    thresholds: HeatmapThresholds = Field(default_factory=HeatmapThresholds)
+
+
 class GroundednessResponse(BaseModel):
     """Groundedness scoring response with heatmap-ready sparse data."""
 
@@ -1272,6 +1371,38 @@ class GroundednessResponse(BaseModel):
             "codes. RAG-lane responses leave this field ``None``."
         ),
     )
+    file_attribution: Optional[FileAttributionDiagnostics] = Field(
+        default=None,
+        description=(
+            "Lane-neutral per-file attribution with reason codes and a "
+            "reason-code histogram. Populated for both ``scoring_mode == "
+            "'code'`` and ``scoring_mode == 'rag'``. For the code lane "
+            "this echoes ``code_lane_diagnostics.file_attribution`` so "
+            "downstream dashboards have one canonical place to read from; "
+            "for the RAG lane it is the primary surface (chunks are "
+            "grouped by ``metadata.path`` / ``metadata.source`` / "
+            "``source_id``, falling back to ``support_id``)."
+        ),
+    )
+    heatmap: Optional["HeatmapPayload"] = Field(
+        default=None,
+        description=(
+            "Compact visual summary of the turn: per-token band, "
+            "per-file band, and headline numbers. Emitted when the "
+            "request ``heatmap_format`` is ``'data'`` (default) or "
+            "``'html'``. Renders copy-paste into any HTML page using "
+            "the template documented in ``docs/heatmap.md``."
+        ),
+    )
+    heatmap_html: Optional[str] = Field(
+        default=None,
+        description=(
+            "Self-contained HTML fragment (a single ``<div>`` with "
+            "inline CSS) that renders the ``heatmap`` payload without "
+            "any frontend work. Emitted only when the request "
+            "``heatmap_format`` is ``'html'``."
+        ),
+    )
     time_ms: float
     scoring_mode: ScoringMode = Field(
         default=ScoringMode.RAG,
@@ -1319,3 +1450,94 @@ class GroundednessResponse(BaseModel):
 # ``SessionStatePayload`` (defined further down for schema readability);
 # rebuild the model so pydantic resolves the annotation.
 GroundednessRequest.model_rebuild()
+# ``GroundednessResponse.heatmap`` is a forward reference to
+# ``HeatmapPayload`` defined below the response model; rebuild once the
+# target class exists so pydantic resolves the annotation.
+GroundednessResponse.model_rebuild()
+
+
+# ---------------------------------------------------------------------------
+# Rollup (stateless session-level aggregation)
+# ---------------------------------------------------------------------------
+
+
+class RollupTurnInput(BaseModel):
+    """Compact record for one turn in a rollup request.
+
+    Every field is optional so callers can feed the exact slice of the
+    per-turn response they already have. The rollup transform skips
+    anything it does not recognise; garbage in -> sensible zeros out.
+    """
+
+    scores: Optional[Dict[str, Optional[float]]] = Field(
+        default=None,
+        description=(
+            "Subset of ``GroundednessScores`` fields. At minimum the "
+            "transform reads ``groundedness_v2`` / "
+            "``composite_phantom_score`` / ``dead_weight_ratio`` / "
+            "``dead_weight_file_count``."
+        ),
+    )
+    session_signals: Optional[SessionSignals] = None
+    file_attribution: Optional[FileAttributionDiagnostics] = None
+    risk_band: Optional[str] = None
+    recommendation: Optional[str] = None
+    timestamp: Optional[str] = None
+
+
+class DriftTrend(BaseModel):
+    """Tiny summary of the drift-z-score trajectory."""
+
+    min: float = 0.0
+    max: float = 0.0
+    mean: float = 0.0
+    last: float = 0.0
+
+
+class RollupTopDeadFile(BaseModel):
+    path: str
+    dead_turns: int = 0
+    ema_owner_share: float = 0.0
+
+
+class RollupRequest(BaseModel):
+    """Stateless aggregation over a sequence of per-turn records.
+
+    The server does not persist anything; the caller owns the list of
+    turns. Heavy fields like chunk-level ownership are NOT required —
+    this endpoint exists to let IDE plugins / dashboards roll up a
+    conversation into business-grade metrics with one HTTP call.
+    """
+
+    turns: List[RollupTurnInput] = Field(default_factory=list)
+    session_id: Optional[str] = None
+    heatmap_format: Literal["none", "data", "html"] = Field(
+        default="none",
+        description=(
+            "When ``'data'`` or ``'html'`` the rollup also emits a "
+            "conversation-level heatmap (session signals + top dead "
+            "files + reason-code histogram) ready to render."
+        ),
+    )
+
+
+class RollupResponse(BaseModel):
+    """Session-level aggregates emitted by :meth:`GroundednessService.rollup`.
+
+    Every percentage is bounded to ``[0, 1]``. The full per-turn trails
+    are returned so clients can draw sparklines without hitting the
+    service again.
+    """
+
+    turns: int = 0
+    noise_pct: float = 0.0
+    model_drift_pct: float = 0.0
+    retrieval_waste_pct: float = 0.0
+    reason_code_histogram: Dict[str, int] = Field(default_factory=dict)
+    recommendations: List[str] = Field(default_factory=list)
+    risk_band_trail: List[str] = Field(default_factory=list)
+    drift_trend: DriftTrend = Field(default_factory=DriftTrend)
+    top_dead_files: List[RollupTopDeadFile] = Field(default_factory=list)
+    session_id: Optional[str] = None
+    heatmap: Optional[HeatmapPayload] = None
+    heatmap_html: Optional[str] = None

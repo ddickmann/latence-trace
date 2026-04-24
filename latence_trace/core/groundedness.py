@@ -46,6 +46,10 @@ from latence_trace.core.structured import (
     verification_to_dict,
     verify_structured_source,
 )
+from latence_trace.core.attribution.file_attribution import (
+    FileAttributionResult,
+    attribute_files,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1553,6 +1557,66 @@ def apply_support_unit_usage_classification(
     }
 
 
+def _build_rag_file_attribution(
+    *,
+    support_units_payload: List[Dict[str, Any]],
+    support_inputs: Sequence["SupportUnitInput"],
+    n_response_tokens: int,
+    n_query_tokens: int,
+    coverage_threshold: float,
+) -> FileAttributionResult:
+    """Project the RAG per-unit stats into a lane-neutral attribution bundle.
+
+    The shared :func:`attribute_files` kernel expects four parallel
+    sequences in scorer order:
+
+    - ``per_unit_max``           -> ``payload["coverage_score"]``
+      (max cosine of each support unit against any response token).
+    - ``per_unit_owner_count``   -> ``payload["matched_response_tokens"]``
+      (times the unit won the per-response-token argmax).
+    - ``per_unit_query_owner_count`` -> zeros for the RAG lane today.
+      Query-side argmax isn't tracked per-unit on the RAG path; we
+      still emit the column so the reason-code logic runs uniformly
+      (files will land in ``not_query_relevant`` instead of
+      ``query_relevant_but_ignored``, which is the correct default).
+    - ``usage_states``           -> ``payload["usage_state"]``
+      (tri-state from :func:`apply_support_unit_usage_classification`).
+
+    ``resolve_attribution_key`` already knows how to prefer
+    ``metadata.path`` / ``metadata.source`` / ``source_id`` over a
+    bare ``support_id`` so enterprise stacks that label chunks by
+    source document get clean file rollups; plain chunk callers get a
+    per-chunk breakdown instead.
+    """
+    n = len(support_units_payload)
+    per_unit_max: List[float] = [
+        float(payload.get("coverage_score") or 0.0) for payload in support_units_payload
+    ]
+    per_unit_owner_count: List[int] = [
+        int(payload.get("matched_response_tokens") or 0)
+        for payload in support_units_payload
+    ]
+    per_unit_query_owner_count: List[int] = [0] * n
+    usage_states: List[str] = [
+        str(payload.get("usage_state") or "uncertain")
+        for payload in support_units_payload
+    ]
+    # ``support_inputs`` may have more entries than ``support_units_payload``
+    # in the chunked path (flat_support_units flattens per-chunk lists).
+    # We only feed the subset that maps 1:1 with the payloads.
+    units_for_attribution = list(support_inputs)[:n]
+    return attribute_files(
+        units=units_for_attribution,
+        per_unit_max=per_unit_max,
+        per_unit_owner_count=per_unit_owner_count,
+        per_unit_query_owner_count=per_unit_query_owner_count,
+        usage_states=usage_states,
+        n_response_tokens=int(n_response_tokens),
+        n_query_tokens=int(n_query_tokens),
+        coverage_threshold=float(coverage_threshold),
+    )
+
+
 def _dedup_unit_maxima(
     unit_maxima: torch.Tensor,
     signatures: Optional[Sequence[str]],
@@ -2623,6 +2687,16 @@ def score_groundedness(
         "context_uncertain_ratio": float(usage_aggregates["context_uncertain_ratio"]),
     }
 
+    file_attribution = _build_rag_file_attribution(
+        support_units_payload=support_units_payload,
+        support_inputs=support_units,
+        n_response_tokens=int(len(response_tokens_aligned)),
+        n_query_tokens=int(len(query_tokens_aligned) if query_tokens_aligned is not None else 0),
+        coverage_threshold=float(coverage_threshold),
+    )
+    scores["dead_weight_ratio"] = float(file_attribution.dead_weight_ratio)
+    scores["dead_weight_file_count"] = int(len(file_attribution.dead_weight_files))
+
     return {
         "scores": scores,
         "response_tokens": response_token_rows,
@@ -2631,6 +2705,7 @@ def score_groundedness(
         "query_tokens": query_token_rows,
         "debug": debug_payload,
         "warnings": warnings,
+        "file_attribution": file_attribution,
         "literal_diagnostics": {
             "response_literals": response_literals,
             "matches": literal_matches,
@@ -3497,6 +3572,16 @@ def score_groundedness_chunked(
         "context_uncertain_ratio": float(usage_aggregates["context_uncertain_ratio"]),
     }
 
+    file_attribution = _build_rag_file_attribution(
+        support_units_payload=support_units_payload,
+        support_inputs=flat_support_units,
+        n_response_tokens=int(len(response_tokens_aligned)),
+        n_query_tokens=int(len(query_token_rows) if query_token_rows else 0),
+        coverage_threshold=float(coverage_threshold),
+    )
+    scores["dead_weight_ratio"] = float(file_attribution.dead_weight_ratio)
+    scores["dead_weight_file_count"] = int(len(file_attribution.dead_weight_files))
+
     return {
         "scores": scores,
         "response_tokens": response_token_rows,
@@ -3505,6 +3590,7 @@ def score_groundedness_chunked(
         "query_tokens": query_token_rows,
         "debug": debug_payload,
         "warnings": list(dict.fromkeys(warnings)),
+        "file_attribution": file_attribution,
         "literal_diagnostics": {
             "response_literals": response_literals,
             "matches": literal_matches,

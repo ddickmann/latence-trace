@@ -54,6 +54,8 @@ from latence_trace import __version__
 from latence_trace.api.models import (
     GroundednessRequest,
     GroundednessResponse,
+    RollupRequest,
+    RollupResponse,
     ScoringMode,
 )
 from latence_trace.api.service import (
@@ -121,6 +123,7 @@ class WorkerConfig:
     version: str
     request_timeout_s: int
     code_request_timeout_s: float
+    rollup_request_timeout_s: float
     max_concurrency: int
     collection_label: str
     service_device: str
@@ -161,6 +164,11 @@ def create_config() -> WorkerConfig:
         # ceiling protects the tail while still catching hung requests.
         code_request_timeout_s=_env_float(
             "LATENCE_TRACE_CODE_REQUEST_TIMEOUT_S", 2.0
+        ),
+        # CPU-only stateless aggregation; sub-ms typical, 250ms
+        # ceiling is plenty for 1000+ turn sessions.
+        rollup_request_timeout_s=_env_float(
+            "LATENCE_TRACE_ROLLUP_REQUEST_TIMEOUT_S", 0.25
         ),
         max_concurrency=64,
         collection_label=os.environ.get("LATENCE_TRACE_COLLECTION_LABEL", "latence-trace"),
@@ -542,6 +550,7 @@ def _build_request(input_data: dict[str, Any]) -> tuple[GroundednessRequest, boo
         "response_language_hint",
         "emit_chunk_ownership",
         "session_state",
+        "heatmap_format",
     )
     for key in passthrough_keys:
         if key in input_data:
@@ -631,6 +640,15 @@ def _compact_response(response: GroundednessResponse, *, verbose: bool) -> dict[
             result["session_signals"] = response.session_signals.model_dump(
                 mode="json"
             )
+    # Lane-neutral file attribution — populated for both RAG and code
+    # lanes so downstream dashboards have one canonical field to read
+    # from regardless of ``scoring_mode``.
+    if response.file_attribution is not None:
+        result["file_attribution"] = response.file_attribution.model_dump(mode="json")
+    if response.heatmap is not None:
+        result["heatmap"] = response.heatmap.model_dump(mode="json")
+    if response.heatmap_html is not None:
+        result["heatmap_html"] = response.heatmap_html
     if response.reason:
         result["reason"] = response.reason
     if response.warnings:
@@ -757,6 +775,68 @@ def _service_error_payload(
     return payload
 
 
+async def _handle_rollup(input_data: dict[str, Any]) -> dict[str, Any]:
+    """Dispatch for ``action == "rollup"``.
+
+    Stateless, CPU-only, sub-ms typical. No semaphore or threadpool
+    needed — the aggregation runs inline on the asyncio loop.
+    """
+    initialize()
+    service = _service
+    config = _config
+    if service is None or config is None:
+        return _service_error_payload(
+            "RunPod worker was not initialized",
+            error_code="service_error",
+            status_code=500,
+        )
+    try:
+        payload = dict(input_data)
+        payload.pop("action", None)
+        rollup_request = RollupRequest.model_validate(payload)
+    except PydanticValidationError as exc:
+        return _service_error_payload(
+            str(exc),
+            error_code="validation_error",
+            hint="Pass a list of per-turn records under 'turns'.",
+            status_code=400,
+        )
+    try:
+        loop = asyncio.get_running_loop()
+        response: RollupResponse = await asyncio.wait_for(
+            loop.run_in_executor(None, service.rollup, rollup_request),
+            timeout=config.rollup_request_timeout_s,
+        )
+    except asyncio.TimeoutError:
+        return _service_error_payload(
+            f"Rollup exceeded {config.rollup_request_timeout_s:.2f}s execution timeout",
+            error_code="job_timeout",
+            hint="Split the session into smaller windows or raise LATENCE_TRACE_ROLLUP_REQUEST_TIMEOUT_S.",
+            status_code=504,
+        )
+    except ServiceError as exc:
+        return _service_error_payload(
+            str(exc),
+            error_code=exc.error_code,
+            hint=getattr(exc, "hint", None),
+            status_code=getattr(exc, "status_code", None),
+        )
+    except Exception as exc:  # pragma: no cover - runtime safeguard
+        logger.exception("rollup_failed")
+        return _service_error_payload(
+            str(exc),
+            error_code="service_error",
+            status_code=500,
+        )
+    result = {
+        "success": True,
+        "action": "rollup",
+        "rollup": response.model_dump(mode="json"),
+        "version": config.version if config else __version__,
+    }
+    return result
+
+
 async def handler(job: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(job, dict):
         return _service_error_payload(
@@ -779,6 +859,19 @@ async def handler(job: dict[str, Any]) -> dict[str, Any]:
 
     if input_data.get("endpoint_id") == "_health" or bool(input_data.get("health")):
         return _health_payload()
+
+    # Optional action dispatch — defaults to "score". The only other
+    # supported action today is "rollup" (stateless session aggregation).
+    action = str(input_data.get("action") or "score").strip().lower()
+    if action == "rollup":
+        return await _handle_rollup(input_data)
+    if action not in {"score", ""}:
+        return _service_error_payload(
+            f"Unknown action: {action}",
+            error_code="invalid_action",
+            hint="Set action to 'score' (default) or 'rollup'.",
+            status_code=400,
+        )
 
     try:
         request, verbose = _build_request(input_data)

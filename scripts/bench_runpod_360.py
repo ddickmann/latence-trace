@@ -21,6 +21,23 @@ Exercises every product dimension the service ships in a single pass:
     5. Concurrency burst: N mixed-lane requests in parallel to confirm
        the per-lane semaphores do not deadlock and p95 stays within SLO.
 
+    6. RAG per-file attribution + reason-code histogram: multi-file
+       support-unit fixtures that prove the shared attribution kernel
+       fires on the RAG lane, dead_weight_ratio is populated, and the
+       reason-code histogram is emitted by default.
+
+    7. Heatmap: one RAG + one code case re-run with
+       ``heatmap_format="html"`` to validate both the structured data
+       payload (tokens / files / summary / thresholds) and the
+       self-contained HTML fragment (``<div>``, band CSS variables,
+       no external refs).
+
+    8. Stateless rollup: POSTs ``action="rollup"`` with the 5 session
+       turns from dimension 4 and validates noise_pct / model_drift_pct
+       / retrieval_waste_pct are in [0, 1], the reason-code histogram
+       sums across turns, the risk-band trail is length-preserving, and
+       (when requested) the session-level heatmap HTML is emitted.
+
 One pass prints a compact per-dimension table and a final pass/fail
 gate. ``--dump report.json`` writes a machine-readable roll-up.
 
@@ -36,7 +53,7 @@ Usage
 Flags
 -----
 
-    --skip rag|unused|code|session|concurrency    run a subset
+    --skip rag|unused|code|session|concurrency|rag_attribution|heatmap|rollup
     --cases-rag G1,G3,U1,U4                        RAG subset
     --cases-code CG1,CU1,CA2                       code subset
     --concurrency 4                                per-dim concurrency
@@ -170,14 +187,37 @@ def _fmt_i(value: Optional[int], width: int = 3) -> str:
 # ---------------------------------------------------------------------------
 
 
+# Gateway-transport key translation. The RunPod handler accepts the alias
+# keys ``query`` / ``context`` / ``response`` for backwards compatibility;
+# the gateway surface uses the canonical pydantic names. Rewrite the input
+# dict so the same bench driver can target either backend without forking
+# every dimension.
+_GATEWAY_KEY_REWRITES = {
+    "query": "query_text",
+    "context": "raw_context",
+    "response": "response_text",
+}
+
+
 @dataclass
 class Transport:
     endpoint_id: str
     api_key: str
     use_runsync: bool = True
     timeout_s: float = 600.0
+    # Optional gateway-transport config. When ``gateway_url`` is set the
+    # transport posts to the gateway's DX endpoints instead of RunPod and
+    # re-wraps the response in the ``{"status": "COMPLETED", "output": ...}``
+    # shape downstream analysis expects.
+    gateway_url: Optional[str] = None
+    gateway_key: Optional[str] = None
 
     def headers(self) -> Dict[str, str]:
+        if self.gateway_url:
+            return {
+                "Authorization": f"Bearer {self.gateway_key or ''}",
+                "Content-Type": "application/json",
+            }
         return {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -191,6 +231,13 @@ class Transport:
         """Submit a single scoring request and wait for a terminal status."""
 
         wall_start = time.perf_counter()
+
+        if self.gateway_url:
+            body = await self._submit_gateway(client, payload)
+            wall_ms = (time.perf_counter() - wall_start) * 1000.0
+            body["_wall_ms"] = wall_ms
+            return body
+
         if self.use_runsync:
             url = f"https://api.runpod.ai/v2/{self.endpoint_id}/runsync"
             resp = await client.post(url, json=payload, headers=self.headers())
@@ -207,6 +254,49 @@ class Transport:
         wall_ms = (time.perf_counter() - wall_start) * 1000.0
         body["_wall_ms"] = wall_ms
         return body
+
+    async def _submit_gateway(
+        self,
+        client: httpx.AsyncClient,
+        payload: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Send a bench payload through the local gateway.
+
+        The gateway exposes ``/api/v1/trace/rag`` and ``/api/v1/trace/code``
+        with a flat (non ``input``-wrapped) body and the canonical pydantic
+        field names. Translate both directions so downstream analysis keeps
+        reading ``body["output"]`` untouched.
+        """
+        flat = dict(payload.get("input") or {})
+        scoring_mode = (flat.pop("scoring_mode", None) or "rag").lower()
+        # Gateway endpoint is the source of truth for the lane; strip any
+        # stray ``scoring_mode`` from the body (the schema rejects it).
+        endpoint = "/api/v1/trace/code" if scoring_mode == "code" else "/api/v1/trace/rag"
+
+        translated: Dict[str, Any] = {}
+        for key, value in flat.items():
+            translated[_GATEWAY_KEY_REWRITES.get(key, key)] = value
+
+        url = f"{self.gateway_url.rstrip('/')}{endpoint}"
+        resp = await client.post(url, json=translated, headers=self.headers())
+        # Surface gateway errors so the bench fails loudly rather than
+        # silently falling into empty-output analysis branches.
+        if resp.status_code >= 400:
+            detail: Any
+            try:
+                detail = resp.json()
+            except Exception:
+                detail = resp.text
+            raise RuntimeError(
+                f"gateway {endpoint} returned HTTP {resp.status_code}: {detail}"
+            )
+        output = resp.json()
+        # Rewrap to the RunPod job shape the rest of the bench consumes.
+        return {
+            "status": "COMPLETED",
+            "output": output,
+            "id": "local-gateway",
+        }
 
     async def _poll(
         self, client: httpx.AsyncClient, job_id: Optional[str]
@@ -1080,6 +1170,11 @@ async def _dim_session(
     session_state: Optional[Dict[str, Any]] = None
     session_id = "360bench:session"
     turn_records: List[Dict[str, Any]] = []
+    # Raw per-turn outputs are captured so ``_dim_rollup`` can consume the
+    # same 5-turn narrative without re-running the scorer. This keeps the
+    # rollup dimension aligned with what the IDE plugin would send after a
+    # live coding session.
+    raw_outputs: List[Dict[str, Any]] = []
     errors: List[Dict[str, Any]] = []
 
     for idx, case in enumerate(scripted):
@@ -1111,6 +1206,7 @@ async def _dim_session(
             break
         next_state = output.get("next_session_state")
         signals = output.get("session_signals") or {}
+        raw_outputs.append(output)
         turn_records.append(
             {
                 "turn": idx + 1,
@@ -1145,6 +1241,7 @@ async def _dim_session(
     return {
         "name": "session_roundtrip",
         "turn_records": turn_records,
+        "raw_outputs": raw_outputs,
         "errors": errors,
         "monotonic_turns": monotonic_turns,
         "produced_signals": produced_signals,
@@ -1261,6 +1358,515 @@ async def _dim_burst(
         "code_p95_ms": _percentile(code_latencies, 0.95),
         "total_wall_ms": total_wall_ms,
         "passed": len(failures) == 0 and len(good) == len(results),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Dimension 6 — RAG per-file attribution + reason-code histogram.
+# ---------------------------------------------------------------------------
+
+
+def _rag_attribution_cases() -> List[Dict[str, Any]]:
+    """Multi-file RAG fixtures that guarantee ≥ 2 distinct attribution keys.
+
+    The 20 handcrafted RAG cases ship as a single ``context`` blob which the
+    chunker may split into one or more support units keyed by the synthetic
+    ``support_id``. To exercise the shared file-attribution kernel end-to-end
+    — including the ``metadata.path`` grouping and per-file reason codes —
+    we post ``support_units`` directly with explicit ``metadata.path`` on
+    each unit. One unit is the true anchor, the second is a plausible
+    distractor, the third is deep noise.
+    """
+
+    return [
+        {
+            "id": "rag_attr_saturn",
+            "query_text": "What are Saturn's rings primarily composed of?",
+            "response_text": (
+                "Saturn's rings are made mostly of water ice, with particles "
+                "ranging from micrometres to several metres in size."
+            ),
+            "support_units": [
+                {
+                    "support_id": "s-anchor",
+                    "text": (
+                        "Saturn's main rings are dominated by water-ice "
+                        "particles, from micrometres to several metres across, "
+                        "with only trace amounts of rocky debris."
+                    ),
+                    "metadata": {"path": "docs/saturn_rings.md"},
+                },
+                {
+                    "support_id": "s-near",
+                    "text": (
+                        "Jupiter has faint rings that were discovered by "
+                        "Voyager 1 in 1979 and consist mostly of fine dust."
+                    ),
+                    "metadata": {"path": "docs/jupiter_rings.md"},
+                },
+                {
+                    "support_id": "s-noise",
+                    "text": (
+                        "Bamboo is a fast-growing woody grass used in "
+                        "erosion-prone landscaping; it is not related to any "
+                        "planetary science topic."
+                    ),
+                    "metadata": {"path": "docs/bamboo_growth.md"},
+                },
+            ],
+        },
+        {
+            "id": "rag_attr_ev",
+            "query_text": "How far can modern consumer electric vehicles drive on a charge?",
+            "response_text": (
+                "Most consumer electric vehicles now deliver 300–500 km of "
+                "range per full charge, depending on battery size and climate."
+            ),
+            "support_units": [
+                {
+                    "support_id": "s-anchor",
+                    "text": (
+                        "Modern consumer electric vehicles typically provide "
+                        "between 300 and 500 km of range on a full charge, "
+                        "with premium models reaching 600 km."
+                    ),
+                    "metadata": {"path": "docs/ev_range.md"},
+                },
+                {
+                    "support_id": "s-near",
+                    "text": (
+                        "Lithium-ion battery chemistry has matured rapidly "
+                        "over the past decade, improving energy density and "
+                        "reducing cost per kWh."
+                    ),
+                    "metadata": {"path": "docs/battery_chemistry.md"},
+                },
+                {
+                    "support_id": "s-noise",
+                    "text": (
+                        "Saffron is a spice harvested from the stigmas of "
+                        "Crocus sativus and commands a high market price."
+                    ),
+                    "metadata": {"path": "docs/saffron_history.md"},
+                },
+            ],
+        },
+    ]
+
+
+async def _dim_rag_attribution(
+    client: httpx.AsyncClient,
+    transport: Transport,
+    concurrency: int,
+) -> Dict[str, Any]:
+    sem = asyncio.Semaphore(concurrency)
+    cases = _rag_attribution_cases()
+
+    async def _one(case: Dict[str, Any]) -> Dict[str, Any]:
+        payload = {
+            "input": {
+                "scoring_mode": "rag",
+                "query_text": case["query_text"],
+                "response_text": case["response_text"],
+                "support_units": case["support_units"],
+                "include_triangular_diagnostics": True,
+                "evidence_limit": 4,
+                "heatmap_format": "data",
+            }
+        }
+        body = await transport.submit(client, payload)
+        return {"case": case, "body": body}
+
+    results = await asyncio.gather(
+        *[_with_sem(sem, lambda c=c: _one(c)) for c in cases]
+    )
+
+    rows: List[Dict[str, Any]] = []
+    errors: List[Dict[str, Any]] = []
+    per_file_seen = 0
+    multi_file_cases = 0
+    histogram_has_keys = 0
+    dead_weight_ratio_populated = 0
+    for r in results:
+        case = r["case"]
+        body = r["body"]
+        status = body.get("status", "")
+        output = body.get("output") or {}
+        if status != "COMPLETED" or not output.get("success"):
+            errors.append(
+                {
+                    "id": case["id"],
+                    "status": status,
+                    "error": output.get("error") or body.get("error"),
+                }
+            )
+            continue
+
+        attribution = output.get("file_attribution") or {}
+        per_file = attribution.get("per_file") or []
+        hist = attribution.get("reason_code_histogram") or {}
+        scores_dict = output.get("scores") or {}
+        dwr = scores_dict.get("dead_weight_ratio")
+
+        per_file_seen += len(per_file)
+        if len(per_file) >= 2:
+            multi_file_cases += 1
+        if hist:
+            histogram_has_keys += 1
+        if dwr is not None:
+            dead_weight_ratio_populated += 1
+
+        rows.append(
+            {
+                "id": case["id"],
+                "n_files": len(per_file),
+                "dead_weight_ratio": dwr,
+                "dead_weight_file_count": scores_dict.get("dead_weight_file_count"),
+                "reason_codes": sorted(hist.keys()),
+                "top_dead_path": next(
+                    (
+                        f.get("path")
+                        for f in per_file
+                        if bool(f.get("dead_weight"))
+                    ),
+                    None,
+                ),
+            }
+        )
+
+    passed = (
+        len(errors) == 0
+        and len(rows) == len(cases)
+        and multi_file_cases >= 1
+        and histogram_has_keys >= 1
+        and dead_weight_ratio_populated == len(rows)
+    )
+    return {
+        "name": "rag_attribution",
+        "rows": rows,
+        "errors": errors,
+        "cases_total": len(cases),
+        "per_file_seen": per_file_seen,
+        "multi_file_cases": multi_file_cases,
+        "histogram_populated": histogram_has_keys,
+        "dead_weight_ratio_populated": dead_weight_ratio_populated,
+        "passed": passed,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Dimension 7 — Heatmap (data + HTML fragment).
+# ---------------------------------------------------------------------------
+
+
+def _validate_heatmap_html(html: str) -> Dict[str, Any]:
+    """Cheap self-contained-ness check for the heatmap HTML fragment.
+
+    The live fragment is a single ``<div class="lt-heatmap">`` with an
+    inline ``<style>`` block. We reject obvious external dependencies
+    (``<script src=``, external stylesheets, ``<iframe>``) and require
+    the three band classes and the ``<h4>`` headline the renderer emits.
+    """
+
+    lowered = (html or "").lower()
+    forbidden = [
+        "<script ",
+        "<iframe",
+        "href=\"http",
+        "href='http",
+        "src=\"http",
+        "src='http",
+    ]
+    has_forbidden = any(token in lowered for token in forbidden)
+    has_div = "<div" in lowered and "</div>" in lowered
+    # Band classes emitted by render_heatmap_html.
+    has_bands = all(
+        token in lowered
+        for token in (".lt-band-green", ".lt-band-amber", ".lt-band-red")
+    )
+    has_headline = "<h4" in lowered
+    has_inline_style = "<style>" in lowered
+    size_bytes = len(html or "")
+    return {
+        "has_div": has_div,
+        "has_bands": has_bands,
+        "has_headline": has_headline,
+        "has_inline_style": has_inline_style,
+        "has_forbidden_refs": has_forbidden,
+        "size_bytes": size_bytes,
+    }
+
+
+async def _dim_heatmap(
+    client: httpx.AsyncClient,
+    transport: Transport,
+    rag_case: Optional[Any],
+    code_case: Optional[Any],
+) -> Dict[str, Any]:
+    checks: List[Dict[str, Any]] = []
+    errors: List[Dict[str, Any]] = []
+
+    async def _run_rag(case: Any) -> None:
+        payload = {
+            "input": {
+                "query": case.query,
+                "context": case.context,
+                "response": case.response,
+                "include_triangular_diagnostics": True,
+                "evidence_limit": 4,
+                "heatmap_format": "html",
+            }
+        }
+        body = await transport.submit(client, payload)
+        output = body.get("output") or {}
+        if body.get("status") != "COMPLETED" or not output.get("success"):
+            errors.append(
+                {
+                    "lane": "rag",
+                    "id": case.id,
+                    "status": body.get("status"),
+                    "error": output.get("error") or body.get("error"),
+                }
+            )
+            return
+        heatmap = output.get("heatmap") or {}
+        html = output.get("heatmap_html")
+        html_check = _validate_heatmap_html(html or "")
+        tokens = heatmap.get("tokens") or []
+        files = heatmap.get("files") or []
+        summary = heatmap.get("summary") or {}
+        thresholds = heatmap.get("thresholds") or {}
+        checks.append(
+            {
+                "lane": "rag",
+                "id": case.id,
+                "has_heatmap_data": bool(heatmap),
+                "token_count": len(tokens),
+                "file_count": len(files),
+                "summary_keys": sorted(summary.keys()),
+                "thresholds_keys": sorted(thresholds.keys()),
+                "token_bands": sorted(
+                    {str(t.get("band")) for t in tokens if t.get("band")}
+                ),
+                "html": html_check,
+            }
+        )
+
+    async def _run_code(case: Any) -> None:
+        raw_context, _ = render_context_files(case.context_files)
+        payload = {
+            "input": {
+                "scoring_mode": "code",
+                "session_id": f"360bench:heatmap:{case.id}",
+                "response_language_hint": _language_hint(case.context_files),
+                "query": case.query,
+                "context": raw_context,
+                "response": _strip_diff_to_code(case.response),
+                "evidence_limit": 6,
+                "heatmap_format": "html",
+            }
+        }
+        body = await transport.submit(client, payload)
+        output = body.get("output") or {}
+        if body.get("status") != "COMPLETED" or not output.get("success"):
+            errors.append(
+                {
+                    "lane": "code",
+                    "id": case.id,
+                    "status": body.get("status"),
+                    "error": output.get("error") or body.get("error"),
+                }
+            )
+            return
+        heatmap = output.get("heatmap") or {}
+        html = output.get("heatmap_html")
+        html_check = _validate_heatmap_html(html or "")
+        checks.append(
+            {
+                "lane": "code",
+                "id": case.id,
+                "has_heatmap_data": bool(heatmap),
+                "token_count": len(heatmap.get("tokens") or []),
+                "file_count": len(heatmap.get("files") or []),
+                "summary_keys": sorted((heatmap.get("summary") or {}).keys()),
+                "thresholds_keys": sorted((heatmap.get("thresholds") or {}).keys()),
+                "token_bands": sorted(
+                    {
+                        str(t.get("band"))
+                        for t in (heatmap.get("tokens") or [])
+                        if t.get("band")
+                    }
+                ),
+                "html": html_check,
+            }
+        )
+
+    coros: List[Awaitable[None]] = []
+    if rag_case is not None:
+        coros.append(_run_rag(rag_case))
+    if code_case is not None:
+        coros.append(_run_code(code_case))
+
+    if coros:
+        await asyncio.gather(*coros)
+
+    # Gate: every completed check must have data + a self-contained HTML
+    # fragment (div, band CSS vars, headline, no external refs).
+    all_good = (
+        len(errors) == 0
+        and len(checks) > 0
+        and all(
+            c["has_heatmap_data"]
+            and c["html"]["has_div"]
+            and c["html"]["has_bands"]
+            and c["html"]["has_headline"]
+            and not c["html"]["has_forbidden_refs"]
+            for c in checks
+        )
+    )
+    return {
+        "name": "heatmap",
+        "checks": checks,
+        "errors": errors,
+        "passed": all_good,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Dimension 8 — Stateless rollup over session turns.
+# ---------------------------------------------------------------------------
+
+
+def _rollup_turns_from_session(
+    session_dim: Optional[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Project the 5 session-dim outputs into RollupTurnInput dicts.
+
+    The rollup endpoint is a pure transform: it takes the minimum info
+    needed per turn (scores, session_signals, file_attribution, risk_band,
+    recommendation, timestamp) and returns aggregates. We only forward the
+    fields the public schema documents so the bench catches schema drift
+    on the live endpoint.
+    """
+
+    if not session_dim:
+        return []
+    outputs = session_dim.get("raw_outputs") or []
+    turns: List[Dict[str, Any]] = []
+    for idx, out in enumerate(outputs):
+        turn: Dict[str, Any] = {}
+        scores = out.get("scores")
+        if scores is not None:
+            turn["scores"] = scores
+        signals = out.get("session_signals")
+        if signals is not None:
+            turn["session_signals"] = signals
+        attribution = out.get("file_attribution")
+        if attribution is not None:
+            turn["file_attribution"] = attribution
+        band = out.get("band") or out.get("risk_band")
+        if band is not None:
+            turn["risk_band"] = band
+        rec = (signals or {}).get("recommendation") if signals else None
+        if rec is not None:
+            turn["recommendation"] = rec
+        turn["timestamp"] = str(idx)
+        turns.append(turn)
+    return turns
+
+
+async def _dim_rollup(
+    client: httpx.AsyncClient,
+    transport: Transport,
+    session_dim: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    turns = _rollup_turns_from_session(session_dim)
+    if not turns:
+        return {
+            "name": "rollup",
+            "skipped": True,
+            "reason": "no session outputs available to roll up",
+            "passed": True,
+        }
+
+    payload = {
+        "input": {
+            "action": "rollup",
+            "turns": turns,
+            "heatmap_format": "html",
+        }
+    }
+    body = await transport.submit(client, payload)
+    status = body.get("status", "")
+    output = body.get("output") or {}
+    if status != "COMPLETED" or not output.get("success", True) and output.get("error"):
+        return {
+            "name": "rollup",
+            "skipped": False,
+            "turns_in": len(turns),
+            "errors": [
+                {
+                    "status": status,
+                    "error": output.get("error") or body.get("error"),
+                }
+            ],
+            "passed": False,
+        }
+
+    # The rollup handler returns the RollupResponse directly as ``output``
+    # (it does not wrap into ``{"success": true, ...}``). Be tolerant of
+    # either shape.
+    rollup = output.get("rollup") or output
+    noise = rollup.get("noise_pct")
+    drift = rollup.get("model_drift_pct")
+    waste = rollup.get("retrieval_waste_pct")
+    histogram = rollup.get("reason_code_histogram") or {}
+    recommendations = rollup.get("recommendations") or []
+    risk_trail = rollup.get("risk_band_trail") or []
+    drift_trend = rollup.get("drift_trend") or {}
+    top_dead = rollup.get("top_dead_files") or []
+    heatmap_html = rollup.get("heatmap_html")
+
+    def _in_unit(v: Any) -> bool:
+        try:
+            fv = float(v)
+        except (TypeError, ValueError):
+            return False
+        return 0.0 <= fv <= 1.0
+
+    bounded = all(_in_unit(v) for v in (noise, drift, waste) if v is not None)
+    turns_out = rollup.get("turns")
+    turns_match = (turns_out is None) or (int(turns_out) == len(turns))
+    has_histogram = isinstance(histogram, dict)
+    has_trail = len(risk_trail) == len(turns) or len(risk_trail) == 0
+    html_ok = True
+    html_check: Dict[str, Any] = {}
+    if heatmap_html:
+        html_check = _validate_heatmap_html(heatmap_html)
+        html_ok = (
+            html_check.get("has_div", False)
+            and html_check.get("has_bands", False)
+            and not html_check.get("has_forbidden_refs", True)
+        )
+
+    passed = bounded and turns_match and has_histogram and has_trail and html_ok
+
+    return {
+        "name": "rollup",
+        "skipped": False,
+        "turns_in": len(turns),
+        "turns_out": turns_out,
+        "noise_pct": noise,
+        "model_drift_pct": drift,
+        "retrieval_waste_pct": waste,
+        "reason_code_histogram": histogram,
+        "recommendations": recommendations,
+        "risk_band_trail": risk_trail,
+        "drift_trend": drift_trend,
+        "top_dead_files": top_dead,
+        "has_heatmap_html": heatmap_html is not None,
+        "html_check": html_check,
+        "passed": bool(passed),
     }
 
 
@@ -1489,6 +2095,111 @@ def _print_report(dims: Dict[str, Dict[str, Any]]) -> int:
         for e in d.get("errors", []):
             print(f"  ERR turn={e['turn']} {e['case_id']}: {e['status']} {e['error']}")
 
+    if "rag_attribution" in dims:
+        d = dims["rag_attribution"]
+        status = "PASS" if d.get("passed") else "FAIL"
+        overall_pass = overall_pass and bool(d.get("passed"))
+        print()
+        print(f"[6/8] RAG per-file attribution + reason-code histogram             {status}")
+        print("-" * 80)
+        print(
+            f"  cases                  : {len(d.get('rows', []))} completed / "
+            f"{len(d.get('errors', []))} errors"
+        )
+        print(
+            f"  multi-file cases       : {d.get('multi_file_cases', 0)} / "
+            f"{d.get('cases_total', 0)}   "
+            f"histogram populated : {d.get('histogram_populated', 0)} / "
+            f"{d.get('cases_total', 0)}   "
+            f"dead_weight_ratio populated : {d.get('dead_weight_ratio_populated', 0)} / "
+            f"{d.get('cases_total', 0)}"
+        )
+        for row in d.get("rows", []):
+            rc = ",".join(row.get("reason_codes") or []) or "-"
+            print(
+                f"  {row['id']:<18} n_files={_fmt_i(row.get('n_files'))} "
+                f"dead_ratio={_fmt_f(row.get('dead_weight_ratio'))} "
+                f"dead_files={_fmt_i(row.get('dead_weight_file_count'))} "
+                f"reason_codes=[{rc}]"
+            )
+        for e in d.get("errors", []):
+            print(f"  ERR {e.get('id')}: {e.get('status')} {e.get('error')}")
+
+    if "heatmap" in dims:
+        d = dims["heatmap"]
+        status = "PASS" if d.get("passed") else "FAIL"
+        overall_pass = overall_pass and bool(d.get("passed"))
+        print()
+        print(f"[7/8] Heatmap (data payload + self-contained HTML fragment)        {status}")
+        print("-" * 80)
+        for c in d.get("checks", []):
+            h = c.get("html", {})
+            print(
+                f"  {c.get('lane'):<4} {c.get('id'):<6} "
+                f"tokens={_fmt_i(c.get('token_count'))} "
+                f"files={_fmt_i(c.get('file_count'))} "
+                f"bands={c.get('token_bands')} "
+                f"html_bytes={h.get('size_bytes')} "
+                f"div={h.get('has_div')} bands_css={h.get('has_bands')} "
+                f"headline={h.get('has_headline')} "
+                f"forbidden_refs={h.get('has_forbidden_refs')}"
+            )
+        for e in d.get("errors", []):
+            print(f"  ERR {e.get('lane')} {e.get('id')}: {e.get('status')} {e.get('error')}")
+
+    if "rollup" in dims:
+        d = dims["rollup"]
+        if d.get("skipped"):
+            print()
+            print(f"[8/8] Rollup                                                      SKIP")
+            print("-" * 80)
+            print(f"  {d.get('reason')}")
+        else:
+            status = "PASS" if d.get("passed") else "FAIL"
+            overall_pass = overall_pass and bool(d.get("passed"))
+            print()
+            print(f"[8/8] Stateless rollup over session turns                          {status}")
+            print("-" * 80)
+            print(
+                f"  turns_in / turns_out   : {d.get('turns_in')} / {d.get('turns_out')}"
+            )
+            print(
+                f"  noise_pct / model_drift_pct / retrieval_waste_pct : "
+                f"{_fmt_f(d.get('noise_pct'))} / "
+                f"{_fmt_f(d.get('model_drift_pct'))} / "
+                f"{_fmt_f(d.get('retrieval_waste_pct'))}"
+            )
+            hist = d.get("reason_code_histogram") or {}
+            if hist:
+                print(
+                    "  reason_code_histogram  : "
+                    + ", ".join(f"{k}={v}" for k, v in sorted(hist.items()))
+                )
+            trail = d.get("risk_band_trail") or []
+            if trail:
+                print(f"  risk_band_trail        : {' > '.join(str(b) for b in trail)}")
+            trend = d.get("drift_trend") or {}
+            if trend:
+                print(
+                    f"  drift_trend            : "
+                    f"min={_fmt_f(trend.get('min'))} "
+                    f"max={_fmt_f(trend.get('max'))} "
+                    f"mean={_fmt_f(trend.get('mean'))} "
+                    f"last={_fmt_f(trend.get('last'))}"
+                )
+            top_dead = d.get("top_dead_files") or []
+            if top_dead:
+                print("  top_dead_files         :")
+                for f in top_dead[:5]:
+                    print(
+                        f"    {f.get('path')!s:<28} "
+                        f"dead_turns={_fmt_i(f.get('dead_turns'))} "
+                        f"ema_owner_share={_fmt_f(f.get('ema_owner_share'))}"
+                    )
+            print(f"  heatmap_html emitted   : {d.get('has_heatmap_html')}")
+            for e in d.get("errors", []) or []:
+                print(f"  ERR {e}")
+
     if "burst" in dims:
         d = dims["burst"]
         status = "PASS" if d.get("passed") else "FAIL"
@@ -1526,7 +2237,10 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument(
         "--skip",
         default="",
-        help="comma-separated dimensions to skip: rag,unused,code,session,concurrency",
+        help=(
+            "comma-separated dimensions to skip: "
+            "rag,unused,code,session,concurrency,rag_attribution,heatmap,rollup"
+        ),
     )
     p.add_argument(
         "--cases-rag",
@@ -1543,23 +2257,50 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--use-run-poll", action="store_true",
                    help="use /run + /status polling instead of /runsync")
     p.add_argument("--dump", default=None, help="path to write a detailed JSON report")
+    p.add_argument(
+        "--gateway-url",
+        default=os.environ.get("LATENCE_GATEWAY_URL"),
+        help=(
+            "If set, route every request through the Latence API gateway at "
+            "this base URL (e.g. http://127.0.0.1:8787) instead of RunPod. "
+            "Used by the local-gateway parity bench."
+        ),
+    )
+    p.add_argument(
+        "--gateway-key",
+        default=os.environ.get("LATENCE_GATEWAY_KEY"),
+        help="Bearer token for the gateway (MASTER_API_KEY in dev mode).",
+    )
     return p.parse_args()
 
 
 async def _async_main(args: argparse.Namespace) -> int:
-    if not args.endpoint_id or not args.api_key:
-        print(
-            "error: --endpoint-id and --api-key are required "
-            "(or set RUNPOD_ENDPOINT_ID / RUNPOD_API_KEY)",
-            file=sys.stderr,
-        )
-        return 2
+    using_gateway = bool(args.gateway_url)
+
+    if using_gateway:
+        if not args.gateway_key:
+            print(
+                "error: --gateway-key is required when --gateway-url is set "
+                "(or set LATENCE_GATEWAY_KEY; dev gateway uses MASTER_API_KEY)",
+                file=sys.stderr,
+            )
+            return 2
+    else:
+        if not args.endpoint_id or not args.api_key:
+            print(
+                "error: --endpoint-id and --api-key are required "
+                "(or set RUNPOD_ENDPOINT_ID / RUNPOD_API_KEY)",
+                file=sys.stderr,
+            )
+            return 2
 
     transport = Transport(
-        endpoint_id=args.endpoint_id,
-        api_key=args.api_key,
+        endpoint_id=args.endpoint_id or "",
+        api_key=args.api_key or "",
         use_runsync=not args.use_run_poll,
         timeout_s=args.timeout_s,
+        gateway_url=args.gateway_url,
+        gateway_key=args.gateway_key,
     )
 
     # RAG subset.
@@ -1618,6 +2359,29 @@ async def _async_main(args: argparse.Namespace) -> int:
             )
             dims["session"] = await _dim_session(
                 client, transport, args.session_turns
+            )
+        if "rag_attribution" not in skip:
+            print(
+                "[6/8] running RAG per-file attribution + histogram probe ...",
+                flush=True,
+            )
+            dims["rag_attribution"] = await _dim_rag_attribution(
+                client, transport, args.concurrency
+            )
+        if "heatmap" not in skip:
+            print("[7/8] running heatmap probe (RAG + code, html fragment) ...", flush=True)
+            rag_case_for_hm = selected_rag[0] if selected_rag else None
+            code_case_for_hm = selected_code[0] if selected_code else None
+            dims["heatmap"] = await _dim_heatmap(
+                client, transport, rag_case_for_hm, code_case_for_hm
+            )
+        if "rollup" not in skip:
+            # Rollup aggregates the 5-turn session narrative. If session
+            # was skipped or failed, the rollup dim short-circuits with
+            # ``skipped=True`` rather than crashing.
+            print("[8/8] running stateless rollup over session turns ...", flush=True)
+            dims["rollup"] = await _dim_rollup(
+                client, transport, dims.get("session")
             )
         if "concurrency" not in skip:
             print(
