@@ -1370,12 +1370,17 @@ def _rag_attribution_cases() -> List[Dict[str, Any]]:
     """Multi-file RAG fixtures that guarantee ≥ 2 distinct attribution keys.
 
     The 20 handcrafted RAG cases ship as a single ``context`` blob which the
-    chunker may split into one or more support units keyed by the synthetic
-    ``support_id``. To exercise the shared file-attribution kernel end-to-end
-    — including the ``metadata.path`` grouping and per-file reason codes —
-    we post ``support_units`` directly with explicit ``metadata.path`` on
-    each unit. One unit is the true anchor, the second is a plausible
-    distractor, the third is deep noise.
+    chunker may split into one or more support units keyed by a synthetic
+    ``support_id`` on the output. To exercise the shared file-attribution
+    kernel end-to-end — including the ``metadata.path`` grouping and per-file
+    reason codes — we post ``support_units`` directly with explicit
+    ``metadata.path`` on each unit. One unit is the true anchor, the second
+    is a plausible distractor, the third is deep noise.
+
+    NOTE: the caller-supplied key is ``source_id`` (the pod echoes this back
+    as ``source_id`` on the response; the synthetic ``support_id`` is pod-
+    generated). The gateway's strict schema rejects unknown fields, so we
+    must never post ``support_id`` on the input side.
     """
 
     return [
@@ -1388,7 +1393,7 @@ def _rag_attribution_cases() -> List[Dict[str, Any]]:
             ),
             "support_units": [
                 {
-                    "support_id": "s-anchor",
+                    "source_id": "s-anchor",
                     "text": (
                         "Saturn's main rings are dominated by water-ice "
                         "particles, from micrometres to several metres across, "
@@ -1397,7 +1402,7 @@ def _rag_attribution_cases() -> List[Dict[str, Any]]:
                     "metadata": {"path": "docs/saturn_rings.md"},
                 },
                 {
-                    "support_id": "s-near",
+                    "source_id": "s-near",
                     "text": (
                         "Jupiter has faint rings that were discovered by "
                         "Voyager 1 in 1979 and consist mostly of fine dust."
@@ -1405,7 +1410,7 @@ def _rag_attribution_cases() -> List[Dict[str, Any]]:
                     "metadata": {"path": "docs/jupiter_rings.md"},
                 },
                 {
-                    "support_id": "s-noise",
+                    "source_id": "s-noise",
                     "text": (
                         "Bamboo is a fast-growing woody grass used in "
                         "erosion-prone landscaping; it is not related to any "
@@ -1424,7 +1429,7 @@ def _rag_attribution_cases() -> List[Dict[str, Any]]:
             ),
             "support_units": [
                 {
-                    "support_id": "s-anchor",
+                    "source_id": "s-anchor",
                     "text": (
                         "Modern consumer electric vehicles typically provide "
                         "between 300 and 500 km of range on a full charge, "
@@ -1433,7 +1438,7 @@ def _rag_attribution_cases() -> List[Dict[str, Any]]:
                     "metadata": {"path": "docs/ev_range.md"},
                 },
                 {
-                    "support_id": "s-near",
+                    "source_id": "s-near",
                     "text": (
                         "Lithium-ion battery chemistry has matured rapidly "
                         "over the past decade, improving energy density and "
@@ -1442,7 +1447,7 @@ def _rag_attribution_cases() -> List[Dict[str, Any]]:
                     "metadata": {"path": "docs/battery_chemistry.md"},
                 },
                 {
-                    "support_id": "s-noise",
+                    "source_id": "s-noise",
                     "text": (
                         "Saffron is a spice harvested from the stigmas of "
                         "Crocus sativus and commands a high market price."
