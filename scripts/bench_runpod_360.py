@@ -1505,8 +1505,22 @@ async def _dim_rag_attribution(
         attribution = output.get("file_attribution") or {}
         per_file = attribution.get("per_file") or []
         hist = attribution.get("reason_code_histogram") or {}
+        # Canonical single-source-of-truth for dead-weight stats lives on
+        # ``output.file_attribution`` for both lanes. The code lane also
+        # mirrors the scalar under ``scores.dead_weight_ratio`` because its
+        # top-level ``scores`` dict carries every sub-score; the RAG lane
+        # surfaces ``score`` as a single float, so ``scores`` is absent. We
+        # prefer the attribution path and fall back to ``scores`` so this
+        # dimension works against either lane without ambiguity.
         scores_dict = output.get("scores") or {}
-        dwr = scores_dict.get("dead_weight_ratio")
+        dwr = attribution.get("dead_weight_ratio")
+        if dwr is None:
+            dwr = scores_dict.get("dead_weight_ratio")
+        dwf_count = scores_dict.get("dead_weight_file_count")
+        if dwf_count is None:
+            dead_files_list = attribution.get("dead_weight_files")
+            if dead_files_list is not None:
+                dwf_count = len(dead_files_list)
 
         per_file_seen += len(per_file)
         if len(per_file) >= 2:
@@ -1521,7 +1535,7 @@ async def _dim_rag_attribution(
                 "id": case["id"],
                 "n_files": len(per_file),
                 "dead_weight_ratio": dwr,
-                "dead_weight_file_count": scores_dict.get("dead_weight_file_count"),
+                "dead_weight_file_count": dwf_count,
                 "reason_codes": sorted(hist.keys()),
                 "top_dead_path": next(
                     (
