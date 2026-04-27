@@ -542,6 +542,7 @@ def _build_request(input_data: dict[str, Any]) -> tuple[GroundednessRequest, boo
         "query_prompt_name",
         "document_prompt_name",
         "verification_samples",
+        "profile",
         "content_type",
         "risk_band_stratum",
         # Code-lane fields (ignored by the RAG path).
@@ -594,8 +595,14 @@ def _compact_response(response: GroundednessResponse, *, verbose: bool) -> dict[
         "latency_ms": float(response.time_ms),
         "version": _config.version if _config else __version__,
         "scoring_mode": response.scoring_mode.value if response.scoring_mode else None,
+        "profile": response.profile.value if response.profile else None,
+        "effective_profile": (
+            response.effective_profile.value if response.effective_profile else None
+        ),
         "session_id": response.session_id,
     }
+    if response.profile_diagnostics:
+        result["profile_diagnostics"] = dict(response.profile_diagnostics)
     if response.scoring_mode == ScoringMode.CODE:
         result["code_lane"] = {
             "composite_score": scores.composite_phantom_score,

@@ -64,6 +64,7 @@ from latence_trace.api.models import (
     ScoringMode,
     SessionSignals as SessionSignalsPayload,
     SessionStatePayload,
+    TraceRuntimeProfile,
 )
 from latence_trace.api.heatmap import build_heatmap, render_heatmap_html
 from latence_trace.api.rollup import aggregate_turns
@@ -95,6 +96,8 @@ from latence_trace.core.code_lane import (
     update_session_state,
 )
 from latence_trace.core.nli import (
+    CrossEncoderPremiseReranker,
+    HuggingFaceNLIProvider,
     default_max_batch as nli_default_max_batch,
     default_max_claims as nli_default_max_claims,
     default_max_latency_ms as nli_default_max_latency_ms,
@@ -107,6 +110,7 @@ from latence_trace.core.nli import (
     resolve_default_provider as nli_resolve_default_provider,
     resolve_default_reranker as nli_resolve_default_reranker,
 )
+from latence_trace.core.thresholds import RiskBandPolicy, load_risk_band_policy
 
 logger = logging.getLogger(__name__)
 
@@ -270,6 +274,199 @@ PROFILE_ENV_PRESETS: Dict[str, Dict[str, str]] = {
         "VOYAGER_GROUNDEDNESS_THRESHOLDS_PATH": _profile_data_path("thresholds.quality.json"),
     },
 }
+
+
+_HOSTED_PROFILE_TO_PRESET: Dict[TraceRuntimeProfile, str] = {
+    TraceRuntimeProfile.STANDARD: DEFAULT_PROFILE,
+    TraceRuntimeProfile.QUALITY: "quality",
+}
+
+
+@dataclass(frozen=True)
+class RequestRuntimeProfile:
+    """Resolved request-scoped runtime profile.
+
+    The resolver reads the same preset table used by ``apply_profile`` but never
+    writes to ``os.environ``. Quality intentionally overrides process-level
+    preset env so a balanced worker can serve explicit quality requests.
+    """
+
+    requested_profile: Optional[TraceRuntimeProfile]
+    effective_profile: TraceRuntimeProfile
+    preset_name: str
+    nli_enabled: bool
+    nli_use_atomic_claims: bool
+    nli_concat_premises: bool
+    nli_reranker_model: Optional[str]
+    fusion_weights: Dict[str, float]
+    thresholds_path: Optional[str]
+    risk_band_policy: Optional[RiskBandPolicy]
+
+    @property
+    def is_quality(self) -> bool:
+        return self.effective_profile == TraceRuntimeProfile.QUALITY
+
+
+def _coerce_request_profile(
+    profile: Optional[TraceRuntimeProfile],
+) -> TraceRuntimeProfile:
+    return TraceRuntimeProfile.QUALITY if profile == TraceRuntimeProfile.QUALITY else TraceRuntimeProfile.STANDARD
+
+
+def _profile_env_value(runtime: RequestRuntimeProfile, key: str) -> Optional[str]:
+    if runtime.is_quality and key in PROFILE_ENV_PRESETS["quality"]:
+        return PROFILE_ENV_PRESETS["quality"][key]
+    if key in os.environ:
+        return os.environ[key]
+    return None
+
+
+def _profile_bool(runtime: RequestRuntimeProfile, key: str, default: bool) -> bool:
+    raw = _profile_env_value(runtime, key)
+    if raw is None:
+        return default
+    return str(raw).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _profile_int(runtime: RequestRuntimeProfile, key: str, default: int) -> int:
+    raw = _profile_env_value(runtime, key)
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+def _profile_float(runtime: RequestRuntimeProfile, key: str, default: float) -> float:
+    raw = _profile_env_value(runtime, key)
+    if raw is None:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
+def _profile_fusion_weights(runtime: RequestRuntimeProfile) -> Dict[str, float]:
+    base = nli_fusion_weights_from_env()
+    if runtime.is_quality:
+        preset = PROFILE_ENV_PRESETS["quality"]
+        for channel, key in (
+            ("calibrated", "VOYAGER_GROUNDEDNESS_FUSION_W_CALIBRATED"),
+            ("literal", "VOYAGER_GROUNDEDNESS_FUSION_W_LITERAL"),
+            ("nli", "VOYAGER_GROUNDEDNESS_FUSION_W_NLI"),
+            ("semantic_entropy", "VOYAGER_GROUNDEDNESS_FUSION_W_SEMANTIC_ENTROPY"),
+            ("structured", "VOYAGER_GROUNDEDNESS_FUSION_W_STRUCTURED"),
+        ):
+            if key in preset:
+                try:
+                    base[channel] = float(preset[key])
+                except ValueError:
+                    continue
+    return base
+
+
+def resolve_request_runtime_profile(
+    profile: Optional[TraceRuntimeProfile],
+) -> RequestRuntimeProfile:
+    """Resolve request-level hosted profile without mutating process env."""
+
+    effective = _coerce_request_profile(profile)
+    preset_name = _HOSTED_PROFILE_TO_PRESET[effective]
+
+    provisional = RequestRuntimeProfile(
+        requested_profile=profile,
+        effective_profile=effective,
+        preset_name=preset_name,
+        nli_enabled=(
+            True
+            if effective == TraceRuntimeProfile.QUALITY
+            else nli_is_enabled()
+        ),
+        nli_use_atomic_claims=False,
+        nli_concat_premises=False,
+        nli_reranker_model=None,
+        fusion_weights={},
+        thresholds_path=None,
+        risk_band_policy=None,
+    )
+    nli_reranker_model = (_profile_env_value(
+        provisional, "VOYAGER_GROUNDEDNESS_NLI_PREMISE_RERANKER_MODEL"
+    ) or "").strip() or None
+    thresholds_path = _profile_env_value(
+        provisional, "VOYAGER_GROUNDEDNESS_THRESHOLDS_PATH"
+    )
+    risk_band_policy: Optional[RiskBandPolicy] = None
+    if thresholds_path and effective == TraceRuntimeProfile.QUALITY:
+        try:
+            risk_band_policy = load_risk_band_policy(path=Path(thresholds_path))
+        except Exception as exc:  # pragma: no cover - defensive diagnostics
+            logger.warning(
+                "request_profile_thresholds_load_failed",
+                extra={
+                    "profile": effective.value,
+                    "thresholds_path": thresholds_path,
+                    "error": str(exc),
+                },
+            )
+
+    return RequestRuntimeProfile(
+        requested_profile=profile,
+        effective_profile=effective,
+        preset_name=preset_name,
+        nli_enabled=provisional.nli_enabled,
+        nli_use_atomic_claims=_profile_bool(
+            provisional,
+            "VOYAGER_GROUNDEDNESS_NLI_ATOMIC_CLAIMS",
+            nli_is_atomic_enabled(),
+        ),
+        nli_concat_premises=_profile_bool(
+            provisional,
+            "VOYAGER_GROUNDEDNESS_NLI_PREMISE_CONCAT",
+            nli_is_premise_concat_enabled(),
+        ),
+        nli_reranker_model=nli_reranker_model,
+        fusion_weights=_profile_fusion_weights(provisional),
+        thresholds_path=thresholds_path,
+        risk_band_policy=risk_band_policy,
+    )
+
+
+def _profile_diagnostics(
+    *,
+    runtime_profile: RequestRuntimeProfile,
+    nli_provider: Any,
+    nli_reranker: Any,
+    verification_samples: Optional[Sequence[str]],
+) -> Dict[str, Any]:
+    semantic_entropy_skipped_reason = None
+    if runtime_profile.is_quality and not verification_samples:
+        semantic_entropy_skipped_reason = "semantic_entropy_skipped_no_samples"
+    return {
+        "requested_profile": (
+            runtime_profile.requested_profile.value
+            if runtime_profile.requested_profile
+            else None
+        ),
+        "effective_profile": runtime_profile.effective_profile.value,
+        "preset": runtime_profile.preset_name,
+        "nli_requested": bool(runtime_profile.nli_enabled),
+        "nli_provider_available": nli_provider is not None,
+        "nli_atomic_claims": bool(runtime_profile.nli_use_atomic_claims),
+        "nli_premise_concat": bool(runtime_profile.nli_concat_premises),
+        "nli_reranker_model": runtime_profile.nli_reranker_model,
+        "nli_reranker_available": nli_reranker is not None,
+        "fusion_weights": dict(runtime_profile.fusion_weights),
+        "thresholds_path": runtime_profile.thresholds_path,
+        "thresholds_source": (
+            runtime_profile.risk_band_policy.source
+            if runtime_profile.risk_band_policy is not None
+            else None
+        ),
+        "verification_sample_count": len(verification_samples or []),
+        "semantic_entropy_skipped_reason": semantic_entropy_skipped_reason,
+    }
 
 
 @dataclass(frozen=True)
@@ -455,6 +652,7 @@ class GroundednessService:
         self._nli_provider_resolved = False
         self._nli_reranker: Any = None
         self._nli_reranker_resolved = False
+        self._nli_rerankers_by_model: Dict[str, Any] = {}
         # Concurrent first requests must not double-resolve the NLI provider
         # or cross-encoder reranker - both are expensive HuggingFace loads.
         self._nli_provider_lock = threading.Lock()
@@ -481,8 +679,61 @@ class GroundednessService:
             )
         return provider
 
-    def _get_nli_provider(self):
-        if not nli_is_enabled():
+    def _resolve_nli_provider_unchecked(self):
+        """Resolve the default NLI provider even for request-level quality.
+
+        ``latence_trace.core.nli.resolve_default_provider`` intentionally gates
+        on the process-level env flag. Request-level quality must be able to use
+        the same provider without flipping that global flag for concurrent
+        standard requests.
+        """
+
+        model_id = os.environ.get(
+            "VOYAGER_GROUNDEDNESS_NLI_MODEL",
+            "MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7",
+        )
+        vllm_endpoint = os.environ.get("LATENCE_TRACE_NLI_VLLM_ENDPOINT", "").strip()
+        if vllm_endpoint:
+            try:
+                from latence_trace.providers.nli import VllmFactoryNLIProvider
+
+                provider = VllmFactoryNLIProvider(
+                    endpoint=vllm_endpoint,
+                    model=os.environ.get("LATENCE_TRACE_NLI_VLLM_MODEL", model_id),
+                    timeout=_env_float(
+                        "LATENCE_TRACE_NLI_VLLM_TIMEOUT",
+                        nli_default_max_latency_ms() / 1000.0,
+                    ),
+                    health_timeout=_env_float(
+                        "LATENCE_TRACE_NLI_VLLM_HEALTH_TIMEOUT", 10.0
+                    ),
+                    max_concurrency=_env_int(
+                        "LATENCE_TRACE_NLI_VLLM_MAX_CONCURRENCY",
+                        nli_default_max_batch(),
+                    ),
+                )
+                provider.healthcheck()
+                return provider
+            except Exception as exc:
+                logger.warning(
+                    "nli_vllm_provider_init_failed",
+                    extra={
+                        "endpoint": vllm_endpoint,
+                        "model": model_id,
+                        "error": str(exc),
+                    },
+                )
+        try:
+            return HuggingFaceNLIProvider(
+                model_id=model_id,
+                max_length=_env_int("VOYAGER_GROUNDEDNESS_NLI_MAX_TOKENS", 384),
+            )
+        except Exception as exc:
+            logger.warning("nli_provider_init_failed", extra={"error": str(exc)})
+            return None
+
+    def _get_nli_provider(self, *, force_enabled: bool = False):
+        if not (force_enabled or nli_is_enabled()):
             return None
         if self._nli_provider_resolved:
             return self._nli_provider
@@ -490,16 +741,45 @@ class GroundednessService:
             if self._nli_provider_resolved:
                 return self._nli_provider
             try:
-                self._nli_provider = nli_resolve_default_provider()
+                self._nli_provider = (
+                    self._resolve_nli_provider_unchecked()
+                    if force_enabled and not nli_is_enabled()
+                    else nli_resolve_default_provider()
+                )
             except Exception as exc:
                 logger.warning("nli_resolve_failed", extra={"error": str(exc)})
                 self._nli_provider = None
             self._nli_provider_resolved = True
             return self._nli_provider
 
-    def _get_nli_reranker(self):
-        if not nli_is_enabled():
+    def _get_nli_reranker(self, *, model_id: Optional[str] = None, force_enabled: bool = False):
+        if not (force_enabled or nli_is_enabled()):
             return None
+        if model_id and not os.environ.get(
+            "VOYAGER_GROUNDEDNESS_NLI_PREMISE_RERANKER_MODEL"
+        ):
+            if model_id in self._nli_rerankers_by_model:
+                return self._nli_rerankers_by_model[model_id]
+            with self._nli_reranker_lock:
+                if model_id in self._nli_rerankers_by_model:
+                    return self._nli_rerankers_by_model[model_id]
+                try:
+                    reranker = CrossEncoderPremiseReranker(
+                        model_id=model_id,
+                        max_length=_env_int(
+                            "VOYAGER_GROUNDEDNESS_NLI_PREMISE_RERANKER_MAX_TOKENS",
+                            512,
+                        ),
+                        batch_size=_env_int(
+                            "VOYAGER_GROUNDEDNESS_NLI_PREMISE_RERANKER_BATCH",
+                            32,
+                        ),
+                    )
+                except Exception as exc:
+                    logger.warning("nli_reranker_resolve_failed", extra={"error": str(exc)})
+                    reranker = None
+                self._nli_rerankers_by_model[model_id] = reranker
+                return reranker
         if self._nli_reranker_resolved:
             return self._nli_reranker
         with self._nli_reranker_lock:
@@ -759,6 +1039,7 @@ class GroundednessService:
 
     def _score_rag(self, request: GroundednessRequest) -> GroundednessResponse:
         start = time.perf_counter()
+        runtime_profile = resolve_request_runtime_profile(request.profile)
 
         # K1: refuse-to-score gates. Both branches return a fully-typed
         # GroundednessResponse with risk_band="unknown" / "unsupported"
@@ -975,32 +1256,67 @@ class GroundednessService:
                 provider,
                 prompt_name=request.document_prompt_name,
             )
-        nli_provider = self._get_nli_provider()
-        nli_reranker = self._get_nli_reranker() if nli_provider is not None else None
+        nli_provider = self._get_nli_provider(
+            force_enabled=runtime_profile.nli_enabled
+        )
+        nli_reranker = (
+            self._get_nli_reranker(
+                model_id=runtime_profile.nli_reranker_model,
+                force_enabled=runtime_profile.nli_enabled,
+            )
+            if nli_provider is not None and runtime_profile.nli_enabled
+            else None
+        )
         nli_kwargs: Dict[str, Any] = {}
         if nli_provider is not None:
             nli_kwargs = {
                 "nli_provider": nli_provider,
-                "nli_max_claims": nli_default_max_claims(),
-                "nli_top_k_premises": nli_default_top_k_premises(),
-                "nli_max_batch": nli_default_max_batch(),
-                "nli_max_latency_ms": nli_default_max_latency_ms(),
+                "nli_max_claims": _profile_int(
+                    runtime_profile,
+                    "VOYAGER_GROUNDEDNESS_NLI_MAX_CLAIMS",
+                    nli_default_max_claims(),
+                ),
+                "nli_top_k_premises": _profile_int(
+                    runtime_profile,
+                    "VOYAGER_GROUNDEDNESS_NLI_TOP_K",
+                    nli_default_top_k_premises(),
+                ),
+                "nli_max_batch": _profile_int(
+                    runtime_profile,
+                    "VOYAGER_GROUNDEDNESS_NLI_BATCH",
+                    nli_default_max_batch(),
+                ),
+                "nli_max_latency_ms": _profile_float(
+                    runtime_profile,
+                    "VOYAGER_GROUNDEDNESS_NLI_LATENCY_MS",
+                    nli_default_max_latency_ms(),
+                ),
                 "nli_reranker": nli_reranker,
-                "nli_concat_premises": nli_is_premise_concat_enabled(),
-                "nli_premise_concat_word_budget": nli_default_premise_concat_word_budget(),
-                "nli_use_atomic_claims": nli_is_atomic_enabled(),
-                "fusion_weights": nli_fusion_weights_from_env(),
+                "nli_concat_premises": runtime_profile.nli_concat_premises,
+                "nli_premise_concat_word_budget": _profile_int(
+                    runtime_profile,
+                    "VOYAGER_GROUNDEDNESS_NLI_PREMISE_CONCAT_BUDGET",
+                    nli_default_premise_concat_word_budget(),
+                ),
+                "nli_use_atomic_claims": runtime_profile.nli_use_atomic_claims,
+                "fusion_weights": runtime_profile.fusion_weights,
+                "risk_band_policy": runtime_profile.risk_band_policy,
             }
+        elif runtime_profile.is_quality:
+            warnings.append("quality_profile_nli_unavailable")
         if request.verification_samples:
-            nli_kwargs.setdefault("fusion_weights", nli_fusion_weights_from_env())
+            nli_kwargs.setdefault("fusion_weights", runtime_profile.fusion_weights)
             nli_kwargs["verification_samples"] = list(request.verification_samples)
             nli_kwargs["semantic_entropy_enabled"] = True
+        elif runtime_profile.is_quality:
+            warnings.append("semantic_entropy_skipped_no_samples")
         if request.risk_band_stratum:
             nli_kwargs["risk_band_stratum"] = str(request.risk_band_stratum)
         if request.content_type:
             nli_kwargs["content_type"] = str(request.content_type)
         if request.raw_context:
             nli_kwargs["structured_support_text"] = request.raw_context
+        nli_kwargs.setdefault("risk_band_policy", runtime_profile.risk_band_policy)
 
         if request.chunk_ids:
             # chunk_ids path: single support batch (caller-supplied
@@ -1074,13 +1390,36 @@ class GroundednessService:
             warnings=warnings,
             literal_diagnostics=scored.get("literal_diagnostics"),
             nli_diagnostics=scored.get("nli_diagnostics"),
-            semantic_entropy_diagnostics=scored.get("semantic_entropy_diagnostics"),
+            semantic_entropy_diagnostics=(
+                scored.get("semantic_entropy_diagnostics")
+                or (
+                    {
+                        "aggregate_score": None,
+                        "entropy_raw": None,
+                        "sample_count": 0,
+                        "cluster_count": 0,
+                        "clusters": [],
+                        "skipped_reason": "semantic_entropy_skipped_no_samples",
+                    }
+                    if runtime_profile.is_quality
+                    and not request.verification_samples
+                    else None
+                )
+            ),
             structured_diagnostics=scored.get("structured_diagnostics"),
             file_attribution=file_attribution_wire,
             heatmap=heatmap_payload,
             heatmap_html=heatmap_html_str,
             time_ms=elapsed_ms,
             scoring_mode=ScoringMode.RAG,
+            profile=request.profile,
+            effective_profile=runtime_profile.effective_profile,
+            profile_diagnostics=_profile_diagnostics(
+                runtime_profile=runtime_profile,
+                nli_provider=nli_provider,
+                nli_reranker=nli_reranker,
+                verification_samples=request.verification_samples,
+            ),
             session_id=request.session_id,
             attribution_mode=request.attribution_mode,
         )
@@ -1104,6 +1443,7 @@ class GroundednessService:
         - Per-file and per-unit attribution with reason codes
         """
         start = time.perf_counter()
+        runtime_profile = resolve_request_runtime_profile(request.profile)
 
         has_chunk_ids = bool(request.chunk_ids)
         has_raw_context = bool((request.raw_context or "").strip())
@@ -1192,7 +1532,15 @@ class GroundednessService:
         ast_extractor = (
             self._get_code_ast_extractor() if code_config.enable_ast else None
         )
-        nli_provider = self._get_nli_provider() if code_config.enable_nli_cascade else None
+        nli_provider = (
+            self._get_nli_provider(force_enabled=runtime_profile.nli_enabled)
+            if code_config.enable_nli_cascade
+            else None
+        )
+        if runtime_profile.is_quality and nli_provider is None:
+            warnings.append("quality_profile_nli_unavailable")
+        if runtime_profile.is_quality and not request.verification_samples:
+            warnings.append("semantic_entropy_skipped_no_samples")
 
         code_result: CodeLaneResult = score_code_groundedness(
             response_text=request.response_text,
@@ -1278,6 +1626,14 @@ class GroundednessService:
             heatmap_html=heatmap_html_str,
             time_ms=elapsed_ms,
             scoring_mode=ScoringMode.CODE,
+            profile=request.profile,
+            effective_profile=runtime_profile.effective_profile,
+            profile_diagnostics=_profile_diagnostics(
+                runtime_profile=runtime_profile,
+                nli_provider=nli_provider,
+                nli_reranker=None,
+                verification_samples=request.verification_samples,
+            ),
             session_id=request.session_id,
             attribution_mode=request.attribution_mode,
             next_session_state=next_session_state,
@@ -1464,6 +1820,7 @@ class GroundednessService:
         """
 
         elapsed_ms = (time.perf_counter() - started_at) * 1000.0
+        runtime_profile = resolve_request_runtime_profile(request.profile)
         scores = GroundednessScores(
             primary_name=request.primary_metric.value,
             primary_score=0.0,
@@ -1488,6 +1845,14 @@ class GroundednessService:
             structured_diagnostics=None,
             time_ms=elapsed_ms,
             scoring_mode=request.scoring_mode,
+            profile=request.profile,
+            effective_profile=runtime_profile.effective_profile,
+            profile_diagnostics=_profile_diagnostics(
+                runtime_profile=runtime_profile,
+                nli_provider=None,
+                nli_reranker=None,
+                verification_samples=request.verification_samples,
+            ),
             session_id=request.session_id,
             attribution_mode=request.attribution_mode,
             reason=reason,

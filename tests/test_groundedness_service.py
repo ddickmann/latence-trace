@@ -30,7 +30,7 @@ from latence_trace.core.groundedness import (
     support_unit_signature,
     tokenize_text,
 )
-from latence_trace.api.models import GroundednessRequest
+from latence_trace.api.models import GroundednessRequest, TraceRuntimeProfile
 from latence_trace.providers.encoders import VllmFactoryModernColBERTProvider
 
 # The voyager-index collection-based service tests were ported from the
@@ -156,6 +156,15 @@ def test_groundedness_request_defaults_to_256_chunk_budget() -> None:
     request = GroundednessRequest(raw_context="alpha supports claim", response_text="alpha supports claim")
     assert request.segmentation_mode.value == "sentence_packed"
     assert request.raw_context_chunk_tokens == 256
+
+
+def test_groundedness_request_accepts_hosted_runtime_profile() -> None:
+    request = GroundednessRequest(
+        raw_context="alpha supports claim",
+        response_text="alpha supports claim",
+        profile="quality",
+    )
+    assert request.profile == TraceRuntimeProfile.QUALITY
 
 
 @requires_voyager

@@ -9,7 +9,7 @@ latence-trace without touching their request/response shapes.
 from enum import Enum
 from typing import Dict, List, Literal, Optional, Tuple, Union
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 
 class CollectionKind(str, Enum):
@@ -46,6 +46,18 @@ class ScoringMode(str, Enum):
 
     RAG = "rag"
     CODE = "code"
+
+
+class TraceRuntimeProfile(str, Enum):
+    """Hosted runtime profile selected per request.
+
+    ``standard`` preserves the process/default Trace configuration. ``quality``
+    opts into the stronger groundedness profile used for higher-cost hosted
+    requests.
+    """
+
+    STANDARD = "standard"
+    QUALITY = "quality"
 
 
 class GroundednessSegmentationMode(str, Enum):
@@ -310,6 +322,15 @@ class GroundednessRequest(BaseModel):
             "coding harnesses like Cursor, Claude Code, OpenAI Codex, and "
             "OpenCode. Backwards compatible: clients that do not set this "
             "field stay on the RAG lane."
+        ),
+    )
+    profile: Optional[TraceRuntimeProfile] = Field(
+        default=None,
+        description=(
+            "Hosted Trace runtime profile. Omitted or ``standard`` preserves "
+            "the deployed/default scoring configuration; explicit ``quality`` "
+            "uses the stronger NLI/fusion profile and is billed at the hosted "
+            "quality rate by the gateway."
         ),
     )
     session_id: Optional[str] = Field(
@@ -700,7 +721,10 @@ class GroundednessNLIClaim(BaseModel):
 class GroundednessNLIDiagnostics(BaseModel):
     """Per-request NLI verification diagnostics."""
 
-    aggregate_score: Optional[float] = None
+    aggregate_score: Optional[float] = Field(
+        default=None,
+        validation_alias=AliasChoices("aggregate_score", "aggregate"),
+    )
     claims: List[GroundednessNLIClaim] = Field(default_factory=list)
 
 
@@ -715,10 +739,14 @@ class GroundednessSemanticEntropyCluster(BaseModel):
 class GroundednessSemanticEntropyDiagnostics(BaseModel):
     """Per-request semantic-entropy (Phase G) diagnostics."""
 
-    aggregate_score: Optional[float] = None
+    aggregate_score: Optional[float] = Field(
+        default=None,
+        validation_alias=AliasChoices("aggregate_score", "aggregate"),
+    )
     entropy_raw: Optional[float] = None
     sample_count: int = 0
     cluster_count: int = 0
+    skipped_reason: Optional[str] = None
     clusters: List[GroundednessSemanticEntropyCluster] = Field(default_factory=list)
 
 
@@ -1407,6 +1435,18 @@ class GroundednessResponse(BaseModel):
     scoring_mode: ScoringMode = Field(
         default=ScoringMode.RAG,
         description="Echo of the request scoring_mode so callers can tell which lane ran.",
+    )
+    profile: Optional[TraceRuntimeProfile] = Field(
+        default=None,
+        description="Echo of the requested hosted Trace profile when supplied.",
+    )
+    effective_profile: TraceRuntimeProfile = Field(
+        default=TraceRuntimeProfile.STANDARD,
+        description="Runtime profile that actually configured this scoring request.",
+    )
+    profile_diagnostics: Dict[str, object] = Field(
+        default_factory=dict,
+        description="Non-PII diagnostics proving which profile features were requested and available.",
     )
     session_id: Optional[str] = Field(
         default=None,

@@ -38,6 +38,7 @@ from latence_trace.core.semantic_entropy import (
     is_semantic_entropy_enabled,
 )
 from latence_trace.core.thresholds import (
+    RiskBandPolicy,
     classify_risk_band,
 )
 from latence_trace.core.structured import (
@@ -2229,6 +2230,7 @@ def score_groundedness(
     semantic_entropy_enabled: Optional[bool] = None,
     fusion_weights: Optional[Dict[str, float]] = None,
     risk_band_stratum: Optional[str] = None,
+    risk_band_policy: Optional[RiskBandPolicy] = None,
     content_type: Optional[str] = None,
     structured_enabled: Optional[bool] = None,
     structured_support_text: Optional[str] = None,
@@ -2612,7 +2614,11 @@ def score_groundedness(
         ),
         reverse_context=float(reverse_context_score),
     )
-    risk_band = classify_risk_band(headline_for_band, stratum=risk_band_stratum)
+    risk_band = classify_risk_band(
+        headline_for_band,
+        stratum=risk_band_stratum,
+        policy=risk_band_policy,
+    )
 
     scores = {
         "primary_name": metric_name,
@@ -2993,6 +2999,7 @@ def score_groundedness_chunked(
     semantic_entropy_enabled: Optional[bool] = None,
     fusion_weights: Optional[Dict[str, float]] = None,
     risk_band_stratum: Optional[str] = None,
+    risk_band_policy: Optional[RiskBandPolicy] = None,
     content_type: Optional[str] = None,
     structured_enabled: Optional[bool] = None,
     structured_support_text: Optional[str] = None,
@@ -3033,6 +3040,7 @@ def score_groundedness_chunked(
             semantic_entropy_enabled=semantic_entropy_enabled,
             fusion_weights=fusion_weights,
             risk_band_stratum=risk_band_stratum,
+            risk_band_policy=risk_band_policy,
             content_type=content_type,
             structured_enabled=structured_enabled,
             structured_support_text=structured_support_text,
@@ -3495,7 +3503,11 @@ def score_groundedness_chunked(
         ),
         reverse_context=float(reverse_context_score),
     )
-    risk_band = classify_risk_band(headline_for_band, stratum=risk_band_stratum)
+    risk_band = classify_risk_band(
+        headline_for_band,
+        stratum=risk_band_stratum,
+        policy=risk_band_policy,
+    )
 
     scores = {
         "primary_name": metric_name,
@@ -3746,6 +3758,7 @@ def score_groundedness_response_chunked(
     semantic_entropy_enabled: Optional[bool] = None,
     fusion_weights: Optional[Dict[str, float]] = None,
     risk_band_stratum: Optional[str] = None,
+    risk_band_policy: Optional[RiskBandPolicy] = None,
     content_type: Optional[str] = None,
     structured_enabled: Optional[bool] = None,
     structured_support_text: Optional[str] = None,
@@ -3817,6 +3830,7 @@ def score_groundedness_response_chunked(
             semantic_entropy_enabled=semantic_entropy_enabled,
             fusion_weights=fusion_weights,
             risk_band_stratum=risk_band_stratum,
+            risk_band_policy=risk_band_policy,
             content_type=content_type,
             structured_enabled=structured_enabled,
             structured_support_text=structured_support_text,
@@ -3867,6 +3881,7 @@ def score_groundedness_response_chunked(
             semantic_entropy_enabled=semantic_entropy_enabled if is_first else None,
             fusion_weights=fusion_weights,
             risk_band_stratum=risk_band_stratum,
+            risk_band_policy=risk_band_policy,
             content_type=content_type,
             structured_enabled=structured_enabled if is_first else None,
             structured_support_text=structured_support_text if is_first else None,
@@ -4055,7 +4070,11 @@ def score_groundedness_response_chunked(
         ),
         reverse_context=float(reverse_context_score),
     )
-    risk_band = classify_risk_band(headline_for_band, stratum=risk_band_stratum)
+    risk_band = classify_risk_band(
+        headline_for_band,
+        stratum=risk_band_stratum,
+        policy=risk_band_policy,
+    )
 
     # Re-derive support_units payload (token_scores, score, matched counts)
     # from the global per-token rows so support-side heatmaps reflect the

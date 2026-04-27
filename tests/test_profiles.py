@@ -30,7 +30,9 @@ from latence_trace.api.service import (
     PROFILE_NAMES,
     ProfileApplication,
     apply_profile,
+    resolve_request_runtime_profile,
 )
+from latence_trace.api.models import TraceRuntimeProfile
 from latence_trace.core.nli import fuse_groundedness_v2
 from latence_trace.core.thresholds import (
     RiskBandPolicy,
@@ -316,6 +318,44 @@ def test_quality_profile_includes_semantic_entropy_when_provided():
     )
     expected = 0.2 * 0.9 + 0.8 * 0.8
     assert fused == pytest.approx(expected)
+
+
+def test_request_quality_profile_overrides_process_standard_env(monkeypatch):
+    """Per-request quality must not inherit the process balanced preset."""
+
+    apply_profile("balanced", refresh_thresholds=False)
+
+    resolved = resolve_request_runtime_profile(TraceRuntimeProfile.QUALITY)
+
+    assert resolved.effective_profile == TraceRuntimeProfile.QUALITY
+    assert resolved.preset_name == "quality"
+    assert resolved.nli_enabled is True
+    assert resolved.nli_use_atomic_claims is True
+    assert resolved.nli_concat_premises is True
+    assert resolved.nli_reranker_model == "BAAI/bge-reranker-v2-m3"
+    assert resolved.fusion_weights == {
+        "calibrated": 0.0,
+        "literal": 0.2,
+        "nli": 0.8,
+        "semantic_entropy": 0.0,
+        "structured": 0.0,
+    }
+    assert resolved.risk_band_policy is not None
+    assert resolved.risk_band_policy.source.endswith("thresholds.quality.json")
+
+
+def test_request_standard_profile_preserves_process_env(monkeypatch):
+    apply_profile("fast", refresh_thresholds=False)
+
+    resolved = resolve_request_runtime_profile(None)
+
+    assert resolved.effective_profile == TraceRuntimeProfile.STANDARD
+    assert resolved.preset_name == DEFAULT_PROFILE
+    assert resolved.nli_enabled is False
+    assert resolved.nli_use_atomic_claims is False
+    assert resolved.nli_concat_premises is False
+    assert resolved.nli_reranker_model is None
+    assert resolved.fusion_weights["literal"] == pytest.approx(1.0)
 
 
 @pytest.mark.parametrize("profile", list(PROFILE_NAMES))

@@ -159,9 +159,20 @@ def main() -> int:
 
     print(f"=> routing bench through latence-python SDK (base_url={base_url})\n", flush=True)
 
+    # Allow callers to bump the per-request timeout via env; the SDK's
+    # default (30s) is far too short for cold starts on heavy lanes.
+    try:
+        sdk_timeout = float(os.environ.get("LATENCE_SDK_TIMEOUT", "180"))
+    except ValueError:
+        sdk_timeout = 180.0
+
     async def _runner() -> int:
         global _SDK
-        async with AsyncLatence(api_key=api_key, base_url=base_url) as sdk:
+        async with AsyncLatence(
+            api_key=api_key,
+            base_url=base_url,
+            timeout=sdk_timeout,
+        ) as sdk:
             _SDK = sdk
             rc = await bench._async_main(args)
         return rc

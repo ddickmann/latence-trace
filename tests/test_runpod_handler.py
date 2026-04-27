@@ -16,6 +16,7 @@ from latence_trace.api.models import (
     GroundednessScores,
     GroundednessSupportUnit,
     GroundednessUsageState,
+    TraceRuntimeProfile,
 )
 
 _RUNPOD_DIR = Path(__file__).resolve().parents[1] / "runpod"
@@ -105,6 +106,19 @@ class _SlowService:
                 ),
                 time_ms=float(self._sleep_ms),
                 scoring_mode=getattr(request, "scoring_mode", None),
+                profile=getattr(request, "profile", None),
+                effective_profile=(
+                    TraceRuntimeProfile.QUALITY
+                    if getattr(request, "profile", None) == TraceRuntimeProfile.QUALITY
+                    else TraceRuntimeProfile.STANDARD
+                ),
+                profile_diagnostics={
+                    "effective_profile": (
+                        "quality"
+                        if getattr(request, "profile", None) == TraceRuntimeProfile.QUALITY
+                        else "standard"
+                    )
+                },
                 session_id=getattr(request, "session_id", None),
                 attribution_mode=AttributionMode.CLOSED_BOOK,
             )
@@ -400,6 +414,41 @@ def test_compact_response_surfaces_unused_context_contract() -> None:
     assert "full" in verbose
     assert verbose["full"]["scores"]["support_units_unused"] == 1
     assert verbose["full"]["support_units"][0]["usage_state"] == "used"
+
+
+def test_runpod_handler_passes_profile_and_compacts_effective_profile(monkeypatch) -> None:
+    service = _SlowService(sleep_ms=1)
+    config = _config(max_concurrency=2)
+
+    monkeypatch.setattr(runpod_handler, "initialize", lambda: None)
+    runpod_handler._initialized = True
+    runpod_handler._config = config
+    runpod_handler._service = service
+    runpod_handler._servers = {}
+    runpod_handler._request_executor = None
+    runpod_handler._lane_semaphores = {}
+    runpod_handler._lane_semaphores_loop = None
+
+    try:
+        result = asyncio.run(
+            runpod_handler.handler(
+                {
+                    "input": {
+                        "query_text": "Where was Heinrich born?",
+                        "raw_context": "Heinrich was born in Augsburg.",
+                        "response_text": "Heinrich was born in Augsburg.",
+                        "profile": "quality",
+                    }
+                }
+            )
+        )
+    finally:
+        runpod_handler.shutdown()
+
+    assert result["success"] is True
+    assert result["profile"] == "quality"
+    assert result["effective_profile"] == "quality"
+    assert result["profile_diagnostics"]["effective_profile"] == "quality"
 
 
 async def _mixed_lane_burst(total: int) -> list[dict]:
