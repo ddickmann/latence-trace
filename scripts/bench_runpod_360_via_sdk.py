@@ -49,7 +49,7 @@ _RAG_KEYS = {
     "attribution_mode", "include_triangular_diagnostics", "heatmap_format",
     "verification_samples", "content_type", "risk_band_stratum", "model",
     "query_prompt_name", "document_prompt_name", "debug_dense_matrices",
-    "session_id", "verbose",
+    "session_id", "verbose", "profile",
 }
 _CODE_KEYS = _RAG_KEYS | {
     "response_language_hint", "emit_chunk_ownership", "session_state",

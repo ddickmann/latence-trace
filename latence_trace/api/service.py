@@ -287,8 +287,9 @@ class RequestRuntimeProfile:
     """Resolved request-scoped runtime profile.
 
     The resolver reads the same preset table used by ``apply_profile`` but never
-    writes to ``os.environ``. Quality intentionally overrides process-level
-    preset env so a balanced worker can serve explicit quality requests.
+    writes to ``os.environ``. Hosted ``standard`` and ``quality`` requests both
+    use their bundled presets so a worker launched with a different process
+    profile cannot silently change the externally billed profile semantics.
     """
 
     requested_profile: Optional[TraceRuntimeProfile]
@@ -314,8 +315,9 @@ def _coerce_request_profile(
 
 
 def _profile_env_value(runtime: RequestRuntimeProfile, key: str) -> Optional[str]:
-    if runtime.is_quality and key in PROFILE_ENV_PRESETS["quality"]:
-        return PROFILE_ENV_PRESETS["quality"][key]
+    preset = PROFILE_ENV_PRESETS.get(runtime.preset_name, {})
+    if key in preset:
+        return preset[key]
     if key in os.environ:
         return os.environ[key]
     return None
@@ -350,20 +352,19 @@ def _profile_float(runtime: RequestRuntimeProfile, key: str, default: float) -> 
 
 def _profile_fusion_weights(runtime: RequestRuntimeProfile) -> Dict[str, float]:
     base = nli_fusion_weights_from_env()
-    if runtime.is_quality:
-        preset = PROFILE_ENV_PRESETS["quality"]
-        for channel, key in (
-            ("calibrated", "VOYAGER_GROUNDEDNESS_FUSION_W_CALIBRATED"),
-            ("literal", "VOYAGER_GROUNDEDNESS_FUSION_W_LITERAL"),
-            ("nli", "VOYAGER_GROUNDEDNESS_FUSION_W_NLI"),
-            ("semantic_entropy", "VOYAGER_GROUNDEDNESS_FUSION_W_SEMANTIC_ENTROPY"),
-            ("structured", "VOYAGER_GROUNDEDNESS_FUSION_W_STRUCTURED"),
-        ):
-            if key in preset:
-                try:
-                    base[channel] = float(preset[key])
-                except ValueError:
-                    continue
+    preset = PROFILE_ENV_PRESETS.get(runtime.preset_name, {})
+    for channel, key in (
+        ("calibrated", "VOYAGER_GROUNDEDNESS_FUSION_W_CALIBRATED"),
+        ("literal", "VOYAGER_GROUNDEDNESS_FUSION_W_LITERAL"),
+        ("nli", "VOYAGER_GROUNDEDNESS_FUSION_W_NLI"),
+        ("semantic_entropy", "VOYAGER_GROUNDEDNESS_FUSION_W_SEMANTIC_ENTROPY"),
+        ("structured", "VOYAGER_GROUNDEDNESS_FUSION_W_STRUCTURED"),
+    ):
+        if key in preset:
+            try:
+                base[channel] = float(preset[key])
+            except ValueError:
+                continue
     return base
 
 
@@ -379,11 +380,7 @@ def resolve_request_runtime_profile(
         requested_profile=profile,
         effective_profile=effective,
         preset_name=preset_name,
-        nli_enabled=(
-            True
-            if effective == TraceRuntimeProfile.QUALITY
-            else nli_is_enabled()
-        ),
+        nli_enabled=True,
         nli_use_atomic_claims=False,
         nli_concat_premises=False,
         nli_reranker_model=None,
@@ -398,7 +395,7 @@ def resolve_request_runtime_profile(
         provisional, "VOYAGER_GROUNDEDNESS_THRESHOLDS_PATH"
     )
     risk_band_policy: Optional[RiskBandPolicy] = None
-    if thresholds_path and effective == TraceRuntimeProfile.QUALITY:
+    if thresholds_path:
         try:
             risk_band_policy = load_risk_band_policy(path=Path(thresholds_path))
         except Exception as exc:  # pragma: no cover - defensive diagnostics
@@ -415,7 +412,11 @@ def resolve_request_runtime_profile(
         requested_profile=profile,
         effective_profile=effective,
         preset_name=preset_name,
-        nli_enabled=provisional.nli_enabled,
+        nli_enabled=_profile_bool(
+            provisional,
+            "VOYAGER_GROUNDEDNESS_NLI_ENABLED",
+            nli_is_enabled(),
+        ),
         nli_use_atomic_claims=_profile_bool(
             provisional,
             "VOYAGER_GROUNDEDNESS_NLI_ATOMIC_CLAIMS",

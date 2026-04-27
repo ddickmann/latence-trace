@@ -344,18 +344,30 @@ def test_request_quality_profile_overrides_process_standard_env(monkeypatch):
     assert resolved.risk_band_policy.source.endswith("thresholds.quality.json")
 
 
-def test_request_standard_profile_preserves_process_env(monkeypatch):
-    apply_profile("fast", refresh_thresholds=False)
+def test_request_standard_profile_uses_hosted_standard_preset(monkeypatch):
+    apply_profile("quality", refresh_thresholds=False)
 
     resolved = resolve_request_runtime_profile(None)
 
     assert resolved.effective_profile == TraceRuntimeProfile.STANDARD
     assert resolved.preset_name == DEFAULT_PROFILE
-    assert resolved.nli_enabled is False
+    assert resolved.nli_enabled is True
     assert resolved.nli_use_atomic_claims is False
     assert resolved.nli_concat_premises is False
     assert resolved.nli_reranker_model is None
-    assert resolved.fusion_weights["literal"] == pytest.approx(1.0)
+    assert resolved.fusion_weights == {
+        "calibrated": 0.0,
+        "literal": 0.0,
+        "nli": 1.0,
+        "semantic_entropy": 0.0,
+        "structured": 0.0,
+    }
+    assert resolved.risk_band_policy is not None
+    assert resolved.risk_band_policy.source.endswith("thresholds.balanced.json")
+
+    explicit_standard = resolve_request_runtime_profile(TraceRuntimeProfile.STANDARD)
+    assert explicit_standard.fusion_weights == resolved.fusion_weights
+    assert explicit_standard.nli_reranker_model is None
 
 
 @pytest.mark.parametrize("profile", list(PROFILE_NAMES))
