@@ -665,6 +665,54 @@ def _compact_response(response: GroundednessResponse, *, verbose: bool) -> dict[
     return result
 
 
+def _emit_audit_record(
+    *,
+    input_data: dict[str, Any],
+    response: dict[str, Any],
+    request: GroundednessRequest,
+) -> None:
+    """Emit an append-only audit-log record for this score (Plan B6).
+
+    The writer is a no-op unless ``LATENCE_TRACE_AUDIT_LOG_DIR`` is set,
+    which keeps the default RunPod / self-hosted behaviour unchanged.
+    When enabled, records are enqueued on a background thread so the
+    scoring hot path pays only ~80us per call (see
+    ``tests/middleware/test_audit_log.py::test_write_is_fast_on_hot_path``).
+    """
+
+    try:
+        from latence_trace.middleware import audit_log as _audit_log_mod
+    except Exception:  # pragma: no cover - import failure must not fail a score
+        return
+    tenant_id = None
+    request_id = None
+    auth = input_data.get("auth") if isinstance(input_data, dict) else None
+    if isinstance(auth, dict):
+        tenant_id = auth.get("tenant_id")
+        request_id = auth.get("request_id")
+    tenant_id = tenant_id or input_data.get("tenant_id")
+    request_id = request_id or input_data.get("request_id") or getattr(request, "request_id", None)
+    if not request_id:
+        # Fall back to a monotonic-unique request id so every row is
+        # distinct even if the caller did not supply one.
+        request_id = f"auto-{int(time.monotonic_ns())}"
+    data_class = input_data.get("data_class") or "standard"
+    _audit_log_mod.write_audit_record(
+        request_id=str(request_id),
+        tenant_id=str(tenant_id) if tenant_id else None,
+        payload={
+            "query": getattr(request, "query", None),
+            "response": getattr(request, "response", None),
+            "raw_context": getattr(request, "raw_context", None),
+            "scoring_mode": getattr(request.scoring_mode, "value", None)
+            if getattr(request, "scoring_mode", None) is not None
+            else None,
+        },
+        response=response,
+        data_class=str(data_class),
+    )
+
+
 def _log_turn_event(
     *,
     request: GroundednessRequest,
@@ -937,7 +985,14 @@ async def handler(job: dict[str, Any]) -> dict[str, Any]:
                 )
             except Exception:  # pragma: no cover - logging must never fail a turn
                 logger.exception("groundedness_turn_log_failed")
-            return _compact_response(response, verbose=verbose)
+            compact = _compact_response(response, verbose=verbose)
+            try:
+                _emit_audit_record(
+                    input_data=input_data, response=compact, request=request
+                )
+            except Exception:  # pragma: no cover - audit log must never fail a turn
+                logger.exception("audit_log_emit_failed")
+            return compact
     except asyncio.TimeoutError:
         if lane == ScoringMode.CODE:
             timeout_value = _config.code_request_timeout_s if _config else 2.0

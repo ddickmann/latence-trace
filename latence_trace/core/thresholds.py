@@ -21,7 +21,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ _DEFAULT_FILENAME = "thresholds.json"
 # provide a failure-mode stratum. Explicit strata preserve precision-first
 # thresholds for known failure modes; the default band should be intuitive for
 # users reading a 0-1 groundedness score.
-_PRODUCT_DEFAULT_THRESHOLDS: Dict[str, float] = {
+_PRODUCT_DEFAULT_THRESHOLDS: dict[str, float] = {
     "green_min": 0.80,
     "amber_min": 0.60,
 }
@@ -41,7 +41,7 @@ _PRODUCT_DEFAULT_THRESHOLDS: Dict[str, float] = {
 # available. Stratum-specific entries still err on the side of rejecting
 # borderline responses, but the product default maps high groundedness scores
 # to the user-facing green band.
-_FALLBACK_PAYLOAD: Dict[str, Any] = {
+_FALLBACK_PAYLOAD: dict[str, Any] = {
     "schema_version": 1,
     "headline": "groundedness_v2",
     "precision_target": 0.75,
@@ -68,11 +68,11 @@ class RiskBandPolicy:
     headline: str = "groundedness_v2"
     precision_target: float = 0.75
     nli_enabled: bool = True
-    strata: Dict[str, Dict[str, float]] = field(default_factory=dict)
+    strata: dict[str, dict[str, float]] = field(default_factory=dict)
     source: str = "fallback_default"
     schema_version: int = 1
 
-    def threshold_for(self, stratum: Optional[str]) -> Dict[str, float]:
+    def threshold_for(self, stratum: str | None) -> dict[str, float]:
         if stratum and stratum in self.strata:
             entry = self.strata[stratum]
         else:
@@ -94,7 +94,7 @@ def _artefact_path() -> Path:
     return Path(__file__).resolve().parent / _DEFAULT_FILENAME
 
 
-def _resolve_default_stratum(strata: Dict[str, Dict[str, float]]) -> Dict[str, Dict[str, float]]:
+def _resolve_default_stratum(strata: dict[str, dict[str, float]]) -> dict[str, dict[str, float]]:
     """Ensure a product-default ``default`` entry exists.
 
     Stratum-specific thresholds are calibrated for precision on explicit
@@ -112,11 +112,11 @@ def _resolve_default_stratum(strata: Dict[str, Dict[str, float]]) -> Dict[str, D
     return strata
 
 
-def load_risk_band_policy(path: Optional[Path] = None) -> RiskBandPolicy:
+def load_risk_band_policy(path: Path | None = None) -> RiskBandPolicy:
     """Load the calibrated thresholds, falling back to defaults on error."""
 
     artefact_path = path or _artefact_path()
-    payload: Dict[str, Any] = dict(_FALLBACK_PAYLOAD)
+    payload: dict[str, Any] = dict(_FALLBACK_PAYLOAD)
     try:
         if artefact_path.exists():
             with artefact_path.open("r", encoding="utf-8") as fp:
@@ -136,7 +136,7 @@ def load_risk_band_policy(path: Optional[Path] = None) -> RiskBandPolicy:
         )
 
     strata_raw = payload.get("strata", {}) or {}
-    strata: Dict[str, Dict[str, float]] = {
+    strata: dict[str, dict[str, float]] = {
         str(name): {
             "green_min": float(entry.get("green_min", 0.70)),
             "amber_min": float(entry.get("amber_min", 0.55)),
@@ -155,23 +155,111 @@ def load_risk_band_policy(path: Optional[Path] = None) -> RiskBandPolicy:
     )
 
 
-_POLICY_CACHE: Optional[RiskBandPolicy] = None
+_POLICY_CACHE: RiskBandPolicy | None = None
+_POLICY_CACHE_MTIME: float | None = None
+# Per-tenant cache keyed by tenant id. Value is (policy, mtime). We
+# detect file changes via mtime so `ConfigMap`-backed mounts that swap
+# files under us trigger a hot reload without an app restart.
+_TENANT_CACHE: dict[str, tuple[RiskBandPolicy, float | None]] = {}
+_TENANT_DIR_ENV = "LATENCE_TRACE_TENANT_THRESHOLDS_DIR"
+
+
+def _mtime_of(path: Path) -> float | None:
+    try:
+        return path.stat().st_mtime
+    except OSError:
+        return None
 
 
 def get_risk_band_policy(*, refresh: bool = False) -> RiskBandPolicy:
-    """Cached accessor for the global risk-band policy."""
+    """Cached accessor for the global risk-band policy.
 
-    global _POLICY_CACHE
-    if _POLICY_CACHE is None or refresh:
-        _POLICY_CACHE = load_risk_band_policy()
+    Hot-reload:  when the underlying artefact's mtime changes, the
+    cached policy is transparently reloaded on the next access.  This
+    keeps the scoring service in sync with a `ConfigMap` mount without
+    an app restart (see `docs/operations/calibration-runbook.md`).
+    """
+
+    global _POLICY_CACHE, _POLICY_CACHE_MTIME
+    path = _artefact_path()
+    current_mtime = _mtime_of(path)
+    if (
+        refresh
+        or _POLICY_CACHE is None
+        or current_mtime != _POLICY_CACHE_MTIME
+    ):
+        _POLICY_CACHE = load_risk_band_policy(path)
+        _POLICY_CACHE_MTIME = current_mtime
+        logger.info(
+            "risk_band_policy.loaded",
+            extra={
+                "path": str(path),
+                "source": _POLICY_CACHE.source,
+                "mtime": current_mtime,
+            },
+        )
     return _POLICY_CACHE
 
 
+def _tenant_threshold_path(tenant_id: str) -> Path | None:
+    directory = os.environ.get(_TENANT_DIR_ENV)
+    if not directory:
+        # Fall back to sibling of the default artefact path.
+        default = _artefact_path().parent
+        candidate = default / f"thresholds.{tenant_id}.json"
+    else:
+        candidate = Path(directory) / f"thresholds.{tenant_id}.json"
+    return candidate if candidate.exists() else None
+
+
+def get_risk_band_policy_for_tenant(
+    tenant_id: str | None, *, refresh: bool = False
+) -> RiskBandPolicy:
+    """Return the risk-band policy for ``tenant_id``.
+
+    Resolution order (first hit wins):
+
+    1. ``${LATENCE_TRACE_TENANT_THRESHOLDS_DIR}/thresholds.{tenant}.json``
+       (or same file next to the global artefact if the env var is
+       not set).
+    2. Global default via :func:`get_risk_band_policy`.
+
+    Per-tenant hot reload mirrors the global path semantics; the cache
+    is invalidated when the tenant file's mtime changes.
+    """
+
+    if not tenant_id:
+        return get_risk_band_policy(refresh=refresh)
+    path = _tenant_threshold_path(tenant_id)
+    if path is None:
+        return get_risk_band_policy(refresh=refresh)
+    cached = _TENANT_CACHE.get(tenant_id)
+    current_mtime = _mtime_of(path)
+    if (
+        refresh
+        or cached is None
+        or cached[1] != current_mtime
+    ):
+        policy = load_risk_band_policy(path)
+        _TENANT_CACHE[tenant_id] = (policy, current_mtime)
+        logger.info(
+            "risk_band_policy.tenant_loaded",
+            extra={
+                "tenant_id": tenant_id,
+                "path": str(path),
+                "source": policy.source,
+                "mtime": current_mtime,
+            },
+        )
+        return policy
+    return cached[0]
+
+
 def classify_risk_band(
-    headline_score: Optional[float],
+    headline_score: float | None,
     *,
-    stratum: Optional[str] = None,
-    policy: Optional[RiskBandPolicy] = None,
+    stratum: str | None = None,
+    policy: RiskBandPolicy | None = None,
 ) -> str:
     """Map ``headline_score`` to one of ``{"green", "amber", "red"}``.
 
@@ -193,7 +281,7 @@ def classify_risk_band(
     return "red"
 
 
-def thresholds_summary_for(policy: Optional[RiskBandPolicy] = None) -> Dict[str, Any]:
+def thresholds_summary_for(policy: RiskBandPolicy | None = None) -> dict[str, Any]:
     """Return a JSON-safe summary for the API response/diagnostics."""
 
     policy = policy or get_risk_band_policy()
@@ -208,7 +296,7 @@ def thresholds_summary_for(policy: Optional[RiskBandPolicy] = None) -> Dict[str,
     }
 
 
-def list_known_strata(policy: Optional[RiskBandPolicy] = None) -> List[str]:
+def list_known_strata(policy: RiskBandPolicy | None = None) -> list[str]:
     policy = policy or get_risk_band_policy()
     return sorted(policy.strata.keys())
 
@@ -217,6 +305,7 @@ __all__ = [
     "RiskBandPolicy",
     "classify_risk_band",
     "get_risk_band_policy",
+    "get_risk_band_policy_for_tenant",
     "load_risk_band_policy",
     "list_known_strata",
     "thresholds_summary_for",

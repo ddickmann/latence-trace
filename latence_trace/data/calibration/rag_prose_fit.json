@@ -1,0 +1,34 @@
+{
+  "profiles": {
+    "quality": {
+      "fit": {
+        "amber_min": 0.1714,
+        "green_min": 0.6964,
+        "holdout_sample_count": 7,
+        "negative_median": 0.19303897453162233,
+        "positive_median": 0.9483001584422832,
+        "precision_at_green": 1.0,
+        "recall_at_green": 1.0,
+        "red_precision_at_amber": 0.0,
+        "red_recall_at_amber": 0.0,
+        "sample_count": 24
+      },
+      "target_file": "/workspace/latence-trace/latence_trace/data/thresholds.quality.json"
+    },
+    "standard": {
+      "fit": {
+        "amber_min": 0.345227,
+        "green_min": 0.655227,
+        "holdout_sample_count": 7,
+        "negative_median": 0.17653293413786741,
+        "positive_median": 0.95,
+        "precision_at_green": 1.0,
+        "recall_at_green": 1.0,
+        "red_precision_at_amber": 1.0,
+        "red_recall_at_amber": 1.0,
+        "sample_count": 24
+      },
+      "target_file": "/workspace/latence-trace/latence_trace/data/thresholds.balanced.json"
+    }
+  }
+}
