@@ -21,7 +21,7 @@ inspect / log it.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 try:  # pragma: no cover - extras-only import
     from langchain_core.callbacks.base import BaseCallbackHandler
@@ -59,15 +59,15 @@ class LatenceTraceCallback(BaseCallbackHandler):
         self._question_key = question_key
         self._context_key = context_key
         self._attribution_mode = attribution_mode
-        self.last_result: Optional[Dict[str, Any]] = None
-        self._chain_inputs: Dict[Any, Dict[str, Any]] = {}
+        self.last_result: dict[str, Any] | None = None
+        self._chain_inputs: dict[Any, dict[str, Any]] = {}
 
     # LangChain BaseCallbackHandler ----------------------------------------
 
     def on_chain_start(
         self,
-        serialized: Dict[str, Any],
-        inputs: Dict[str, Any],
+        serialized: dict[str, Any],
+        inputs: dict[str, Any],
         *,
         run_id: Any,
         **kwargs: Any,
@@ -76,10 +76,10 @@ class LatenceTraceCallback(BaseCallbackHandler):
 
     def on_chain_end(
         self,
-        outputs: Dict[str, Any],
+        outputs: dict[str, Any],
         *,
         run_id: Any,
-        parent_run_id: Optional[Any] = None,
+        parent_run_id: Any | None = None,
         **kwargs: Any,
     ) -> None:
         inputs = self._chain_inputs.pop(run_id, {})
@@ -90,7 +90,7 @@ class LatenceTraceCallback(BaseCallbackHandler):
         response: LLMResult,
         *,
         run_id: Any,
-        parent_run_id: Optional[Any] = None,
+        parent_run_id: Any | None = None,
         **kwargs: Any,
     ) -> None:
         inputs = self._chain_inputs.get(parent_run_id) or self._chain_inputs.get(run_id) or {}
@@ -107,7 +107,7 @@ class LatenceTraceCallback(BaseCallbackHandler):
 
     # ----------------------------------------------------------------------
 
-    def _score_outputs(self, inputs: Dict[str, Any], outputs: Dict[str, Any]) -> None:
+    def _score_outputs(self, inputs: dict[str, Any], outputs: dict[str, Any]) -> None:
         response_text = self._extract_response_text(outputs)
         if not response_text:
             return
@@ -142,7 +142,7 @@ class LatenceTraceCallback(BaseCallbackHandler):
             outputs["metadata"].setdefault("latence_trace", payload)
 
     @staticmethod
-    def _extract_response_text(outputs: Dict[str, Any]) -> str:
+    def _extract_response_text(outputs: dict[str, Any]) -> str:
         for key in ("output", "answer", "text", "result"):
             value = outputs.get(key)
             if isinstance(value, str):
@@ -150,7 +150,7 @@ class LatenceTraceCallback(BaseCallbackHandler):
         return ""
 
     @staticmethod
-    def _coerce_str(value: Any) -> Optional[str]:
+    def _coerce_str(value: Any) -> str | None:
         if value is None:
             return None
         if isinstance(value, str):
@@ -158,17 +158,17 @@ class LatenceTraceCallback(BaseCallbackHandler):
         return str(value)
 
     @staticmethod
-    def _extract_context(value: Any) -> Optional[List[str]]:
+    def _extract_context(value: Any) -> list[str] | None:
         if value is None:
             return None
         if isinstance(value, str):
             return [value]
         if isinstance(value, list):
-            out: List[str] = []
+            out: list[str] = []
             for item in value:
                 if isinstance(item, str):
                     out.append(item)
                 elif hasattr(item, "page_content"):
-                    out.append(getattr(item, "page_content"))
+                    out.append(item.page_content)
             return out or None
         return None

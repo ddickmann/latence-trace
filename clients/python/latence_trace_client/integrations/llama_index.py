@@ -18,7 +18,6 @@ metadata to each retrieved node *after* synthesis::
 from __future__ import annotations
 
 import logging
-from typing import List, Optional
 
 try:  # pragma: no cover - extras-only import
     from llama_index.core.postprocessor.types import BaseNodePostprocessor
@@ -56,9 +55,7 @@ class LatenceTracePostProcessor(BaseNodePostprocessor):
         *,
         attribution_mode: AttributionMode = AttributionMode.CLOSED_BOOK,
     ) -> None:
-        super().__init__()
-        object.__setattr__(self, "client", client)
-        object.__setattr__(self, "attribution_mode", attribution_mode)
+        super().__init__(client=client, attribution_mode=attribution_mode)
 
     @classmethod
     def class_name(cls) -> str:
@@ -66,9 +63,9 @@ class LatenceTracePostProcessor(BaseNodePostprocessor):
 
     def _postprocess_nodes(
         self,
-        nodes: List[NodeWithScore],
-        query_bundle: Optional[QueryBundle] = None,
-    ) -> List[NodeWithScore]:
+        nodes: list[NodeWithScore],
+        query_bundle: QueryBundle | None = None,
+    ) -> list[NodeWithScore]:
         if not nodes or query_bundle is None:
             return nodes
         query = query_bundle.query_str

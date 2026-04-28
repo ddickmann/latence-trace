@@ -39,10 +39,12 @@ Written back:
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Dict, Optional
+from collections.abc import Callable
+from typing import Any
 
 from latence_trace_client.client import LatenceTraceClient
 from latence_trace_client.errors import LatenceTraceAPIError
+from latence_trace_client.integrations import _band_utils
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +57,7 @@ def score_groundedness_node(
     question_key: str = "question",
     answer_key: str = "answer",
     context_key: str = "raw_context",
-) -> Callable[[Dict[str, Any]], Dict[str, Any]]:
+) -> Callable[[dict[str, Any]], dict[str, Any]]:
     """Return a LangGraph-compatible node function that scores the answer.
 
     ``fail_band`` is the band assigned when the TRACE call raises so the
@@ -63,7 +65,7 @@ def score_groundedness_node(
     ``red`` (fail-closed).
     """
 
-    def _node(state: Dict[str, Any]) -> Dict[str, Any]:
+    def _node(state: dict[str, Any]) -> dict[str, Any]:
         question = state.get(question_key) or ""
         answer = state.get(answer_key) or state.get("response_text") or ""
         raw_context = state.get(context_key) or state.get("context") or ""
@@ -77,8 +79,8 @@ def score_groundedness_node(
             response = client.score_groundedness(
                 query=question,
                 response_text=answer,
-                raw_context=raw_context,
-                profile=profile,
+                raw_context=[raw_context] if isinstance(raw_context, str) else list(raw_context),
+                extra={"profile": profile} if profile else None,
             )
         except LatenceTraceAPIError as exc:
             logger.warning(
@@ -88,8 +90,8 @@ def score_groundedness_node(
             return {**state, "trace_band": fail_band, "trace_score": 0.0}
         return {
             **state,
-            "trace_band": response.band,
-            "trace_score": response.groundedness,
+            "trace_band": _band_utils.resolve_band(response),
+            "trace_score": _band_utils.resolve_score(response),
             "trace_response": response,
         }
 

@@ -15,8 +15,9 @@ existing app, get the groundedness band on every assistant turn.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable, Sequence
 from functools import wraps
-from typing import Any, Callable, List, Optional, Sequence
+from typing import Any
 
 try:  # pragma: no cover - extras-only import
     from openai.types.chat import ChatCompletion
@@ -37,10 +38,10 @@ def score_openai_response(
     completion: ChatCompletion,
     *,
     client: LatenceTraceClient,
-    query: Optional[str] = None,
-    raw_context: Optional[Sequence[str]] = None,
+    query: str | None = None,
+    raw_context: Sequence[str] | None = None,
     attribution_mode: AttributionMode = AttributionMode.CLOSED_BOOK,
-) -> Optional[GroundednessResponse]:
+) -> GroundednessResponse | None:
     """Score the *first* assistant message in ``completion``.
 
     Returns ``None`` (and logs a warning) on transport / server errors
@@ -122,7 +123,7 @@ def wrap_openai_chat(
     return wrapped
 
 
-def _extract_query(messages: Sequence[Any]) -> Optional[str]:
+def _extract_query(messages: Sequence[Any]) -> str | None:
     for msg in reversed(messages):
         role = _role(msg)
         if role == "user":
@@ -130,8 +131,8 @@ def _extract_query(messages: Sequence[Any]) -> Optional[str]:
     return None
 
 
-def _extract_context(messages: Sequence[Any]) -> Optional[List[str]]:
-    chunks: List[str] = []
+def _extract_context(messages: Sequence[Any]) -> list[str] | None:
+    chunks: list[str] = []
     for msg in messages:
         role = _role(msg)
         if role == "system":
@@ -143,7 +144,7 @@ def _extract_context(messages: Sequence[Any]) -> Optional[List[str]]:
 
 def _role(msg: Any) -> str:
     if hasattr(msg, "role"):
-        return getattr(msg, "role") or ""
+        return msg.role or ""
     if isinstance(msg, dict):
         return msg.get("role") or ""
     return ""
@@ -151,7 +152,7 @@ def _role(msg: Any) -> str:
 
 def _content(msg: Any) -> str:
     if hasattr(msg, "content"):
-        value = getattr(msg, "content")
+        value = msg.content
     elif isinstance(msg, dict):
         value = msg.get("content")
     else:
@@ -161,7 +162,7 @@ def _content(msg: Any) -> str:
     if isinstance(value, str):
         return value
     if isinstance(value, list):
-        parts: List[str] = []
+        parts: list[str] = []
         for item in value:
             if isinstance(item, dict) and item.get("type") == "text":
                 parts.append(str(item.get("text") or ""))

@@ -20,10 +20,12 @@ Usage::
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from latence_trace_client.client import LatenceTraceClient
 from latence_trace_client.errors import LatenceTraceAPIError
+from latence_trace_client.integrations import _band_utils
 
 logger = logging.getLogger(__name__)
 
@@ -53,8 +55,8 @@ def trace_result_validator(
             response = client.score_groundedness(
                 query=question,
                 response_text=result,
-                raw_context=raw_context,
-                profile=profile,
+                raw_context=[raw_context] if isinstance(raw_context, str) else list(raw_context),
+                extra={"profile": profile} if profile else None,
             )
         except LatenceTraceAPIError as exc:
             logger.warning(
@@ -63,10 +65,12 @@ def trace_result_validator(
             )
             return result
         ctx.latest_trace = response
-        if response.band in reject_bands:
+        band = _band_utils.resolve_band(response)
+        score = _band_utils.resolve_score(response)
+        if band in reject_bands:
             raise ValueError(
-                f"Answer failed groundedness check (band={response.band}, "
-                f"score={response.groundedness:.2f}). Retry with more evidence."
+                f"Answer failed groundedness check (band={band}, "
+                f"score={score:.2f}). Retry with more evidence."
             )
         return result
 

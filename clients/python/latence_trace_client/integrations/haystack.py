@@ -23,7 +23,7 @@ Usage::
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 try:  # pragma: no cover - extras-only import
     from haystack import Document, component
@@ -35,6 +35,7 @@ except ImportError as exc:  # pragma: no cover - extras-only import
 
 from latence_trace_client.client import LatenceTraceClient
 from latence_trace_client.errors import LatenceTraceAPIError
+from latence_trace_client.integrations import _band_utils
 
 logger = logging.getLogger(__name__)
 
@@ -52,19 +53,19 @@ class LatenceTraceScorer:
         self._client = client
         self._profile = profile
 
-    @component.output_types(scored=List[Dict[str, Any]])
+    @component.output_types(scored=list[dict[str, Any]])
     def run(
         self,
-        responses: List[str],
-        documents: Optional[List[Document]] = None,
-        question: Optional[str] = None,
-    ) -> Dict[str, List[Dict[str, Any]]]:
+        responses: list[str],
+        documents: list[Document] | None = None,
+        question: str | None = None,
+    ) -> dict[str, list[dict[str, Any]]]:
         raw_context = "\n\n".join(
             (doc.content or "") for doc in (documents or []) if doc.content
         )
-        scored: List[Dict[str, Any]] = []
+        scored: list[dict[str, Any]] = []
         for response_text in responses:
-            payload: Dict[str, Any] = {"response_text": response_text}
+            payload: dict[str, Any] = {"response_text": response_text}
             if not response_text or not raw_context:
                 payload.update({"band": "red", "groundedness": 0.0, "reason": "empty_input"})
                 scored.append(payload)
@@ -73,8 +74,8 @@ class LatenceTraceScorer:
                 res = self._client.score_groundedness(
                     query=question,
                     response_text=response_text,
-                    raw_context=raw_context,
-                    profile=self._profile,
+                    raw_context=[raw_context] if isinstance(raw_context, str) else list(raw_context),
+                    extra={"profile": self._profile} if self._profile else None,
                 )
             except LatenceTraceAPIError as exc:
                 logger.warning(
@@ -86,8 +87,8 @@ class LatenceTraceScorer:
                 continue
             payload.update(
                 {
-                    "band": res.band,
-                    "groundedness": res.groundedness,
+                    "band": _band_utils.resolve_band(res),
+                    "groundedness": _band_utils.resolve_score(res),
                     "response": res.model_dump() if hasattr(res, "model_dump") else dict(res),
                 }
             )

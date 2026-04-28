@@ -27,10 +27,12 @@ Usage::
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 from latence_trace_client.client import LatenceTraceClient
 from latence_trace_client.errors import LatenceTraceAPIError
+from latence_trace_client.integrations import _band_utils
 
 logger = logging.getLogger(__name__)
 
@@ -48,9 +50,9 @@ class LatenceTraceCallback:
         *,
         client: LatenceTraceClient,
         context_getter: Callable[[Any], str],
-        question_getter: Optional[Callable[[Any], str]] = None,
+        question_getter: Callable[[Any], str] | None = None,
         profile: str = "standard",
-        on_band: Optional[Callable[[str, Any, Any], None]] = None,
+        on_band: Callable[[str, Any, Any], None] | None = None,
     ) -> None:
         self._client = client
         self._context_getter = context_getter
@@ -70,8 +72,8 @@ class LatenceTraceCallback:
             response = self._client.score_groundedness(
                 query=question,
                 response_text=response_text,
-                raw_context=raw_context,
-                profile=self._profile,
+                raw_context=[raw_context] if isinstance(raw_context, str) else list(raw_context),
+                extra={"profile": self._profile} if self._profile else None,
             )
         except LatenceTraceAPIError as exc:
             logger.warning(
@@ -82,13 +84,13 @@ class LatenceTraceCallback:
         # Stash on the task_output if mutable; callers can inspect
         # .trace_band / .trace_score downstream.
         try:
-            setattr(task_output, "trace_band", response.band)
-            setattr(task_output, "trace_score", response.groundedness)
-            setattr(task_output, "trace_response", response)
+            task_output.trace_band = _band_utils.resolve_band(response)
+            task_output.trace_score = _band_utils.resolve_score(response)
+            task_output.trace_response = response
         except Exception:  # pragma: no cover - frozen models
             pass
         if self._on_band:
-            self._on_band(response.band, task_output, response)
+            self._on_band(_band_utils.resolve_band(response), task_output, response)
         return task_output
 
 

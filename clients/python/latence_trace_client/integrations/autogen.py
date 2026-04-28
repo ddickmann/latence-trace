@@ -22,10 +22,12 @@ Usage::
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 from latence_trace_client.client import LatenceTraceClient
 from latence_trace_client.errors import LatenceTraceAPIError
+from latence_trace_client.integrations import _band_utils
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +36,8 @@ def register_trace_hook(
     agent: Any,
     *,
     client: LatenceTraceClient,
-    context_getter: Callable[[List[dict]], str],
-    question_getter: Optional[Callable[[List[dict]], str]] = None,
+    context_getter: Callable[[list[dict]], str],
+    question_getter: Callable[[list[dict]], str] | None = None,
     profile: str = "standard",
     block_on_red: bool = False,
 ) -> None:
@@ -55,10 +57,10 @@ def register_trace_hook(
 
     def _score_reply(
         recipient: Any,
-        messages: Optional[List[dict]] = None,
-        sender: Optional[Any] = None,  # noqa: ARG001
-        config: Optional[Any] = None,  # noqa: ARG001
-    ) -> tuple[bool, Optional[str]]:
+        messages: list[dict] | None = None,
+        sender: Any | None = None,  # noqa: ARG001
+        config: Any | None = None,  # noqa: ARG001
+    ) -> tuple[bool, str | None]:
         messages = messages or []
         if not messages:
             return False, None
@@ -71,8 +73,8 @@ def register_trace_hook(
             response = client.score_groundedness(
                 query=question,
                 response_text=assistant_msg,
-                raw_context=raw_context,
-                profile=profile,
+                raw_context=[raw_context] if isinstance(raw_context, str) else list(raw_context),
+                extra={"profile": profile} if profile else None,
             )
         except LatenceTraceAPIError as exc:
             logger.warning(
@@ -81,7 +83,7 @@ def register_trace_hook(
             )
             return False, None
         recipient.latest_trace = response
-        if block_on_red and response.band == "red":
+        if block_on_red and _band_utils.resolve_band(response) == "red":
             return True, (
                 "I don't have enough grounded evidence to answer. "
                 "Please provide additional source material."
