@@ -307,10 +307,49 @@ def _normalize_content_type_hint(hint: Optional[str]) -> Optional[str]:
     return None
 
 
+_PROSE_SENTENCE_END_RE = re.compile(r"[\.!?][\"'\u201D\u2019)\]]?\s*$")
+_PROSE_WORD_RE = re.compile(r"[A-Za-z\u00C0-\u017F]{3,}")
+
+
+def _support_is_prose(text: str) -> bool:
+    """Return True when the support text looks like ordinary prose.
+
+    A chunk is classified as prose when a majority of its non-empty lines
+    either end in sentence punctuation or contain enough natural-language
+    words to be plausibly a sentence. This is a *prose-safety guard* used
+    by :func:`detect_source_format` to suppress the typed lane on
+    multilingual enterprise RAG chunks that happen to hold 3+
+    ``Label number`` patterns but are otherwise narrative. Table-shaped
+    sources (JSON, markdown pipe tables, dense KV lists, short numeric
+    facts) fail this check and continue to drive the typed lane.
+    """
+
+    if not text:
+        return False
+    raw_lines = [line.strip() for line in text.splitlines()]
+    lines = [line for line in raw_lines if line]
+    if not lines:
+        return False
+    total = len(lines)
+    sentence_like = 0
+    for line in lines:
+        if "|" in line and line.count("|") >= 2:
+            continue
+        if line.count(":") >= 1 and len(line) <= 80 and len(_PROSE_WORD_RE.findall(line)) <= 3:
+            # Short ``Label: value`` lines look tabular, not prose.
+            continue
+        ends_like_sentence = bool(_PROSE_SENTENCE_END_RE.search(line))
+        word_count = len(_PROSE_WORD_RE.findall(line))
+        if ends_like_sentence or word_count >= 5:
+            sentence_like += 1
+    return sentence_like * 2 >= total  # >= 50% of non-empty lines are sentence-shaped
+
+
 def detect_source_format(
     support_text: str,
     *,
     content_type: Optional[str] = None,
+    response_text: Optional[str] = None,
 ) -> Optional[str]:
     """Return one of ``"json"``, ``"markdown_table"``, ``"prose_table"`` or ``None``.
 
@@ -318,9 +357,19 @@ def detect_source_format(
     auto-detect. We intentionally never classify a raw free-form blob as
     structured: false positives here directly poison the fusion.
 
-    The new ``"prose_table"`` lane covers real-world segment tables and
-    numeric key-value lists that appear inline in 10-K / Geschaftsbericht
-    prose (``"Cloud: 4.151 Mio. EUR; Software-Lizenzen: 64; ..."``).
+    Prose-safety rule: when the caller did not supply a structured
+    ``content_type`` hint *and* the support text reads like ordinary
+    prose (:func:`_support_is_prose`), we return ``None`` so the typed
+    lane stays silent. This protects enterprise RAG chunks (multilingual
+    legal / cyber / financial narratives) that previously tripped
+    ``prose_table`` or ``numeric_fact`` on 3 incidental ``Label number``
+    hits and collapsed the fused headline via the AND-gate.
+
+    The ``"prose_table"`` lane still covers real inline segment tables
+    and dense numeric key-value lists (``"Cloud: 4.151 Mio. EUR;
+    Software-Lizenzen: 64; ..."``); the stricter density rules inside
+    :func:`_looks_like_prose_table` and :func:`_looks_like_numeric_kv`
+    prevent that lane from firing on plain prose.
     """
 
     hint = _normalize_content_type_hint(content_type)
@@ -328,15 +377,29 @@ def detect_source_format(
         return "json"
     if hint == "markdown_table" and _looks_like_markdown_table(support_text):
         return "markdown_table"
-    # Auto-detect without a hint.
+    # Strong structured formats always win regardless of prose guard.
     if _looks_like_json(support_text):
         return "json"
     if _looks_like_markdown_table(support_text):
         return "markdown_table"
-    if _looks_like_prose_table(support_text) or _looks_like_numeric_kv(support_text):
+    # ``_looks_like_prose_table`` is already strict (5+ hits + 30%
+    # density), so trust it for true segment tables even when the
+    # surrounding sentence ends in a period.
+    if _looks_like_prose_table(support_text):
+        return "prose_table"
+
+    prose_safe = hint is None and _support_is_prose(support_text)
+    if not prose_safe and _looks_like_numeric_kv(support_text):
         return "prose_table"
     if _looks_like_numeric_fact(support_text):
-        return "numeric_fact"
+        # Numeric-fact lane is meant for short single-fact statements
+        # (a rate decision, a single metric). The support-side detector is
+        # already strict (< 220 chars, typed unit, <= 3 numbers, no
+        # semicolon). We only refuse to fire when the *response* is long
+        # and narrative, because then a user-written paragraph cannot be
+        # aligned cell-by-cell against a short structured statement.
+        if response_text is None or len((response_text or "").strip()) <= 400:
+            return "numeric_fact"
     return None
 
 
@@ -389,7 +452,14 @@ def _looks_like_numeric_fact(text: str) -> bool:
             return False
     if nums == 0:
         return False
-    return bool(_NUMERIC_FACT_TYPED_UNIT_RE.search(stripped))
+    # Multiple typed-unit occurrences (``42%``, ``38%``, ``21%``) look
+    # like a listed-metrics paragraph, not a single numeric fact.
+    unit_hits = list(_NUMERIC_FACT_TYPED_UNIT_RE.finditer(stripped))
+    if not unit_hits:
+        return False
+    if len(unit_hits) >= 3:
+        return False
+    return True
 
 
 # ----------------------------------------------------------------------
@@ -533,30 +603,59 @@ def _looks_like_prose_table(text: str) -> bool:
 
     A true prose table is dense *and* shaped like a table:
 
-    - At least 3 ``label NUMBER[unit]`` pairs separated by semicolons
-      or commas.
-    - Each *qualifying* label is a compact noun phrase (no verbs, ≤ 5
-      tokens). This is what separates ``"Americas $37,678; Europe
-      $21,883; ..."`` (table) from ``"...rose by 206,000 in June, ..."``
-      (prose with embedded numbers).
+    - At least 5 ``label NUMBER[unit]`` pairs separated by semicolons
+      or commas (raised from 3 to avoid tripping on enterprise RAG
+      prose that happens to include three incidental metrics).
+    - At least 5 of those pairs have compact noun-phrase labels (no
+      verbs, <= 5 tokens).
+    - Label-density: the number of qualifying pairs is at least 30%
+      of the non-empty line count so 3 hits inside a long narrative
+      paragraph cannot masquerade as a table.
+
+    This is what separates ``"Americas $37,678; Europe $21,883; ..."``
+    (table) from ``"...rose by 206,000 in June, ..."`` (prose with
+    embedded numbers).
     """
 
     if not text or len(text) < 20:
         return False
     hits = list(_PROSE_TABLE_DETECT_RE.finditer(text))
-    if len(hits) < 3:
+    if len(hits) < 5:
         return False
     table_shaped = sum(1 for h in hits if _label_is_table_cell(h.group("label") or ""))
-    return table_shaped >= 3
+    if table_shaped < 5:
+        return False
+    lines = [line for line in text.splitlines() if line.strip()]
+    if lines and table_shaped * 10 < len(lines) * 3:
+        return False
+    return True
 
 
 def _looks_like_numeric_kv(text: str) -> bool:
-    """Detect a numeric key-value list (``"key: value"`` pattern)."""
+    """Detect a numeric key-value list (``"key: value"`` pattern).
+
+    Requires real KV density: at least 3 hits *and* at least 60% of the
+    non-empty lines match the KV shape. This keeps the typed lane
+    firing for genuine enumerated metric blocks while silencing it on
+    prose paragraphs that happen to contain a handful of ``Label: N``
+    bullets.
+    """
 
     if not text or len(text) < 12:
         return False
     hits = list(_PROSE_KV_DETECT_RE.finditer(text))
-    return len(hits) >= 3
+    if len(hits) < 3:
+        return False
+    non_empty_lines = [line for line in text.splitlines() if line.strip()]
+    if non_empty_lines:
+        kv_line_count = sum(
+            1
+            for line in non_empty_lines
+            if _PROSE_KV_DETECT_RE.search("\n" + line)
+        )
+        if kv_line_count * 10 < len(non_empty_lines) * 6:
+            return False
+    return True
 
 
 # Currency prefix mapping
@@ -1585,6 +1684,25 @@ def is_structured_enabled() -> bool:
     return True
 
 
+def resolve_structured_mode(mode: Optional[str] = None) -> str:
+    """Normalize a ``structured_verification`` mode string.
+
+    The canonical values are ``"auto"``, ``"on"`` and ``"off"``. Callers
+    can override via the ``VOYAGER_GROUNDEDNESS_STRUCTURED_MODE`` env
+    var; unknown values collapse to ``"auto"``. ``"off"`` forces the
+    structured lane to stay silent even when the detector would fire;
+    ``"on"`` bypasses the prose-safety guard and runs the typed lane on
+    the raw support (useful for true tables passed as plain text).
+    """
+
+    candidate = (mode or os.environ.get("VOYAGER_GROUNDEDNESS_STRUCTURED_MODE", "")).strip().lower()
+    if candidate in {"off", "0", "false", "no", "disable", "disabled"}:
+        return "off"
+    if candidate in {"on", "force", "forced", "strict"}:
+        return "on"
+    return "auto"
+
+
 def is_structured_gate_enabled() -> bool:
     """Feature flag for the AND-gate fusion (typed structured evidence lane).
 
@@ -1660,6 +1778,7 @@ __all__ = [
     "verify_structured_source",
     "is_structured_enabled",
     "is_structured_gate_enabled",
+    "resolve_structured_mode",
     "default_penalty_per_mismatch",
     "verification_to_dict",
 ]

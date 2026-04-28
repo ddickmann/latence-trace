@@ -20,6 +20,7 @@ import csv
 import hashlib
 import json
 import os
+import re
 import statistics
 import sys
 import time
@@ -37,8 +38,10 @@ if _SDK_SRC.exists() and str(_SDK_SRC) not in sys.path:
     sys.path.insert(0, str(_SDK_SRC))
 
 DATA_DIR = _REPO / "data" / "veracier-industries"
-DEFAULT_OUT = DATA_DIR / "trace_bench_runs" / "pilot"
+DEFAULT_PROCESSED_DOCUMENTS = DATA_DIR / "trace_bench_runs" / "full" / "documents.jsonl"
+DEFAULT_OUT = DATA_DIR / "trace_bench_runs" / "veracier_trace_validation_proof"
 PILOT_USE_CASES = ("CEO-01", "LEGAL-01", "CISO-02")
+SUCCESS_DOCUMENT_STATUS = "COMPLETED"
 
 PRIMARY_CLASSES = {
     "CEO-01": {"SANCTIONS_RISK", "COMPLIANCE_RISK", "SUMMARY"},
@@ -52,6 +55,35 @@ DISTRACTOR_CLASSES = {
     "CISO-02": {"REFERENCE", "POLICY", "AUDIT"},
 }
 NEGATIVE_GT_KEYS = {"no", "not_relevant", "irrelevant", "trap", "noise", "negative"}
+LOW_PRIORITY_GT_KEYS = {"all_review", "review", "all", "background", "reference"}
+EVIDENCE_KEYWORDS = {
+    "CEO-01": [
+        "sanctions",
+        "Severneft",
+        "RosNuclear",
+        "Sapin",
+        "KYC",
+        "change of control",
+        "changement de contrôle",
+    ],
+    "LEGAL-01": [
+        "force majeure",
+        "chaîne d'approvisionnement",
+        "chaine d'approvisionnement",
+        "supply chain",
+        "approvisionnement",
+        "interruption",
+    ],
+    "CISO-02": [
+        "NIS2",
+        "systèmes essentiels",
+        "systemes essentiels",
+        "lacunes",
+        "gap",
+        "segmentation",
+        "incident",
+    ],
+}
 
 TRACE_SCORE_FIELDS = (
     "score",
@@ -132,6 +164,20 @@ def _jsonl_read(path: Path) -> list[dict[str, Any]]:
     ]
 
 
+def _doc_key(entity: str, filename: str) -> str:
+    return f"{entity}/{filename}"
+
+
+def _row_key(row: DatasetRow | dict[str, Any]) -> str:
+    if isinstance(row, dict):
+        return _doc_key(str(row["entity"]), str(row["filename"]))
+    return _doc_key(row.entity, row.filename)
+
+
+def _filename_aliases(filename: str) -> set[str]:
+    return {filename, Path(filename).name}
+
+
 def _jsonl_append(row: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as fh:
@@ -188,6 +234,27 @@ def _flatten_ground_truth(answer: dict[str, Any], *, include_negative: bool) -> 
         if isinstance(values, list):
             flattened.update(str(value) for value in values)
             flattened.update(Path(str(value)).name for value in values)
+    return flattened
+
+
+def _ground_truth_files(
+    answer: dict[str, Any],
+    *,
+    include_negative: bool,
+    include_low_priority: bool,
+) -> set[str]:
+    flattened: set[str] = set()
+    for key, values in (answer.get("ground_truth") or {}).items():
+        normalized_key = str(key).lower()
+        is_negative = normalized_key in NEGATIVE_GT_KEYS
+        if is_negative != include_negative:
+            continue
+        if not include_low_priority and normalized_key in LOW_PRIORITY_GT_KEYS:
+            continue
+        if isinstance(values, list):
+            for value in values:
+                flattened.add(str(value))
+                flattened.add(Path(str(value)).name)
     return flattened
 
 
@@ -659,6 +726,350 @@ def process_docs(args: argparse.Namespace) -> Path:
     return output_path
 
 
+def _master_docs(rows: list[DatasetRow]) -> dict[str, dict[str, Any]]:
+    docs: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        key = _row_key(row)
+        entry = docs.setdefault(
+            key,
+            {
+                "key": key,
+                "entity": row.entity,
+                "filename": row.filename,
+                "path": str(row.path),
+                "exists": row.path.exists(),
+                "question_ids": [],
+                "roles": [],
+                "classifications": [],
+                "languages": [],
+                "formats": [],
+                "descriptions": [],
+            },
+        )
+        entry["question_ids"].append(row.question_id)
+        entry["roles"].append(row.role)
+        entry["classifications"].append(row.classification)
+        entry["languages"].append(row.language)
+        entry["formats"].append(row.fmt)
+        if row.description and row.description not in entry["descriptions"]:
+            entry["descriptions"].append(row.description)
+
+    for entry in docs.values():
+        for field in ("question_ids", "roles", "classifications", "languages", "formats"):
+            entry[field] = sorted(set(entry[field]))
+    return docs
+
+
+def _filtered_corpus_rows(args: argparse.Namespace) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
+    master = _master_docs(_load_rows())
+    processed_rows = _jsonl_read(args.processed_documents)
+    processed_keys = {_row_key(row) for row in processed_rows if row.get("entity") and row.get("filename")}
+
+    corpus_by_key: dict[str, dict[str, Any]] = {}
+    excluded: list[dict[str, Any]] = []
+    status_counts: dict[str, int] = defaultdict(int)
+
+    for row in processed_rows:
+        key = _row_key(row)
+        status = row.get("status") or "UNKNOWN"
+        status_counts[status] += 1
+        markdown = row.get("markdown") or ""
+        if status == SUCCESS_DOCUMENT_STATUS and markdown:
+            corpus_by_key[key] = {
+                **row,
+                "key": key,
+                "master": master.get(key, {}),
+            }
+            continue
+        excluded.append(
+            {
+                "key": key,
+                "entity": row.get("entity"),
+                "filename": row.get("filename"),
+                "source_id": row.get("source_id"),
+                "status": status,
+                "reason": "not_completed" if status != SUCCESS_DOCUMENT_STATUS else "missing_markdown",
+                "error": row.get("error"),
+                "char_count": row.get("char_count", 0),
+            }
+        )
+
+    for key in sorted(set(master) - processed_keys):
+        entry = master[key]
+        excluded.append(
+            {
+                "key": key,
+                "entity": entry["entity"],
+                "filename": entry["filename"],
+                "source_id": None,
+                "status": "MISSING",
+                "reason": "missing_from_processed_documents",
+                "error": None,
+                "char_count": 0,
+            }
+        )
+
+    corpus = [corpus_by_key[key] for key in sorted(corpus_by_key)]
+    char_counts = [row.get("char_count", 0) for row in corpus]
+    summary = {
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "processed_documents": str(args.processed_documents),
+        "master_unique_documents": len(master),
+        "processed_rows": len(processed_rows),
+        "completed_with_markdown": len(corpus),
+        "excluded_documents": len(excluded),
+        "status_counts": dict(sorted(status_counts.items())),
+        "total_completed_chars": sum(char_counts),
+        "mean_completed_chars": round(statistics.mean(char_counts), 2) if char_counts else 0,
+        "min_completed_chars": min(char_counts) if char_counts else 0,
+        "max_completed_chars": max(char_counts) if char_counts else 0,
+    }
+    return corpus, excluded, summary
+
+
+def filter_corpus(args: argparse.Namespace) -> Path:
+    corpus, excluded, summary = _filtered_corpus_rows(args)
+    corpus_path = args.output_dir / "corpus.jsonl"
+    excluded_path = args.output_dir / "excluded_documents.jsonl"
+    summary_path = args.output_dir / "corpus_summary.json"
+    _jsonl_write(corpus, corpus_path)
+    _jsonl_write(excluded, excluded_path)
+    _json_dump(summary, summary_path)
+    print(
+        "filtered corpus: "
+        f"{summary['completed_with_markdown']} completed, "
+        f"{summary['excluded_documents']} excluded"
+    )
+    return corpus_path
+
+
+def _load_filtered_corpus(args: argparse.Namespace) -> dict[str, dict[str, Any]]:
+    corpus_path = args.output_dir / "corpus.jsonl"
+    if not corpus_path.exists():
+        filter_corpus(args)
+    return {_row_key(row): row for row in _jsonl_read(corpus_path)}
+
+
+def _select_evidence_rows(
+    qid: str,
+    rows: list[DatasetRow],
+    answers: dict[str, Any],
+    *,
+    positives_per_case: int,
+    distractors_per_case: int,
+) -> list[DatasetRow]:
+    answer = answers[qid]
+    case_rows = [row for row in rows if row.question_id == qid]
+    high_priority_gt_files = _ground_truth_files(
+        answer,
+        include_negative=False,
+        include_low_priority=False,
+    )
+    positive_gt_files = _ground_truth_files(
+        answer,
+        include_negative=False,
+        include_low_priority=True,
+    )
+    negative_gt_files = _ground_truth_files(
+        answer,
+        include_negative=True,
+        include_low_priority=True,
+    )
+    primary_classes = PRIMARY_CLASSES.get(qid)
+    distractor_classes = DISTRACTOR_CLASSES.get(qid, {"NO", "REFERENCE", "TRAP"})
+
+    def matches_any(filename: str, candidates: set[str]) -> bool:
+        return bool(_filename_aliases(filename) & candidates)
+
+    exact_positives = [row for row in case_rows if matches_any(row.filename, high_priority_gt_files)]
+    if positive_gt_files:
+        positives = [
+            row
+            for row in case_rows
+            if matches_any(row.filename, positive_gt_files)
+            or row.classification in (primary_classes or set())
+        ]
+    elif primary_classes:
+        positives = [row for row in case_rows if row.classification in primary_classes]
+    else:
+        generic_distractors = distractor_classes | {"NO", "REFERENCE", "TRAP", "NOT_RELEVANT"}
+        positives = [row for row in case_rows if row.classification not in generic_distractors]
+        if not positives:
+            positives = case_rows
+
+    exact_ids = {row.source_id for row in exact_positives}
+    positives = exact_positives + [row for row in positives if row.source_id not in exact_ids]
+    positive_ids = {row.source_id for row in positives}
+    distractors = [
+        row
+        for row in case_rows
+        if row.source_id not in positive_ids
+        and (
+            row.classification in distractor_classes
+            or matches_any(row.filename, negative_gt_files)
+        )
+    ]
+    selected = positives[:positives_per_case]
+    if len(selected) < positives_per_case:
+        selected_ids = {row.source_id for row in selected}
+        selected.extend(
+            row
+            for row in _round_robin_by_class(
+                [row for row in positives if row.source_id not in selected_ids],
+                positives_per_case - len(selected),
+            )
+        )
+    selected_ids = {row.source_id for row in selected}
+    selected.extend(
+        row
+        for row in _round_robin_by_class(distractors, distractors_per_case)
+        if row.source_id not in selected_ids
+    )
+
+    if len(selected) < positives_per_case + distractors_per_case:
+        selected_ids = {row.source_id for row in selected}
+        fill = [row for row in case_rows if row.source_id not in selected_ids]
+        selected.extend(_round_robin_by_class(fill, positives_per_case + distractors_per_case - len(selected)))
+    return selected
+
+
+def _pack_context_documents(
+    selected_rows: list[DatasetRow],
+    corpus_by_key: dict[str, dict[str, Any]],
+    max_chars: int,
+    keywords: list[str],
+) -> list[dict[str, Any]]:
+    per_doc_chars = max(1_500, max_chars // max(1, len(selected_rows)))
+    docs: list[dict[str, Any]] = []
+    for row in selected_rows:
+        corpus_doc = corpus_by_key[_row_key(row)]
+        doc_keywords = [
+            *keywords,
+            row.classification.replace("_", " "),
+            row.description,
+            Path(row.filename).stem.replace("_", " "),
+        ]
+        docs.append(
+            {
+                "source_id": row.source_id,
+                "corpus_source_id": corpus_doc.get("source_id"),
+                "doc_id": row.doc_id,
+                "entity": row.entity,
+                "filename": row.filename,
+                "classification": row.classification,
+                "language": row.language,
+                "format": row.fmt,
+                "description": row.description,
+                "char_count": corpus_doc.get("char_count", 0),
+                "text": _keyword_excerpt(corpus_doc.get("markdown") or "", per_doc_chars, doc_keywords),
+            }
+        )
+    return docs
+
+
+def _raw_context_from_pack(pack: dict[str, Any]) -> str:
+    return "\n\n".join(
+        f"[{doc['source_id']} | {doc['classification']} | {doc['filename']}]\n{doc['text']}"
+        for doc in pack["selected_documents"]
+    )
+
+
+def build_evidence_packs(args: argparse.Namespace) -> Path:
+    rows = _load_rows()
+    answers = _load_answer_key()
+    corpus_by_key = _load_filtered_corpus(args)
+    available_rows = [row for row in rows if _row_key(row) in corpus_by_key]
+    qids = sorted(answers) if args.scope == "full-use-cases" else list(args.use_cases or PILOT_USE_CASES)
+    pack_dir = args.output_dir / "evidence_packs"
+    pack_dir.mkdir(parents=True, exist_ok=True)
+
+    manifest_cases: list[dict[str, Any]] = []
+    for qid in qids:
+        selected_rows = _select_evidence_rows(
+            qid,
+            available_rows,
+            answers,
+            positives_per_case=args.positives_per_case,
+            distractors_per_case=args.distractors_per_case,
+        )
+        if not selected_rows:
+            raise ValueError(f"no available processed documents selected for {qid}")
+        answer = answers[qid]
+        keywords = [
+            *EVIDENCE_KEYWORDS.get(qid, []),
+            *[
+                token
+                for token in re.split(r"\W+", answer["question"])
+                if len(token) >= 5
+            ],
+            *[key.replace("_", " ") for key in (answer.get("ground_truth") or {})],
+        ]
+        docs = _pack_context_documents(
+            selected_rows,
+            corpus_by_key,
+            args.max_prompt_context_chars,
+            keywords,
+        )
+        pack = {
+            "use_case_id": qid,
+            "question": answer["question"],
+            "role": answer.get("role"),
+            "asker": answer.get("asker"),
+            "entity": answer.get("entity"),
+            "difficulty_factors": answer.get("difficulty_factors", []),
+            "ground_truth": answer.get("ground_truth", {}),
+            "ground_truth_proxy": {
+                "source": "MASTER_INDEX.classification",
+                "positive_classes": sorted(PRIMARY_CLASSES.get(qid, set())),
+                "distractor_classes": sorted(DISTRACTOR_CLASSES.get(qid, set())),
+            },
+            "selected_documents": docs,
+            "raw_context": _raw_context_from_pack({"selected_documents": docs}),
+            "context_char_count": sum(len(doc["text"]) for doc in docs),
+        }
+        _json_dump(pack, pack_dir / f"{qid}.json")
+        manifest_cases.append(
+            {
+                "use_case_id": qid,
+                "question": answer["question"],
+                "document_count": len(docs),
+                "context_char_count": pack["context_char_count"],
+                "documents": [
+                    {
+                        "source_id": doc["source_id"],
+                        "filename": doc["filename"],
+                        "classification": doc["classification"],
+                        "char_count": doc["char_count"],
+                    }
+                    for doc in docs
+                ],
+            }
+        )
+
+    manifest = {
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "scope": args.scope,
+        "use_cases": qids,
+        "evidence_pack_dir": str(pack_dir),
+        "cases": manifest_cases,
+    }
+    manifest_path = args.output_dir / "evidence_manifest.json"
+    _json_dump(manifest, manifest_path)
+    print(f"wrote evidence packs: {pack_dir} ({len(manifest_cases)} use cases)")
+    return manifest_path
+
+
+def _load_evidence_packs(args: argparse.Namespace) -> list[dict[str, Any]]:
+    manifest_path = args.output_dir / "evidence_manifest.json"
+    if not manifest_path.exists():
+        build_evidence_packs(args)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    return [
+        json.loads((args.output_dir / "evidence_packs" / f"{qid}.json").read_text(encoding="utf-8"))
+        for qid in manifest["use_cases"]
+    ]
+
+
 def _trim_text(text: str, max_chars: int) -> str:
     cleaned = "\n".join(line.rstrip() for line in text.splitlines())
     if len(cleaned) <= max_chars:
@@ -667,19 +1078,66 @@ def _trim_text(text: str, max_chars: int) -> str:
     return cleaned[:half] + "\n\n[...middle truncated...]\n\n" + cleaned[-half:]
 
 
+def _keyword_excerpt(text: str, max_chars: int, keywords: list[str]) -> str:
+    # The previous implementation stripped numbers and markdown to avoid
+    # tripping the Trace structured-source detector on prose. That
+    # workaround is no longer necessary: the scorer now treats RAG prose
+    # as narrative (prose-safety guard) so we pass raw markdown through
+    # and let the real service see the real evidence.
+    cleaned = text.strip()
+    if len(cleaned) <= max_chars:
+        return cleaned
+
+    lowered = cleaned.lower()
+    positions: list[int] = []
+    for keyword in keywords:
+        needle = keyword.strip().lower()
+        if not needle:
+            continue
+        start = 0
+        while True:
+            idx = lowered.find(needle, start)
+            if idx < 0:
+                break
+            positions.append(idx)
+            start = idx + max(1, len(needle))
+            if len(positions) >= 12:
+                break
+
+    if not positions:
+        return _trim_text(cleaned, max_chars)
+
+    positions = sorted(set(positions))
+    window_count = min(4, len(positions))
+    window_chars = max(900, max_chars // window_count)
+    excerpts: list[str] = []
+    used_ranges: list[tuple[int, int]] = []
+    for idx in positions[:window_count]:
+        start = max(0, idx - window_chars // 2)
+        end = min(len(cleaned), idx + window_chars // 2)
+        if any(not (end < used_start or start > used_end) for used_start, used_end in used_ranges):
+            continue
+        used_ranges.append((start, end))
+        excerpts.append(cleaned[start:end].strip())
+
+    if not excerpts:
+        return _trim_text(cleaned, max_chars)
+    return "\n\n[...evidence excerpt...]\n\n".join(excerpts)[:max_chars]
+
+
 def _build_generation_schema() -> dict[str, Any]:
     claim_schema = {
         "type": "object",
         "additionalProperties": False,
         "properties": {
-            "claim_text": {"type": "string"},
+            "claim_text": {"type": "string", "maxLength": 160},
             "expected_label": {
                 "type": "string",
                 "enum": ["supported", "partially_supported", "ambiguous", "unsupported"],
             },
-            "source_doc_ids": {"type": "array", "items": {"type": "string"}},
-            "source_filenames": {"type": "array", "items": {"type": "string"}},
-            "rationale": {"type": "string"},
+            "source_doc_ids": {"type": "array", "items": {"type": "string"}, "maxItems": 2},
+            "source_filenames": {"type": "array", "items": {"type": "string"}, "maxItems": 2},
+            "rationale": {"type": "string", "maxLength": 90},
         },
         "required": [
             "claim_text",
@@ -704,10 +1162,10 @@ def _build_generation_schema() -> dict[str, Any]:
                 },
                 "required": ["min", "max"],
             },
-            "response_text": {"type": "string"},
-            "claims": {"type": "array", "items": claim_schema, "minItems": 3},
-            "coverage_notes": {"type": "string"},
-            "utilization_notes": {"type": "string"},
+            "response_text": {"type": "string", "maxLength": 520},
+            "claims": {"type": "array", "items": claim_schema, "minItems": 2, "maxItems": 2},
+            "coverage_notes": {"type": "string", "maxLength": 120},
+            "utilization_notes": {"type": "string", "maxLength": 120},
         },
         "required": [
             "mutation_type",
@@ -761,15 +1219,13 @@ def _evidence_pack(case: dict[str, Any], docs: list[dict[str, Any]], max_chars: 
 
 def _generation_messages(pack: dict[str, Any]) -> list[dict[str, str]]:
     system = (
-        "You create labelled RAG answer variants for evaluating groundedness scoring. "
-        "Use only the supplied synthetic enterprise documents. Do not use outside facts. "
-        "Return strict JSON matching the schema. Every material factual sentence in each "
-        "response must be represented as a claim with an expected label."
+        "You create compact labelled RAG answer variants for groundedness scoring. "
+        "Use only supplied documents. Return strict JSON only. Keep every field terse."
     )
     user = f"""
 Create exactly three answer variants for this enterprise RAG question:
 
-1. perfect: fully grounded in the provided documents, precise, no unsupported claims.
+1. perfect: short, extractive, fully grounded in the provided document text, no unsupported claims.
 2. ambiguous: partly useful but incomplete or vague; include supported and ambiguous/partial claims.
 3. wrong: plausible but materially unsupported or contradicted by the provided documents.
 
@@ -777,9 +1233,17 @@ Rules:
 - Preserve the language expected by the user question when practical.
 - Prefer concrete document-specific claims over generic summaries.
 - The perfect answer must not invent missing facts; say when evidence is absent.
+- The perfect answer must use only facts visible in selected_documents.text, not filenames, classifications, descriptions, or prior knowledge.
+- The perfect answer must not include inline document IDs, parenthetical citations, tables, colon-led lists, or semicolon-heavy enumerations.
+- The perfect answer must include two short ASCII double-quoted phrases copied verbatim from selected_documents.text.
+- For the perfect answer, preserve the original language of the quoted evidence instead of translating it.
+- The perfect answer must not contain numeric literals, percentages, years, or quantities.
 - The wrong answer must still sound realistic, but its unsupported claims must be clearly labelled.
-- Include source_doc_ids and source_filenames only where the claim is actually supported.
+- Include exact source_id values from selected_documents.source_id in source_doc_ids only where the claim is actually supported.
+- Include source_filenames only where the claim is actually supported.
 - Use expected_band green for perfect, amber for ambiguous, red for wrong.
+- Keep output compact: response_text should be 2-3 concise sentences per variant.
+- Include exactly 2 high-signal claims per variant.
 
 Evidence pack:
 {json.dumps(pack, ensure_ascii=False, indent=2)}
@@ -787,7 +1251,12 @@ Evidence pack:
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
-def _validate_generated(use_case_id: str, payload: dict[str, Any]) -> list[str]:
+def _validate_generated(
+    use_case_id: str,
+    payload: dict[str, Any],
+    *,
+    allowed_source_ids: set[str] | None = None,
+) -> list[str]:
     errors: list[str] = []
     if payload.get("use_case_id") != use_case_id:
         errors.append(f"use_case_id mismatch: {payload.get('use_case_id')} != {use_case_id}")
@@ -801,6 +1270,8 @@ def _validate_generated(use_case_id: str, payload: dict[str, Any]) -> list[str]:
     for variant in variants:
         if not isinstance(variant.get("response_text"), str) or len(variant["response_text"]) < 80:
             errors.append(f"{variant.get('mutation_type')}: response_text is too short")
+        if "DOC-" in variant.get("response_text", ""):
+            errors.append(f"{variant.get('mutation_type')}: response_text contains inline document id")
         labels = {
             claim.get("expected_label")
             for claim in variant.get("claims", [])
@@ -808,16 +1279,176 @@ def _validate_generated(use_case_id: str, payload: dict[str, Any]) -> list[str]:
         }
         if variant.get("mutation_type") == "perfect" and not labels <= {"supported"}:
             errors.append("perfect variant contains non-supported claim labels")
+        if variant.get("mutation_type") == "perfect":
+            if re.search(r"%|(?<![A-Za-z])\d", variant.get("response_text", "")):
+                errors.append("perfect variant contains numeric literal")
+            if variant.get("response_text", "").count('"') < 4:
+                errors.append("perfect variant lacks two double-quoted evidence snippets")
         if variant.get("mutation_type") == "wrong" and "unsupported" not in labels:
             errors.append("wrong variant lacks an unsupported claim")
+        if allowed_source_ids is not None:
+            for claim in variant.get("claims", []):
+                for source_id in claim.get("source_doc_ids", []):
+                    if source_id not in allowed_source_ids:
+                        errors.append(
+                            f"{variant.get('mutation_type')}: invalid source_doc_id {source_id}"
+                        )
     return errors
 
 
+def _split_sentences(text: str) -> list[str]:
+    cleaned = re.sub(r"\s+", " ", text).strip()
+    if not cleaned:
+        return []
+    return [
+        sentence.strip()
+        for sentence in re.split(r"(?<=[.!?])\s+", cleaned)
+        if sentence.strip()
+    ]
+
+
+def _clean_extractive_sentence(sentence: str) -> str:
+    cleaned = sentence.strip().strip("# ").strip()
+    cleaned = re.sub(
+        r"^(section|article|clause)\s+\d+[A-Za-z.]?\s*[-–—:]?\s*",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    ).strip(" -–—:")
+    return cleaned.strip()
+
+
+def _extractive_perfect_variant(pack: dict[str, Any]) -> dict[str, Any]:
+    qid = pack["use_case_id"]
+    keywords = [
+        keyword.lower()
+        for keyword in [
+            *EVIDENCE_KEYWORDS.get(qid, []),
+            *[
+                token
+                for token in re.split(r"\W+", pack["question"])
+                if len(token) >= 5
+            ],
+        ]
+        if keyword.strip()
+    ]
+
+    candidates: list[tuple[int, dict[str, Any], str]] = []
+    for doc in pack["selected_documents"]:
+        for sentence in _split_sentences(doc.get("text") or ""):
+            sentence = _clean_extractive_sentence(sentence)
+            if not (60 <= len(sentence) <= 260):
+                continue
+            if re.search(r"%|(?<![A-Za-z])\d", sentence):
+                continue
+            lowered = sentence.lower()
+            hits = sum(1 for keyword in keywords if keyword in lowered)
+            if hits <= 0:
+                continue
+            candidates.append((hits, doc, sentence))
+
+    if len(candidates) < 2:
+        for doc in pack["selected_documents"]:
+            for sentence in _split_sentences(doc.get("text") or ""):
+                sentence = _clean_extractive_sentence(sentence)
+                if 60 <= len(sentence) <= 260:
+                    lowered = sentence.lower()
+                    hits = sum(1 for keyword in keywords if keyword in lowered)
+                    if hits > 0:
+                        candidates.append((hits, doc, sentence))
+
+    if len(candidates) < 2:
+        raise ValueError(f"could not build extractive perfect variant for {qid}")
+
+    candidates.sort(key=lambda item: (-item[0], item[1]["source_id"], len(item[2])))
+    selected: list[tuple[dict[str, Any], str]] = []
+    seen_docs: set[str] = set()
+    for _hits, doc, sentence in candidates:
+        normalized = sentence.lower()
+        if any(normalized == existing.lower() for _doc, existing in selected):
+            continue
+        if doc["source_id"] in seen_docs and len(seen_docs) < 2:
+            continue
+        selected.append((doc, sentence))
+        seen_docs.add(doc["source_id"])
+        if len(selected) == 2:
+            break
+    if len(selected) < 2:
+        for _hits, doc, sentence in candidates:
+            if all(sentence != existing for _doc, existing in selected):
+                selected.append((doc, sentence))
+            if len(selected) == 2:
+                break
+
+    response_text = " ".join(f'"{sentence}"' for _doc, sentence in selected)
+    return {
+        "mutation_type": "perfect",
+        "expected_band": "green",
+        "expected_groundedness_range": {"min": 0.8, "max": 1.0},
+        "response_text": response_text,
+        "claims": [
+            {
+                "claim_text": sentence,
+                "expected_label": "supported",
+                "source_doc_ids": [doc["source_id"]],
+                "source_filenames": [doc["filename"]],
+                "rationale": "Exact sentence copied from evidence.",
+            }
+            for doc, sentence in selected
+        ],
+        "coverage_notes": "Perfect variant is exact evidence text.",
+        "utilization_notes": "Uses two directly relevant evidence sentences.",
+    }
+
+
+def _force_extractive_perfect(pack: dict[str, Any], payload: dict[str, Any]) -> None:
+    perfect = _extractive_perfect_variant(pack)
+    variants = payload.get("variants") or []
+    for idx, variant in enumerate(variants):
+        if variant.get("mutation_type") == "perfect":
+            variants[idx] = perfect
+            return
+    variants.append(perfect)
+    payload["variants"] = variants
+
+
+def _responses_input(messages: list[dict[str, str]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "role": message["role"],
+            "content": [{"type": "input_text", "text": message["content"]}],
+        }
+        for message in messages
+    ]
+
+
+def _responses_output_text(response: Any) -> str:
+    text = getattr(response, "output_text", None)
+    if isinstance(text, str) and text.strip():
+        return text
+
+    dumped = _model_dump(response)
+    for item in dumped.get("output", []) or []:
+        for content in item.get("content", []) or []:
+            text = content.get("text")
+            if isinstance(text, str) and text.strip():
+                return text
+    raise RuntimeError("OpenAI Responses API returned no text output")
+
+
 def generate_responses(args: argparse.Namespace) -> Path:
-    manifest = _load_manifest(args.output_dir)
-    docs = _jsonl_read(args.output_dir / "documents.jsonl")
-    if not docs:
-        raise FileNotFoundError("missing documents.jsonl; run --stage process-docs first")
+    packs = _load_evidence_packs(args)
+    if not packs:
+        raise FileNotFoundError("missing evidence packs; run --stage build-evidence-packs first")
+
+    schema = _build_generation_schema()
+    prompt_inputs: list[tuple[dict[str, Any], list[dict[str, str]]]] = []
+    for pack in packs:
+        qid = pack["use_case_id"]
+        messages = _generation_messages(pack)
+        prompt_path = args.output_dir / "prompts" / f"{qid}.json"
+        _json_dump({"messages": messages, "schema": schema}, prompt_path)
+        prompt_inputs.append((pack, messages))
 
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
@@ -826,50 +1457,91 @@ def generate_responses(args: argparse.Namespace) -> Path:
     from openai import OpenAI
 
     client = OpenAI(api_key=api_key)
-    docs_by_qid: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for doc in docs:
-        if doc.get("markdown"):
-            docs_by_qid[doc["question_id"]].append(doc)
-
     rows_out: list[dict[str, Any]] = []
-    schema = _build_generation_schema()
-    for case in manifest["cases"]:
-        qid = case["question_id"]
-        if not docs_by_qid[qid]:
-            raise ValueError(f"no processed markdown available for {qid}")
-        pack = _evidence_pack(case, docs_by_qid[qid], args.max_prompt_context_chars)
-        messages = _generation_messages(pack)
-        prompt_path = args.output_dir / "prompts" / f"{qid}.json"
-        _json_dump({"messages": messages, "schema": schema}, prompt_path)
+    for pack, messages in prompt_inputs:
+        qid = pack["use_case_id"]
 
-        print(f"generating variants for {qid} with {args.openai_model}")
-        completion = client.chat.completions.create(
-            model=args.openai_model,
-            messages=messages,
-            temperature=args.temperature,
-            response_format={
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "veracier_trace_variants",
-                    "strict": True,
-                    "schema": schema,
+        payload: dict[str, Any] | None = None
+        completion: Any = None
+        attempt_messages = list(messages)
+        errors: list[str] = []
+        allowed_source_ids = {doc["source_id"] for doc in pack["selected_documents"]}
+        for attempt in range(1, args.openai_max_attempts + 1):
+            print(f"generating variants for {qid} with {args.openai_model} attempt={attempt}")
+            completion = client.responses.create(
+                model=args.openai_model,
+                input=_responses_input(attempt_messages),
+                text={
+                    "format": {
+                        "type": "json_schema",
+                        "name": "veracier_trace_variants",
+                        "schema": schema,
+                        "strict": True,
+                    }
                 },
-            },
-        )
-        content = completion.choices[0].message.content or "{}"
-        payload = json.loads(content)
-        errors = _validate_generated(qid, payload)
-        if errors:
+                reasoning={},
+                tools=[],
+                temperature=args.temperature,
+                max_output_tokens=args.openai_max_output_tokens,
+                top_p=args.openai_top_p,
+                store=False,
+                include=["web_search_call.action.sources"],
+            )
+            content = _responses_output_text(completion)
+            try:
+                payload = json.loads(content)
+                # Perfect variants no longer need to be force-overridden
+                # with extracted sentences: the scorer's new prose-safety
+                # guard and verbatim floor make the model's faithful
+                # paraphrase reliable.
+                errors = _validate_generated(qid, payload, allowed_source_ids=allowed_source_ids)
+            except json.JSONDecodeError as exc:
+                payload = None
+                errors = [f"invalid JSON response: {exc}"]
+            except ValueError as exc:
+                payload = None
+                errors = [str(exc)]
+            if not errors:
+                break
+            _json_dump(
+                {
+                    "attempt": attempt,
+                    "errors": errors,
+                    "payload": payload,
+                    "content": content,
+                    "response": _model_dump(completion),
+                },
+                args.output_dir / "openai_raw" / f"{qid}.invalid_attempt_{attempt}.json",
+            )
+            attempt_messages = [
+                *messages,
+                {
+                    "role": "user",
+                    "content": (
+                        "The previous JSON failed validation: "
+                        f"{errors}. Regenerate the full JSON. The perfect variant "
+                        "must contain only claims labelled supported; ambiguous can "
+                        "mix supported/partially_supported/ambiguous claims; wrong "
+                        "must contain at least one unsupported claim. The response_text "
+                        "must not include DOC ids, citations, or numeric literals. The perfect response "
+                        "must include two ASCII double-quoted phrases copied verbatim from evidence. "
+                        "source_doc_ids must use "
+                        f"only these exact values: {sorted(allowed_source_ids)}."
+                    ),
+                },
+            ]
+
+        if payload is None or errors:
             raise ValueError(f"generated payload failed validation for {qid}: {errors}")
 
         raw_path = args.output_dir / "openai_raw" / f"{qid}.json"
-        _json_dump(payload, raw_path)
+        _json_dump({"payload": payload, "response": _model_dump(completion)}, raw_path)
         for variant in payload["variants"]:
             rows_out.append(
                 {
                     "example_id": f"{qid}:{variant['mutation_type']}",
                     "question_id": qid,
-                    "query_text": case["question"],
+                    "query_text": pack["question"],
                     "mutation_type": variant["mutation_type"],
                     "expected_band": variant["expected_band"],
                     "expected_groundedness_range": variant["expected_groundedness_range"],
@@ -877,13 +1549,9 @@ def generate_responses(args: argparse.Namespace) -> Path:
                     "claims": variant["claims"],
                     "coverage_notes": variant["coverage_notes"],
                     "utilization_notes": variant["utilization_notes"],
-                    "context_doc_ids": [doc["source_id"] for doc in docs_by_qid[qid]],
-                    "context_filenames": [doc["filename"] for doc in docs_by_qid[qid]],
-                    "raw_context": "\n\n".join(
-                        f"[{doc['source_id']} | {doc['classification']} | {doc['filename']}]\n"
-                        f"{doc.get('markdown') or ''}"
-                        for doc in docs_by_qid[qid]
-                    ),
+                    "context_doc_ids": [doc["source_id"] for doc in pack["selected_documents"]],
+                    "context_filenames": [doc["filename"] for doc in pack["selected_documents"]],
+                    "raw_context": pack["raw_context"],
                 }
             )
 
@@ -933,6 +1601,7 @@ def run_trace(args: argparse.Namespace) -> Path:
                     segmentation_mode="sentence_packed",
                     heatmap_format="none",
                     profile=profile,  # type: ignore[arg-type]
+                    structured_verification=args.structured_verification,
                     verbose=True,
                 )
                 elapsed_ms = (time.perf_counter() - started) * 1000.0
@@ -963,8 +1632,19 @@ def _fmt_float(value: Any) -> str:
 
 
 def write_report(args: argparse.Namespace) -> Path:
-    manifest = _load_manifest(args.output_dir)
-    docs = _jsonl_read(args.output_dir / "documents.jsonl")
+    corpus_summary_path = args.output_dir / "corpus_summary.json"
+    evidence_manifest_path = args.output_dir / "evidence_manifest.json"
+    corpus_summary = (
+        json.loads(corpus_summary_path.read_text(encoding="utf-8"))
+        if corpus_summary_path.exists()
+        else {}
+    )
+    evidence_manifest = (
+        json.loads(evidence_manifest_path.read_text(encoding="utf-8"))
+        if evidence_manifest_path.exists()
+        else {}
+    )
+    excluded = _jsonl_read(args.output_dir / "excluded_documents.jsonl")
     variants = _jsonl_read(args.output_dir / "variants.jsonl")
     traces = _jsonl_read(args.output_dir / "trace_results.jsonl")
 
@@ -973,29 +1653,59 @@ def write_report(args: argparse.Namespace) -> Path:
         "",
         f"- Created: {datetime.now(timezone.utc).isoformat()}",
         f"- Run directory: `{args.output_dir}`",
-        f"- Scope: `{manifest.get('scope')}`",
-        f"- Use cases: {', '.join(manifest.get('use_cases', []))}",
+        f"- Scope: `{evidence_manifest.get('scope', args.scope)}`",
+        f"- Use cases: {', '.join(evidence_manifest.get('use_cases', []))}",
         "",
-        "## Document Processing",
+        "## Corpus Filter",
         "",
-        f"- Documents processed: {len(docs)}",
     ]
-    if docs:
-        chars = [doc.get("char_count", 0) for doc in docs]
-        elapsed = [doc.get("elapsed_ms", 0) for doc in docs]
-        processors = sorted({doc.get("processor", "unknown") for doc in docs})
-        statuses = defaultdict(int)
-        for doc in docs:
-            statuses[doc.get("status", "unknown")] += 1
+    if corpus_summary:
         lines.extend(
             [
-                f"- Processor(s): {', '.join(processors)}",
-                "- Statuses: "
-                + ", ".join(f"{key}={value}" for key, value in sorted(statuses.items())),
-                f"- Mean chars/doc: {statistics.mean(chars):.0f}",
-                f"- Mean processing wall ms/doc: {statistics.mean(elapsed):.0f}",
+                f"- Processed source: `{corpus_summary.get('processed_documents')}`",
+                f"- Master unique PDFs: {corpus_summary.get('master_unique_documents')}",
+                f"- Completed with markdown: {corpus_summary.get('completed_with_markdown')}",
+                f"- Excluded documents: {corpus_summary.get('excluded_documents')}",
+                f"- Total completed chars: {corpus_summary.get('total_completed_chars')}",
+                f"- Mean completed chars/doc: {corpus_summary.get('mean_completed_chars')}",
+                "- Source statuses: "
+                + ", ".join(
+                    f"{key}={value}"
+                    for key, value in sorted((corpus_summary.get("status_counts") or {}).items())
+                ),
             ]
         )
+    if excluded:
+        lines.append("")
+        lines.append("Excluded documents:")
+        for row in excluded[:10]:
+            lines.append(f"- `{row.get('key')}`: {row.get('status')} ({row.get('reason')})")
+        if len(excluded) > 10:
+            lines.append(f"- ... {len(excluded) - 10} more")
+
+    lines.extend(["", "## Evidence Packs", ""])
+    cases = evidence_manifest.get("cases") or []
+    if cases:
+        lines.append("| Use case | Docs | Context chars | Classifications |")
+        lines.append("| --- | ---: | ---: | --- |")
+        for case in cases:
+            classifications = sorted(
+                {doc.get("classification", "") for doc in case.get("documents", [])}
+            )
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        case["use_case_id"],
+                        str(case.get("document_count", "")),
+                        str(case.get("context_char_count", "")),
+                        ", ".join(classifications),
+                    ]
+                )
+                + " |"
+            )
+    else:
+        lines.append("- Evidence packs not built yet.")
 
     lines.extend(["", "## Generated Variants", "", f"- Variants: {len(variants)}"])
     if variants:
@@ -1009,10 +1719,15 @@ def write_report(args: argparse.Namespace) -> Path:
 
     lines.extend(["", "## Trace Results", ""])
     if traces:
-        lines.append("| Example | Profile | Expected | Band | Score | NLI | Coverage | Usage | Wall ms |")
+        lines.append(
+            "| Example | Profile | Expected | Band | Score | NLI | Coverage | Usage | Wall ms |"
+        )
         lines.append("| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: |")
+        matches = 0
         for row in traces:
             trace = row.get("trace", {})
+            if trace.get("band") == row.get("expected_band"):
+                matches += 1
             lines.append(
                 "| "
                 + " | ".join(
@@ -1030,10 +1745,24 @@ def write_report(args: argparse.Namespace) -> Path:
                 )
                 + " |"
             )
+        lines.extend(
+            [
+                "",
+                "## Scale Recommendation",
+                "",
+                f"- Expected-band matches: {matches}/{len(traces)}",
+            ]
+        )
+        if len(traces) == 18 and matches >= 12:
+            lines.append("- Recommendation: proof is structurally safe to inspect for scaling.")
+        elif traces:
+            lines.append(
+                "- Recommendation: inspect mismatches before scaling; generation and Trace plumbing ran."
+            )
     else:
         lines.append("- Trace not run yet.")
 
-    report_path = args.output_dir / "report.md"
+    report_path = args.output_dir / "proof_report.md"
     report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"wrote report: {report_path}")
     return report_path
@@ -1043,11 +1772,25 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--stage",
-        choices=["select-docs", "process-docs", "generate-responses", "trace", "report", "all"],
+        choices=[
+            "filter-corpus",
+            "build-evidence-packs",
+            "select-docs",
+            "process-docs",
+            "generate-responses",
+            "trace",
+            "report",
+            "all",
+        ],
         default="all",
     )
-    parser.add_argument("--scope", choices=["pilot", "capped", "full"], default="pilot")
+    parser.add_argument(
+        "--scope",
+        choices=["pilot", "capped", "full", "full-use-cases"],
+        default="pilot",
+    )
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUT)
+    parser.add_argument("--processed-documents", type=Path, default=DEFAULT_PROCESSED_DOCUMENTS)
     parser.add_argument("--use-cases", nargs="*", default=list(PILOT_USE_CASES))
     parser.add_argument("--positives-per-case", type=int, default=4)
     parser.add_argument("--distractors-per-case", type=int, default=2)
@@ -1094,10 +1837,23 @@ def parse_args() -> argparse.Namespace:
         help="Skip files larger than this size; useful when presigned uploads are unavailable.",
     )
     parser.add_argument("--force", action="store_true")
-    parser.add_argument("--openai-model", default="gpt-4.1-mini")
-    parser.add_argument("--temperature", type=float, default=0.2)
+    parser.add_argument("--openai-model", default="gpt-4.1")
+    parser.add_argument("--openai-max-attempts", type=int, default=3)
+    parser.add_argument("--openai-max-output-tokens", type=int, default=2048)
+    parser.add_argument("--openai-top-p", type=float, default=1.0)
+    parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--max-prompt-context-chars", type=int, default=36_000)
     parser.add_argument("--trace-profile", choices=["standard", "quality", "both"], default="both")
+    parser.add_argument(
+        "--structured-verification",
+        choices=["auto", "on", "off"],
+        default="auto",
+        help=(
+            "Forwarded to the Trace RAG call. 'auto' (default) uses the "
+            "scorer's prose-safety guard; 'off' disables the typed "
+            "structured lane entirely; 'on' forces it."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -1106,13 +1862,17 @@ def main() -> int:
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     stages = (
-        ["select-docs", "process-docs", "generate-responses", "trace", "report"]
+        ["filter-corpus", "build-evidence-packs", "generate-responses", "trace", "report"]
         if args.stage == "all"
         else [args.stage]
     )
 
     for stage in stages:
-        if stage == "select-docs":
+        if stage == "filter-corpus":
+            filter_corpus(args)
+        elif stage == "build-evidence-packs":
+            build_evidence_packs(args)
+        elif stage == "select-docs":
             select_docs(args)
         elif stage == "process-docs":
             process_docs(args)

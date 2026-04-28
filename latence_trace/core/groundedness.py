@@ -43,7 +43,9 @@ from latence_trace.core.thresholds import (
 )
 from latence_trace.core.structured import (
     default_penalty_per_mismatch,
+    detect_source_format,
     is_structured_enabled,
+    resolve_structured_mode,
     verification_to_dict,
     verify_structured_source,
 )
@@ -998,6 +1000,138 @@ def _support_unit_maxima(
 
 def _normalize_text_for_signature(text: str) -> str:
     return re.sub(r"\s+", " ", (text or "").strip().lower())
+
+
+def _normalize_text_for_verbatim_support(text: str) -> str:
+    normalized = (text or "").lower()
+    normalized = normalized.replace('"', " ").replace("“", " ").replace("”", " ")
+    normalized = normalized.replace("‘", " ").replace("’", " ").replace("'", " ")
+    normalized = re.sub(r"\s+", " ", normalized)
+    return normalized.strip()
+
+
+_LEXICAL_TOKEN_RE = re.compile(r"[\w\u00C0-\u017F]{2,}", re.UNICODE)
+
+
+def _lexical_token_set(text: str) -> set[str]:
+    """Return a lowercase token set used by the near-verbatim Jaccard check."""
+
+    normalized = _normalize_text_for_verbatim_support(text)
+    if not normalized:
+        return set()
+    return {tok for tok in _LEXICAL_TOKEN_RE.findall(normalized)}
+
+
+def _verbatim_support_floor(
+    response_text: Optional[str],
+    support_units: Sequence[Any],
+) -> Optional[float]:
+    """Return a high-confidence floor when response sentences are copied from support.
+
+    Some multilingual NLI models under-score exact self-entailment for legal
+    or enterprise prose. When the response is materially verbatim or
+    near-verbatim evidence text we treat it as grounded even if the NLI
+    margin is conservative. This floor is narrow:
+
+    * every substantial response sentence is either present in support after
+      quote/whitespace normalization (exact match), **or** its lowercase
+      token set has Jaccard overlap >= 0.85 with the concatenated support
+      tokens (near-verbatim — tolerates minor accent/OCR drift on
+      multilingual FR/DE prose).
+    """
+
+    response = _normalize_text_for_verbatim_support(response_text or "")
+    if not response:
+        return None
+    support_parts: list[str] = []
+    for unit in support_units:
+        if isinstance(unit, dict):
+            text = unit.get("text") or ""
+        else:
+            text = getattr(unit, "text", "")
+        if text:
+            support_parts.append(str(text))
+    support_joined = " ".join(support_parts)
+    support = _normalize_text_for_verbatim_support(support_joined)
+    if not support:
+        return None
+    support_tokens = _lexical_token_set(support_joined)
+
+    raw_sentences = [
+        _normalize_text_for_verbatim_support(sentence)
+        for sentence in re.split(r"(?<=[.!?])\s+", response_text or "")
+    ]
+    sentences = [sentence for sentence in raw_sentences if len(sentence) >= 40]
+    if not sentences:
+        return None
+
+    def _sentence_grounded(sentence: str) -> bool:
+        if sentence in support:
+            return True
+        tokens = {tok for tok in _LEXICAL_TOKEN_RE.findall(sentence)}
+        if not tokens or not support_tokens:
+            return False
+        overlap = len(tokens & support_tokens)
+        union = len(tokens | support_tokens)
+        if union == 0:
+            return False
+        jaccard = overlap / float(union)
+        # For short sentences use precision against support instead of full
+        # Jaccard (support is much larger so union dwarfs the overlap).
+        precision = overlap / float(len(tokens)) if tokens else 0.0
+        return jaccard >= 0.85 or precision >= 0.92
+
+    if all(_sentence_grounded(sentence) for sentence in sentences):
+        return 0.95
+    return None
+
+
+def _lexical_rescue_floor(
+    response_text: Optional[str],
+    support_units: Sequence[Any],
+    *,
+    reverse_context_calibrated: Optional[float],
+    literal_guarded: Optional[float],
+    nli_aggregate: Optional[float],
+) -> Optional[float]:
+    """Rescue for NLI under-confidence on multilingual / legal prose.
+
+    Fires when two independent lexical channels (``reverse_context_calibrated``
+    and ``literal_guarded``) both agree the response is grounded (>= 0.80)
+    but NLI is below 0.80, *and* the response has meaningful lexical
+    overlap with support (token-level precision >= 0.70). In that case we
+    lift the NLI aggregate to ``max(nli_aggregate, 0.85)`` so the fused
+    headline is not dragged down by a single under-confident NLI channel.
+
+    Returns the rescued floor (>= 0.85) or ``None`` when it should not
+    apply. The caller merges this with ``_verbatim_support_floor``.
+    """
+
+    if reverse_context_calibrated is None or literal_guarded is None:
+        return None
+    if float(reverse_context_calibrated) < 0.80 or float(literal_guarded) < 0.80:
+        return None
+    if nli_aggregate is not None and float(nli_aggregate) >= 0.80:
+        return None
+    response_tokens = _lexical_token_set(response_text or "")
+    if len(response_tokens) < 6:
+        return None
+    support_parts: list[str] = []
+    for unit in support_units:
+        if isinstance(unit, dict):
+            text = unit.get("text") or ""
+        else:
+            text = getattr(unit, "text", "")
+        if text:
+            support_parts.append(str(text))
+    support_tokens = _lexical_token_set(" ".join(support_parts))
+    if not support_tokens:
+        return None
+    overlap = len(response_tokens & support_tokens)
+    precision = overlap / float(len(response_tokens))
+    if precision < 0.70:
+        return None
+    return 0.85
 
 
 def support_unit_signature(unit: SupportUnitInput) -> str:
@@ -2233,6 +2367,7 @@ def score_groundedness(
     risk_band_policy: Optional[RiskBandPolicy] = None,
     content_type: Optional[str] = None,
     structured_enabled: Optional[bool] = None,
+    structured_verification: Optional[str] = None,
     structured_support_text: Optional[str] = None,
     coverage_threshold: float = _DEFAULT_COVERAGE_THRESHOLD,
     _emit_dedup_warning: bool = True,
@@ -2558,6 +2693,21 @@ def score_groundedness(
     if nli_payload is not None:
         warnings.extend(nli_payload.pop("warnings", []))
     nli_aggregate = nli_payload["aggregate_score"] if nli_payload else None
+    verbatim_floor = _verbatim_support_floor(response_text, support_units_payload)
+    if verbatim_floor is not None:
+        nli_aggregate = max(float(nli_aggregate or 0.0), verbatim_floor)
+    lexical_rescue = _lexical_rescue_floor(
+        response_text,
+        support_units_payload,
+        reverse_context_calibrated=(
+            float(reverse_context_calibrated_score) if null_bank_size > 0 else None
+        ),
+        literal_guarded=float(literal_guarded_value),
+        nli_aggregate=nli_aggregate,
+    )
+    if lexical_rescue is not None:
+        nli_aggregate = max(float(nli_aggregate or 0.0), lexical_rescue)
+        warnings.append("lexical_rescue_applied")
     nli_per_token = nli_payload["per_token"] if nli_payload else [None] * response_token_total
 
     semantic_entropy_payload = _maybe_run_semantic_entropy(
@@ -2576,6 +2726,7 @@ def score_groundedness(
         structured_support_text=structured_support_text,
         content_type=content_type,
         enabled=structured_enabled,
+        structured_verification=structured_verification,
         warnings=warnings,
     )
     structured_aggregate = (
@@ -2583,6 +2734,14 @@ def score_groundedness(
     )
     typed_structured_score = (
         structured_payload.get("typed_score") if structured_payload else None
+    )
+    structured_source_format = (
+        structured_payload.get("source_format") if structured_payload else None
+    )
+    typed_claims_matched = (
+        int(structured_payload.get("typed_claim_aligned", 0))
+        if structured_payload
+        else 0
     )
     usage_aggregates = apply_support_unit_usage_classification(
         support_units_payload=support_units_payload,
@@ -2602,6 +2761,8 @@ def score_groundedness(
         semantic_entropy=semantic_entropy_aggregate,
         structured_source_guarded=structured_aggregate,
         typed_structured=typed_structured_score,
+        source_format=structured_source_format,
+        typed_claims_matched=typed_claims_matched,
         weights=fusion_weights,
     )
     for token_idx, row in enumerate(response_token_rows):
@@ -2614,9 +2775,14 @@ def score_groundedness(
         ),
         reverse_context=float(reverse_context_score),
     )
+    effective_stratum = _resolve_effective_stratum(
+        risk_band_stratum=risk_band_stratum,
+        structured_source_format=structured_source_format,
+        structured_verification=structured_verification,
+    )
     risk_band = classify_risk_band(
         headline_for_band,
-        stratum=risk_band_stratum,
+        stratum=effective_stratum,
         policy=risk_band_policy,
     )
 
@@ -2630,6 +2796,12 @@ def score_groundedness(
         "literal_match_count": int(len(literal_matches)),
         "literal_total_count": int(len(response_literals)),
         "nli_aggregate": float(nli_aggregate) if nli_aggregate is not None else None,
+        "verbatim_support_floor": (
+            float(verbatim_floor) if verbatim_floor is not None else None
+        ),
+        "lexical_rescue_floor": (
+            float(lexical_rescue) if lexical_rescue is not None else None
+        ),
         "nli_claim_count": (
             int(nli_payload["claim_count"]) if nli_payload is not None else 0
         ),
@@ -2674,6 +2846,11 @@ def score_groundedness(
         ),
         "structured_source_typed_count": (
             int(structured_payload.get("typed_claim_count", 0)) if structured_payload else 0
+        ),
+        "structured_verification": (
+            str(structured_payload.get("structured_verification"))
+            if structured_payload and structured_payload.get("structured_verification")
+            else resolve_structured_mode(structured_verification)
         ),
         "risk_band": risk_band,
         "context_coverage_ratio": float(coverage["coverage_ratio"]),
@@ -2732,6 +2909,37 @@ def score_groundedness(
             "null_bank_size": null_bank_size,
         },
     }
+
+
+def _resolve_effective_stratum(
+    *,
+    risk_band_stratum: Optional[str],
+    structured_source_format: Optional[str],
+    structured_verification: Optional[str],
+) -> Optional[str]:
+    """Pick the risk-band stratum, auto-routing prose RAG to ``rag_prose``.
+
+    When the caller supplied an explicit ``risk_band_stratum`` we honour
+    it. Otherwise, when the structured-verification lane stayed silent
+    (detector returned no strong structured format and the caller did
+    not force it on), we route to the ``rag_prose`` stratum. This keeps
+    tabular/financial content strict (``default``) while giving
+    multilingual legal/cyber prose a honest band threshold that matches
+    the narrative-only fusion.
+    """
+
+    if risk_band_stratum:
+        return risk_band_stratum
+    mode = resolve_structured_mode(structured_verification)
+    if mode == "on":
+        return None
+    if not structured_source_format:
+        return "rag_prose"
+    if str(structured_source_format).strip().lower() in {"json", "markdown_table"}:
+        return None
+    # ``prose_table`` / ``numeric_fact`` auto-detected: keep the default
+    # stratum so the strict thresholds still apply to tabular content.
+    return None
 
 
 def _resolve_headline_for_risk_band(
@@ -2799,6 +3007,7 @@ def _maybe_run_structured(
     structured_support_text: Optional[str],
     content_type: Optional[str],
     enabled: Optional[bool],
+    structured_verification: Optional[str] = None,
     warnings: List[str],
 ) -> Optional[Dict[str, Any]]:
     """Run structured-source verification when a structured source is detected.
@@ -2811,6 +3020,11 @@ def _maybe_run_structured(
     the support-unit texts we received. The caller-supplied text is
     preferred because raw_context chunk splitting breaks JSON and
     markdown tables into pieces that can no longer be parsed.
+
+    ``structured_verification`` accepts ``"auto"`` (default detector),
+    ``"on"`` (force detection regardless of prose-safety guard) or
+    ``"off"`` (skip the lane entirely). ``VOYAGER_GROUNDEDNESS_STRUCTURED_MODE``
+    overrides the default when no caller value is supplied.
     """
 
     if enabled is False:
@@ -2819,6 +3033,10 @@ def _maybe_run_structured(
     if not resolved_enabled:
         return None
     if not (response_text or "").strip():
+        return None
+
+    mode = resolve_structured_mode(structured_verification)
+    if mode == "off":
         return None
 
     candidate_text = (structured_support_text or "").strip()
@@ -2830,11 +3048,18 @@ def _maybe_run_structured(
     if not candidate_text:
         return None
 
+    # When mode == "on" we pretend the caller sent a structured content
+    # type so the detector bypasses the prose-safety guard. ``"auto"``
+    # keeps the normal behaviour.
+    effective_content_type = content_type
+    if mode == "on" and not effective_content_type:
+        effective_content_type = "application/json+schema"
+
     try:
         result = verify_structured_source(
             support_text=candidate_text,
             response_text=response_text or "",
-            content_type=content_type,
+            content_type=effective_content_type,
             penalty_per_mismatch=default_penalty_per_mismatch(),
         )
     except Exception as exc:  # pragma: no cover - defensive guard
@@ -2844,6 +3069,7 @@ def _maybe_run_structured(
 
     payload = verification_to_dict(result)
     payload["detected"] = bool(result.detected)
+    payload["structured_verification"] = mode
     payload["guarded_score"] = (
         float(result.guarded_score) if result.guarded_score is not None else None
     )
@@ -3002,6 +3228,7 @@ def score_groundedness_chunked(
     risk_band_policy: Optional[RiskBandPolicy] = None,
     content_type: Optional[str] = None,
     structured_enabled: Optional[bool] = None,
+    structured_verification: Optional[str] = None,
     structured_support_text: Optional[str] = None,
     coverage_threshold: float = _DEFAULT_COVERAGE_THRESHOLD,
 ) -> Dict[str, Any]:
@@ -3043,6 +3270,7 @@ def score_groundedness_chunked(
             risk_band_policy=risk_band_policy,
             content_type=content_type,
             structured_enabled=structured_enabled,
+            structured_verification=structured_verification,
             structured_support_text=structured_support_text,
             coverage_threshold=coverage_threshold,
         )
@@ -3442,6 +3670,21 @@ def score_groundedness_chunked(
     if nli_payload is not None:
         warnings.extend(nli_payload.pop("warnings", []))
     nli_aggregate = nli_payload["aggregate_score"] if nli_payload else None
+    verbatim_floor = _verbatim_support_floor(response_text, support_units_payload)
+    if verbatim_floor is not None:
+        nli_aggregate = max(float(nli_aggregate or 0.0), verbatim_floor)
+    lexical_rescue = _lexical_rescue_floor(
+        response_text,
+        support_units_payload,
+        reverse_context_calibrated=(
+            float(reverse_context_calibrated_score) if null_bank_size > 0 else None
+        ),
+        literal_guarded=float(literal_guarded_value),
+        nli_aggregate=nli_aggregate,
+    )
+    if lexical_rescue is not None:
+        nli_aggregate = max(float(nli_aggregate or 0.0), lexical_rescue)
+        warnings.append("lexical_rescue_applied")
     nli_per_token_chunked = nli_payload["per_token"] if nli_payload else [None] * token_count
 
     usage_aggregates = apply_support_unit_usage_classification(
@@ -3469,6 +3712,7 @@ def score_groundedness_chunked(
         structured_support_text=structured_support_text,
         content_type=content_type,
         enabled=structured_enabled,
+        structured_verification=structured_verification,
         warnings=warnings,
     )
     structured_aggregate = (
@@ -3476,6 +3720,14 @@ def score_groundedness_chunked(
     )
     typed_structured_score = (
         structured_payload.get("typed_score") if structured_payload else None
+    )
+    structured_source_format = (
+        structured_payload.get("source_format") if structured_payload else None
+    )
+    typed_claims_matched = (
+        int(structured_payload.get("typed_claim_aligned", 0))
+        if structured_payload
+        else 0
     )
 
     groundedness_v2 = fuse_groundedness_v2(
@@ -3487,6 +3739,8 @@ def score_groundedness_chunked(
         semantic_entropy=semantic_entropy_aggregate,
         structured_source_guarded=structured_aggregate,
         typed_structured=typed_structured_score,
+        source_format=structured_source_format,
+        typed_claims_matched=typed_claims_matched,
         weights=fusion_weights,
     )
     for token_idx, row in enumerate(response_token_rows):
@@ -3503,9 +3757,14 @@ def score_groundedness_chunked(
         ),
         reverse_context=float(reverse_context_score),
     )
+    effective_stratum = _resolve_effective_stratum(
+        risk_band_stratum=risk_band_stratum,
+        structured_source_format=structured_source_format,
+        structured_verification=structured_verification,
+    )
     risk_band = classify_risk_band(
         headline_for_band,
-        stratum=risk_band_stratum,
+        stratum=effective_stratum,
         policy=risk_band_policy,
     )
 
@@ -3521,6 +3780,12 @@ def score_groundedness_chunked(
         "literal_match_count": int(len(literal_matches)),
         "literal_total_count": int(len(response_literals)),
         "nli_aggregate": float(nli_aggregate) if nli_aggregate is not None else None,
+        "verbatim_support_floor": (
+            float(verbatim_floor) if verbatim_floor is not None else None
+        ),
+        "lexical_rescue_floor": (
+            float(lexical_rescue) if lexical_rescue is not None else None
+        ),
         "nli_claim_count": (
             int(nli_payload["claim_count"]) if nli_payload is not None else 0
         ),
@@ -3565,6 +3830,11 @@ def score_groundedness_chunked(
         ),
         "structured_source_typed_count": (
             int(structured_payload.get("typed_claim_count", 0)) if structured_payload else 0
+        ),
+        "structured_verification": (
+            str(structured_payload.get("structured_verification"))
+            if structured_payload and structured_payload.get("structured_verification")
+            else resolve_structured_mode(structured_verification)
         ),
         "risk_band": risk_band,
         "context_coverage_ratio": float(coverage["coverage_ratio"]),
@@ -3761,6 +4031,7 @@ def score_groundedness_response_chunked(
     risk_band_policy: Optional[RiskBandPolicy] = None,
     content_type: Optional[str] = None,
     structured_enabled: Optional[bool] = None,
+    structured_verification: Optional[str] = None,
     structured_support_text: Optional[str] = None,
     coverage_threshold: float = _DEFAULT_COVERAGE_THRESHOLD,
 ) -> Dict[str, Any]:
@@ -3833,6 +4104,7 @@ def score_groundedness_response_chunked(
             risk_band_policy=risk_band_policy,
             content_type=content_type,
             structured_enabled=structured_enabled,
+            structured_verification=structured_verification,
             structured_support_text=structured_support_text,
             coverage_threshold=coverage_threshold,
         )
@@ -3884,6 +4156,7 @@ def score_groundedness_response_chunked(
             risk_band_policy=risk_band_policy,
             content_type=content_type,
             structured_enabled=structured_enabled if is_first else None,
+            structured_verification=structured_verification if is_first else None,
             structured_support_text=structured_support_text if is_first else None,
             coverage_threshold=coverage_threshold,
         )

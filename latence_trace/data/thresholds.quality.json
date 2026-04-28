@@ -102,6 +102,10 @@
       "recall_at_green": 1.0,
       "sample_count": 60
     },
+    "rag_prose": {
+      "amber_min": 0.55,
+      "green_min": 0.75
+    },
     "partial": {
       "amber_min": 0.6840378027152898,
       "green_min": 0.8071622737157433,

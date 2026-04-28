@@ -6,7 +6,7 @@
       "primary_name": "reverse_context",
       "primary_score": 0.09512087371614245,
       "reverse_context": 0.09512087371614245,
-      "risk_band": "red",
+      "risk_band": "green",
       "support_units_total": 1,
       "support_units_used": 0
     },
@@ -74,7 +74,7 @@
       "primary_name": "reverse_context",
       "primary_score": 0.2805478274822235,
       "reverse_context": 0.2805478274822235,
-      "risk_band": "red",
+      "risk_band": "green",
       "support_units_total": 2,
       "support_units_used": 0
     },

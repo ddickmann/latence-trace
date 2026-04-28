@@ -300,6 +300,19 @@ class GroundednessRequest(BaseModel):
             "When omitted the adapter auto-detects JSON and markdown table sources."
         ),
     )
+    structured_verification: Optional[str] = Field(
+        default=None,
+        description=(
+            "Controls the structured-source verification lane. 'auto' (default) "
+            "runs the detector but suppresses the typed lane on prose-shaped "
+            "chunks to avoid false positives. 'on' forces the typed lane on the "
+            "raw support (useful when the caller knows the content is tabular). "
+            "'off' disables the lane entirely so the fused headline relies on "
+            "narrative channels (NLI / literal / ColBERT). Recommended for "
+            "enterprise RAG on multilingual legal or cyber prose where numeric "
+            "key-value patterns can appear incidentally."
+        ),
+    )
     risk_band_stratum: Optional[str] = Field(
         default=None,
         description=(

@@ -29,6 +29,7 @@ from latence_trace.core.groundedness import (
     support_content_mask,
     support_unit_signature,
     tokenize_text,
+    _verbatim_support_floor,
 )
 from latence_trace.api.models import GroundednessRequest, TraceRuntimeProfile
 from latence_trace.providers.encoders import VllmFactoryModernColBERTProvider
@@ -165,6 +166,30 @@ def test_groundedness_request_accepts_hosted_runtime_profile() -> None:
         profile="quality",
     )
     assert request.profile == TraceRuntimeProfile.QUALITY
+
+
+def test_verbatim_support_floor_fires_for_copied_evidence() -> None:
+    response = (
+        '"Le contrat contient une clause de force majeure couvrant la chaine '
+        'd approvisionnement."'
+    )
+    support = [
+        {
+            "text": (
+                "Le contrat contient une clause de force majeure couvrant la chaine "
+                "d approvisionnement."
+            )
+        }
+    ]
+
+    assert _verbatim_support_floor(response, support) == pytest.approx(0.95)
+
+
+def test_verbatim_support_floor_ignores_paraphrases() -> None:
+    response = "Le contrat couvre tous les risques logistiques de maniere generale."
+    support = [{"text": "Le contrat contient une clause de force majeure."}]
+
+    assert _verbatim_support_floor(response, support) is None
 
 
 @requires_voyager

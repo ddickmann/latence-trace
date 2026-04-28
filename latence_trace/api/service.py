@@ -1315,6 +1315,8 @@ class GroundednessService:
             nli_kwargs["risk_band_stratum"] = str(request.risk_band_stratum)
         if request.content_type:
             nli_kwargs["content_type"] = str(request.content_type)
+        if request.structured_verification:
+            nli_kwargs["structured_verification"] = str(request.structured_verification)
         if request.raw_context:
             nli_kwargs["structured_support_text"] = request.raw_context
         nli_kwargs.setdefault("risk_band_policy", runtime_profile.risk_band_policy)

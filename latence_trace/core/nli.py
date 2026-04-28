@@ -952,6 +952,8 @@ def fuse_groundedness_v2(
     structured_source_guarded: Optional[float] = None,
     typed_structured: Optional[float] = None,
     typed_structured_gate: Optional[bool] = None,
+    source_format: Optional[str] = None,
+    typed_claims_matched: Optional[int] = None,
     weights: Optional[Dict[str, float]] = None,
 ) -> Optional[float]:
     """Convex-combination fusion of the available peer scores.
@@ -968,8 +970,10 @@ def fuse_groundedness_v2(
     Typed-structured-evidence AND-gate
     ----------------------------------
     When ``typed_structured`` is supplied (the AND-gate cell matcher
-    actually fired) and the structured-evidence gate flag is on, the
-    fusion switches from a weighted convex combination to:
+    actually fired), the gate flag is on, *and* we have high confidence
+    in the structured signal (``source_format in {json, markdown_table}``
+    or ``typed_claims_matched >= 2``), the fusion switches from a
+    weighted convex combination to:
 
         ``min(narrative_score, structured_min)``
 
@@ -977,20 +981,41 @@ def fuse_groundedness_v2(
     *narrative* channels (calibrated / literal / nli /
     semantic_entropy) and ``structured_min`` is the minimum across all
     structured signals that fired (legacy ``structured_source_guarded``
-    and the typed AND-gate score). This is the user-requested switch:
-    one broken cell collapses the headline so a high-similarity, low-
-    correctness response on a table cannot pass through.
+    and the typed AND-gate score). One broken cell collapses the
+    headline so a high-similarity, low-correctness response on a table
+    cannot pass through.
 
-    For pure-prose contexts (typed lane silent) the function falls
-    through to the legacy weighted-sum behaviour so existing fusion
-    weights and per-stratum thresholds are preserved.
+    For pure-prose contexts or low-confidence typed signals (< 2 typed
+    alignments), the function falls through to the weighted-sum
+    behaviour and folds the typed score into the structured channel so
+    existing fusion weights and per-stratum thresholds are preserved.
     """
 
     weights = dict(weights) if weights else dict(_DEFAULT_FUSION_WEIGHTS)
     if typed_structured_gate is None:
         typed_structured_gate = _is_structured_gate_enabled_default()
 
-    if typed_structured is not None and typed_structured_gate:
+    # Precise gate: only collapse narrative with structured_min when the
+    # source is genuinely structured (JSON / markdown table) or the typed
+    # lane aligned >= 2 response claims to typed source cells. Low-
+    # confidence typed scores (zero or one alignment on narrative prose)
+    # must not force min-gate fusion; fold them as a weighted channel
+    # instead so one incidental number cannot collapse a grounded
+    # answer to zero.
+    strong_structured_format = (source_format or "").strip().lower() in {
+        "json",
+        "markdown_table",
+    }
+    strong_typed_alignment = (
+        typed_claims_matched is not None and int(typed_claims_matched) >= 2
+    )
+    apply_min_gate = (
+        typed_structured is not None
+        and typed_structured_gate
+        and (strong_structured_format or strong_typed_alignment)
+    )
+
+    if apply_min_gate:
         narrative_channels = [
             ("calibrated", reverse_context_calibrated, weights.get("calibrated", 0.0)),
             ("literal", literal_guarded, weights.get("literal", 0.0)),
@@ -1018,12 +1043,26 @@ def fuse_groundedness_v2(
         fused = min(float(narrative_score), float(structured_min))
         return max(0.0, min(1.0, float(fused)))
 
+    # When the gate did not apply, fold ``typed_structured`` (if any)
+    # into the structured weighted channel. This keeps the typed lane
+    # *influential* on prose-shaped RAG without letting it dominate via
+    # ``min``. When both signals exist we take the mean so a single low
+    # ``typed_structured`` does not sink an otherwise-grounded answer.
+    structured_channel_value = structured_source_guarded
+    if typed_structured is not None:
+        if structured_channel_value is None:
+            structured_channel_value = float(typed_structured)
+        else:
+            structured_channel_value = 0.5 * (
+                float(structured_channel_value) + float(typed_structured)
+            )
+
     channels = [
         ("calibrated", reverse_context_calibrated, weights.get("calibrated", 0.0)),
         ("literal", literal_guarded, weights.get("literal", 0.0)),
         ("nli", nli_aggregate, weights.get("nli", 0.0)),
         ("semantic_entropy", semantic_entropy, weights.get("semantic_entropy", 0.0)),
-        ("structured", structured_source_guarded, weights.get("structured", 0.0)),
+        ("structured", structured_channel_value, weights.get("structured", 0.0)),
     ]
     contributing = [
         (value, max(0.0, weight))
