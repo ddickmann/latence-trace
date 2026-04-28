@@ -1237,7 +1237,7 @@ Rules:
 - The perfect answer must not include inline document IDs, parenthetical citations, tables, colon-led lists, or semicolon-heavy enumerations.
 - The perfect answer must include two short ASCII double-quoted phrases copied verbatim from selected_documents.text.
 - For the perfect answer, preserve the original language of the quoted evidence instead of translating it.
-- The perfect answer must not contain numeric literals, percentages, years, or quantities.
+- The perfect answer may include numeric literals, percentages, years, or quantities only when they are copied verbatim from selected_documents.text.
 - The wrong answer must still sound realistic, but its unsupported claims must be clearly labelled.
 - The ambiguous answer must NOT be a complete answer. It should be useful but inconclusive.
 - The ambiguous answer must contain one uncertainty cue such as "unclear", "not established", "does not show",
@@ -1286,8 +1286,6 @@ def _validate_generated(
         if variant.get("mutation_type") == "perfect" and not labels <= {"supported"}:
             errors.append("perfect variant contains non-supported claim labels")
         if variant.get("mutation_type") == "perfect":
-            if re.search(r"%|(?<![A-Za-z])\d", variant.get("response_text", "")):
-                errors.append("perfect variant contains numeric literal")
             if variant.get("response_text", "").count('"') < 4:
                 errors.append("perfect variant lacks two double-quoted evidence snippets")
         if variant.get("mutation_type") == "ambiguous":
@@ -1565,8 +1563,9 @@ def generate_responses(args: argparse.Namespace) -> Path:
                         "or partially_supported claim, with expected_groundedness_range "
                         "min=0.55 max=0.74 and an explicit uncertainty cue; wrong "
                         "must contain at least one unsupported claim. The response_text "
-                        "must not include DOC ids, citations, or numeric literals. The perfect response "
-                        "must include two ASCII double-quoted phrases copied verbatim from evidence. "
+                        "must not include DOC ids or citations. The perfect response must include "
+                        "two ASCII double-quoted phrases copied verbatim from evidence; numeric "
+                        "literals are allowed only when copied from evidence. "
                         "source_doc_ids must use "
                         f"only these exact values: {sorted(allowed_source_ids)}."
                     ),
