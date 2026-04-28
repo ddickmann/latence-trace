@@ -68,6 +68,7 @@ otel = [
 latence-trace = "latence_trace.cli:main"
 latence-trace-server = "server.main:run"
 latence-trace-calibrate = "scripts.calibrate_thresholds:main"
+latence-trace-calibrate-rag-prose = "scripts.calibrate_rag_prose:main"
 latence-trace-sweep = "scripts.sweep_fusion_weights:main"
 
 [tool.setuptools]

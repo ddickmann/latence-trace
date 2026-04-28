@@ -40,6 +40,7 @@ from latence_trace.core.semantic_entropy import (
 from latence_trace.core.thresholds import (
     RiskBandPolicy,
     classify_risk_band,
+    get_risk_band_policy,
 )
 from latence_trace.core.structured import (
     default_penalty_per_mismatch,
@@ -1182,6 +1183,138 @@ def _lexical_rescue_floor(
         if abs(response_negations - support_negations) > 1:
             return None
     return 0.85
+
+
+# Hedge/uncertainty cues shared by the ambiguous-variant benchmark and the
+# scorer-side epistemic-hedge gate. Kept deliberately multilingual because
+# Veracier prose arrives in French/German/English.
+EPISTEMIC_HEDGE_CUES: Tuple[str, ...] = (
+    "unclear",
+    "not established",
+    "does not show",
+    "not clear",
+    "insufficient",
+    "missing",
+    "no evidence",
+    "no confirmation",
+    "cannot establish",
+    "cannot confirm",
+    "ne permet pas",
+    "pas clair",
+    "n'établit pas",
+    "n’etablit pas",
+    "n'est pas établi",
+    "n'est pas établie",
+    "n'est pas etablie",
+    "n’est pas établi",
+    "n’est pas établie",
+    "n’est pas etablie",
+    "insuffisant",
+    "incertain",
+    "incertitude",
+    "manquant",
+    "non clarifié",
+    "non clarifie",
+    "nicht klar",
+    "nicht belegt",
+    "unvollständig",
+    "unbekannt",
+    "keine angabe",
+)
+
+
+def _normalize_hedge_text(text: Optional[str]) -> str:
+    if not text:
+        return ""
+    return str(text).lower()
+
+
+def _epistemic_hedge_gate(
+    *,
+    groundedness_v2: Optional[float],
+    claim_records: Optional[Sequence[Dict[str, Any]]],
+    effective_stratum: Optional[str],
+    risk_band_policy: "RiskBandPolicy",
+    entailment_unsupported_ceiling: float = 0.40,
+    entailment_supported_floor: float = 0.60,
+    contradiction_ceiling: float = 0.60,
+    cap_ratio: float = 0.95,
+) -> Optional[Dict[str, Any]]:
+    """Cap/floor ambiguous prose answers into the amber band.
+
+    The gate fires only on the ``rag_prose`` stratum and only when the answer
+    contains a hedge signal **and** at least one other claim is clearly
+    supported. It leaves structured/tabular lanes and classic enterprise
+    strata untouched.
+
+    Returns ``None`` when the gate cannot fire (wrong stratum, missing claim
+    records, or the answer lacks the mixed hedge-and-support signature).
+    Otherwise returns a diagnostic dict::
+
+        {
+            "fired": bool,
+            "applied": bool,           # score actually clamped
+            "cap": float,
+            "floor": float,
+            "claim_indices": list[int],
+            "original_score": float,
+            "adjusted_score": float,
+        }
+    """
+
+    if effective_stratum != "rag_prose":
+        return None
+    if groundedness_v2 is None or not claim_records:
+        return None
+
+    hedge_indices: List[int] = []
+    supported_indices: List[int] = []
+    for record in claim_records:
+        if not isinstance(record, dict):
+            continue
+        if record.get("skipped"):
+            continue
+        text = _normalize_hedge_text(record.get("text"))
+        if not text:
+            continue
+        entailment = float(record.get("entailment") or 0.0)
+        contradiction = float(record.get("contradiction") or 0.0)
+        claim_index = int(record.get("index", 0))
+        has_cue = any(cue in text for cue in EPISTEMIC_HEDGE_CUES)
+        if (
+            has_cue
+            and entailment < entailment_unsupported_ceiling
+            and contradiction < contradiction_ceiling
+        ):
+            hedge_indices.append(claim_index)
+            continue
+        if entailment >= entailment_supported_floor:
+            supported_indices.append(claim_index)
+
+    if not hedge_indices or not supported_indices:
+        return None
+
+    thresholds = risk_band_policy.threshold_for("rag_prose")
+    amber_min = float(thresholds["amber_min"])
+    green_min = float(thresholds["green_min"])
+    if green_min <= amber_min:
+        # Degenerate threshold config; refuse to guess.
+        return None
+    cap = amber_min + (green_min - amber_min) * cap_ratio
+    floor = amber_min
+    score = float(groundedness_v2)
+    adjusted = max(min(score, cap), floor)
+    fired = True
+    applied = adjusted != score
+    return {
+        "fired": fired,
+        "applied": bool(applied),
+        "cap": float(cap),
+        "floor": float(floor),
+        "claim_indices": hedge_indices,
+        "original_score": float(score),
+        "adjusted_score": float(adjusted),
+    }
 
 
 def support_unit_signature(unit: SupportUnitInput) -> str:
@@ -2826,17 +2959,29 @@ def score_groundedness(
     for token_idx, row in enumerate(response_token_rows):
         row["nli_score"] = nli_per_token[token_idx] if token_idx < len(nli_per_token) else None
 
+    effective_stratum = _resolve_effective_stratum(
+        risk_band_stratum=risk_band_stratum,
+        structured_source_format=structured_source_format,
+        structured_verification=structured_verification,
+    )
+    epistemic_hedge = _epistemic_hedge_gate(
+        groundedness_v2=groundedness_v2,
+        claim_records=(
+            nli_payload.get("claim_records") if nli_payload is not None else None
+        ),
+        effective_stratum=effective_stratum,
+        risk_band_policy=risk_band_policy or get_risk_band_policy(),
+    )
+    if epistemic_hedge is not None and epistemic_hedge.get("applied"):
+        groundedness_v2 = epistemic_hedge["adjusted_score"]
+        warnings.append("epistemic_hedge_gate_applied")
+
     headline_for_band = _resolve_headline_for_risk_band(
         groundedness_v2=groundedness_v2,
         reverse_context_calibrated=(
             float(reverse_context_calibrated_score) if null_bank_size > 0 else None
         ),
         reverse_context=float(reverse_context_score),
-    )
-    effective_stratum = _resolve_effective_stratum(
-        risk_band_stratum=risk_band_stratum,
-        structured_source_format=structured_source_format,
-        structured_verification=structured_verification,
     )
     risk_band = classify_risk_band(
         headline_for_band,
@@ -2860,6 +3005,7 @@ def score_groundedness(
         "lexical_rescue_floor": (
             float(lexical_rescue) if lexical_rescue is not None else None
         ),
+        "epistemic_hedge_gate": epistemic_hedge,
         "nli_claim_count": (
             int(nli_payload["claim_count"]) if nli_payload is not None else 0
         ),
@@ -3817,17 +3963,29 @@ def score_groundedness_chunked(
             else None
         )
 
+    effective_stratum = _resolve_effective_stratum(
+        risk_band_stratum=risk_band_stratum,
+        structured_source_format=structured_source_format,
+        structured_verification=structured_verification,
+    )
+    epistemic_hedge = _epistemic_hedge_gate(
+        groundedness_v2=groundedness_v2,
+        claim_records=(
+            nli_payload.get("claim_records") if nli_payload is not None else None
+        ),
+        effective_stratum=effective_stratum,
+        risk_band_policy=risk_band_policy or get_risk_band_policy(),
+    )
+    if epistemic_hedge is not None and epistemic_hedge.get("applied"):
+        groundedness_v2 = epistemic_hedge["adjusted_score"]
+        warnings.append("epistemic_hedge_gate_applied")
+
     headline_for_band = _resolve_headline_for_risk_band(
         groundedness_v2=groundedness_v2,
         reverse_context_calibrated=(
             float(reverse_context_calibrated_score) if null_bank_size > 0 else None
         ),
         reverse_context=float(reverse_context_score),
-    )
-    effective_stratum = _resolve_effective_stratum(
-        risk_band_stratum=risk_band_stratum,
-        structured_source_format=structured_source_format,
-        structured_verification=structured_verification,
     )
     risk_band = classify_risk_band(
         headline_for_band,
@@ -3853,6 +4011,7 @@ def score_groundedness_chunked(
         "lexical_rescue_floor": (
             float(lexical_rescue) if lexical_rescue is not None else None
         ),
+        "epistemic_hedge_gate": epistemic_hedge,
         "nli_claim_count": (
             int(nli_payload["claim_count"]) if nli_payload is not None else 0
         ),
@@ -4402,6 +4561,29 @@ def score_groundedness_response_chunked(
     )
     groundedness_v2 = fused if fused is not None else base_groundedness_v2
 
+    # The merger reuses the base chunk's structured detection to decide
+    # whether the rag_prose stratum is the right band for the gate.
+    _merger_structured_format: Optional[str] = None
+    if base_scores.get("structured_source_detected"):
+        _merger_structured_format = "markdown_table"
+    merger_effective_stratum = _resolve_effective_stratum(
+        risk_band_stratum=risk_band_stratum,
+        structured_source_format=_merger_structured_format,
+        structured_verification=structured_verification,
+    )
+    merger_claim_records = (
+        nli_diag.get("claims") if isinstance(nli_diag, dict) else None
+    )
+    epistemic_hedge = _epistemic_hedge_gate(
+        groundedness_v2=groundedness_v2,
+        claim_records=merger_claim_records,
+        effective_stratum=merger_effective_stratum,
+        risk_band_policy=risk_band_policy or get_risk_band_policy(),
+    )
+    if epistemic_hedge is not None and epistemic_hedge.get("applied"):
+        groundedness_v2 = epistemic_hedge["adjusted_score"]
+        warnings.append("epistemic_hedge_gate_applied")
+
     headline_for_band = _resolve_headline_for_risk_band(
         groundedness_v2=groundedness_v2,
         reverse_context_calibrated=(
@@ -4413,7 +4595,7 @@ def score_groundedness_response_chunked(
     )
     risk_band = classify_risk_band(
         headline_for_band,
-        stratum=risk_band_stratum,
+        stratum=merger_effective_stratum or risk_band_stratum,
         policy=risk_band_policy,
     )
 
@@ -4658,6 +4840,7 @@ def score_groundedness_response_chunked(
     scores["grounded_coverage"] = grounded_coverage_score
     scores["null_bank_size"] = null_bank_size
     scores["groundedness_v2"] = float(groundedness_v2) if groundedness_v2 is not None else None
+    scores["epistemic_hedge_gate"] = epistemic_hedge
     scores["risk_band"] = risk_band
     scores["context_coverage_ratio"] = (
         float(coverage_used_count) / float(coverage_total) if coverage_total > 0 else 0.0
