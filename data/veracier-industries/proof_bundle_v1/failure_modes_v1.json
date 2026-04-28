@@ -1,0 +1,496 @@
+[
+  {
+    "file": "halueval_qa_quality_rows.jsonl",
+    "total": 120,
+    "mode_stats": {
+      "ok": {
+        "count": 62,
+        "share": 0.5167,
+        "score_min": 0.1159,
+        "score_mean": 0.5408,
+        "score_max": 0.9779
+      },
+      "fn_green_on_hallucinated": {
+        "count": 22,
+        "share": 0.1833,
+        "score_min": 0.7882,
+        "score_mean": 0.913,
+        "score_max": 0.9795
+      },
+      "fp_red_on_grounded": {
+        "count": 25,
+        "share": 0.2083,
+        "score_min": 0.1577,
+        "score_mean": 0.4093,
+        "score_max": 0.5493
+      },
+      "amber_on_grounded": {
+        "count": 7,
+        "share": 0.0583,
+        "score_min": 0.5648,
+        "score_mean": 0.6339,
+        "score_max": 0.7153
+      },
+      "amber_on_hallucinated": {
+        "count": 4,
+        "share": 0.0333,
+        "score_min": 0.5742,
+        "score_mean": 0.6496,
+        "score_max": 0.6994
+      }
+    },
+    "linguistic_features_of_failures": {
+      "fn_green_on_hallucinated": {
+        "total": 22,
+        "numeric_present": 3,
+        "short_answer": 2
+      },
+      "fp_red_on_grounded": {
+        "short_answer": 25,
+        "total": 25,
+        "numeric_present": 3
+      },
+      "amber_on_grounded": {
+        "short_answer": 7,
+        "numeric_present": 2,
+        "total": 7
+      },
+      "amber_on_hallucinated": {
+        "total": 4,
+        "numeric_present": 1,
+        "short_answer": 1
+      }
+    }
+  },
+  {
+    "file": "halueval_qa_standard_rows.jsonl",
+    "total": 120,
+    "mode_stats": {
+      "ok": {
+        "count": 62,
+        "share": 0.5167,
+        "score_min": 0.0008,
+        "score_mean": 0.5308,
+        "score_max": 0.9985
+      },
+      "fn_green_on_hallucinated": {
+        "count": 23,
+        "share": 0.1917,
+        "score_min": 0.7788,
+        "score_mean": 0.9493,
+        "score_max": 0.9992
+      },
+      "fp_red_on_grounded": {
+        "count": 22,
+        "share": 0.1833,
+        "score_min": 0.0157,
+        "score_mean": 0.3665,
+        "score_max": 0.5297
+      },
+      "amber_on_hallucinated": {
+        "count": 5,
+        "share": 0.0417,
+        "score_min": 0.5669,
+        "score_mean": 0.6494,
+        "score_max": 0.7024
+      },
+      "amber_on_grounded": {
+        "count": 8,
+        "share": 0.0667,
+        "score_min": 0.5748,
+        "score_mean": 0.6301,
+        "score_max": 0.7248
+      }
+    },
+    "linguistic_features_of_failures": {
+      "fn_green_on_hallucinated": {
+        "total": 23,
+        "numeric_present": 3,
+        "short_answer": 2
+      },
+      "fp_red_on_grounded": {
+        "short_answer": 22,
+        "total": 22,
+        "numeric_present": 1
+      },
+      "amber_on_hallucinated": {
+        "total": 5,
+        "numeric_present": 1,
+        "short_answer": 1
+      },
+      "amber_on_grounded": {
+        "short_answer": 8,
+        "numeric_present": 3,
+        "total": 8
+      }
+    }
+  },
+  {
+    "file": "halueval_summ_quality_rows.jsonl",
+    "total": 120,
+    "mode_stats": {
+      "ok": {
+        "count": 44,
+        "share": 0.3667,
+        "score_min": 0.0,
+        "score_mean": 0.7391,
+        "score_max": 0.9835
+      },
+      "amber_on_hallucinated": {
+        "count": 29,
+        "share": 0.2417,
+        "score_min": 0.5652,
+        "score_mean": 0.6706,
+        "score_max": 0.7911
+      },
+      "fn_green_on_hallucinated": {
+        "count": 18,
+        "share": 0.15,
+        "score_min": 0.7755,
+        "score_mean": 0.8772,
+        "score_max": 0.9793
+      },
+      "amber_on_grounded": {
+        "count": 23,
+        "share": 0.1917,
+        "score_min": 0.5548,
+        "score_mean": 0.6676,
+        "score_max": 0.74
+      },
+      "fp_red_on_grounded": {
+        "count": 6,
+        "share": 0.05,
+        "score_min": 0.0,
+        "score_mean": 0.399,
+        "score_max": 0.5193
+      }
+    },
+    "linguistic_features_of_failures": {
+      "amber_on_hallucinated": {
+        "numeric_present": 16,
+        "total": 29,
+        "abstention_like": 1
+      },
+      "fn_green_on_hallucinated": {
+        "numeric_present": 10,
+        "total": 18
+      },
+      "amber_on_grounded": {
+        "numeric_present": 12,
+        "total": 23
+      },
+      "fp_red_on_grounded": {
+        "numeric_present": 3,
+        "total": 6
+      }
+    }
+  },
+  {
+    "file": "halueval_summ_standard_rows.jsonl",
+    "total": 120,
+    "mode_stats": {
+      "ok": {
+        "count": 50,
+        "share": 0.4167,
+        "score_min": 0.0,
+        "score_mean": 0.7052,
+        "score_max": 0.9991
+      },
+      "fn_green_on_hallucinated": {
+        "count": 28,
+        "share": 0.2333,
+        "score_min": 0.7551,
+        "score_mean": 0.8596,
+        "score_max": 0.9987
+      },
+      "amber_on_grounded": {
+        "count": 20,
+        "share": 0.1667,
+        "score_min": 0.5641,
+        "score_mean": 0.6564,
+        "score_max": 0.7154
+      },
+      "amber_on_hallucinated": {
+        "count": 13,
+        "share": 0.1083,
+        "score_min": 0.5541,
+        "score_mean": 0.6703,
+        "score_max": 0.7477
+      },
+      "fp_red_on_grounded": {
+        "count": 9,
+        "share": 0.075,
+        "score_min": 0.0,
+        "score_mean": 0.3558,
+        "score_max": 0.5409
+      }
+    },
+    "linguistic_features_of_failures": {
+      "fn_green_on_hallucinated": {
+        "numeric_present": 14,
+        "total": 28
+      },
+      "amber_on_grounded": {
+        "numeric_present": 14,
+        "total": 20
+      },
+      "amber_on_hallucinated": {
+        "total": 13,
+        "numeric_present": 6,
+        "abstention_like": 1
+      },
+      "fp_red_on_grounded": {
+        "numeric_present": 5,
+        "total": 9
+      }
+    }
+  },
+  {
+    "file": "ragtruth_qa_quality_rows.jsonl",
+    "total": 120,
+    "mode_stats": {
+      "fp_red_on_grounded": {
+        "count": 44,
+        "share": 0.3667,
+        "score_min": 0.0374,
+        "score_mean": 0.348,
+        "score_max": 0.5408
+      },
+      "ok": {
+        "count": 52,
+        "share": 0.4333,
+        "score_min": 0.1319,
+        "score_mean": 0.6436,
+        "score_max": 0.9924
+      },
+      "amber_on_hallucinated": {
+        "count": 10,
+        "share": 0.0833,
+        "score_min": 0.5533,
+        "score_mean": 0.6068,
+        "score_max": 0.6882
+      },
+      "amber_on_grounded": {
+        "count": 12,
+        "share": 0.1,
+        "score_min": 0.5801,
+        "score_mean": 0.6549,
+        "score_max": 0.7208
+      },
+      "fn_green_on_hallucinated": {
+        "count": 2,
+        "share": 0.0167,
+        "score_min": 0.8438,
+        "score_mean": 0.8618,
+        "score_max": 0.8798
+      }
+    },
+    "linguistic_features_of_failures": {
+      "fp_red_on_grounded": {
+        "enumerated_or_cites_passages": 9,
+        "abstention_like": 8,
+        "numeric_present": 30,
+        "total": 44
+      },
+      "amber_on_hallucinated": {
+        "numeric_present": 8,
+        "total": 10,
+        "abstention_like": 4,
+        "enumerated_or_cites_passages": 4
+      },
+      "amber_on_grounded": {
+        "total": 12,
+        "numeric_present": 7,
+        "enumerated_or_cites_passages": 4
+      },
+      "fn_green_on_hallucinated": {
+        "numeric_present": 2,
+        "total": 2,
+        "enumerated_or_cites_passages": 1
+      }
+    }
+  },
+  {
+    "file": "ragtruth_qa_standard_rows.jsonl",
+    "total": 120,
+    "mode_stats": {
+      "fp_red_on_grounded": {
+        "count": 31,
+        "share": 0.2583,
+        "score_min": 0.0017,
+        "score_mean": 0.2994,
+        "score_max": 0.5098
+      },
+      "ok": {
+        "count": 62,
+        "share": 0.5167,
+        "score_min": 0.177,
+        "score_mean": 0.7301,
+        "score_max": 0.9971
+      },
+      "amber_on_hallucinated": {
+        "count": 11,
+        "share": 0.0917,
+        "score_min": 0.5539,
+        "score_mean": 0.6159,
+        "score_max": 0.7493
+      },
+      "fn_green_on_hallucinated": {
+        "count": 7,
+        "share": 0.0583,
+        "score_min": 0.7565,
+        "score_mean": 0.8246,
+        "score_max": 0.8855
+      },
+      "amber_on_grounded": {
+        "count": 9,
+        "share": 0.075,
+        "score_min": 0.5625,
+        "score_mean": 0.6675,
+        "score_max": 0.737
+      }
+    },
+    "linguistic_features_of_failures": {
+      "fp_red_on_grounded": {
+        "enumerated_or_cites_passages": 5,
+        "abstention_like": 7,
+        "numeric_present": 21,
+        "total": 31
+      },
+      "amber_on_hallucinated": {
+        "enumerated_or_cites_passages": 7,
+        "numeric_present": 10,
+        "total": 11,
+        "abstention_like": 2
+      },
+      "fn_green_on_hallucinated": {
+        "numeric_present": 3,
+        "total": 7,
+        "enumerated_or_cites_passages": 1
+      },
+      "amber_on_grounded": {
+        "enumerated_or_cites_passages": 4,
+        "numeric_present": 6,
+        "total": 9
+      }
+    }
+  },
+  {
+    "file": "ragtruth_summ_quality_rows.jsonl",
+    "total": 120,
+    "mode_stats": {
+      "amber_on_hallucinated": {
+        "count": 19,
+        "share": 0.1583,
+        "score_min": 0.5661,
+        "score_mean": 0.6734,
+        "score_max": 0.7444
+      },
+      "amber_on_grounded": {
+        "count": 36,
+        "share": 0.3,
+        "score_min": 0.5581,
+        "score_mean": 0.6407,
+        "score_max": 0.7325
+      },
+      "ok": {
+        "count": 45,
+        "share": 0.375,
+        "score_min": 0.3263,
+        "score_mean": 0.793,
+        "score_max": 0.9941
+      },
+      "fn_green_on_hallucinated": {
+        "count": 13,
+        "share": 0.1083,
+        "score_min": 0.7666,
+        "score_mean": 0.8574,
+        "score_max": 0.9884
+      },
+      "fp_red_on_grounded": {
+        "count": 7,
+        "share": 0.0583,
+        "score_min": 0.4107,
+        "score_mean": 0.4842,
+        "score_max": 0.5438
+      }
+    },
+    "linguistic_features_of_failures": {
+      "amber_on_hallucinated": {
+        "numeric_present": 14,
+        "total": 19
+      },
+      "amber_on_grounded": {
+        "numeric_present": 27,
+        "total": 36
+      },
+      "fn_green_on_hallucinated": {
+        "total": 13,
+        "numeric_present": 8
+      },
+      "fp_red_on_grounded": {
+        "numeric_present": 5,
+        "total": 7
+      }
+    }
+  },
+  {
+    "file": "ragtruth_summ_standard_rows.jsonl",
+    "total": 120,
+    "mode_stats": {
+      "fn_green_on_hallucinated": {
+        "count": 18,
+        "share": 0.15,
+        "score_min": 0.757,
+        "score_mean": 0.832,
+        "score_max": 0.9252
+      },
+      "amber_on_grounded": {
+        "count": 25,
+        "share": 0.2083,
+        "score_min": 0.5515,
+        "score_mean": 0.6631,
+        "score_max": 0.7488
+      },
+      "amber_on_hallucinated": {
+        "count": 15,
+        "share": 0.125,
+        "score_min": 0.5515,
+        "score_mean": 0.6522,
+        "score_max": 0.7453
+      },
+      "ok": {
+        "count": 54,
+        "share": 0.45,
+        "score_min": 0.2236,
+        "score_mean": 0.8179,
+        "score_max": 0.9989
+      },
+      "fp_red_on_grounded": {
+        "count": 8,
+        "share": 0.0667,
+        "score_min": 0.2259,
+        "score_mean": 0.4356,
+        "score_max": 0.5447
+      }
+    },
+    "linguistic_features_of_failures": {
+      "fn_green_on_hallucinated": {
+        "numeric_present": 13,
+        "total": 18
+      },
+      "amber_on_grounded": {
+        "numeric_present": 18,
+        "total": 25
+      },
+      "amber_on_hallucinated": {
+        "numeric_present": 11,
+        "total": 15
+      },
+      "fp_red_on_grounded": {
+        "numeric_present": 7,
+        "total": 8
+      }
+    }
+  }
+]

@@ -1,0 +1,9 @@
+[
+  {
+    "run_date": "2026-04-28 18:56 UTC",
+    "halueval_qa_standard_red_precision": 0.5926,
+    "ragtruth_qa_quality_red_precision": 0.3939,
+    "veracier_worst_vertical": null,
+    "veracier_worst_green_precision": 1.0
+  }
+]

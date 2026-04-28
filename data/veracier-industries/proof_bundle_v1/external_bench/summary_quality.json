@@ -1,20 +1,74 @@
 [
   {
-    "total": 60,
+    "total": 120,
     "errors": 0,
-    "amber_leakage_rate": 0.2,
-    "red_precision": 0.3939,
-    "red_recall": 0.9286,
-    "green_precision": 0.9333,
+    "amber_leakage_rate": 0.0917,
+    "red_precision": 0.5763,
+    "red_recall": 0.6071,
+    "green_precision": 0.56,
+    "counts": {
+      "tp": 34,
+      "fp": 25,
+      "tn": 28,
+      "fn": 22,
+      "amber": 11
+    },
+    "bench": "halueval_qa",
+    "profile": "quality",
+    "elapsed_s": 19.34
+  },
+  {
+    "total": 120,
+    "errors": 0,
+    "amber_leakage_rate": 0.4333,
+    "red_precision": 0.6842,
+    "red_recall": 0.4194,
+    "green_precision": 0.6327,
     "counts": {
       "tp": 13,
-      "fp": 20,
-      "tn": 14,
-      "fn": 1,
-      "amber": 12
+      "fp": 6,
+      "tn": 31,
+      "fn": 18,
+      "amber": 52
+    },
+    "bench": "halueval_summ",
+    "profile": "quality",
+    "elapsed_s": 72.95
+  },
+  {
+    "total": 120,
+    "errors": 0,
+    "amber_leakage_rate": 0.1833,
+    "red_precision": 0.3623,
+    "red_recall": 0.9259,
+    "green_precision": 0.931,
+    "counts": {
+      "tp": 25,
+      "fp": 44,
+      "tn": 27,
+      "fn": 2,
+      "amber": 22
     },
     "bench": "ragtruth_qa",
     "profile": "quality",
-    "elapsed_s": 36.71
+    "elapsed_s": 74.79
+  },
+  {
+    "total": 120,
+    "errors": 0,
+    "amber_leakage_rate": 0.4583,
+    "red_precision": 0.5333,
+    "red_recall": 0.381,
+    "green_precision": 0.74,
+    "counts": {
+      "tp": 8,
+      "fp": 7,
+      "tn": 37,
+      "fn": 13,
+      "amber": 55
+    },
+    "bench": "ragtruth_summ",
+    "profile": "quality",
+    "elapsed_s": 108.87
   }
 ]

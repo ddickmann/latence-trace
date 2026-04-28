@@ -165,17 +165,24 @@ def iter_ragtruth(n: int, seed: int, task: str) -> Iterable[dict]:
         has_halluc = bool(resp.get("labels"))
         label = "hallucinated" if has_halluc else "faithful"
         expected_band = "red" if has_halluc else "green"
-        question = src.get("question") or "Answer based on the source."
+        source_info = src.get("source_info") or {}
+        # RAGTruth stores source_info as either a string (summary task)
+        # or a dict ({"question": ..., "passages": "passage 1:..."}) for
+        # QA task.  Flatten to natural prose so TRACE does not see raw
+        # JSON tokens and lose its question anchor.
+        if isinstance(source_info, dict):
+            question = source_info.get("question") or src.get("question") or "Answer the user question from the source."
+            passages = source_info.get("passages") or ""
+            raw_context = passages if passages else json.dumps(source_info, ensure_ascii=False)
+        else:
+            question = src.get("question") or "Answer the user question from the source."
+            raw_context = str(source_info)
         yield {
             "bench": f"ragtruth_{task.lower()}",
             "row_id": f"ragtruth_{task.lower()}_{idx}",
             "question": question,
             "response_text": resp.get("response", ""),
-            "raw_context": (
-                src.get("source_info")
-                if isinstance(src.get("source_info"), str)
-                else json.dumps(src.get("source_info", ""), ensure_ascii=False)
-            ),
+            "raw_context": raw_context,
             "expected_band": expected_band,
             "expected_label": label,
         }
