@@ -417,7 +417,88 @@ def create_router(service_provider: Callable[[], GroundednessService]) -> APIRou
             },
         )
 
+    _mount_amber_queue(router)
+
     return router
+
+
+def _mount_amber_queue(router: APIRouter) -> None:
+    """Mount the amber-queue review + decision endpoints (Plan C4).
+
+    Served off the main FastAPI router so self-hosted operators and
+    the hosted gateway share the same contract.  Access control is
+    delegated to the caller (Cloudflare gateway / LicenseMiddleware);
+    this layer only enforces that the tenant id on the URL matches
+    the one the upstream resolved.
+    """
+
+    try:
+        from latence_trace.middleware.amber_queue import (
+            list_amber_records,
+            list_reviewer_decisions,
+            write_reviewer_decision,
+        )
+    except Exception:  # pragma: no cover - missing optional deps
+        return
+
+    @router.get("/v1/amber/{tenant_id}")
+    def _list_amber(tenant_id: str, limit: int = 200) -> JSONResponse:
+        records = list_amber_records(tenant_id, limit=limit)
+        return JSONResponse(content={"tenant_id": tenant_id, "records": records})
+
+    @router.post("/v1/amber/{tenant_id}/decisions")
+    async def _record_decision(tenant_id: str, request: Request) -> JSONResponse:
+        try:
+            body = await request.json()
+        except Exception as exc:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "invalid_json",
+                    "message": f"request body was not valid JSON: {exc}",
+                    "hint": (
+                        "POST a JSON object with request_id, reviewer_id, "
+                        "action, and optionally comment / corrected_response."
+                    ),
+                    "docs_url": "https://latence.ai/trace/docs",
+                },
+            )
+        action = str(body.get("action", "")).lower()
+        if action not in {"accept", "edit", "reject"}:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "invalid_action",
+                    "message": "action must be one of accept, edit, reject.",
+                    "hint": "Use 'edit' when the reviewer supplies a corrected_response.",
+                    "docs_url": "https://latence.ai/trace/docs",
+                },
+            )
+        try:
+            record = write_reviewer_decision(
+                request_id=str(body.get("request_id", "")),
+                tenant_id=tenant_id,
+                reviewer_id=str(body.get("reviewer_id", "")),
+                action=action,  # type: ignore[arg-type]
+                comment=body.get("comment"),
+                corrected_response=body.get("corrected_response"),
+            )
+        except RuntimeError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "code": "audit_log_disabled",
+                    "message": str(exc),
+                    "hint": "Set LATENCE_TRACE_AUDIT_LOG_DIR in the worker env.",
+                    "docs_url": "https://latence.ai/trace/docs",
+                },
+            ) from exc
+        return JSONResponse(content=record)
+
+    @router.get("/v1/amber/{tenant_id}/decisions")
+    def _list_decisions(tenant_id: str) -> JSONResponse:
+        records = list(list_reviewer_decisions(tenant_id))
+        return JSONResponse(content={"tenant_id": tenant_id, "decisions": records})
 
 
 __all__ = ["create_router"]

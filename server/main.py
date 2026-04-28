@@ -251,6 +251,15 @@ def create_app(profile: Optional[str] = None) -> FastAPI:
     app.include_router(create_metrics_router())
     app.include_router(create_router(_get_service))
 
+    if os.environ.get("LATENCE_TRACE_ENABLE_MCP_HTTP", "0") in {"1", "true", "yes"}:
+        try:
+            from latence_trace.mcp.remote import _make_router as _make_mcp_router
+
+            app.include_router(_make_mcp_router())
+            logger.info("mounted remote MCP endpoint at /mcp")
+        except Exception:  # noqa: BLE001
+            logger.exception("failed to mount remote MCP endpoint")
+
     # PA7 polish: coerce FastAPI's default 422 validation responses into
     # the same {code, message, hint, docs_url} envelope that runtime
     # service errors use. Without this, agents have to handle two
