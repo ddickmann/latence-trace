@@ -1,0 +1,118 @@
+{
+  "use_case_id": "FIN-01",
+  "question": "L'administration fiscale demande la documentation prix de transfert sur cinq exercices.",
+  "role": "Directeur Financier",
+  "asker": "Antoine Morel",
+  "entity": "veracier_sa",
+  "difficulty_factors": [
+    "multilingual",
+    "cross_entity",
+    "regulatory_expertise"
+  ],
+  "ground_truth": {},
+  "ground_truth_proxy": {
+    "source": "MASTER_INDEX.classification",
+    "positive_classes": [],
+    "distractor_classes": []
+  },
+  "selected_documents": [
+    {
+      "source_id": "FIN-01:DOC-6643463a",
+      "corpus_source_id": "FULL:14e0348bc4e4",
+      "doc_id": "DOC-6643463a",
+      "entity": "veracier_sa",
+      "filename": "fiscal/prix_transfert/master_file_veracier_2024.pdf",
+      "classification": "TP_DOC",
+      "language": "fr/en",
+      "format": "searchable",
+      "description": "Group Master File per OECD guidelines",
+      "char_count": 19235,
+      "text": "--- Page 1 ---\n\n## MASTER FILE - DOCUMENTATION PRIX DE TRANSFERT\n\n### Description du groupe\n\nVeracier Industries est un groupe industriel diversifie.\n\n### Transactions intra-groupe\n\nLes principales transactions intra-groupe comprennent les prestations de services, les licences de PI et la fabrication sous contrat.\n\nLe taux de redevance de 2% du chiffre d'affaires net applicable aux licences de propriete intellectuelle intra-groupe est coherent avec les comparables identifies dans l'etude de benchmark, dont le premier quartile se situe à 1,5% et le troisième quartile à 3,0%.\n\nLes interets moratoires applicables en cas de condamnation sont calculés au taux legal major de cinq points, conformement à l'article L.313-3 du Code monétaire et financier.\n\nLes Parties conviennent de"
+    },
+    {
+      "source_id": "FIN-01:DOC-457fd4d5",
+      "corpus_source_id": "FULL:8602c4186b3d",
+      "doc_id": "DOC-457fd4d5",
+      "entity": "veracier_sa",
+      "filename": "fiscal/prix_transfert/local_file_france_2024.pdf",
+      "classification": "TP_DOC",
+      "language": "fr",
+      "format": "searchable",
+      "description": "French Local File",
+      "char_count": 19271,
+      "text": "--- Page 1 ---\n\n# LOCAL FILE FRANCE\n\n## Introduction\n\nDocumentation prix de transfert.\n\nLes Parties conviennent que toute modification du présent contrat devra faire l'objet d'un avenant écrit signe par les représentants dument habilites de chacune des Parties. Aucune modification verbale ou tacite ne sera opposable.\n\nUne revue des clauses d'indemnisation croisees (cross-indemnity) entre les entites du groupe a été initée afin de déterminer l'entité qui supporte en dernier ressort la charge financière du litige.\n\nLe comité d'audit a examine les principales estimations comptables et les jugements exerces par la direction, et a conclu que les methodes retenues étaient appropriées et coherentes avec les exercices precedents.\n\nLes Parties declarent que le présent contrat représente l'integralité d"
+    },
+    {
+      "source_id": "FIN-01:DOC-3e8aadda",
+      "corpus_source_id": "FULL:447c5c708065",
+      "doc_id": "DOC-3e8aadda",
+      "entity": "veracier_gmbh",
+      "filename": "fiscal/prix_transfert/local_file_germany_2024.pdf",
+      "classification": "TP_DOC",
+      "language": "de",
+      "format": "searchable",
+      "description": "German Local File (Verrechnungspreisdokumentation)",
+      "char_count": 9010,
+      "text": "--- Page 1 ---\n\n## VERRECHNUNGSPREISDOKUMENTATION - DEUTSCHLAND\n\n## Introduction\n\nDocumentation prix de transfert.\n\nL'analyse de comparabilité a été réalisée à l'aide de la base de données Bureau van Dijk / TP Catalyst, en sélectionnant des sociétés comparables sur la base de critères fonctionnels, d'actifs et de risques (analyse FAR).\n\nKeine der Parteien darf waehrend der Vertragslaufzeit und fuer einen Zeitraum von zwolf (12) Monaten nach deren Ende Mitarbeiter der anderen Partei, die an der Vertragsdurchfuehrung beteiligt waren, unmittelbar oder mittelbar abwerben.\n\nDer Lieferant gewaehrleistet, dass er ueber alle erforderlichen Genehmigungen, Lizenzen und Zulassungen fuer die Erfuellung seiner Vertragspflichten verfuegt und wird den Auftraggeber unverzueglich ueber Aenderungen informieren.\n\nSaemtliche Mitteilungen im"
+    },
+    {
+      "source_id": "FIN-01:DOC-9e697d50",
+      "corpus_source_id": "FULL:74423ca14159",
+      "doc_id": "DOC-9e697d50",
+      "entity": "veracier_uk",
+      "filename": "fiscal/prix_transfert/local_file_uk_2024.pdf",
+      "classification": "TP_DOC",
+      "language": "en",
+      "format": "searchable",
+      "description": "UK Local File",
+      "char_count": 11745,
+      "text": "--- Page 1 ---\n\n## TRANSFER PRICING LOCAL FILE - UK\n\n## Introduction\n\nDocumentation prix de transfert.\n\nAn examination of notification obligations to insurers has been completed. The claim notification was submitted within the contractual timeframe.\n\nAny dispute arising out of or in connection with this Agreement shall first be subject to good faith negotiations for a period of thirty (30) days. If unresolved, either Party may refer the dispute to the competent courts as specified herein.\n\nThe tax treatment of the litigation provision has been reviewed by the Finance Department. The provision is tax-deductible subject to compliance with HMRC guidelines.\n\nThe Group's net cash position stands at EUR 127 million as at 31 December, an increase of EUR 23 million c"
+    },
+    {
+      "source_id": "FIN-01:DOC-136ab5f4",
+      "corpus_source_id": "FULL:b2126c36b594",
+      "doc_id": "DOC-136ab5f4",
+      "entity": "veracier_gmbh",
+      "filename": "fiscal/prix_transfert/correspondance_fisc_allemande_2024.pdf",
+      "classification": "REFERENCE",
+      "language": "de",
+      "format": "scanned",
+      "description": "Letter from German tax authority",
+      "char_count": 8781,
+      "text": "--- Page 1 ---\n\n## SCHREIBEN DES FINANZAMTS STUTTGART\n\nLes charges a payer au titre de l'exercice comprennent les elements suivants : penalites de retard clients (2,1 MEUR), provisions pour garantie produits (1,2 MEUR), provision pour risques fiscaux (0,8 MEUR) et indemnités de rupture conventionnelle (0,6 MEUR).\n\nLe rapport de la déclaration pays par pays (Country-by-Country Report) a été préparé conformément aux dispositions de l'article 223 quinquies C du Code général des impôts et déposé auprès de l'administration fiscale dans le délai légal.\n\nLe ratio d'endettement net sur EBITDA s'établit à 1,8x, en deca du covenant bancaire fixe à 3,0x dans la convention de crédit syndique de 250 millions d'euros.\n\nDer Lieferant verpflichtet sich, waehrend der gesamten Vertragslaufzeit eine Zertifizierung nach ISO 9001 aufrechtzuerhalten. Bei Verlust der Zertifizierung ist der Auftraggeber berechtigt, laufende Bestellung"
+    },
+    {
+      "source_id": "FIN-01:DOC-0c68d91a",
+      "corpus_source_id": "FULL:2d9312b50de5",
+      "doc_id": "DOC-0c68d91a",
+      "entity": "veracier_sa",
+      "filename": "fiscal/prix_transfert/notification_fisc_francaise_2025.pdf",
+      "classification": "REFERENCE",
+      "language": "fr",
+      "format": "scanned",
+      "description": "Demande de justification DGFIP sur transactions Maroc 2024",
+      "char_count": 11121,
+      "text": "--- Page 1 ---\n\nDEMANDE DE JUSTIFICATION - TRANSACTIONS INTRA-GROUPE MAROC\n\nLa Direction Generale des Finances Publiques demande la justification des prix de transfert appliques aux transactions entre Veracier Industries S.A. et Veracier Maroc S.A.R.L. pour l'exercice 2024. La DGFIP releve que la marge cost plus de 8% appliquee a l'activite de fabrication sous contrat est inférieure au premier quartile de l'étude de benchmark (9,2%).\n\n--- Page 2 ---\n\nL'historique des contentieux similaires au sein du groupe montre un taux de resolution amiable de l'ordre de 65%, pour un montant moyen de transaction representant 45% de la demande initiale.\n\nLe risque de condamnation aux depens et aux frais d'avocat de la partie adverse a ete pris en compte dans l'estimation"
+    }
+  ],
+  "raw_context": "[FIN-01:DOC-6643463a | TP_DOC | fiscal/prix_transfert/master_file_veracier_2024.pdf]\n--- Page 1 ---\n\n## MASTER FILE - DOCUMENTATION PRIX DE TRANSFERT\n\n### Description du groupe\n\nVeracier Industries est un groupe industriel diversifie.\n\n### Transactions intra-groupe\n\nLes principales transactions intra-groupe comprennent les prestations de services, les licences de PI et la fabrication sous contrat.\n\nLe taux de redevance de 2% du chiffre d'affaires net applicable aux licences de propriete intellectuelle intra-groupe est coherent avec les comparables identifies dans l'etude de benchmark, dont le premier quartile se situe à 1,5% et le troisième quartile à 3,0%.\n\nLes interets moratoires applicables en cas de condamnation sont calculés au taux legal major de cinq points, conformement à l'article L.313-3 du Code monétaire et financier.\n\nLes Parties conviennent de\n\n[FIN-01:DOC-457fd4d5 | TP_DOC | fiscal/prix_transfert/local_file_france_2024.pdf]\n--- Page 1 ---\n\n# LOCAL FILE FRANCE\n\n## Introduction\n\nDocumentation prix de transfert.\n\nLes Parties conviennent que toute modification du présent contrat devra faire l'objet d'un avenant écrit signe par les représentants dument habilites de chacune des Parties. Aucune modification verbale ou tacite ne sera opposable.\n\nUne revue des clauses d'indemnisation croisees (cross-indemnity) entre les entites du groupe a été initée afin de déterminer l'entité qui supporte en dernier ressort la charge financière du litige.\n\nLe comité d'audit a examine les principales estimations comptables et les jugements exerces par la direction, et a conclu que les methodes retenues étaient appropriées et coherentes avec les exercices precedents.\n\nLes Parties declarent que le présent contrat représente l'integralité d\n\n[FIN-01:DOC-3e8aadda | TP_DOC | fiscal/prix_transfert/local_file_germany_2024.pdf]\n--- Page 1 ---\n\n## VERRECHNUNGSPREISDOKUMENTATION - DEUTSCHLAND\n\n## Introduction\n\nDocumentation prix de transfert.\n\nL'analyse de comparabilité a été réalisée à l'aide de la base de données Bureau van Dijk / TP Catalyst, en sélectionnant des sociétés comparables sur la base de critères fonctionnels, d'actifs et de risques (analyse FAR).\n\nKeine der Parteien darf waehrend der Vertragslaufzeit und fuer einen Zeitraum von zwolf (12) Monaten nach deren Ende Mitarbeiter der anderen Partei, die an der Vertragsdurchfuehrung beteiligt waren, unmittelbar oder mittelbar abwerben.\n\nDer Lieferant gewaehrleistet, dass er ueber alle erforderlichen Genehmigungen, Lizenzen und Zulassungen fuer die Erfuellung seiner Vertragspflichten verfuegt und wird den Auftraggeber unverzueglich ueber Aenderungen informieren.\n\nSaemtliche Mitteilungen im\n\n[FIN-01:DOC-9e697d50 | TP_DOC | fiscal/prix_transfert/local_file_uk_2024.pdf]\n--- Page 1 ---\n\n## TRANSFER PRICING LOCAL FILE - UK\n\n## Introduction\n\nDocumentation prix de transfert.\n\nAn examination of notification obligations to insurers has been completed. The claim notification was submitted within the contractual timeframe.\n\nAny dispute arising out of or in connection with this Agreement shall first be subject to good faith negotiations for a period of thirty (30) days. If unresolved, either Party may refer the dispute to the competent courts as specified herein.\n\nThe tax treatment of the litigation provision has been reviewed by the Finance Department. The provision is tax-deductible subject to compliance with HMRC guidelines.\n\nThe Group's net cash position stands at EUR 127 million as at 31 December, an increase of EUR 23 million c\n\n[FIN-01:DOC-136ab5f4 | REFERENCE | fiscal/prix_transfert/correspondance_fisc_allemande_2024.pdf]\n--- Page 1 ---\n\n## SCHREIBEN DES FINANZAMTS STUTTGART\n\nLes charges a payer au titre de l'exercice comprennent les elements suivants : penalites de retard clients (2,1 MEUR), provisions pour garantie produits (1,2 MEUR), provision pour risques fiscaux (0,8 MEUR) et indemnités de rupture conventionnelle (0,6 MEUR).\n\nLe rapport de la déclaration pays par pays (Country-by-Country Report) a été préparé conformément aux dispositions de l'article 223 quinquies C du Code général des impôts et déposé auprès de l'administration fiscale dans le délai légal.\n\nLe ratio d'endettement net sur EBITDA s'établit à 1,8x, en deca du covenant bancaire fixe à 3,0x dans la convention de crédit syndique de 250 millions d'euros.\n\nDer Lieferant verpflichtet sich, waehrend der gesamten Vertragslaufzeit eine Zertifizierung nach ISO 9001 aufrechtzuerhalten. Bei Verlust der Zertifizierung ist der Auftraggeber berechtigt, laufende Bestellung\n\n[FIN-01:DOC-0c68d91a | REFERENCE | fiscal/prix_transfert/notification_fisc_francaise_2025.pdf]\n--- Page 1 ---\n\nDEMANDE DE JUSTIFICATION - TRANSACTIONS INTRA-GROUPE MAROC\n\nLa Direction Generale des Finances Publiques demande la justification des prix de transfert appliques aux transactions entre Veracier Industries S.A. et Veracier Maroc S.A.R.L. pour l'exercice 2024. La DGFIP releve que la marge cost plus de 8% appliquee a l'activite de fabrication sous contrat est inférieure au premier quartile de l'étude de benchmark (9,2%).\n\n--- Page 2 ---\n\nL'historique des contentieux similaires au sein du groupe montre un taux de resolution amiable de l'ordre de 65%, pour un montant moyen de transaction representant 45% de la demande initiale.\n\nLe risque de condamnation aux depens et aux frais d'avocat de la partie adverse a ete pris en compte dans l'estimation",
+  "context_char_count": 4878,
+  "generation_archetype": {
+    "id": "finance_tax",
+    "label": "Finance, tax, transfer pricing, accounting",
+    "focus": "amounts, periods, entities, filings, assumptions, percentages, and provisions",
+    "perfect_guidance": [
+      "Use affirmative fiscal or financial facts that are explicitly present.",
+      "Numeric values, years, percentages, and currency amounts are allowed only when copied verbatim.",
+      "Do not answer with an evidence-absence sentence such as missing years or missing files."
+    ],
+    "ambiguous_guidance": [
+      "Use one supported metric, transaction type, filing, or accounting fact.",
+      "Pair it with one unresolved limitation about period coverage, entity coverage, filing scope, or supporting schedule completeness."
+    ],
+    "wrong_guidance": [
+      "Mutate an amount, rate, year, entity, filing status, or tax/accounting conclusion.",
+      "Do not keep any claim partially grounded."
+    ]
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "lane": "sustained",
+  "profile": "standard",
+  "concurrency": 8,
+  "total_requests": 60,
+  "successful_requests": 60,
+  "errors": 0,
+  "elapsed_s": 2.643,
+  "rps": 22.699,
+  "wall_ms": {
+    "p50": 337.47,
+    "p95": 508.76,
+    "p99": 534.86,
+    "mean": 345.77
+  },
+  "score_ms": {
+    "p50": 332.22,
+    "p95": 505.22,
+    "p99": 530.09,
+    "mean": 341.07
+  },
+  "queue_ms": {
+    "p50": 4.34,
+    "p95": 9.04,
+    "p99": 15.29,
+    "mean": 4.71
+  },
+  "band_distribution": {
+    "green": 40,
+    "red": 12,
+    "amber": 8
+  }
+}

@@ -1,0 +1,175 @@
+{
+  "version": "1.0",
+  "generated_by": "latence-domain-review@v1",
+  "archetype": {"id": "marketing_claims", "label": "Marketing claim substantiation and disclosure"},
+  "use_cases": [
+    {
+      "use_case_id": "MKT-01",
+      "question": "Can we publish the claim '99% uptime' for Ledgerline Pro in the October campaign?",
+      "role": "CMO",
+      "asker": "Laura Chen",
+      "entity": "ledgerline",
+      "verticals": ["marketing", "compliance"],
+      "selected_documents": [
+        {
+          "doc_id": "MKT-01:DOC-uptime-2025",
+          "filename": "marketing/claims/uptime_sla_evidence_q3_2025.pdf",
+          "language": "en",
+          "text": "The Ledgerline Pro service achieved 99.42% measured uptime in Q3 2025 based on synthetic probes collected by Datadog. Planned maintenance windows are excluded per the published SLA. Incident log reference INC-2025-0721 accounts for the one regional outage affecting 14% of tenants for 47 minutes."
+        },
+        {
+          "doc_id": "MKT-01:DOC-legal-review-2025",
+          "filename": "legal/marketing_review/ledgerline_uptime_claim_opinion.pdf",
+          "language": "en",
+          "text": "Marketing-claim review notes that any public '99% uptime' claim must be substantiated by a rolling 12-month measurement, not a single quarter. The current 12-month rolling figure is 98.81%. A 99% claim is therefore not supportable for the October campaign without qualification."
+        }
+      ],
+      "variants": [
+        {
+          "variant": "perfect",
+          "response_text": "\"The current 12-month rolling figure is 98.81%.\" \"A 99% claim is therefore not supportable for the October campaign without qualification.\"",
+          "expected_band": "green",
+          "curation_reason": "Two verbatim quotes from the legal-review document that directly answer the CMO's question."
+        },
+        {
+          "variant": "ambiguous",
+          "response_text": "Q3 uptime was strong at 99.42% based on synthetic probes, which suggests the claim could be defensible. However, it is not clear whether the 12-month rolling figure required by the marketing-claim review reaches 99%, and further evidence is required before publishing.",
+          "expected_band": "amber",
+          "curation_reason": "Pairs a supported quarterly figure with an explicit epistemic hedge about the 12-month requirement."
+        },
+        {
+          "variant": "wrong",
+          "response_text": "Yes, Ledgerline Pro's 12-month rolling uptime is 99.3% and legal has pre-approved the '99% uptime' claim for the October campaign with no qualification required. The one regional outage in July was explicitly excluded from the calculation.",
+          "expected_band": "red",
+          "curation_reason": "Invents a 12-month figure (real evidence says 98.81%), invents pre-approval (real evidence says not supportable), invents exclusion (real evidence says incident INC-2025-0721 is in scope)."
+        }
+      ]
+    },
+    {
+      "use_case_id": "MKT-02",
+      "question": "Can the pricing page cite 'verified by Forrester' for the ROI claim?",
+      "role": "VP Marketing",
+      "asker": "Marcus Huber",
+      "entity": "ledgerline",
+      "verticals": ["marketing", "legal"],
+      "selected_documents": [
+        {
+          "doc_id": "MKT-02:DOC-forrester-study-2024",
+          "filename": "marketing/studies/forrester_tei_ledgerline_2024.pdf",
+          "language": "en",
+          "text": "Forrester Consulting conducted a Total Economic Impact study of Ledgerline commissioned by Ledgerline in May 2024. The study quantified a 312% three-year ROI based on interviews with four reference customers. Forrester clarified in writing that public marketing use must carry the attribution 'Forrester TEI study commissioned by Ledgerline' and must not claim that Forrester independently verified ROI numbers."
+        },
+        {
+          "doc_id": "MKT-02:DOC-brandusage-letter",
+          "filename": "legal/trademarks/forrester_brand_usage_2024.pdf",
+          "language": "en",
+          "text": "Forrester's brand usage policy prohibits the phrase 'verified by Forrester' in any marketing context. The only accepted phrasing is 'Based on a Forrester Total Economic Impact study commissioned by Ledgerline'."
+        }
+      ],
+      "variants": [
+        {
+          "variant": "perfect",
+          "response_text": "\"Forrester's brand usage policy prohibits the phrase 'verified by Forrester' in any marketing context.\" \"The only accepted phrasing is 'Based on a Forrester Total Economic Impact study commissioned by Ledgerline'.\"",
+          "expected_band": "green",
+          "curation_reason": "Two direct quotes that answer the VP's question with the exact policy language."
+        },
+        {
+          "variant": "ambiguous",
+          "response_text": "The Forrester study quantified a 312% three-year ROI, which is a legitimate data point for the pricing page. However, it is not established whether the phrase 'verified by Forrester' is permitted, and the brand-usage letter appears restrictive; further legal review is required before using that exact phrasing.",
+          "expected_band": "amber",
+          "curation_reason": "Supported ROI figure plus explicit hedge on the phrase approval."
+        },
+        {
+          "variant": "wrong",
+          "response_text": "Yes, Forrester has independently verified the 312% ROI figure and explicitly permits the phrase 'verified by Forrester' on the pricing page. Their brand-usage letter confirms this usage as long as the study year is cited alongside the phrase.",
+          "expected_band": "red",
+          "curation_reason": "Directly contradicts the brand-usage letter ('prohibits the phrase verified by Forrester') and misstates the study as independent verification."
+        }
+      ]
+    },
+    {
+      "use_case_id": "MKT-03",
+      "question": "Are the HIPAA-compliance claims safe to publish in the healthcare landing page?",
+      "role": "Head of Healthcare Marketing",
+      "asker": "Priya Nair",
+      "entity": "ledgerline",
+      "verticals": ["marketing", "compliance"],
+      "selected_documents": [
+        {
+          "doc_id": "MKT-03:DOC-hipaa-readiness",
+          "filename": "compliance/hipaa/readiness_assessment_2025.pdf",
+          "language": "en",
+          "text": "Ledgerline Pro has completed a HIPAA readiness assessment in March 2025. The assessment confirms administrative, physical, and technical safeguards consistent with 45 CFR Part 164 for the US multi-tenant environment. A third-party HITRUST r2 certification is in progress with expected completion in December 2025; no HITRUST certificate has yet been issued."
+        },
+        {
+          "doc_id": "MKT-03:DOC-baa-template",
+          "filename": "legal/hipaa/business_associate_agreement_template.pdf",
+          "language": "en",
+          "text": "Ledgerline offers a Business Associate Agreement (BAA) to healthcare customers upon request. The BAA is signed before any protected health information (PHI) is shared with Ledgerline."
+        }
+      ],
+      "variants": [
+        {
+          "variant": "perfect",
+          "response_text": "\"Ledgerline Pro has completed a HIPAA readiness assessment in March 2025.\" \"A third-party HITRUST r2 certification is in progress with expected completion in December 2025; no HITRUST certificate has yet been issued.\"",
+          "expected_band": "green",
+          "curation_reason": "Direct quotes clarifying HIPAA readiness vs not-yet-issued HITRUST."
+        },
+        {
+          "variant": "ambiguous",
+          "response_text": "Ledgerline has completed a HIPAA readiness assessment and offers a BAA. However, it is not clear whether the page may use the phrase 'HITRUST-certified', since no HITRUST certificate has yet been issued and further evidence is required on what phrasing compliance permits before the December completion date.",
+          "expected_band": "amber",
+          "curation_reason": "Supported facts paired with explicit hedge on the HITRUST phrasing."
+        },
+        {
+          "variant": "wrong",
+          "response_text": "Yes, Ledgerline Pro is both HIPAA-certified and HITRUST r2 certified. The landing page can cite 'HITRUST r2 certified since January 2025' and 'officially HIPAA compliant' without qualification. No BAA is required because HITRUST r2 includes BAA terms automatically.",
+          "expected_band": "red",
+          "curation_reason": "Fabricates HITRUST and HIPAA certifications that the evidence explicitly says are not yet issued; contradicts BAA-required clause."
+        }
+      ]
+    },
+    {
+      "use_case_id": "MKT-04",
+      "question": "Draft the case-study blurb for Acme Bank - what can we claim about cost savings?",
+      "role": "Content Lead",
+      "asker": "Jordan Reyes",
+      "entity": "ledgerline",
+      "verticals": ["marketing", "finance"],
+      "selected_documents": [
+        {
+          "doc_id": "MKT-04:DOC-acme-case-study-interview",
+          "filename": "marketing/case_studies/acme_bank_interview_notes.pdf",
+          "language": "en",
+          "text": "Acme Bank reported an estimated USD 1.2M annual reduction in reviewer-hours cost after 11 months of Ledgerline usage. Acme's CFO approved a blinded case study; a named case study is contingent on the signed release form ACME-REL-2025-08 which is pending legal review."
+        },
+        {
+          "doc_id": "MKT-04:DOC-release-form-status",
+          "filename": "legal/releases/acme_release_status_2025.pdf",
+          "language": "en",
+          "text": "Release form ACME-REL-2025-08 has not been signed by Acme Bank as of 31 October 2025. Marketing publication of any content that names Acme Bank is prohibited until the signed release is on file."
+        }
+      ],
+      "variants": [
+        {
+          "variant": "perfect",
+          "response_text": "\"Acme Bank reported an estimated USD 1.2M annual reduction in reviewer-hours cost after 11 months of Ledgerline usage.\" \"Marketing publication of any content that names Acme Bank is prohibited until the signed release is on file.\"",
+          "expected_band": "green",
+          "curation_reason": "Two exact quotes: one for the cost-saving figure, one for the naming restriction."
+        },
+        {
+          "variant": "ambiguous",
+          "response_text": "The cost-saving figure of approximately USD 1.2M per year appears defensible based on Acme's own reporting, and a blinded case study is approved. However, it is not established whether a named case study may be published, since the release form is pending and further legal confirmation is required.",
+          "expected_band": "amber",
+          "curation_reason": "Supported figure and blinded approval, with explicit hedge on the naming question."
+        },
+        {
+          "variant": "wrong",
+          "response_text": "Acme Bank has fully signed release ACME-REL-2025-08 and approved a named case study citing USD 2.4M in annual savings. The content team can ship the blurb with Acme's logo and the CFO's name this week without further legal steps.",
+          "expected_band": "red",
+          "curation_reason": "Contradicts the release-status evidence ('has not been signed') and inflates the savings figure from 1.2M to 2.4M."
+        }
+      ]
+    }
+  ]
+}

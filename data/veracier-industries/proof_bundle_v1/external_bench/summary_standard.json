@@ -1,0 +1,38 @@
+[
+  {
+    "total": 80,
+    "errors": 0,
+    "amber_leakage_rate": 0.125,
+    "red_precision": 0.7143,
+    "red_recall": 0.5263,
+    "green_precision": 0.5714,
+    "counts": {
+      "tp": 20,
+      "fp": 8,
+      "tn": 24,
+      "fn": 18,
+      "amber": 10
+    },
+    "bench": "halueval_qa",
+    "profile": "standard",
+    "elapsed_s": 8.66
+  },
+  {
+    "total": 80,
+    "errors": 0,
+    "amber_leakage_rate": 0.3375,
+    "red_precision": 0.6,
+    "red_recall": 0.4615,
+    "green_precision": 0.5758,
+    "counts": {
+      "tp": 12,
+      "fp": 8,
+      "tn": 19,
+      "fn": 14,
+      "amber": 27
+    },
+    "bench": "halueval_summ",
+    "profile": "standard",
+    "elapsed_s": 35.02
+  }
+]

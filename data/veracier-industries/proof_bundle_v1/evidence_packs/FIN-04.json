@@ -1,0 +1,117 @@
+{
+  "use_case_id": "FIN-04",
+  "question": "Preparation des comptes consolides IFRS - documents justificatifs par entite?",
+  "role": "Directeur Financier",
+  "asker": "Antoine Morel",
+  "entity": "veracier_sa",
+  "difficulty_factors": [
+    "cross_entity",
+    "multilingual"
+  ],
+  "ground_truth": {},
+  "ground_truth_proxy": {
+    "source": "MASTER_INDEX.classification",
+    "positive_classes": [],
+    "distractor_classes": []
+  },
+  "selected_documents": [
+    {
+      "source_id": "FIN-04:DOC-a65ad8bd",
+      "corpus_source_id": "FULL:cfe330a49e8d",
+      "doc_id": "DOC-a65ad8bd",
+      "entity": "veracier_sa",
+      "filename": "finance/consolide/doc_fin04_001.pdf",
+      "classification": "RELEVANT",
+      "language": "fr",
+      "format": "searchable",
+      "description": "FIN-04 consolidated accounts doc 1",
+      "char_count": 7191,
+      "text": "--- Page 1 ---\n\n# DOCUMENTATION PRIX DE TRANSFERT\n\n## Introduction\n\nDocumentation prix de transfert.\n\nLe Fournisseur s'engage à maintenir un système de tracabilite permettant d'identifier, pour chaque produit livre, les matieres premieres utilisees, les operations de fabrication effectuees, et les controles realises. Cette tracabilite devra être conservee pendant une duree minimale de dix (10) ans.\n\nLe dispositif de filtrage des sanctions fait l'objet d'un criblage systematique de l'ensemble des tiers (clients, fournisseurs, partenaires) contre les listes de sanctions de l'Union Européenne, de l'OFAC (Etats-Unis), et des Nations Unies.\n\nL'evaluation des risques NIS2 a identifie des lacunes dans la segmentation des reseaux OT (Operational Technology) sur les sites de Valen\n\n[...evidence excerpt...]\n\nde la qualité certifie ISO 9001. En cas de perte de cette certification, le Client se reserve le droit de suspendre les commandes en cours.\n\nEn cas de litige relatif a l'interpretation ou a l'execution du present contrat, les Parties s'engagent a rechercher une solution amiable dans un delai de trente (30) jours. A défaut, le litige sera soumis aux tribunaux competents du ressort du siege social du Client.\n\nLes conclusions de cette analyse juridique sont couvertes par le privilege de la correspondance avocat-client et ne doivent en aucun cas être communiquées a des tiers sans l'accord prealable de la direction juridique.\n\nLes charges a payer au titre de l'exercice comprennent les elements suivants : penalites de retard clients (2,1 MEUR), provisions pour garantie produits (1,2 MEUR), provision pour risques fiscaux (0,8 MEUR) et indemnités de rupture conventionnelle (0,6 MEUR).\n\nLa direction juridique recommande la designation d'un mediateur agree par le Centre de Mediation et d'Arbitrage de Paris (CMAP) afin de tenter une resolution amiable avant l'engagement d'une procedure judiciaire au fond.\n\nConformement aux obligations declaratives du groupe, ce contentieux doit figurer dans la note annexe aux comptes consolides relative aux passifs eventuels, sans mention du montant provisionne pour ne pas prejudicier la position du groupe.\n\nIl est recommande de ne pas communiquer publiquement sur ce litige, compte tenu de l'obligation de confidentialité imposee par la clause de mediat"
+    },
+    {
+      "source_id": "FIN-04:DOC-51667b5c",
+      "corpus_source_id": "FULL:1ad354f137b9",
+      "doc_id": "DOC-51667b5c",
+      "entity": "veracier_aero",
+      "filename": "finance/consolide/doc_fin04_002.pdf",
+      "classification": "RELEVANT",
+      "language": "fr",
+      "format": "searchable",
+      "description": "FIN-04 consolidated accounts doc 2",
+      "char_count": 6832,
+      "text": "--- Page 1 ---\n\n# DOCUMENTATION PRIX DE TRANSFERT\n\n## Introduction\n\nDocumentation prix de transfert.\n\nLe plan de continuite d'activité informatique (PCA-IT) prevoit un objectif de temps de reprise (RTO) de 4 heures pour les systèmes critiques et un objectif de point de reprise (RPO) de 1 heure, avec basculement automatique sur le site de secours.\n\nLe ratio d'endettement net sur EBITDA s'établit à 1,8x, en deca du covenant bancaire fixe à 3,0x dans la convention de credit syndique de 250 millions d'euros.\n\nL'historique des contentieux similaires au sein du groupe montre un taux de resolution amiable de l'ordre de 65%, pour un montant moyen de transaction representant 45% de la demande initiale.\n\nLa provision a ete evaluee selon la norme IAS 37, en tenant compte de la meill"
+    },
+    {
+      "source_id": "FIN-04:DOC-8fea10da",
+      "corpus_source_id": "FULL:e30162a38dcc",
+      "doc_id": "DOC-8fea10da",
+      "entity": "veracier_defense",
+      "filename": "finance/consolide/doc_fin04_003.pdf",
+      "classification": "RELEVANT",
+      "language": "fr",
+      "format": "scanned",
+      "description": "FIN-04 consolidated accounts doc 3",
+      "char_count": 18932,
+      "text": "--- Page 1 ---\n\nDocumentation prix de transfert.\n\nIntroduction\n\nDOCUMENTATION PRIX DE TRANSFERT\n\n--- Page 2 ---\n\nLe registre des activités de traitement prevu à l'article 30 du RGPD est tenu à jour par chaque entité du groupe et fait l'objet d'une consolidation annuelle par le DPO. Il recense 147 traitements de données personnelles au niveau du groupe.\n\nLe Fournisseur s'engage à maintenir, pendant toute la duree du contrat, un système de management de la qualité certifie ISO 9001. En cas de perte de cette certification, le Client se reserve le droit de suspendre les commandes en cours.\n\nLe Fournisseur s'engage à maintenir un système de tracabilite permettant d'identifier, pour chaque produit livre, les matières premières utilisées, les opérations de fabrication effectue\n\n[...evidence excerpt...]\n\ne devra être conservee pendant une duree minimale de dix (10) ans.\n\nLe Client se reserve le droit de proceder à des audits qualité dans les locaux du Fournisseur, moyennant un preavis raisonnable de quinze (15) jours ouvrables, afin de verifier la conformité aux exigences contractuelles et réglementaires.\n\nLes Parties declarent que le présent contrat représente l'integralité de leur accord et se substitue à toute negotiation, correspondance ou accord anterieur, écrit ou oral, portant sur le meme objet.\n\nLe registre des habilitations de securite est tenu à jour par le responsable de la surete de chaque site. Les habilitations de niveau Confidentiel Defense sont valables cinq (5) ans et celles de niveau Secret sont valables sept (7) ans.\n\nLa provision a ete evaluee selon la norme IAS 37, en tenant compte de la meilleure estimation de la depense necessaire a l'extinction de l'obligation a la date de cloture, actualisee au taux d'actualisation sans risque de 3,2%.\n\nEn cas de litige relatif a l'interpretation ou a l'execution du present contrat, les Parties s'engagent à rechercher une solution amiable dans un delai de trente (30) jours. A défaut, le litige sera soumis aux tribunaux competents du ressort du siege social du Client.\n\nLe rapport annuel sur la mise en oeuvre du dispositif Sapin II a été présente au conseil d'administration et fait apparaître un taux de completion de 92% des actions planifiées, avec un retard sur le deploiement de la formation anti-corruption pour les e"
+    },
+    {
+      "source_id": "FIN-04:DOC-5954bb90",
+      "corpus_source_id": "FULL:922269bad88e",
+      "doc_id": "DOC-5954bb90",
+      "entity": "veracier_energie",
+      "filename": "finance/consolide/doc_fin04_004.pdf",
+      "classification": "RELEVANT",
+      "language": "fr",
+      "format": "searchable",
+      "description": "FIN-04 consolidated accounts doc 4",
+      "char_count": 11951,
+      "text": "--- Page 1 ---\n\n## DOCUMENTATION PRIX DE TRANSFERT\n\n## Introduction\n\nDocumentation prix de transfert.\n\nL'analyse du risque juridique a été realisée conformement aux principes de la norme IAS 37 relative aux provisions, passifs éventuels et actifs éventuels. La probabilité de réalisation du risque a été évaluée selon une échelle à trois niveaux : probable, possible ou remote.\n\nLa direction juridique recommande de constituer une provision correspondant à la fourchette basse de l'estimation du risque, étant donné le stade encore preliminaire de la procédure et l'incertitude quant à l'issue du litige.\n\nLa charge de management fees facturee par la société mère a ses filiales representé 3% du chiffre d'affaires consolidé de chaque filiale, ce qui remunère les services de directi"
+    },
+    {
+      "source_id": "FIN-04:DOC-d465d051",
+      "corpus_source_id": "FULL:e9fae7de0bd0",
+      "doc_id": "DOC-d465d051",
+      "entity": "veracier_defense",
+      "filename": "finance/consolide/doc_fin04_017.pdf",
+      "classification": "NOT_RELEVANT",
+      "language": "fr",
+      "format": "mixed",
+      "description": "FIN-04 consolidated accounts doc 17",
+      "char_count": 19112,
+      "text": "--- Page 1 ---\n\n## RAPPORT DE VARIANCE BUDGETAIRE\n\n### Analyse des Ecarts\n\nLe budget d'investissement prevoit une enveloppe de 18,5 millions d'euros pour l'exercice en cours, dont 12,3 MEUR destines à la capacité de production (nouvelle ligne d'usinage Toulouse et extension Casablanca) et 6,2 MEUR à la R&D.\n\nLa couverture assurantielle au titre de la police de responsabilité civile du groupe a été verifiée. La franchise applicable s'eleve à 500 000 EUR par sinistre, et le plafond de garantie à 50 000 000 EUR par an.\n\nLa methode du prix de revient majoire (cost plus method) a été retenue pour la remuneration des activités de fabrication sous contrat, avec une marge de 8% applicable aux couts directs et indirects de production.\n\nLe signalement interne au titre du dispositif d'aler"
+    },
+    {
+      "source_id": "FIN-04:DOC-c8713a11",
+      "corpus_source_id": "FULL:dc882cef4a75",
+      "doc_id": "DOC-c8713a11",
+      "entity": "veracier_maroc",
+      "filename": "finance/consolide/doc_fin04_008.pdf",
+      "classification": "RELEVANT",
+      "language": "fr",
+      "format": "scanned",
+      "description": "FIN-04 consolidated accounts doc 8",
+      "char_count": 18896,
+      "text": "--- Page 1 ---\n\nCALCUL DE PROVISION\n\nObjet de la Provision\n\nMethode de Calcul\n\nMontant Recommande\n\n--- Page 2 ---\n\nLe Fournisseur garantit qu'il dispose de toutes les autorisations, licences et habilitations necessaires à l'execution de ses obligations. Il s'engage à informer le Client sans delai de toute modification susceptible d'affecter sa capacité a exécuter le contrat.\n\nToute notification au titre du present contrat devra etre effectuee par lettre recommandee avec accuse de reception adressee au siege social de la Partie destinataire, ou par courrier electronique avec confirmation de lecture a l'adresse indiquee en preambule.\n\nLe registre des habilitations de securite est tenu à jour par le responsable de la surete de chaque site. Les habilitations de niveau C\n\n[...evidence excerpt...]\n\ncelles de niveau Secret sont valables sept (7) ans.\n\nLe contrat ne pourra être cede, en tout ou en partie, par l'une ou l'autre des Parties sans l'accord prealable écrit de l'autre Partie. Toute cession non autorisee sera reputee nulle et non avenue.\n\nLa convention d’investissement conclue avec l’Etat marocain au titre de la zone franche d’exportation de Nouaceur prevoit une exoneration totale de l’impot sur les societes pendant les cinq premières années, puis un taux reduit de 8,75% pour les vingt années suivantes.\n\nLa prescription de l'action est de cinq (5) ans à compter de la date du fait generateur, conformement à l'article 2224 du Code civil. Le delai court jusqu'au 15 mars 2028.\n\nL'analyse de sensibilité montre que le montant de la provision pour demantélement nucléaire est particulièrement sensible au taux d'actualisation retenu : une variation de +/- 0,5% du taux se traduit par une variation de +/- 1,2 million d'euros.\n\nLes transactions intra-groupe sont remunerees conformement au principe de pleine concurrence (arm's length) tel que defini par les Principes de l'OCDE en matière de prix de transfert et l'article 57 du Code general des impots.\n\nConformement aux obligations declaratives du groupe, ce contentieux doit figurer dans la note annexe aux comptes consolides relative aux passifs eventuels, sans mention du montant provisionne pour ne pas prejudicier la position du groupe.\n\nLa couverture assurantielle au titre de la police de responsabilité civile du groupe a é"
+    }
+  ],
+  "raw_context": "[FIN-04:DOC-a65ad8bd | RELEVANT | finance/consolide/doc_fin04_001.pdf]\n--- Page 1 ---\n\n# DOCUMENTATION PRIX DE TRANSFERT\n\n## Introduction\n\nDocumentation prix de transfert.\n\nLe Fournisseur s'engage à maintenir un système de tracabilite permettant d'identifier, pour chaque produit livre, les matieres premieres utilisees, les operations de fabrication effectuees, et les controles realises. Cette tracabilite devra être conservee pendant une duree minimale de dix (10) ans.\n\nLe dispositif de filtrage des sanctions fait l'objet d'un criblage systematique de l'ensemble des tiers (clients, fournisseurs, partenaires) contre les listes de sanctions de l'Union Européenne, de l'OFAC (Etats-Unis), et des Nations Unies.\n\nL'evaluation des risques NIS2 a identifie des lacunes dans la segmentation des reseaux OT (Operational Technology) sur les sites de Valen\n\n[...evidence excerpt...]\n\nde la qualité certifie ISO 9001. En cas de perte de cette certification, le Client se reserve le droit de suspendre les commandes en cours.\n\nEn cas de litige relatif a l'interpretation ou a l'execution du present contrat, les Parties s'engagent a rechercher une solution amiable dans un delai de trente (30) jours. A défaut, le litige sera soumis aux tribunaux competents du ressort du siege social du Client.\n\nLes conclusions de cette analyse juridique sont couvertes par le privilege de la correspondance avocat-client et ne doivent en aucun cas être communiquées a des tiers sans l'accord prealable de la direction juridique.\n\nLes charges a payer au titre de l'exercice comprennent les elements suivants : penalites de retard clients (2,1 MEUR), provisions pour garantie produits (1,2 MEUR), provision pour risques fiscaux (0,8 MEUR) et indemnités de rupture conventionnelle (0,6 MEUR).\n\nLa direction juridique recommande la designation d'un mediateur agree par le Centre de Mediation et d'Arbitrage de Paris (CMAP) afin de tenter une resolution amiable avant l'engagement d'une procedure judiciaire au fond.\n\nConformement aux obligations declaratives du groupe, ce contentieux doit figurer dans la note annexe aux comptes consolides relative aux passifs eventuels, sans mention du montant provisionne pour ne pas prejudicier la position du groupe.\n\nIl est recommande de ne pas communiquer publiquement sur ce litige, compte tenu de l'obligation de confidentialité imposee par la clause de mediat\n\n[FIN-04:DOC-51667b5c | RELEVANT | finance/consolide/doc_fin04_002.pdf]\n--- Page 1 ---\n\n# DOCUMENTATION PRIX DE TRANSFERT\n\n## Introduction\n\nDocumentation prix de transfert.\n\nLe plan de continuite d'activité informatique (PCA-IT) prevoit un objectif de temps de reprise (RTO) de 4 heures pour les systèmes critiques et un objectif de point de reprise (RPO) de 1 heure, avec basculement automatique sur le site de secours.\n\nLe ratio d'endettement net sur EBITDA s'établit à 1,8x, en deca du covenant bancaire fixe à 3,0x dans la convention de credit syndique de 250 millions d'euros.\n\nL'historique des contentieux similaires au sein du groupe montre un taux de resolution amiable de l'ordre de 65%, pour un montant moyen de transaction representant 45% de la demande initiale.\n\nLa provision a ete evaluee selon la norme IAS 37, en tenant compte de la meill\n\n[FIN-04:DOC-8fea10da | RELEVANT | finance/consolide/doc_fin04_003.pdf]\n--- Page 1 ---\n\nDocumentation prix de transfert.\n\nIntroduction\n\nDOCUMENTATION PRIX DE TRANSFERT\n\n--- Page 2 ---\n\nLe registre des activités de traitement prevu à l'article 30 du RGPD est tenu à jour par chaque entité du groupe et fait l'objet d'une consolidation annuelle par le DPO. Il recense 147 traitements de données personnelles au niveau du groupe.\n\nLe Fournisseur s'engage à maintenir, pendant toute la duree du contrat, un système de management de la qualité certifie ISO 9001. En cas de perte de cette certification, le Client se reserve le droit de suspendre les commandes en cours.\n\nLe Fournisseur s'engage à maintenir un système de tracabilite permettant d'identifier, pour chaque produit livre, les matières premières utilisées, les opérations de fabrication effectue\n\n[...evidence excerpt...]\n\ne devra être conservee pendant une duree minimale de dix (10) ans.\n\nLe Client se reserve le droit de proceder à des audits qualité dans les locaux du Fournisseur, moyennant un preavis raisonnable de quinze (15) jours ouvrables, afin de verifier la conformité aux exigences contractuelles et réglementaires.\n\nLes Parties declarent que le présent contrat représente l'integralité de leur accord et se substitue à toute negotiation, correspondance ou accord anterieur, écrit ou oral, portant sur le meme objet.\n\nLe registre des habilitations de securite est tenu à jour par le responsable de la surete de chaque site. Les habilitations de niveau Confidentiel Defense sont valables cinq (5) ans et celles de niveau Secret sont valables sept (7) ans.\n\nLa provision a ete evaluee selon la norme IAS 37, en tenant compte de la meilleure estimation de la depense necessaire a l'extinction de l'obligation a la date de cloture, actualisee au taux d'actualisation sans risque de 3,2%.\n\nEn cas de litige relatif a l'interpretation ou a l'execution du present contrat, les Parties s'engagent à rechercher une solution amiable dans un delai de trente (30) jours. A défaut, le litige sera soumis aux tribunaux competents du ressort du siege social du Client.\n\nLe rapport annuel sur la mise en oeuvre du dispositif Sapin II a été présente au conseil d'administration et fait apparaître un taux de completion de 92% des actions planifiées, avec un retard sur le deploiement de la formation anti-corruption pour les e\n\n[FIN-04:DOC-5954bb90 | RELEVANT | finance/consolide/doc_fin04_004.pdf]\n--- Page 1 ---\n\n## DOCUMENTATION PRIX DE TRANSFERT\n\n## Introduction\n\nDocumentation prix de transfert.\n\nL'analyse du risque juridique a été realisée conformement aux principes de la norme IAS 37 relative aux provisions, passifs éventuels et actifs éventuels. La probabilité de réalisation du risque a été évaluée selon une échelle à trois niveaux : probable, possible ou remote.\n\nLa direction juridique recommande de constituer une provision correspondant à la fourchette basse de l'estimation du risque, étant donné le stade encore preliminaire de la procédure et l'incertitude quant à l'issue du litige.\n\nLa charge de management fees facturee par la société mère a ses filiales representé 3% du chiffre d'affaires consolidé de chaque filiale, ce qui remunère les services de directi\n\n[FIN-04:DOC-d465d051 | NOT_RELEVANT | finance/consolide/doc_fin04_017.pdf]\n--- Page 1 ---\n\n## RAPPORT DE VARIANCE BUDGETAIRE\n\n### Analyse des Ecarts\n\nLe budget d'investissement prevoit une enveloppe de 18,5 millions d'euros pour l'exercice en cours, dont 12,3 MEUR destines à la capacité de production (nouvelle ligne d'usinage Toulouse et extension Casablanca) et 6,2 MEUR à la R&D.\n\nLa couverture assurantielle au titre de la police de responsabilité civile du groupe a été verifiée. La franchise applicable s'eleve à 500 000 EUR par sinistre, et le plafond de garantie à 50 000 000 EUR par an.\n\nLa methode du prix de revient majoire (cost plus method) a été retenue pour la remuneration des activités de fabrication sous contrat, avec une marge de 8% applicable aux couts directs et indirects de production.\n\nLe signalement interne au titre du dispositif d'aler\n\n[FIN-04:DOC-c8713a11 | RELEVANT | finance/consolide/doc_fin04_008.pdf]\n--- Page 1 ---\n\nCALCUL DE PROVISION\n\nObjet de la Provision\n\nMethode de Calcul\n\nMontant Recommande\n\n--- Page 2 ---\n\nLe Fournisseur garantit qu'il dispose de toutes les autorisations, licences et habilitations necessaires à l'execution de ses obligations. Il s'engage à informer le Client sans delai de toute modification susceptible d'affecter sa capacité a exécuter le contrat.\n\nToute notification au titre du present contrat devra etre effectuee par lettre recommandee avec accuse de reception adressee au siege social de la Partie destinataire, ou par courrier electronique avec confirmation de lecture a l'adresse indiquee en preambule.\n\nLe registre des habilitations de securite est tenu à jour par le responsable de la surete de chaque site. Les habilitations de niveau C\n\n[...evidence excerpt...]\n\ncelles de niveau Secret sont valables sept (7) ans.\n\nLe contrat ne pourra être cede, en tout ou en partie, par l'une ou l'autre des Parties sans l'accord prealable écrit de l'autre Partie. Toute cession non autorisee sera reputee nulle et non avenue.\n\nLa convention d’investissement conclue avec l’Etat marocain au titre de la zone franche d’exportation de Nouaceur prevoit une exoneration totale de l’impot sur les societes pendant les cinq premières années, puis un taux reduit de 8,75% pour les vingt années suivantes.\n\nLa prescription de l'action est de cinq (5) ans à compter de la date du fait generateur, conformement à l'article 2224 du Code civil. Le delai court jusqu'au 15 mars 2028.\n\nL'analyse de sensibilité montre que le montant de la provision pour demantélement nucléaire est particulièrement sensible au taux d'actualisation retenu : une variation de +/- 0,5% du taux se traduit par une variation de +/- 1,2 million d'euros.\n\nLes transactions intra-groupe sont remunerees conformement au principe de pleine concurrence (arm's length) tel que defini par les Principes de l'OCDE en matière de prix de transfert et l'article 57 du Code general des impots.\n\nConformement aux obligations declaratives du groupe, ce contentieux doit figurer dans la note annexe aux comptes consolides relative aux passifs eventuels, sans mention du montant provisionne pour ne pas prejudicier la position du groupe.\n\nLa couverture assurantielle au titre de la police de responsabilité civile du groupe a é",
+  "context_char_count": 9274,
+  "generation_archetype": {
+    "id": "finance_tax",
+    "label": "Finance, tax, transfer pricing, accounting",
+    "focus": "amounts, periods, entities, filings, assumptions, percentages, and provisions",
+    "perfect_guidance": [
+      "Use affirmative fiscal or financial facts that are explicitly present.",
+      "Numeric values, years, percentages, and currency amounts are allowed only when copied verbatim.",
+      "Do not answer with an evidence-absence sentence such as missing years or missing files."
+    ],
+    "ambiguous_guidance": [
+      "Use one supported metric, transaction type, filing, or accounting fact.",
+      "Pair it with one unresolved limitation about period coverage, entity coverage, filing scope, or supporting schedule completeness."
+    ],
+    "wrong_guidance": [
+      "Mutate an amount, rate, year, entity, filing status, or tax/accounting conclusion.",
+      "Do not keep any claim partially grounded."
+    ]
+  }
+}

@@ -1,0 +1,601 @@
+{
+  "stats": {
+    "total_ambiguous": 40,
+    "accepted_first_pass": 27,
+    "regenerated_accepted": 8,
+    "unstable_excluded": 5,
+    "sandbox_calls": 53
+  },
+  "log": [
+    {
+      "example_id": "AERO-01:ambiguous",
+      "question_id": "AERO-01",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "red",
+          "score": 0.3798
+        },
+        {
+          "attempt": 1,
+          "band": "amber",
+          "score": 0.6917
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 1
+    },
+    {
+      "example_id": "AERO-02:ambiguous",
+      "question_id": "AERO-02",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.7184
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "CEO-01:ambiguous",
+      "question_id": "CEO-01",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.5538
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "CEO-02:ambiguous",
+      "question_id": "CEO-02",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.7296
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "CISO-01:ambiguous",
+      "question_id": "CISO-01",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "green",
+          "score": 0.8601
+        },
+        {
+          "attempt": 1,
+          "band": "amber",
+          "score": 0.74
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 1
+    },
+    {
+      "example_id": "CISO-02:ambiguous",
+      "question_id": "CISO-02",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.6701
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "CISO-03:ambiguous",
+      "question_id": "CISO-03",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.74
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "COMP-01:ambiguous",
+      "question_id": "COMP-01",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.74
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "COMP-02:ambiguous",
+      "question_id": "COMP-02",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.74
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "CTO-01:ambiguous",
+      "question_id": "CTO-01",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "red",
+          "score": 0.5048
+        },
+        {
+          "attempt": 1,
+          "band": "red",
+          "score": 0.3913
+        },
+        {
+          "attempt": 2,
+          "band": "red",
+          "score": 0.4993
+        },
+        {
+          "attempt": 3,
+          "band": "red",
+          "score": 0.396,
+          "regen_error": "regeneration failed"
+        }
+      ],
+      "final_status": "unstable",
+      "accepted_attempt": null
+    },
+    {
+      "example_id": "CTO-02:ambiguous",
+      "question_id": "CTO-02",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.55
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "CTO-03:ambiguous",
+      "question_id": "CTO-03",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.74
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "DEF-01:ambiguous",
+      "question_id": "DEF-01",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "red",
+          "score": 0.4997
+        },
+        {
+          "attempt": 1,
+          "band": "amber",
+          "score": 0.74
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 1
+    },
+    {
+      "example_id": "DEF-02:ambiguous",
+      "question_id": "DEF-02",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.7334
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "ENRG-01:ambiguous",
+      "question_id": "ENRG-01",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.74
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "ENRG-02:ambiguous",
+      "question_id": "ENRG-02",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.69
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "FIN-01:ambiguous",
+      "question_id": "FIN-01",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.74
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "FIN-02:ambiguous",
+      "question_id": "FIN-02",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "red",
+          "score": 0.4886,
+          "regen_error": "regeneration failed"
+        }
+      ],
+      "final_status": "unstable",
+      "accepted_attempt": null
+    },
+    {
+      "example_id": "FIN-03:ambiguous",
+      "question_id": "FIN-03",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.7361
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "FIN-04:ambiguous",
+      "question_id": "FIN-04",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "red",
+          "score": 0.4929
+        },
+        {
+          "attempt": 1,
+          "band": "red",
+          "score": 0.5248,
+          "regen_error": "regeneration failed"
+        }
+      ],
+      "final_status": "unstable",
+      "accepted_attempt": null
+    },
+    {
+      "example_id": "GMBH-01:ambiguous",
+      "question_id": "GMBH-01",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.74
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "GMBH-02:ambiguous",
+      "question_id": "GMBH-02",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "green",
+          "score": 0.8803
+        },
+        {
+          "attempt": 1,
+          "band": "amber",
+          "score": 0.7194
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 1
+    },
+    {
+      "example_id": "HR-01:ambiguous",
+      "question_id": "HR-01",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.7331
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "HR-02:ambiguous",
+      "question_id": "HR-02",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.74
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "LEGAL-01:ambiguous",
+      "question_id": "LEGAL-01",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "green",
+          "score": 0.7508,
+          "regen_error": "regeneration failed"
+        }
+      ],
+      "final_status": "unstable",
+      "accepted_attempt": null
+    },
+    {
+      "example_id": "LEGAL-02:ambiguous",
+      "question_id": "LEGAL-02",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "green",
+          "score": 0.9246
+        },
+        {
+          "attempt": 1,
+          "band": "amber",
+          "score": 0.74
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 1
+    },
+    {
+      "example_id": "LEGAL-03:ambiguous",
+      "question_id": "LEGAL-03",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.74
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "LEGAL-04:ambiguous",
+      "question_id": "LEGAL-04",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.7145
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "MAROC-01:ambiguous",
+      "question_id": "MAROC-01",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.74
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "MAROC-02:ambiguous",
+      "question_id": "MAROC-02",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.74
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "OPS-01:ambiguous",
+      "question_id": "OPS-01",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.6434
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "PROC-01:ambiguous",
+      "question_id": "PROC-01",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "red",
+          "score": 0.3184,
+          "regen_error": "regeneration failed"
+        }
+      ],
+      "final_status": "unstable",
+      "accepted_attempt": null
+    },
+    {
+      "example_id": "PROC-02:ambiguous",
+      "question_id": "PROC-02",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.7032
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "QUAL-01:ambiguous",
+      "question_id": "QUAL-01",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "red",
+          "score": 0.5027
+        },
+        {
+          "attempt": 1,
+          "band": "amber",
+          "score": 0.7219
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 1
+    },
+    {
+      "example_id": "QUAL-02:ambiguous",
+      "question_id": "QUAL-02",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "red",
+          "score": 0.3273
+        },
+        {
+          "attempt": 1,
+          "band": "amber",
+          "score": 0.55
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 1
+    },
+    {
+      "example_id": "SALES-01:ambiguous",
+      "question_id": "SALES-01",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.74
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "UK-01:ambiguous",
+      "question_id": "UK-01",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.74
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "UK-02:ambiguous",
+      "question_id": "UK-02",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.5883
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "US-01:ambiguous",
+      "question_id": "US-01",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "amber",
+          "score": 0.74
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 0
+    },
+    {
+      "example_id": "US-02:ambiguous",
+      "question_id": "US-02",
+      "attempts": [
+        {
+          "attempt": 0,
+          "band": "red",
+          "score": 0.4964
+        },
+        {
+          "attempt": 1,
+          "band": "red",
+          "score": 0.2879
+        },
+        {
+          "attempt": 2,
+          "band": "amber",
+          "score": 0.6826
+        }
+      ],
+      "final_status": "accepted",
+      "accepted_attempt": 2
+    }
+  ]
+}

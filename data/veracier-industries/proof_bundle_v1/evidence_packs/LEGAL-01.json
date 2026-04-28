@@ -1,0 +1,146 @@
+{
+  "use_case_id": "LEGAL-01",
+  "question": "Quels contrats fournisseurs ont des clauses de force majeure couvrant les perturbations de la chaine d'approvisionnement?",
+  "role": "Directeur Juridique",
+  "asker": "Jean-Philippe Garnier",
+  "entity": "veracier_sa",
+  "difficulty_factors": [
+    "terminology_variance",
+    "multilingual",
+    "near_miss_trap",
+    "cross_entity"
+  ],
+  "ground_truth": {
+    "yes": [
+      "contrats/fournisseur/forges_martelliere_msa_2022.pdf",
+      "contrats/fournisseur/rhein_metall_rahmenvertrag_2021.pdf",
+      "contrats/fournisseur/titan_fluid_msa_2020.pdf",
+      "contrats/fournisseur/iberica_mecanizados_2021.pdf",
+      "contrats/fournisseur/ceramiques_midi_contrat_2019.pdf",
+      "contrats/fournisseur/officine_bergamo_2022.pdf",
+      "contrats/fournisseur/acieries_savoie_contrat_2020.pdf",
+      "contrats/fournisseur/smithfield_coatings_2021.pdf",
+      "contrats/fournisseur/fonderie_piemontese_2023.pdf",
+      "contrats/fournisseur/talleres_sevilla_2023.pdf",
+      "contrats/fournisseur/groupe_mecanique_lorraine_2021.pdf",
+      "contrats/fournisseur/pacific_precision_2023.pdf"
+    ],
+    "no": [
+      "contrats/fournisseur/electropulse_supply_2023.pdf",
+      "contrats/fournisseur/optovision_supply_2022.pdf",
+      "contrats/fournisseur/baltic_composites_2023.pdf",
+      "contrats/fournisseur/kuiper_elektronik_2022.pdf",
+      "contrats/fournisseur/sudelec_maroc_2023.pdf",
+      "contrats/fournisseur/schweizerische_ventiltechnik_2022.pdf",
+      "contrats/fournisseur/wuertt_elektronik_2021.pdf"
+    ]
+  },
+  "ground_truth_proxy": {
+    "source": "MASTER_INDEX.classification",
+    "positive_classes": [
+      "YES"
+    ],
+    "distractor_classes": [
+      "NO"
+    ]
+  },
+  "selected_documents": [
+    {
+      "source_id": "LEGAL-01:DOC-dc65679b",
+      "corpus_source_id": "FULL:6f84b0f1ad9c",
+      "doc_id": "DOC-dc65679b",
+      "entity": "veracier_sa",
+      "filename": "contrats/fournisseur/forges_martelliere_msa_2022.pdf",
+      "classification": "YES",
+      "language": "fr",
+      "format": "searchable",
+      "description": "FM covers supply chain - Forges Martelliere S.A.",
+      "char_count": 23451,
+      "text": "--- Page 1 ---\n\nVRC-SA-2022-0657\n\n15/03/2022\n\n# CONTRAT-CADRE DE FOURNITURE\n\nEntre Veracier SA et Forges Martelliere S.A.\n\n##### ENTRE LES SOUSSIGNES :\n\nVeracier Industries S.A., societe anonyme au capital de 285 000 000 EUR, immatriculee au Registre du Commerce et des Societes sous le numero RCS Paris 412 587 936, dont le siege social est situe 42 Avenue de la Grande Armee, 75017 Paris, France, representee par Helene Daubrac, en sa qualite de Presidente-Directrice Generale,\n\nci-apres denommee \"le Client\",\n\nD'UNE PART,\n\nEt Forges Martelliere S.A., representee par son representant legal dument habilite,\n\nci-apres denommee \"le Fournisseur\",\n\nD'AUTRE PART.\n\nCI-APRES DENOMMEES ENSEMBLE \"LES PARTIES\"\n\nIL A ETE CONVENU ET ARRETE CE QUI SUIT :\n\n#### Article 1 — Objet du Contrat\n\nLe présent cont"
+    },
+    {
+      "source_id": "LEGAL-01:DOC-d12104dc",
+      "corpus_source_id": "FULL:7421c7b8f054",
+      "doc_id": "DOC-d12104dc",
+      "entity": "veracier_gmbh",
+      "filename": "contrats/fournisseur/rhein_metall_rahmenvertrag_2021.pdf",
+      "classification": "YES",
+      "language": "de",
+      "format": "searchable",
+      "description": "FM covers supply chain - Rhein-Metall Prazision GmbH",
+      "char_count": 7771,
+      "text": "bers erstellt werden, gehen mit ihrer Entstehung in das Eigentum des Auftraggebers ueber.\n\nAenderungen und Ergaenzungen dieses Vertrages beduerfen der Schriftform und der Unterzeichnung durch ordnungsgemaess bevollmaechtigte Vertreter beider Parteien. Muendliche Nebenabreden bestehen nicht.\n\nDer Lieferant gewaehrleistet, dass er ueber alle erforderlichen Genehmigungen, Lizenzen und Zulassungen fuer die Erfuellung seiner Vertragspflichten verfuegt und wird den Auftraggeber unverzueglich ueber Aenderungen informieren.\n\nSollten sich die anwendbaren Rechtsvorschriften wesentlich aendern und die Vertragsbedingungen erheblich beeinflussen, verpflichten sich die Parteien, in Treu und Glauben ueber eine Anpassung des Vertrages zu verhandeln.\n\nDieser Vertrag stellt die gesamte Vereinbarung der Parteien in Bezug auf den Vertragsgegenstand dar und ersetzt alle frueheren Verhandlungen, Erklaerungen und Vereinbarungen, gleich ob schriftlich oder muendlich.\n\nKeine der Parteien darf waehrend der Vertragslaufzeit und fuer einen Zeitraum von zwolf (12) Monaten nach deren Ende Mitarbeiter der anderen Partei, die an der Vertragsdurchfuehrung beteiligt waren, unmittelbar oder mittelbar abwerben.\n\nBei Streitigkeiten aus oder im Zusammenhang mit diesem Vertrag verpflichten sich die Parteien zunaechst zu einer guetlichen Einigung innerhalb von dreissig (30) Tagen. Kommt keine Einigung zustande, ist der vereinbarte Gerichtsstand massgeblich.\n\nDer Lieferant verpflichtet sich zur Einhaltung der Umweltnormen nach ISO 14001 sowie der REACH- und RoHS-Verordnungen. Sicherheitsdatenblaetter sind auf Anforderung bereitzustellen.\n\nDieser Vertrag darf ohne vorherige schriftliche Zustimmung der anderen Partei weder ganz noch teilweise abgetreten werden. Eine nicht genehmigte Abtretung ist unwirksam.\n\nStuttgart, le 15/03/2022\n\nGeschaftsfuhrer\n\n##### Dr. Stefan Brauer"
+    },
+    {
+      "source_id": "LEGAL-01:DOC-95f059d3",
+      "corpus_source_id": "FULL:67958caef69b",
+      "doc_id": "DOC-95f059d3",
+      "entity": "veracier_inc",
+      "filename": "contrats/fournisseur/titan_fluid_msa_2020.pdf",
+      "classification": "YES",
+      "language": "en",
+      "format": "scanned",
+      "description": "FM covers supply chain - Titan Fluid Systems Inc",
+      "char_count": 19599,
+      "text": "he laws of USA, with its registered office at 2400 Aerospace Boulevard, Wichita, KS 67226, USA (\"Customer\")\n\n##### AND\n\nTitan Fluid Systems Inc (\"Supplier\")\n\n(each a \"Party\" and together the \"Parties\")\n\n### Section 1 - Scope of Agreement\n\nThis Agreement sets forth the terms and conditions under which Titan Fluid Systems Inc (\"Supplier\") shall supply to Veracier Inc. (\"Customer\") the products and services described in Schedule 1 (the \"Products\"), in accordance with the technical specifications provided by Customer.\n\n#### Section 2 - Term\n\nThis Agreement shall commence on the Effective Date and shall continue for an initial period of three (3) years, automatically renewing for successive one (1) year periods unless either Party gives written notice of non-renewal at least six (6) months prior to the end of the then-current term.\n\n## Section 3 - Pricing and Payment\n\nThe unit prices for the Products are set forth in Schedule 2. All prices are exclusive of applicable taxes and are quoted EXW (Incoterms 2020) Supplier's facility. Payment shall be made by wire transfer within sixty (60) days from the end of the month in which a conforming invoice is received.\n\n### Section 4 - Delivery and Acceptance\n\nSupplier shall deliver the Products within the lead times specified in each Purchase Order. Late deliveries exceeding five (5) business days shall be subject to liquidated damages of 0.5% of the relevant Purchase Order value per week of delay, capped at 10% of the total Purchase Order v\n\n[...evidence excerpt...]\n\nCompliance\n\nSupplier warrants that all Products shall conform to the technical specifications and shall be free from defects in design, materials, and workmanship. Supplier shall maintain ISO 9001 certification (and AS9100 where applicable) throughout the Term.\n\n### Section 6 - Intellectual Property\n\nEach Party retains all rights in its pre-existing intellectual property. Any bespoke developments created by Supplier under this Agreement and funded by Customer shall be the exclusive property of Customer.\n\n#### Section 7 - Confidentiality\n\nEach Party agrees to treat as confidential all technical, commercial, and financial information disclosed by the other Party under this Agreement. This obligation shall survive for five (5) years following termination.\n\n--- Page 2 ---\n\n#### Section 8 - Liability\n\nSupplier's aggregate liability under this Agreement shall not exceed two (2) times the annual value of Purchase Orders placed by Customer during the preceding twelve (12) months. This limitation shall not apply in cases of gross negligence, wilful misconduct, death or personal injury, or breach of confidentiality obligations.\n\n#### Section 9 - Termination\n\nEither Party may terminate this Agreement for material breach by giving thirty (30) days' written notice, provided the breach remains uncured at the end of such notice period. Customer may terminate immediately upon written notice in the event of Supplier's insolvency, bankruptcy, or assignment for the benefit of creditors.\n\n#### S"
+    },
+    {
+      "source_id": "LEGAL-01:DOC-58ed4b1a",
+      "corpus_source_id": "FULL:0583414112cb",
+      "doc_id": "DOC-58ed4b1a",
+      "entity": "veracier_aero",
+      "filename": "contrats/fournisseur/iberica_mecanizados_2021.pdf",
+      "classification": "YES",
+      "language": "es",
+      "format": "mixed",
+      "description": "FM covers supply chain - Iberica Mecanizados S.L.",
+      "char_count": 20364,
+      "text": "--- Page 1 ---\n\nVRC-AE-2022-0290\n\n15/03/2022\n\n# CONTRATO MARCO DE SUMINISTRO\n\nEntre Veracier Aero y Iberica Mecanizados S.L.\n\nCONTRATO MARCO DE SUMINISTRO\n\n#### ENTRE\n\nVeracier Aero S.A.S., con domicilio social en 8 Rue des Ailes, 31400 Toulouse, France, representada por Cedric Fonteneau\n\n(en adelante \"el Cliente\")\n\n##### Y\n\nIberica Mecanizados S.L.\n\n(en adelante \"el Proveedor\")\n\n(conjuntamente las \"Partes\")\n\n## Clausula 1 — Objeto del Contrato\n\nEl presente contrato tiene por objeto establecer las condiciones en las que Iberica Mecanizados S.L. (en adelante \"el Proveedor\") se compromete a suministrar a Veracier Aero S.A.S. (en adelante \"el Cliente\") los productos y prestaciones descritos en el Anexo 1, de conformidad con las especificaciones tecnicas comunicadas por el Cliente.\n\n## Claus"
+    },
+    {
+      "source_id": "LEGAL-01:DOC-e3bbb893",
+      "corpus_source_id": "FULL:85475dd97d36",
+      "doc_id": "DOC-e3bbb893",
+      "entity": "veracier_maroc",
+      "filename": "contrats/fournisseur/sudelec_maroc_2023.pdf",
+      "classification": "NO",
+      "language": "fr",
+      "format": "scanned",
+      "description": "FM does NOT cover supply chain - SudElec Maroc S.A.",
+      "char_count": 13665,
+      "text": "--- Page 1 ---\n\n### CONTRAT-CADRE DE FOURNITURE\n\nVRC-MA-2022-0050\n\n15/03/2022\n\n##### ENTRE LES SOUSSIGNES :\n\nVeracier Maroc S.A.R.L., societe anonyme au capital de 15 000 000 MAD, immatriculee au Registre du Commerce et des Societes sous le numero RC Casablanca 387 451, dont le siege social est situe Zone Franche d'Exportation, Route de Nouaceur, Casablanca, Maroc, representee par Rachid Benali, en sa qualite de Directeur General,\n\nci-apres denommee \"le Client\",\n\n##### D'UNE PART\n\nEt SudElec Maroc S.A., representee par son representant legal dument habilite,\n\nci-apres denommee \"le Fournisseur\",\n\n##### D'AUTRE PART\n\nCI-APRES DENOMMEES ENSEMBLE \"LES PARTIES\"\n\n### IL A ETE CONVENU ET ARRETE CE QUI SUIT :\n\n## Article 1 - Objet du Contrat\n\nLe present contrat a pour"
+    },
+    {
+      "source_id": "LEGAL-01:DOC-29488a74",
+      "corpus_source_id": "FULL:8387da2d4bf8",
+      "doc_id": "DOC-29488a74",
+      "entity": "veracier_gmbh",
+      "filename": "contrats/fournisseur/wuertt_elektronik_2021.pdf",
+      "classification": "NO",
+      "language": "de",
+      "format": "mixed",
+      "description": "FM does NOT cover supply chain - Wurttembergische Elektronik AG",
+      "char_count": 7631,
+      "text": "ungen und Vereinbarungen, gleich ob schriftlich oder muendlich.\n\n--- Page 2 ---\n\nAenderungen und Ergaenzungen dieses Vertrages beduerfen der Schriftform und der Unterzeichnung durch ordnungsgemaess bevollmaechtigte Vertreter beider Parteien. Muendliche Nebenabreden bestehen nicht.\n\nDie Nichtausuebung eines Rechts aus diesem Vertrag durch eine Partei stellt keinen Verzicht auf dieses Recht dar und beruehrt nicht das Recht, dieses kuenftig geltend zu machen.\n\nVorbestehendes geistiges Eigentum verbleibt im Alleineigentum der jeweiligen Partei. Kundenspezifische Entwicklungen, die vom Lieferanten im Rahmen dieses Vertrages und auf Kosten des Auftraggebers erstellt werden, gehen mit ihrer Entstehung in das Eigentum des Auftraggebers ueber.\n\nSollten sich die anwendbaren Rechtsvorschriften wesentlich aendern und die Vertragsbedingungen erheblich beeinflussen, verpflichten sich die Parteien, in Treu und Glauben ueber eine Anpassung des Vertrages zu verhandeln.\n\nBei Streitigkeiten aus oder im Zusammenhang mit diesem Vertrag verpflichten sich die Parteien zunaechst zu einer guetlichen Einigung innerhalb von dreissig (30) Tagen. Kommt keine Einigung zustande, ist der vereinbarte Gerichtsstand massgeblich.\n\nBei Lieferverzoegerungen ist der Auftraggeber berechtigt, Vertragsstrafen in Hohe von 0,5% des jeweiligen Bestellwerts je Woche Verspaltung zu erheben, maximal jedoch 10% des Gesamtbestellwerts.\n\nDieser Vertrag darf ohne vorherige schriftliche Zustimmung der anderen Partei weder ganz noch teilweise abgetreten werden. Eine nicht genehmigte Abtretung ist unwirksam.\n\nDer Auftraggeber ist berechtigt, die Betriebsstaetten, Unterlagen und Qualitaetsmanagementsysteme des Lieferanten mit einer Vorankuendigung von fuenfzehn (15) Werktagen zu auditieren, um die Vertragseinhaltung zu ueberpruefen.\n\nDer Lieferant gewaehrleistet, dass er ueber alle erforderlichen Genehmigungen, Lizenzen und Zulassungen fuer die Erfuellung seiner Vertragspflichten verfuegt und wird den Auftraggeber unverzueglich ueber Aenderungen informieren.\n\n--- Page 3 ---\n\n15/03/2022\n\n### SS 5 - Qualitaet und Konformitaet\n\nDer Lieferant gewaehrleistet, dass alle gelieferten Produkte den technischen Spezifikationen des Auftraggebers entsprechen und frei von Konstruktions-, Material- und Herstellungsfehlem sind. Der Lieferant hat waehrend der gesamten Vertragslaufzeit eine Zertifizierung nach ISO 9001 (und gegebenenfalls IATF 16949) aufrechtzuerhalten.\n\n### SS 6 - Haftung\n\nDie Gesamthaftung des Lieferanten aus diesem Vertrag ist auf das Zweifache (2x) des jaehrlichen Bestellvolumens des Auftraggebers im vorangegangenen Geschaeftsjahr begrenzt. Diese Haftungsbegrenzung gilt nicht bei Vorsatz, grober Fahrlaessigkeit oder Verletzung von Leben, Koerper und Gesundheit.\n\n### SS 7 - Hoehere Gewalt\n\nKeine der Parteien haftet fuer die Nichterfuellung oder verspaetete Erfuellung ihrer vertraglichen Pflichten, soweit dies auf hoehere Gewalt zurueckzufuehren ist.\n\nAls hoehere Gewalt gelten ausschliesslich: Nature"
+    }
+  ],
+  "raw_context": "[LEGAL-01:DOC-dc65679b | YES | contrats/fournisseur/forges_martelliere_msa_2022.pdf]\n--- Page 1 ---\n\nVRC-SA-2022-0657\n\n15/03/2022\n\n# CONTRAT-CADRE DE FOURNITURE\n\nEntre Veracier SA et Forges Martelliere S.A.\n\n##### ENTRE LES SOUSSIGNES :\n\nVeracier Industries S.A., societe anonyme au capital de 285 000 000 EUR, immatriculee au Registre du Commerce et des Societes sous le numero RCS Paris 412 587 936, dont le siege social est situe 42 Avenue de la Grande Armee, 75017 Paris, France, representee par Helene Daubrac, en sa qualite de Presidente-Directrice Generale,\n\nci-apres denommee \"le Client\",\n\nD'UNE PART,\n\nEt Forges Martelliere S.A., representee par son representant legal dument habilite,\n\nci-apres denommee \"le Fournisseur\",\n\nD'AUTRE PART.\n\nCI-APRES DENOMMEES ENSEMBLE \"LES PARTIES\"\n\nIL A ETE CONVENU ET ARRETE CE QUI SUIT :\n\n#### Article 1 — Objet du Contrat\n\nLe présent cont\n\n[LEGAL-01:DOC-d12104dc | YES | contrats/fournisseur/rhein_metall_rahmenvertrag_2021.pdf]\nbers erstellt werden, gehen mit ihrer Entstehung in das Eigentum des Auftraggebers ueber.\n\nAenderungen und Ergaenzungen dieses Vertrages beduerfen der Schriftform und der Unterzeichnung durch ordnungsgemaess bevollmaechtigte Vertreter beider Parteien. Muendliche Nebenabreden bestehen nicht.\n\nDer Lieferant gewaehrleistet, dass er ueber alle erforderlichen Genehmigungen, Lizenzen und Zulassungen fuer die Erfuellung seiner Vertragspflichten verfuegt und wird den Auftraggeber unverzueglich ueber Aenderungen informieren.\n\nSollten sich die anwendbaren Rechtsvorschriften wesentlich aendern und die Vertragsbedingungen erheblich beeinflussen, verpflichten sich die Parteien, in Treu und Glauben ueber eine Anpassung des Vertrages zu verhandeln.\n\nDieser Vertrag stellt die gesamte Vereinbarung der Parteien in Bezug auf den Vertragsgegenstand dar und ersetzt alle frueheren Verhandlungen, Erklaerungen und Vereinbarungen, gleich ob schriftlich oder muendlich.\n\nKeine der Parteien darf waehrend der Vertragslaufzeit und fuer einen Zeitraum von zwolf (12) Monaten nach deren Ende Mitarbeiter der anderen Partei, die an der Vertragsdurchfuehrung beteiligt waren, unmittelbar oder mittelbar abwerben.\n\nBei Streitigkeiten aus oder im Zusammenhang mit diesem Vertrag verpflichten sich die Parteien zunaechst zu einer guetlichen Einigung innerhalb von dreissig (30) Tagen. Kommt keine Einigung zustande, ist der vereinbarte Gerichtsstand massgeblich.\n\nDer Lieferant verpflichtet sich zur Einhaltung der Umweltnormen nach ISO 14001 sowie der REACH- und RoHS-Verordnungen. Sicherheitsdatenblaetter sind auf Anforderung bereitzustellen.\n\nDieser Vertrag darf ohne vorherige schriftliche Zustimmung der anderen Partei weder ganz noch teilweise abgetreten werden. Eine nicht genehmigte Abtretung ist unwirksam.\n\nStuttgart, le 15/03/2022\n\nGeschaftsfuhrer\n\n##### Dr. Stefan Brauer\n\n[LEGAL-01:DOC-95f059d3 | YES | contrats/fournisseur/titan_fluid_msa_2020.pdf]\nhe laws of USA, with its registered office at 2400 Aerospace Boulevard, Wichita, KS 67226, USA (\"Customer\")\n\n##### AND\n\nTitan Fluid Systems Inc (\"Supplier\")\n\n(each a \"Party\" and together the \"Parties\")\n\n### Section 1 - Scope of Agreement\n\nThis Agreement sets forth the terms and conditions under which Titan Fluid Systems Inc (\"Supplier\") shall supply to Veracier Inc. (\"Customer\") the products and services described in Schedule 1 (the \"Products\"), in accordance with the technical specifications provided by Customer.\n\n#### Section 2 - Term\n\nThis Agreement shall commence on the Effective Date and shall continue for an initial period of three (3) years, automatically renewing for successive one (1) year periods unless either Party gives written notice of non-renewal at least six (6) months prior to the end of the then-current term.\n\n## Section 3 - Pricing and Payment\n\nThe unit prices for the Products are set forth in Schedule 2. All prices are exclusive of applicable taxes and are quoted EXW (Incoterms 2020) Supplier's facility. Payment shall be made by wire transfer within sixty (60) days from the end of the month in which a conforming invoice is received.\n\n### Section 4 - Delivery and Acceptance\n\nSupplier shall deliver the Products within the lead times specified in each Purchase Order. Late deliveries exceeding five (5) business days shall be subject to liquidated damages of 0.5% of the relevant Purchase Order value per week of delay, capped at 10% of the total Purchase Order v\n\n[...evidence excerpt...]\n\nCompliance\n\nSupplier warrants that all Products shall conform to the technical specifications and shall be free from defects in design, materials, and workmanship. Supplier shall maintain ISO 9001 certification (and AS9100 where applicable) throughout the Term.\n\n### Section 6 - Intellectual Property\n\nEach Party retains all rights in its pre-existing intellectual property. Any bespoke developments created by Supplier under this Agreement and funded by Customer shall be the exclusive property of Customer.\n\n#### Section 7 - Confidentiality\n\nEach Party agrees to treat as confidential all technical, commercial, and financial information disclosed by the other Party under this Agreement. This obligation shall survive for five (5) years following termination.\n\n--- Page 2 ---\n\n#### Section 8 - Liability\n\nSupplier's aggregate liability under this Agreement shall not exceed two (2) times the annual value of Purchase Orders placed by Customer during the preceding twelve (12) months. This limitation shall not apply in cases of gross negligence, wilful misconduct, death or personal injury, or breach of confidentiality obligations.\n\n#### Section 9 - Termination\n\nEither Party may terminate this Agreement for material breach by giving thirty (30) days' written notice, provided the breach remains uncured at the end of such notice period. Customer may terminate immediately upon written notice in the event of Supplier's insolvency, bankruptcy, or assignment for the benefit of creditors.\n\n#### S\n\n[LEGAL-01:DOC-58ed4b1a | YES | contrats/fournisseur/iberica_mecanizados_2021.pdf]\n--- Page 1 ---\n\nVRC-AE-2022-0290\n\n15/03/2022\n\n# CONTRATO MARCO DE SUMINISTRO\n\nEntre Veracier Aero y Iberica Mecanizados S.L.\n\nCONTRATO MARCO DE SUMINISTRO\n\n#### ENTRE\n\nVeracier Aero S.A.S., con domicilio social en 8 Rue des Ailes, 31400 Toulouse, France, representada por Cedric Fonteneau\n\n(en adelante \"el Cliente\")\n\n##### Y\n\nIberica Mecanizados S.L.\n\n(en adelante \"el Proveedor\")\n\n(conjuntamente las \"Partes\")\n\n## Clausula 1 — Objeto del Contrato\n\nEl presente contrato tiene por objeto establecer las condiciones en las que Iberica Mecanizados S.L. (en adelante \"el Proveedor\") se compromete a suministrar a Veracier Aero S.A.S. (en adelante \"el Cliente\") los productos y prestaciones descritos en el Anexo 1, de conformidad con las especificaciones tecnicas comunicadas por el Cliente.\n\n## Claus\n\n[LEGAL-01:DOC-e3bbb893 | NO | contrats/fournisseur/sudelec_maroc_2023.pdf]\n--- Page 1 ---\n\n### CONTRAT-CADRE DE FOURNITURE\n\nVRC-MA-2022-0050\n\n15/03/2022\n\n##### ENTRE LES SOUSSIGNES :\n\nVeracier Maroc S.A.R.L., societe anonyme au capital de 15 000 000 MAD, immatriculee au Registre du Commerce et des Societes sous le numero RC Casablanca 387 451, dont le siege social est situe Zone Franche d'Exportation, Route de Nouaceur, Casablanca, Maroc, representee par Rachid Benali, en sa qualite de Directeur General,\n\nci-apres denommee \"le Client\",\n\n##### D'UNE PART\n\nEt SudElec Maroc S.A., representee par son representant legal dument habilite,\n\nci-apres denommee \"le Fournisseur\",\n\n##### D'AUTRE PART\n\nCI-APRES DENOMMEES ENSEMBLE \"LES PARTIES\"\n\n### IL A ETE CONVENU ET ARRETE CE QUI SUIT :\n\n## Article 1 - Objet du Contrat\n\nLe present contrat a pour\n\n[LEGAL-01:DOC-29488a74 | NO | contrats/fournisseur/wuertt_elektronik_2021.pdf]\nungen und Vereinbarungen, gleich ob schriftlich oder muendlich.\n\n--- Page 2 ---\n\nAenderungen und Ergaenzungen dieses Vertrages beduerfen der Schriftform und der Unterzeichnung durch ordnungsgemaess bevollmaechtigte Vertreter beider Parteien. Muendliche Nebenabreden bestehen nicht.\n\nDie Nichtausuebung eines Rechts aus diesem Vertrag durch eine Partei stellt keinen Verzicht auf dieses Recht dar und beruehrt nicht das Recht, dieses kuenftig geltend zu machen.\n\nVorbestehendes geistiges Eigentum verbleibt im Alleineigentum der jeweiligen Partei. Kundenspezifische Entwicklungen, die vom Lieferanten im Rahmen dieses Vertrages und auf Kosten des Auftraggebers erstellt werden, gehen mit ihrer Entstehung in das Eigentum des Auftraggebers ueber.\n\nSollten sich die anwendbaren Rechtsvorschriften wesentlich aendern und die Vertragsbedingungen erheblich beeinflussen, verpflichten sich die Parteien, in Treu und Glauben ueber eine Anpassung des Vertrages zu verhandeln.\n\nBei Streitigkeiten aus oder im Zusammenhang mit diesem Vertrag verpflichten sich die Parteien zunaechst zu einer guetlichen Einigung innerhalb von dreissig (30) Tagen. Kommt keine Einigung zustande, ist der vereinbarte Gerichtsstand massgeblich.\n\nBei Lieferverzoegerungen ist der Auftraggeber berechtigt, Vertragsstrafen in Hohe von 0,5% des jeweiligen Bestellwerts je Woche Verspaltung zu erheben, maximal jedoch 10% des Gesamtbestellwerts.\n\nDieser Vertrag darf ohne vorherige schriftliche Zustimmung der anderen Partei weder ganz noch teilweise abgetreten werden. Eine nicht genehmigte Abtretung ist unwirksam.\n\nDer Auftraggeber ist berechtigt, die Betriebsstaetten, Unterlagen und Qualitaetsmanagementsysteme des Lieferanten mit einer Vorankuendigung von fuenfzehn (15) Werktagen zu auditieren, um die Vertragseinhaltung zu ueberpruefen.\n\nDer Lieferant gewaehrleistet, dass er ueber alle erforderlichen Genehmigungen, Lizenzen und Zulassungen fuer die Erfuellung seiner Vertragspflichten verfuegt und wird den Auftraggeber unverzueglich ueber Aenderungen informieren.\n\n--- Page 3 ---\n\n15/03/2022\n\n### SS 5 - Qualitaet und Konformitaet\n\nDer Lieferant gewaehrleistet, dass alle gelieferten Produkte den technischen Spezifikationen des Auftraggebers entsprechen und frei von Konstruktions-, Material- und Herstellungsfehlem sind. Der Lieferant hat waehrend der gesamten Vertragslaufzeit eine Zertifizierung nach ISO 9001 (und gegebenenfalls IATF 16949) aufrechtzuerhalten.\n\n### SS 6 - Haftung\n\nDie Gesamthaftung des Lieferanten aus diesem Vertrag ist auf das Zweifache (2x) des jaehrlichen Bestellvolumens des Auftraggebers im vorangegangenen Geschaeftsjahr begrenzt. Diese Haftungsbegrenzung gilt nicht bei Vorsatz, grober Fahrlaessigkeit oder Verletzung von Leben, Koerper und Gesundheit.\n\n### SS 7 - Hoehere Gewalt\n\nKeine der Parteien haftet fuer die Nichterfuellung oder verspaetete Erfuellung ihrer vertraglichen Pflichten, soweit dies auf hoehere Gewalt zurueckzufuehren ist.\n\nAls hoehere Gewalt gelten ausschliesslich: Nature",
+  "context_char_count": 10257,
+  "generation_archetype": {
+    "id": "legal_contracts",
+    "label": "Contracts, clauses, obligations, and regulatory legal review",
+    "focus": "parties, clauses, obligations, rights, scope, exceptions, dates, and governing restrictions",
+    "perfect_guidance": [
+      "Use clause-level obligations or restrictions explicitly stated in the contract evidence.",
+      "Keep the answer about what the clause says, not a broader legal conclusion unless the text states it."
+    ],
+    "ambiguous_guidance": [
+      "Use one supported clause or obligation.",
+      "Pair it with one unresolved limitation about applicability, exception coverage, counterparty scope, or missing schedule."
+    ],
+    "wrong_guidance": [
+      "Invert a clause, assign it to the wrong party, change the scope, or invent consent/termination rights.",
+      "Do not include any source ids for unsupported legal claims."
+    ]
+  }
+}

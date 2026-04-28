@@ -1,0 +1,2493 @@
+{
+  "created_at": "2026-04-28T14:18:26.212589+00:00",
+  "scope": "full-use-cases",
+  "use_cases": [
+    "AERO-01",
+    "AERO-02",
+    "CEO-01",
+    "CEO-02",
+    "CISO-01",
+    "CISO-02",
+    "CISO-03",
+    "COMP-01",
+    "COMP-02",
+    "CTO-01",
+    "CTO-02",
+    "CTO-03",
+    "DEF-01",
+    "DEF-02",
+    "ENRG-01",
+    "ENRG-02",
+    "FIN-01",
+    "FIN-02",
+    "FIN-03",
+    "FIN-04",
+    "GMBH-01",
+    "GMBH-02",
+    "HR-01",
+    "HR-02",
+    "LEGAL-01",
+    "LEGAL-02",
+    "LEGAL-03",
+    "LEGAL-04",
+    "MAROC-01",
+    "MAROC-02",
+    "OPS-01",
+    "PROC-01",
+    "PROC-02",
+    "QUAL-01",
+    "QUAL-02",
+    "SALES-01",
+    "UK-01",
+    "UK-02",
+    "US-01",
+    "US-02"
+  ],
+  "evidence_pack_dir": "data/veracier-industries/trace_bench_runs/veracier_trace_validation_full_use_cases_20260428/evidence_packs",
+  "cases": [
+    {
+      "use_case_id": "AERO-01",
+      "question": "AD EASA sur AV-3000 - appareils concernes?",
+      "generation_archetype": {
+        "id": "quality_audit",
+        "label": "Quality, batch record, audit, and certification",
+        "focus": "lot IDs, certificates, checklist status, test results, specifications, non-conformities, and missing artifacts",
+        "perfect_guidance": [
+          "Use exact lot, certificate, checklist, conformance, or missing-artifact facts.",
+          "A missing or incomplete status is valid only when the evidence explicitly says ABSENT, INCOMPLET, missing, or equivalent."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported artifact, test, checklist, or lot fact.",
+          "Pair it with one unresolved limitation about audit completeness, missing attachments, traceability, or certification coverage."
+        ],
+        "wrong_guidance": [
+          "Mutate lot number, conformance status, missing artifact, test result, supplier, or certificate.",
+          "Do not leave any unsupported quality claim partially grounded."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 21565,
+      "documents": [
+        {
+          "source_id": "AERO-01:DOC-dc6fabf4",
+          "filename": "aero_01/doc_001.pdf",
+          "classification": "RELEVANT",
+          "char_count": 5182
+        },
+        {
+          "source_id": "AERO-01:DOC-cf12896b",
+          "filename": "aero_01/doc_002.pdf",
+          "classification": "RELEVANT",
+          "char_count": 5272
+        },
+        {
+          "source_id": "AERO-01:DOC-feffd34c",
+          "filename": "aero_01/doc_003.pdf",
+          "classification": "RELEVANT",
+          "char_count": 23503
+        },
+        {
+          "source_id": "AERO-01:DOC-7cd71013",
+          "filename": "aero_01/doc_004.pdf",
+          "classification": "RELEVANT",
+          "char_count": 7297
+        },
+        {
+          "source_id": "AERO-01:DOC-9ef3c3b4",
+          "filename": "aero_01/doc_020.pdf",
+          "classification": "NOT_RELEVANT",
+          "char_count": 34495
+        },
+        {
+          "source_id": "AERO-01:DOC-41e20c92",
+          "filename": "aero_01/doc_007.pdf",
+          "classification": "RELEVANT",
+          "char_count": 17699
+        }
+      ]
+    },
+    {
+      "use_case_id": "AERO-02",
+      "question": "Penalites de retard Aeronord - exposition totale?",
+      "generation_archetype": {
+        "id": "default_enterprise",
+        "label": "General enterprise evidence review",
+        "focus": "explicit document facts, stated limitations, and unsupported business conclusions",
+        "perfect_guidance": [
+          "Use only affirmative facts directly stated in evidence.",
+          "Do not answer perfect with a generic missing-evidence caveat."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported fact and one unresolved limitation tied to the user question.",
+          "The unresolved limitation must not contradict the evidence."
+        ],
+        "wrong_guidance": [
+          "Make both claims materially unsupported.",
+          "Do not include source ids for unsupported claims."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 27142,
+      "documents": [
+        {
+          "source_id": "AERO-02:DOC-ca93b17b",
+          "filename": "aero_02/doc_001.pdf",
+          "classification": "RELEVANT",
+          "char_count": 5246
+        },
+        {
+          "source_id": "AERO-02:DOC-519ff75a",
+          "filename": "aero_02/doc_002.pdf",
+          "classification": "RELEVANT",
+          "char_count": 5312
+        },
+        {
+          "source_id": "AERO-02:DOC-9a7a3f35",
+          "filename": "aero_02/doc_003.pdf",
+          "classification": "RELEVANT",
+          "char_count": 23631
+        },
+        {
+          "source_id": "AERO-02:DOC-ab237574",
+          "filename": "aero_02/doc_004.pdf",
+          "classification": "RELEVANT",
+          "char_count": 7419
+        },
+        {
+          "source_id": "AERO-02:DOC-2133d5ed",
+          "filename": "aero_02/doc_020.pdf",
+          "classification": "NOT_RELEVANT",
+          "char_count": 34474
+        },
+        {
+          "source_id": "AERO-02:DOC-e7002b0b",
+          "filename": "aero_02/doc_007.pdf",
+          "classification": "RELEVANT",
+          "char_count": 17700
+        }
+      ]
+    },
+    {
+      "use_case_id": "CEO-01",
+      "question": "We acquired Precis-Tec six months ago. I need a full risk map of the inherited contracts.",
+      "generation_archetype": {
+        "id": "executive_contract_risk",
+        "label": "Executive contract, sanctions, and compliance risk map",
+        "focus": "inherited contracts, counterparties, sanctions, anti-corruption, change of control, and integration risk",
+        "perfect_guidance": [
+          "Use explicit counterparty, contract, sanctions, compliance, or change-of-control facts.",
+          "Do not turn a partial risk map into a complete inherited-contract assessment."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported counterparty or contract-risk fact.",
+          "Pair it with one unresolved limitation about full perimeter, KYC, anti-corruption review, or inherited contract coverage."
+        ],
+        "wrong_guidance": [
+          "Invent sanctions status, counterparty identity, KYC completion, approval, or contract rights.",
+          "Unsupported executive risk claims should have no source ids."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 11377,
+      "documents": [
+        {
+          "source_id": "CEO-01:DOC-a28fc9ca",
+          "filename": "contrats/acquired/precistec_client_severneft_supply_2019.pdf",
+          "classification": "SANCTIONS_RISK",
+          "char_count": 34594
+        },
+        {
+          "source_id": "CEO-01:DOC-6527c5c5",
+          "filename": "contrats/acquired/precistec_fournisseur_rosnuclear_2020.pdf",
+          "classification": "SANCTIONS_RISK",
+          "char_count": 31053
+        },
+        {
+          "source_id": "CEO-01:DOC-4b498970",
+          "filename": "contrats/acquired/precistec_client_enoceanes_msa_2021.pdf",
+          "classification": "REVIEW",
+          "char_count": 30142
+        },
+        {
+          "source_id": "CEO-01:DOC-85b9f832",
+          "filename": "contrats/acquired/precistec_agent_commercial_algerie_2020.pdf",
+          "classification": "COMPLIANCE_RISK",
+          "char_count": 28614
+        },
+        {
+          "source_id": "CEO-01:DOC-920b2f03",
+          "filename": "correspondance/emails/email_integration_precistec_comex_jan2024.pdf",
+          "classification": "REFERENCE",
+          "char_count": 5628
+        },
+        {
+          "source_id": "CEO-01:DOC-eb42d212",
+          "filename": "contrats/acquired/precistec_bail_entrepot_merignac_2020.pdf",
+          "classification": "REVIEW",
+          "char_count": 28997
+        }
+      ]
+    },
+    {
+      "use_case_id": "CEO-02",
+      "question": "I need a consolidated view of all pending and threatened litigation across the group.",
+      "generation_archetype": {
+        "id": "legal_litigation",
+        "label": "Litigation and legal proceedings",
+        "focus": "claims, case status, parties, exposure, provisions, deadlines, and procedural posture",
+        "perfect_guidance": [
+          "Use concrete case facts that are directly stated: party, dispute, status, amount, deadline, or risk.",
+          "Avoid saying that a consolidated view is missing; perfect must be an affirmative supported answer."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported case fact.",
+          "Pair it with one unresolved limitation about group-wide completeness, threatened claims, contagion, or amount coverage."
+        ],
+        "wrong_guidance": [
+          "Invent or invert case status, court outcome, exposure amount, settlement, or affected entity.",
+          "Unsupported litigation conclusions should not cite source documents."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 13420,
+      "documents": [
+        {
+          "source_id": "CEO-02:DOC-0d52745a",
+          "filename": "juridique/contentieux/veracier_sa_contentieux_register_2025.pdf",
+          "classification": "LITIGATION",
+          "char_count": 8379
+        },
+        {
+          "source_id": "CEO-02:DOC-28925c95",
+          "filename": "juridique/contentieux/veracier_aero_litige_aeronord_retard_2024.pdf",
+          "classification": "LITIGATION",
+          "char_count": 12395
+        },
+        {
+          "source_id": "CEO-02:DOC-114747d8",
+          "filename": "juridique/contentieux/veracier_gmbh_arbeitsrechtstreit_2024.pdf",
+          "classification": "LITIGATION",
+          "char_count": 8932
+        },
+        {
+          "source_id": "CEO-02:DOC-a101e522",
+          "filename": "juridique/contentieux/veracier_uk_patent_dispute_2025.pdf",
+          "classification": "LITIGATION",
+          "char_count": 11897
+        },
+        {
+          "source_id": "CEO-02:DOC-4f9aa2d7",
+          "filename": "correspondance/emails/email_chain_litigation_update_q1_2025.pdf",
+          "classification": "REFERENCE",
+          "char_count": 2614
+        },
+        {
+          "source_id": "CEO-02:DOC-f4369346",
+          "filename": "correspondance/emails/email_garnier_synthese_contentieux_mars2025.pdf",
+          "classification": "REFERENCE",
+          "char_count": 5628
+        }
+      ]
+    },
+    {
+      "use_case_id": "CISO-01",
+      "question": "Quels systemes traitent de l'information classifiee Confidentiel Defense ou NATO?",
+      "generation_archetype": {
+        "id": "cyber_security",
+        "label": "Cybersecurity, NIS2, systems, and controls",
+        "focus": "system scope, controls, gaps, incidents, remediation, audits, RTO/RPO, and data protection",
+        "perfect_guidance": [
+          "Use stated controls, systems, gaps, audit findings, or remediation facts.",
+          "Do not promote a gap into full compliance or a plan into completed remediation."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported system, control, or gap fact.",
+          "Pair it with one unresolved limitation about asset coverage, remediation completion, control effectiveness, or NIS2 scope."
+        ],
+        "wrong_guidance": [
+          "Invent compliance, remediation completion, incident closure, or system scope.",
+          "Unsupported control conclusions should have no source ids."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 14447,
+      "documents": [
+        {
+          "source_id": "CISO-01:DOC-c5f9c744",
+          "filename": "technique/systemes/architecture_si_defense_palaiseau_2024.pdf",
+          "classification": "CLASSIFIED_SYSTEM",
+          "char_count": 19263
+        },
+        {
+          "source_id": "CISO-01:DOC-91c61397",
+          "filename": "technique/systemes/homologation_si_dgam_2023.pdf",
+          "classification": "CLASSIFIED_SYSTEM",
+          "char_count": 18839
+        },
+        {
+          "source_id": "CISO-01:DOC-eaa0120f",
+          "filename": "technique/systemes/smartflow_architecture_2024.pdf",
+          "classification": "NO_CLASSIFIED",
+          "char_count": 12000
+        },
+        {
+          "source_id": "CISO-01:DOC-20652059",
+          "filename": "technique/systemes/reseau_otan_bristol_2024.pdf",
+          "classification": "CLASSIFIED_SYSTEM",
+          "char_count": 11991
+        },
+        {
+          "source_id": "CISO-01:DOC-04172abd",
+          "filename": "securite/habilitations/registre_habilitations_cd_2025.pdf",
+          "classification": "REFERENCE",
+          "char_count": 24121
+        },
+        {
+          "source_id": "CISO-01:DOC-d41d892b",
+          "filename": "securite/habilitations/matrice_acces_systemes_classifies_2025.pdf",
+          "classification": "REFERENCE",
+          "char_count": 10502
+        }
+      ]
+    },
+    {
+      "use_case_id": "CISO-02",
+      "question": "Directive NIS2 - quels systemes essentiels sont concernes? Ou sont nos lacunes?",
+      "generation_archetype": {
+        "id": "cyber_security",
+        "label": "Cybersecurity, NIS2, systems, and controls",
+        "focus": "system scope, controls, gaps, incidents, remediation, audits, RTO/RPO, and data protection",
+        "perfect_guidance": [
+          "Use stated controls, systems, gaps, audit findings, or remediation facts.",
+          "Do not promote a gap into full compliance or a plan into completed remediation."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported system, control, or gap fact.",
+          "Pair it with one unresolved limitation about asset coverage, remediation completion, control effectiveness, or NIS2 scope."
+        ],
+        "wrong_guidance": [
+          "Invent compliance, remediation completion, incident closure, or system scope.",
+          "Unsupported control conclusions should have no source ids."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 18628,
+      "documents": [
+        {
+          "source_id": "CISO-02:DOC-9f56e6b1",
+          "filename": "securite/nis2/cartographie_si_essentiels_2025.pdf",
+          "classification": "NIS2_SCOPE",
+          "char_count": 9303
+        },
+        {
+          "source_id": "CISO-02:DOC-07cf1993",
+          "filename": "securite/nis2/gap_analysis_nis2_groupe_2025.pdf",
+          "classification": "GAP_ANALYSIS",
+          "char_count": 23872
+        },
+        {
+          "source_id": "CISO-02:DOC-34007c60",
+          "filename": "technique/systemes/scada_valence_architecture_2024.pdf",
+          "classification": "NIS2_SCOPE",
+          "char_count": 19265
+        },
+        {
+          "source_id": "CISO-02:DOC-804f7e92",
+          "filename": "technique/systemes/mes_toulouse_architecture_2024.pdf",
+          "classification": "NIS2_SCOPE",
+          "char_count": 14496
+        },
+        {
+          "source_id": "CISO-02:DOC-3416b76b",
+          "filename": "securite/audit/pentest_smartflow_2025.pdf",
+          "classification": "AUDIT",
+          "char_count": 11990
+        },
+        {
+          "source_id": "CISO-02:DOC-d62a2f80",
+          "filename": "securite/nis2/politique_notification_incident_nis2_2025.pdf",
+          "classification": "POLICY",
+          "char_count": 5565
+        }
+      ]
+    },
+    {
+      "use_case_id": "CISO-03",
+      "question": "Sommes-nous prets pour un incident cyber majeur? Plans, exercices, retours d'experience?",
+      "generation_archetype": {
+        "id": "cyber_security",
+        "label": "Cybersecurity, NIS2, systems, and controls",
+        "focus": "system scope, controls, gaps, incidents, remediation, audits, RTO/RPO, and data protection",
+        "perfect_guidance": [
+          "Use stated controls, systems, gaps, audit findings, or remediation facts.",
+          "Do not promote a gap into full compliance or a plan into completed remediation."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported system, control, or gap fact.",
+          "Pair it with one unresolved limitation about asset coverage, remediation completion, control effectiveness, or NIS2 scope."
+        ],
+        "wrong_guidance": [
+          "Invent compliance, remediation completion, incident closure, or system scope.",
+          "Unsupported control conclusions should have no source ids."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 20426,
+      "documents": [
+        {
+          "source_id": "CISO-03:DOC-cdafaa20",
+          "filename": "securite/incident_response/doc_ciso03_001.pdf",
+          "classification": "RELEVANT",
+          "char_count": 4679
+        },
+        {
+          "source_id": "CISO-03:DOC-d6dc1f1e",
+          "filename": "securite/incident_response/doc_ciso03_002.pdf",
+          "classification": "RELEVANT",
+          "char_count": 7648
+        },
+        {
+          "source_id": "CISO-03:DOC-7ee089ef",
+          "filename": "securite/incident_response/doc_ciso03_003.pdf",
+          "classification": "RELEVANT",
+          "char_count": 23516
+        },
+        {
+          "source_id": "CISO-03:DOC-403f56ba",
+          "filename": "securite/incident_response/doc_ciso03_004.pdf",
+          "classification": "RELEVANT",
+          "char_count": 7204
+        },
+        {
+          "source_id": "CISO-03:DOC-34a9506d",
+          "filename": "securite/incident_response/doc_ciso03_020.pdf",
+          "classification": "NOT_RELEVANT",
+          "char_count": 23549
+        },
+        {
+          "source_id": "CISO-03:DOC-b6d58ac5",
+          "filename": "securite/incident_response/doc_ciso03_009.pdf",
+          "classification": "RELEVANT",
+          "char_count": 23468
+        }
+      ]
+    },
+    {
+      "use_case_id": "COMP-01",
+      "question": "Dispositif anti-corruption Sapin II complet?",
+      "generation_archetype": {
+        "id": "default_enterprise",
+        "label": "General enterprise evidence review",
+        "focus": "explicit document facts, stated limitations, and unsupported business conclusions",
+        "perfect_guidance": [
+          "Use only affirmative facts directly stated in evidence.",
+          "Do not answer perfect with a generic missing-evidence caveat."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported fact and one unresolved limitation tied to the user question.",
+          "The unresolved limitation must not contradict the evidence."
+        ],
+        "wrong_guidance": [
+          "Make both claims materially unsupported.",
+          "Do not include source ids for unsupported claims."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 24937,
+      "documents": [
+        {
+          "source_id": "COMP-01:DOC-b7a09190",
+          "filename": "comp_01/doc_001.pdf",
+          "classification": "RELEVANT",
+          "char_count": 5162
+        },
+        {
+          "source_id": "COMP-01:DOC-d2e78fdb",
+          "filename": "comp_01/doc_002.pdf",
+          "classification": "RELEVANT",
+          "char_count": 5223
+        },
+        {
+          "source_id": "COMP-01:DOC-e6497000",
+          "filename": "comp_01/doc_003.pdf",
+          "classification": "RELEVANT",
+          "char_count": 23309
+        },
+        {
+          "source_id": "COMP-01:DOC-b0813e9a",
+          "filename": "comp_01/doc_004.pdf",
+          "classification": "RELEVANT",
+          "char_count": 7459
+        },
+        {
+          "source_id": "COMP-01:DOC-62165e6e",
+          "filename": "comp_01/doc_020.pdf",
+          "classification": "NOT_RELEVANT",
+          "char_count": 34582
+        },
+        {
+          "source_id": "COMP-01:DOC-c06b554f",
+          "filename": "comp_01/doc_007.pdf",
+          "classification": "RELEVANT",
+          "char_count": 17622
+        }
+      ]
+    },
+    {
+      "use_case_id": "COMP-02",
+      "question": "Nouvelles sanctions EU - verification contrats?",
+      "generation_archetype": {
+        "id": "legal_contracts",
+        "label": "Contracts, clauses, obligations, and regulatory legal review",
+        "focus": "parties, clauses, obligations, rights, scope, exceptions, dates, and governing restrictions",
+        "perfect_guidance": [
+          "Use clause-level obligations or restrictions explicitly stated in the contract evidence.",
+          "Keep the answer about what the clause says, not a broader legal conclusion unless the text states it."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported clause or obligation.",
+          "Pair it with one unresolved limitation about applicability, exception coverage, counterparty scope, or missing schedule."
+        ],
+        "wrong_guidance": [
+          "Invert a clause, assign it to the wrong party, change the scope, or invent consent/termination rights.",
+          "Do not include any source ids for unsupported legal claims."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 18630,
+      "documents": [
+        {
+          "source_id": "COMP-02:DOC-2e168456",
+          "filename": "comp_02/doc_001.pdf",
+          "classification": "RELEVANT",
+          "char_count": 5386
+        },
+        {
+          "source_id": "COMP-02:DOC-b1ce1840",
+          "filename": "comp_02/doc_002.pdf",
+          "classification": "RELEVANT",
+          "char_count": 5323
+        },
+        {
+          "source_id": "COMP-02:DOC-c7ee7089",
+          "filename": "comp_02/doc_003.pdf",
+          "classification": "RELEVANT",
+          "char_count": 23725
+        },
+        {
+          "source_id": "COMP-02:DOC-84b6f56b",
+          "filename": "comp_02/doc_004.pdf",
+          "classification": "RELEVANT",
+          "char_count": 7381
+        },
+        {
+          "source_id": "COMP-02:DOC-8df911ca",
+          "filename": "comp_02/doc_020.pdf",
+          "classification": "NOT_RELEVANT",
+          "char_count": 34705
+        },
+        {
+          "source_id": "COMP-02:DOC-3d5fe754",
+          "filename": "comp_02/doc_007.pdf",
+          "classification": "RELEVANT",
+          "char_count": 17698
+        }
+      ]
+    },
+    {
+      "use_case_id": "CTO-01",
+      "question": "Quelle version de specification a ete utilisee pour fabriquer l'AV-3000 SN 20-0847 en 2020?",
+      "generation_archetype": {
+        "id": "technical_architecture",
+        "label": "Technology architecture, migration, and dependencies",
+        "focus": "platforms, dependencies, versions, migration status, capacity, incidents, and technical constraints",
+        "perfect_guidance": [
+          "Use concrete technical facts explicitly present in the evidence.",
+          "Separate planned work from completed work."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported architecture or migration fact.",
+          "Pair it with one unresolved limitation about rollout scope, dependency status, capacity, or completion."
+        ],
+        "wrong_guidance": [
+          "Mutate version, system, completion status, dependency, outage, or capacity.",
+          "Do not cite source documents for invented technical facts."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 9566,
+      "documents": [
+        {
+          "source_id": "CTO-01:DOC-1c90ad1f",
+          "filename": "technique/specifications/spec_av3000_rev_d_2019.pdf",
+          "classification": "LIKELY_VERSION",
+          "char_count": 19443
+        },
+        {
+          "source_id": "CTO-01:DOC-7c21f9ca",
+          "filename": "technique/specifications/spec_av3000_rev_e_2021.pdf",
+          "classification": "WRONG_VERSION",
+          "char_count": 19472
+        },
+        {
+          "source_id": "CTO-01:DOC-fcc8783b",
+          "filename": "technique/specifications/spec_av3000_rev_f_2024.pdf",
+          "classification": "CURRENT",
+          "char_count": 19694
+        },
+        {
+          "source_id": "CTO-01:DOC-acc057a9",
+          "filename": "production/dossier_fabrication/dossier_fab_sn_av3000_20_0847.pdf",
+          "classification": "TRACEABILITY",
+          "char_count": 19739
+        },
+        {
+          "source_id": "CTO-01:DOC-3dfece69",
+          "filename": "production/dossier_fabrication/dossier_fab_sn_av3000_20_0850.pdf",
+          "classification": "REFERENCE",
+          "char_count": 20102
+        },
+        {
+          "source_id": "CTO-01:DOC-b78086df",
+          "filename": "production/gammes/gamme_fabrication_av3000_rev_d.pdf",
+          "classification": "REFERENCE",
+          "char_count": 20108
+        }
+      ]
+    },
+    {
+      "use_case_id": "CTO-02",
+      "question": "Il faut prouver que notre IP est propre pour l'appel d'offres DGAM.",
+      "generation_archetype": {
+        "id": "technical_architecture",
+        "label": "Technology architecture, migration, and dependencies",
+        "focus": "platforms, dependencies, versions, migration status, capacity, incidents, and technical constraints",
+        "perfect_guidance": [
+          "Use concrete technical facts explicitly present in the evidence.",
+          "Separate planned work from completed work."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported architecture or migration fact.",
+          "Pair it with one unresolved limitation about rollout scope, dependency status, capacity, or completion."
+        ],
+        "wrong_guidance": [
+          "Mutate version, system, completion status, dependency, outage, or capacity.",
+          "Do not cite source documents for invented technical facts."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 20879,
+      "documents": [
+        {
+          "source_id": "CTO-02:DOC-480d6562",
+          "filename": "propriete_intellectuelle/brevets/registre_brevets_veracier_2025.pdf",
+          "classification": "IP_REGISTER",
+          "char_count": 19362
+        },
+        {
+          "source_id": "CTO-02:DOC-80209dac",
+          "filename": "propriete_intellectuelle/brevets/brevet_fr_2874521_servo_valve.pdf",
+          "classification": "PATENT",
+          "char_count": 11987
+        },
+        {
+          "source_id": "CTO-02:DOC-8b0c7ec1",
+          "filename": "propriete_intellectuelle/brevets/patent_us_10234567_optronics.pdf",
+          "classification": "PATENT",
+          "char_count": 11519
+        },
+        {
+          "source_id": "CTO-02:DOC-7b92aa06",
+          "filename": "propriete_intellectuelle/licences/licence_entrante_solidium_solidcad_2023.pdf",
+          "classification": "LICENSE",
+          "char_count": 7498
+        },
+        {
+          "source_id": "CTO-02:DOC-80d295e1",
+          "filename": "technique/logiciel/audit_licences_logiciel_2025.pdf",
+          "classification": "REFERENCE",
+          "char_count": 9667
+        },
+        {
+          "source_id": "CTO-02:DOC-188177ee",
+          "filename": "propriete_intellectuelle/audit/audit_ip_due_diligence_precistec_2023.pdf",
+          "classification": "AUDIT",
+          "char_count": 12066
+        }
+      ]
+    },
+    {
+      "use_case_id": "CTO-03",
+      "question": "Etat du portefeuille projets R&D et feuille de route technologique groupe?",
+      "generation_archetype": {
+        "id": "technical_architecture",
+        "label": "Technology architecture, migration, and dependencies",
+        "focus": "platforms, dependencies, versions, migration status, capacity, incidents, and technical constraints",
+        "perfect_guidance": [
+          "Use concrete technical facts explicitly present in the evidence.",
+          "Separate planned work from completed work."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported architecture or migration fact.",
+          "Pair it with one unresolved limitation about rollout scope, dependency status, capacity, or completion."
+        ],
+        "wrong_guidance": [
+          "Mutate version, system, completion status, dependency, outage, or capacity.",
+          "Do not cite source documents for invented technical facts."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 17056,
+      "documents": [
+        {
+          "source_id": "CTO-03:DOC-31c4b323",
+          "filename": "technique/roadmap/doc_cto03_001.pdf",
+          "classification": "RELEVANT",
+          "char_count": 5414
+        },
+        {
+          "source_id": "CTO-03:DOC-cd2df84f",
+          "filename": "technique/roadmap/doc_cto03_002.pdf",
+          "classification": "RELEVANT",
+          "char_count": 18766
+        },
+        {
+          "source_id": "CTO-03:DOC-5b6b520e",
+          "filename": "technique/roadmap/doc_cto03_003.pdf",
+          "classification": "RELEVANT",
+          "char_count": 7567
+        },
+        {
+          "source_id": "CTO-03:DOC-db0c9f43",
+          "filename": "technique/roadmap/doc_cto03_004.pdf",
+          "classification": "RELEVANT",
+          "char_count": 7879
+        },
+        {
+          "source_id": "CTO-03:DOC-54feb509",
+          "filename": "technique/roadmap/doc_cto03_017.pdf",
+          "classification": "NOT_RELEVANT",
+          "char_count": 9854
+        },
+        {
+          "source_id": "CTO-03:DOC-78bc4855",
+          "filename": "technique/roadmap/doc_cto03_009.pdf",
+          "classification": "RELEVANT",
+          "char_count": 18842
+        }
+      ]
+    },
+    {
+      "use_case_id": "DEF-01",
+      "question": "Audit DRSD - habilitations a jour?",
+      "generation_archetype": {
+        "id": "default_enterprise",
+        "label": "General enterprise evidence review",
+        "focus": "explicit document facts, stated limitations, and unsupported business conclusions",
+        "perfect_guidance": [
+          "Use only affirmative facts directly stated in evidence.",
+          "Do not answer perfect with a generic missing-evidence caveat."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported fact and one unresolved limitation tied to the user question.",
+          "The unresolved limitation must not contradict the evidence."
+        ],
+        "wrong_guidance": [
+          "Make both claims materially unsupported.",
+          "Do not include source ids for unsupported claims."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 30118,
+      "documents": [
+        {
+          "source_id": "DEF-01:DOC-348228a0",
+          "filename": "def_01/doc_001.pdf",
+          "classification": "RELEVANT",
+          "char_count": 5253
+        },
+        {
+          "source_id": "DEF-01:DOC-1e40ed64",
+          "filename": "def_01/doc_002.pdf",
+          "classification": "RELEVANT",
+          "char_count": 5225
+        },
+        {
+          "source_id": "DEF-01:DOC-e1a7fe55",
+          "filename": "def_01/doc_003.pdf",
+          "classification": "RELEVANT",
+          "char_count": 23770
+        },
+        {
+          "source_id": "DEF-01:DOC-59782087",
+          "filename": "def_01/doc_004.pdf",
+          "classification": "RELEVANT",
+          "char_count": 7347
+        },
+        {
+          "source_id": "DEF-01:DOC-bf0731d7",
+          "filename": "def_01/doc_020.pdf",
+          "classification": "NOT_RELEVANT",
+          "char_count": 34332
+        },
+        {
+          "source_id": "DEF-01:DOC-f911684e",
+          "filename": "def_01/doc_007.pdf",
+          "classification": "RELEVANT",
+          "char_count": 17577
+        }
+      ]
+    },
+    {
+      "use_case_id": "DEF-02",
+      "question": "Justificatifs jalons programme SCORPION?",
+      "generation_archetype": {
+        "id": "default_enterprise",
+        "label": "General enterprise evidence review",
+        "focus": "explicit document facts, stated limitations, and unsupported business conclusions",
+        "perfect_guidance": [
+          "Use only affirmative facts directly stated in evidence.",
+          "Do not answer perfect with a generic missing-evidence caveat."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported fact and one unresolved limitation tied to the user question.",
+          "The unresolved limitation must not contradict the evidence."
+        ],
+        "wrong_guidance": [
+          "Make both claims materially unsupported.",
+          "Do not include source ids for unsupported claims."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 34839,
+      "documents": [
+        {
+          "source_id": "DEF-02:DOC-fe8e98a7",
+          "filename": "def_02/doc_001.pdf",
+          "classification": "RELEVANT",
+          "char_count": 5317
+        },
+        {
+          "source_id": "DEF-02:DOC-1ca8e4fe",
+          "filename": "def_02/doc_002.pdf",
+          "classification": "RELEVANT",
+          "char_count": 5410
+        },
+        {
+          "source_id": "DEF-02:DOC-f98724c9",
+          "filename": "def_02/doc_003.pdf",
+          "classification": "RELEVANT",
+          "char_count": 23395
+        },
+        {
+          "source_id": "DEF-02:DOC-1274682e",
+          "filename": "def_02/doc_004.pdf",
+          "classification": "RELEVANT",
+          "char_count": 7398
+        },
+        {
+          "source_id": "DEF-02:DOC-6a65db30",
+          "filename": "def_02/doc_020.pdf",
+          "classification": "NOT_RELEVANT",
+          "char_count": 34588
+        },
+        {
+          "source_id": "DEF-02:DOC-0f5ce9ed",
+          "filename": "def_02/doc_007.pdf",
+          "classification": "RELEVANT",
+          "char_count": 17176
+        }
+      ]
+    },
+    {
+      "use_case_id": "ENRG-01",
+      "question": "Dossiers qualification NuSafe VP-200 RCC-M?",
+      "generation_archetype": {
+        "id": "quality_audit",
+        "label": "Quality, batch record, audit, and certification",
+        "focus": "lot IDs, certificates, checklist status, test results, specifications, non-conformities, and missing artifacts",
+        "perfect_guidance": [
+          "Use exact lot, certificate, checklist, conformance, or missing-artifact facts.",
+          "A missing or incomplete status is valid only when the evidence explicitly says ABSENT, INCOMPLET, missing, or equivalent."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported artifact, test, checklist, or lot fact.",
+          "Pair it with one unresolved limitation about audit completeness, missing attachments, traceability, or certification coverage."
+        ],
+        "wrong_guidance": [
+          "Mutate lot number, conformance status, missing artifact, test result, supplier, or certificate.",
+          "Do not leave any unsupported quality claim partially grounded."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 21378,
+      "documents": [
+        {
+          "source_id": "ENRG-01:DOC-aca593dd",
+          "filename": "enrg_01/doc_001.pdf",
+          "classification": "RELEVANT",
+          "char_count": 5234
+        },
+        {
+          "source_id": "ENRG-01:DOC-9ca25394",
+          "filename": "enrg_01/doc_002.pdf",
+          "classification": "RELEVANT",
+          "char_count": 5271
+        },
+        {
+          "source_id": "ENRG-01:DOC-16003ca7",
+          "filename": "enrg_01/doc_003.pdf",
+          "classification": "RELEVANT",
+          "char_count": 23689
+        },
+        {
+          "source_id": "ENRG-01:DOC-6b252f29",
+          "filename": "enrg_01/doc_004.pdf",
+          "classification": "RELEVANT",
+          "char_count": 7385
+        },
+        {
+          "source_id": "ENRG-01:DOC-a4d0b0b1",
+          "filename": "enrg_01/doc_020.pdf",
+          "classification": "NOT_RELEVANT",
+          "char_count": 34320
+        },
+        {
+          "source_id": "ENRG-01:DOC-8ea29b7e",
+          "filename": "enrg_01/certificat_qualification_soudeur_rccm.pdf",
+          "classification": "RELEVANT",
+          "char_count": 11554
+        }
+      ]
+    },
+    {
+      "use_case_id": "ENRG-02",
+      "question": "Livrables contrat-cadre ENF - DRE complets?",
+      "generation_archetype": {
+        "id": "legal_contracts",
+        "label": "Contracts, clauses, obligations, and regulatory legal review",
+        "focus": "parties, clauses, obligations, rights, scope, exceptions, dates, and governing restrictions",
+        "perfect_guidance": [
+          "Use clause-level obligations or restrictions explicitly stated in the contract evidence.",
+          "Keep the answer about what the clause says, not a broader legal conclusion unless the text states it."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported clause or obligation.",
+          "Pair it with one unresolved limitation about applicability, exception coverage, counterparty scope, or missing schedule."
+        ],
+        "wrong_guidance": [
+          "Invert a clause, assign it to the wrong party, change the scope, or invent consent/termination rights.",
+          "Do not include any source ids for unsupported legal claims."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 20314,
+      "documents": [
+        {
+          "source_id": "ENRG-02:DOC-091e33a0",
+          "filename": "enrg_02/doc_001.pdf",
+          "classification": "RELEVANT",
+          "char_count": 5301
+        },
+        {
+          "source_id": "ENRG-02:DOC-620fd1b2",
+          "filename": "enrg_02/doc_002.pdf",
+          "classification": "RELEVANT",
+          "char_count": 5160
+        },
+        {
+          "source_id": "ENRG-02:DOC-9eeb34ae",
+          "filename": "enrg_02/doc_003.pdf",
+          "classification": "RELEVANT",
+          "char_count": 23449
+        },
+        {
+          "source_id": "ENRG-02:DOC-395e6518",
+          "filename": "enrg_02/doc_004.pdf",
+          "classification": "RELEVANT",
+          "char_count": 7266
+        },
+        {
+          "source_id": "ENRG-02:DOC-93f1a420",
+          "filename": "enrg_02/doc_020.pdf",
+          "classification": "NOT_RELEVANT",
+          "char_count": 34589
+        },
+        {
+          "source_id": "ENRG-02:DOC-b7beb122",
+          "filename": "enrg_02/doc_007.pdf",
+          "classification": "RELEVANT",
+          "char_count": 17697
+        }
+      ]
+    },
+    {
+      "use_case_id": "FIN-01",
+      "question": "L'administration fiscale demande la documentation prix de transfert sur cinq exercices.",
+      "generation_archetype": {
+        "id": "finance_tax",
+        "label": "Finance, tax, transfer pricing, accounting",
+        "focus": "amounts, periods, entities, filings, assumptions, percentages, and provisions",
+        "perfect_guidance": [
+          "Use affirmative fiscal or financial facts that are explicitly present.",
+          "Numeric values, years, percentages, and currency amounts are allowed only when copied verbatim.",
+          "Do not answer with an evidence-absence sentence such as missing years or missing files."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported metric, transaction type, filing, or accounting fact.",
+          "Pair it with one unresolved limitation about period coverage, entity coverage, filing scope, or supporting schedule completeness."
+        ],
+        "wrong_guidance": [
+          "Mutate an amount, rate, year, entity, filing status, or tax/accounting conclusion.",
+          "Do not keep any claim partially grounded."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 4878,
+      "documents": [
+        {
+          "source_id": "FIN-01:DOC-6643463a",
+          "filename": "fiscal/prix_transfert/master_file_veracier_2024.pdf",
+          "classification": "TP_DOC",
+          "char_count": 19235
+        },
+        {
+          "source_id": "FIN-01:DOC-457fd4d5",
+          "filename": "fiscal/prix_transfert/local_file_france_2024.pdf",
+          "classification": "TP_DOC",
+          "char_count": 19271
+        },
+        {
+          "source_id": "FIN-01:DOC-3e8aadda",
+          "filename": "fiscal/prix_transfert/local_file_germany_2024.pdf",
+          "classification": "TP_DOC",
+          "char_count": 9010
+        },
+        {
+          "source_id": "FIN-01:DOC-9e697d50",
+          "filename": "fiscal/prix_transfert/local_file_uk_2024.pdf",
+          "classification": "TP_DOC",
+          "char_count": 11745
+        },
+        {
+          "source_id": "FIN-01:DOC-136ab5f4",
+          "filename": "fiscal/prix_transfert/correspondance_fisc_allemande_2024.pdf",
+          "classification": "REFERENCE",
+          "char_count": 8781
+        },
+        {
+          "source_id": "FIN-01:DOC-0c68d91a",
+          "filename": "fiscal/prix_transfert/notification_fisc_francaise_2025.pdf",
+          "classification": "REFERENCE",
+          "char_count": 11121
+        }
+      ]
+    },
+    {
+      "use_case_id": "FIN-02",
+      "question": "Les CAC veulent le support de toutes les provisions et charges a payer > 200 kEUR.",
+      "generation_archetype": {
+        "id": "finance_tax",
+        "label": "Finance, tax, transfer pricing, accounting",
+        "focus": "amounts, periods, entities, filings, assumptions, percentages, and provisions",
+        "perfect_guidance": [
+          "Use affirmative fiscal or financial facts that are explicitly present.",
+          "Numeric values, years, percentages, and currency amounts are allowed only when copied verbatim.",
+          "Do not answer with an evidence-absence sentence such as missing years or missing files."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported metric, transaction type, filing, or accounting fact.",
+          "Pair it with one unresolved limitation about period coverage, entity coverage, filing scope, or supporting schedule completeness."
+        ],
+        "wrong_guidance": [
+          "Mutate an amount, rate, year, entity, filing status, or tax/accounting conclusion.",
+          "Do not keep any claim partially grounded."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 13080,
+      "documents": [
+        {
+          "source_id": "FIN-02:DOC-10bfb442",
+          "filename": "finance/cloture/tableau_provisions_q4_2025.pdf",
+          "classification": "SCHEDULE",
+          "char_count": 16798
+        },
+        {
+          "source_id": "FIN-02:DOC-74612a30",
+          "filename": "contrats/client/aeronord_avenant_penalites_2025.pdf",
+          "classification": "SUPPORT",
+          "char_count": 7562
+        },
+        {
+          "source_id": "FIN-02:DOC-c7891843",
+          "filename": "correspondance/emails/email_approbation_provision_restructuration.pdf",
+          "classification": "SUPPORT",
+          "char_count": 2539
+        },
+        {
+          "source_id": "FIN-02:DOC-a1570f3d",
+          "filename": "correspondance/approbations/pv_comite_provisions_q4_2025.pdf",
+          "classification": "SUPPORT",
+          "char_count": 11322
+        },
+        {
+          "source_id": "FIN-02:DOC-03a555cb",
+          "filename": "correspondance/emails/email_audincia_audit_provisions_mars2025.pdf",
+          "classification": "REFERENCE",
+          "char_count": 3061
+        },
+        {
+          "source_id": "FIN-02:DOC-846f0f8c",
+          "filename": "finance/audit/lettre_affirmation_cac_2024.pdf",
+          "classification": "REFERENCE",
+          "char_count": 2513
+        }
+      ]
+    },
+    {
+      "use_case_id": "FIN-03",
+      "question": "Which customer contracts have IFRS 15 implications that haven't been flagged?",
+      "generation_archetype": {
+        "id": "finance_tax",
+        "label": "Finance, tax, transfer pricing, accounting",
+        "focus": "amounts, periods, entities, filings, assumptions, percentages, and provisions",
+        "perfect_guidance": [
+          "Use affirmative fiscal or financial facts that are explicitly present.",
+          "Numeric values, years, percentages, and currency amounts are allowed only when copied verbatim.",
+          "Do not answer with an evidence-absence sentence such as missing years or missing files."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported metric, transaction type, filing, or accounting fact.",
+          "Pair it with one unresolved limitation about period coverage, entity coverage, filing scope, or supporting schedule completeness."
+        ],
+        "wrong_guidance": [
+          "Mutate an amount, rate, year, entity, filing status, or tax/accounting conclusion.",
+          "Do not keep any claim partially grounded."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 20502,
+      "documents": [
+        {
+          "source_id": "FIN-03:DOC-af093afe",
+          "filename": "contrats/client/aeronord_contrat_cadre_2023.pdf",
+          "classification": "IFRS15_FLAG",
+          "char_count": 30642
+        },
+        {
+          "source_id": "FIN-03:DOC-40e983ec",
+          "filename": "contrats/client/dgam_marche_scorpion_2022.pdf",
+          "classification": "IFRS15_FLAG",
+          "char_count": 30298
+        },
+        {
+          "source_id": "FIN-03:DOC-3b6e064e",
+          "filename": "contrats/client/britannic_aerospace_lta_2024.pdf",
+          "classification": "IFRS15_FLAG",
+          "char_count": 16830
+        },
+        {
+          "source_id": "FIN-03:DOC-110187ce",
+          "filename": "contrats/client/bahnwerk_mobility_rahmenvertrag_2023.pdf",
+          "classification": "IFRS15_FLAG",
+          "char_count": 5276
+        },
+        {
+          "source_id": "FIN-03:DOC-60a7e20b",
+          "filename": "finance/ifrs15/memo_technique_ifrs15_groupe_2023.pdf",
+          "classification": "REFERENCE",
+          "char_count": 9807
+        },
+        {
+          "source_id": "FIN-03:DOC-b2438f88",
+          "filename": "finance/ifrs15/analyse_reconnaissance_ca_2024.pdf",
+          "classification": "ANALYSIS",
+          "char_count": 19313
+        }
+      ]
+    },
+    {
+      "use_case_id": "FIN-04",
+      "question": "Preparation des comptes consolides IFRS - documents justificatifs par entite?",
+      "generation_archetype": {
+        "id": "finance_tax",
+        "label": "Finance, tax, transfer pricing, accounting",
+        "focus": "amounts, periods, entities, filings, assumptions, percentages, and provisions",
+        "perfect_guidance": [
+          "Use affirmative fiscal or financial facts that are explicitly present.",
+          "Numeric values, years, percentages, and currency amounts are allowed only when copied verbatim.",
+          "Do not answer with an evidence-absence sentence such as missing years or missing files."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported metric, transaction type, filing, or accounting fact.",
+          "Pair it with one unresolved limitation about period coverage, entity coverage, filing scope, or supporting schedule completeness."
+        ],
+        "wrong_guidance": [
+          "Mutate an amount, rate, year, entity, filing status, or tax/accounting conclusion.",
+          "Do not keep any claim partially grounded."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 9274,
+      "documents": [
+        {
+          "source_id": "FIN-04:DOC-a65ad8bd",
+          "filename": "finance/consolide/doc_fin04_001.pdf",
+          "classification": "RELEVANT",
+          "char_count": 7191
+        },
+        {
+          "source_id": "FIN-04:DOC-51667b5c",
+          "filename": "finance/consolide/doc_fin04_002.pdf",
+          "classification": "RELEVANT",
+          "char_count": 6832
+        },
+        {
+          "source_id": "FIN-04:DOC-8fea10da",
+          "filename": "finance/consolide/doc_fin04_003.pdf",
+          "classification": "RELEVANT",
+          "char_count": 18932
+        },
+        {
+          "source_id": "FIN-04:DOC-5954bb90",
+          "filename": "finance/consolide/doc_fin04_004.pdf",
+          "classification": "RELEVANT",
+          "char_count": 11951
+        },
+        {
+          "source_id": "FIN-04:DOC-d465d051",
+          "filename": "finance/consolide/doc_fin04_017.pdf",
+          "classification": "NOT_RELEVANT",
+          "char_count": 19112
+        },
+        {
+          "source_id": "FIN-04:DOC-c8713a11",
+          "filename": "finance/consolide/doc_fin04_008.pdf",
+          "classification": "RELEVANT",
+          "char_count": 18896
+        }
+      ]
+    },
+    {
+      "use_case_id": "GMBH-01",
+      "question": "IATF 16949 Audit - Prozess-FMEAs aktuell?",
+      "generation_archetype": {
+        "id": "quality_audit",
+        "label": "Quality, batch record, audit, and certification",
+        "focus": "lot IDs, certificates, checklist status, test results, specifications, non-conformities, and missing artifacts",
+        "perfect_guidance": [
+          "Use exact lot, certificate, checklist, conformance, or missing-artifact facts.",
+          "A missing or incomplete status is valid only when the evidence explicitly says ABSENT, INCOMPLET, missing, or equivalent."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported artifact, test, checklist, or lot fact.",
+          "Pair it with one unresolved limitation about audit completeness, missing attachments, traceability, or certification coverage."
+        ],
+        "wrong_guidance": [
+          "Mutate lot number, conformance status, missing artifact, test result, supplier, or certificate.",
+          "Do not leave any unsupported quality claim partially grounded."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 19664,
+      "documents": [
+        {
+          "source_id": "GMBH-01:DOC-6df4a2ae",
+          "filename": "gmbh_01/doc_001.pdf",
+          "classification": "RELEVANT",
+          "char_count": 4987
+        },
+        {
+          "source_id": "GMBH-01:DOC-d1bfffc6",
+          "filename": "gmbh_01/doc_002.pdf",
+          "classification": "RELEVANT",
+          "char_count": 9342
+        },
+        {
+          "source_id": "GMBH-01:DOC-298caa94",
+          "filename": "gmbh_01/doc_003.pdf",
+          "classification": "RELEVANT",
+          "char_count": 9677
+        },
+        {
+          "source_id": "GMBH-01:DOC-c88ceacc",
+          "filename": "gmbh_01/doc_004.pdf",
+          "classification": "RELEVANT",
+          "char_count": 8039
+        },
+        {
+          "source_id": "GMBH-01:DOC-a41137fe",
+          "filename": "gmbh_01/doc_020.pdf",
+          "classification": "NOT_RELEVANT",
+          "char_count": 7554
+        },
+        {
+          "source_id": "GMBH-01:DOC-2465562e",
+          "filename": "gmbh_01/doc_007.pdf",
+          "classification": "RELEVANT",
+          "char_count": 8886
+        }
+      ]
+    },
+    {
+      "use_case_id": "GMBH-02",
+      "question": "Betriebspruefung - Unterlagen bereit?",
+      "generation_archetype": {
+        "id": "default_enterprise",
+        "label": "General enterprise evidence review",
+        "focus": "explicit document facts, stated limitations, and unsupported business conclusions",
+        "perfect_guidance": [
+          "Use only affirmative facts directly stated in evidence.",
+          "Do not answer perfect with a generic missing-evidence caveat."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported fact and one unresolved limitation tied to the user question.",
+          "The unresolved limitation must not contradict the evidence."
+        ],
+        "wrong_guidance": [
+          "Make both claims materially unsupported.",
+          "Do not include source ids for unsupported claims."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 28515,
+      "documents": [
+        {
+          "source_id": "GMBH-02:DOC-90a39ae8",
+          "filename": "gmbh_02/doc_001.pdf",
+          "classification": "RELEVANT",
+          "char_count": 5286
+        },
+        {
+          "source_id": "GMBH-02:DOC-9cc1e51a",
+          "filename": "gmbh_02/doc_002.pdf",
+          "classification": "RELEVANT",
+          "char_count": 9340
+        },
+        {
+          "source_id": "GMBH-02:DOC-30fc382e",
+          "filename": "gmbh_02/doc_003.pdf",
+          "classification": "RELEVANT",
+          "char_count": 9612
+        },
+        {
+          "source_id": "GMBH-02:DOC-fd17fc74",
+          "filename": "gmbh_02/doc_004.pdf",
+          "classification": "RELEVANT",
+          "char_count": 7897
+        },
+        {
+          "source_id": "GMBH-02:DOC-d0caade4",
+          "filename": "gmbh_02/doc_020.pdf",
+          "classification": "NOT_RELEVANT",
+          "char_count": 7559
+        },
+        {
+          "source_id": "GMBH-02:DOC-6684e5ba",
+          "filename": "gmbh_02/doc_007.pdf",
+          "classification": "RELEVANT",
+          "char_count": 8886
+        }
+      ]
+    },
+    {
+      "use_case_id": "HR-01",
+      "question": "Inventaire des clauses de non-concurrence pour due diligence M&A.",
+      "generation_archetype": {
+        "id": "hr_employment",
+        "label": "HR, employment, workforce, and labor compliance",
+        "focus": "employees, contracts, consultation, dates, populations, obligations, disputes, and compliance status",
+        "perfect_guidance": [
+          "Use explicit employment, consultation, workforce, date, or obligation facts.",
+          "Do not infer affected population or compliance completion unless the text states it."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported HR or employment fact.",
+          "Pair it with one unresolved limitation about population scope, consultation status, date coverage, or missing file."
+        ],
+        "wrong_guidance": [
+          "Invent employee counts, termination status, consultation completion, dispute outcome, or compliance status.",
+          "Unsupported HR claims should have no source ids."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 4655,
+      "documents": [
+        {
+          "source_id": "HR-01:DOC-393c0e56",
+          "filename": "contrats/personnel/contrat_pdg_daubrac_2021.pdf",
+          "classification": "HAS_NC_24",
+          "char_count": 27044
+        },
+        {
+          "source_id": "HR-01:DOC-03f2e2a2",
+          "filename": "contrats/personnel/contrat_dg_aero_fonteneau_2022.pdf",
+          "classification": "HAS_NC_18",
+          "char_count": 19883
+        },
+        {
+          "source_id": "HR-01:DOC-74d24b2c",
+          "filename": "contrats/personnel/contrat_dg_uk_hartley_2023.pdf",
+          "classification": "HAS_NC_12",
+          "char_count": 14853
+        },
+        {
+          "source_id": "HR-01:DOC-d9bccc94",
+          "filename": "contrats/personnel/contrat_president_inc_mckenzie_2022.pdf",
+          "classification": "HAS_NC_12",
+          "char_count": 19034
+        },
+        {
+          "source_id": "HR-01:DOC-e4917604",
+          "filename": "contrats/personnel/lot_contrats_casablanca_2023.pdf",
+          "classification": "HAS_NC",
+          "char_count": 29638
+        },
+        {
+          "source_id": "HR-01:DOC-64c230df",
+          "filename": "contrats/personnel/contrat_dg_maroc_benali_2022.pdf",
+          "classification": "HAS_NC_12",
+          "char_count": 14966
+        }
+      ]
+    },
+    {
+      "use_case_id": "HR-02",
+      "question": "Historique des modifications de politique sociale sur deux ans pour le CSE.",
+      "generation_archetype": {
+        "id": "hr_employment",
+        "label": "HR, employment, workforce, and labor compliance",
+        "focus": "employees, contracts, consultation, dates, populations, obligations, disputes, and compliance status",
+        "perfect_guidance": [
+          "Use explicit employment, consultation, workforce, date, or obligation facts.",
+          "Do not infer affected population or compliance completion unless the text states it."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported HR or employment fact.",
+          "Pair it with one unresolved limitation about population scope, consultation status, date coverage, or missing file."
+        ],
+        "wrong_guidance": [
+          "Invent employee counts, termination status, consultation completion, dispute outcome, or compliance status.",
+          "Unsupported HR claims should have no source ids."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 18446,
+      "documents": [
+        {
+          "source_id": "HR-02:DOC-1c509f9c",
+          "filename": "rh/politique/pv_nao_2024.pdf",
+          "classification": "NAO",
+          "char_count": 12163
+        },
+        {
+          "source_id": "HR-02:DOC-9d9a5254",
+          "filename": "rh/politique/pv_nao_2025.pdf",
+          "classification": "NAO",
+          "char_count": 9750
+        },
+        {
+          "source_id": "HR-02:DOC-e9612337",
+          "filename": "rh/politique/accord_teletravail_v1_2022.pdf",
+          "classification": "OLD_VERSION",
+          "char_count": 7114
+        },
+        {
+          "source_id": "HR-02:DOC-c7009b9a",
+          "filename": "rh/politique/accord_teletravail_v2_2024.pdf",
+          "classification": "CURRENT",
+          "char_count": 9200
+        },
+        {
+          "source_id": "HR-02:DOC-c88700ef",
+          "filename": "rh/politique/changelog_politiques_rh_2023_2025.pdf",
+          "classification": "CHANGELOG",
+          "char_count": 4813
+        },
+        {
+          "source_id": "HR-02:DOC-412e4aba",
+          "filename": "rh/cse/pv_cse_central_janvier_2024.pdf",
+          "classification": "MINUTES",
+          "char_count": 25223
+        }
+      ]
+    },
+    {
+      "use_case_id": "LEGAL-01",
+      "question": "Quels contrats fournisseurs ont des clauses de force majeure couvrant les perturbations de la chaine d'approvisionnement?",
+      "generation_archetype": {
+        "id": "legal_contracts",
+        "label": "Contracts, clauses, obligations, and regulatory legal review",
+        "focus": "parties, clauses, obligations, rights, scope, exceptions, dates, and governing restrictions",
+        "perfect_guidance": [
+          "Use clause-level obligations or restrictions explicitly stated in the contract evidence.",
+          "Keep the answer about what the clause says, not a broader legal conclusion unless the text states it."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported clause or obligation.",
+          "Pair it with one unresolved limitation about applicability, exception coverage, counterparty scope, or missing schedule."
+        ],
+        "wrong_guidance": [
+          "Invert a clause, assign it to the wrong party, change the scope, or invent consent/termination rights.",
+          "Do not include any source ids for unsupported legal claims."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 10257,
+      "documents": [
+        {
+          "source_id": "LEGAL-01:DOC-dc65679b",
+          "filename": "contrats/fournisseur/forges_martelliere_msa_2022.pdf",
+          "classification": "YES",
+          "char_count": 23451
+        },
+        {
+          "source_id": "LEGAL-01:DOC-d12104dc",
+          "filename": "contrats/fournisseur/rhein_metall_rahmenvertrag_2021.pdf",
+          "classification": "YES",
+          "char_count": 7771
+        },
+        {
+          "source_id": "LEGAL-01:DOC-95f059d3",
+          "filename": "contrats/fournisseur/titan_fluid_msa_2020.pdf",
+          "classification": "YES",
+          "char_count": 19599
+        },
+        {
+          "source_id": "LEGAL-01:DOC-58ed4b1a",
+          "filename": "contrats/fournisseur/iberica_mecanizados_2021.pdf",
+          "classification": "YES",
+          "char_count": 20364
+        },
+        {
+          "source_id": "LEGAL-01:DOC-e3bbb893",
+          "filename": "contrats/fournisseur/sudelec_maroc_2023.pdf",
+          "classification": "NO",
+          "char_count": 13665
+        },
+        {
+          "source_id": "LEGAL-01:DOC-29488a74",
+          "filename": "contrats/fournisseur/wuertt_elektronik_2021.pdf",
+          "classification": "NO",
+          "char_count": 7631
+        }
+      ]
+    },
+    {
+      "use_case_id": "LEGAL-02",
+      "question": "Audit CNIL dans deux mois. Quels contrats ont des clauses de traitement de donnees?",
+      "generation_archetype": {
+        "id": "legal_contracts",
+        "label": "Contracts, clauses, obligations, and regulatory legal review",
+        "focus": "parties, clauses, obligations, rights, scope, exceptions, dates, and governing restrictions",
+        "perfect_guidance": [
+          "Use clause-level obligations or restrictions explicitly stated in the contract evidence.",
+          "Keep the answer about what the clause says, not a broader legal conclusion unless the text states it."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported clause or obligation.",
+          "Pair it with one unresolved limitation about applicability, exception coverage, counterparty scope, or missing schedule."
+        ],
+        "wrong_guidance": [
+          "Invert a clause, assign it to the wrong party, change the scope, or invent consent/termination rights.",
+          "Do not include any source ids for unsupported legal claims."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 12023,
+      "documents": [
+        {
+          "source_id": "LEGAL-02:DOC-00c57a3d",
+          "filename": "contrats/fournisseur/solidium_systemes_dpa_2023.pdf",
+          "classification": "HAS_DPA",
+          "char_count": 7360
+        },
+        {
+          "source_id": "LEGAL-02:DOC-ed86be22",
+          "filename": "contrats/fournisseur/eurofilewall_cyber_dpa_2024.pdf",
+          "classification": "HAS_DPA",
+          "char_count": 4988
+        },
+        {
+          "source_id": "LEGAL-02:DOC-1ad1dd8f",
+          "filename": "contrats/fournisseur/forges_martelliere_msa_2022.pdf",
+          "classification": "NO_DPA",
+          "char_count": 23451
+        },
+        {
+          "source_id": "LEGAL-02:DOC-31c038bf",
+          "filename": "contrats/client/aeronord_avd_2023.pdf",
+          "classification": "HAS_DPA",
+          "char_count": 9873
+        },
+        {
+          "source_id": "LEGAL-02:DOC-6ded5832",
+          "filename": "rgpd/analyse_impact_smartflow_2024.pdf",
+          "classification": "REFERENCE",
+          "char_count": 12355
+        },
+        {
+          "source_id": "LEGAL-02:DOC-28d13e91",
+          "filename": "rgpd/plan_action_conformite_dpa_2025.pdf",
+          "classification": "REFERENCE",
+          "char_count": 7933
+        }
+      ]
+    },
+    {
+      "use_case_id": "LEGAL-03",
+      "question": "Trouvez tous les contrats clients avec responsabilite illimitee derogant au plafond standard.",
+      "generation_archetype": {
+        "id": "legal_contracts",
+        "label": "Contracts, clauses, obligations, and regulatory legal review",
+        "focus": "parties, clauses, obligations, rights, scope, exceptions, dates, and governing restrictions",
+        "perfect_guidance": [
+          "Use clause-level obligations or restrictions explicitly stated in the contract evidence.",
+          "Keep the answer about what the clause says, not a broader legal conclusion unless the text states it."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported clause or obligation.",
+          "Pair it with one unresolved limitation about applicability, exception coverage, counterparty scope, or missing schedule."
+        ],
+        "wrong_guidance": [
+          "Invert a clause, assign it to the wrong party, change the scope, or invent consent/termination rights.",
+          "Do not include any source ids for unsupported legal claims."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 10806,
+      "documents": [
+        {
+          "source_id": "LEGAL-03:DOC-3f945c81",
+          "filename": "contrats/client/dgam_marche_scorpion_2022.pdf",
+          "classification": "YES",
+          "char_count": 30298
+        },
+        {
+          "source_id": "LEGAL-03:DOC-8995be70",
+          "filename": "contrats/client/aeronord_contrat_cadre_2023.pdf",
+          "classification": "YES",
+          "char_count": 30642
+        },
+        {
+          "source_id": "LEGAL-03:DOC-c50cfc92",
+          "filename": "contrats/client/enf_contrat_maintenance_nusafe_2024.pdf",
+          "classification": "YES",
+          "char_count": 15999
+        },
+        {
+          "source_id": "LEGAL-03:DOC-f9c5fea4",
+          "filename": "contrats/client/britannic_aerospace_lta_2024.pdf",
+          "classification": "YES",
+          "char_count": 16830
+        },
+        {
+          "source_id": "LEGAL-03:DOC-d9b023d9",
+          "filename": "contrats/client/astilleros_contrato_responsabilidad_2025.pdf",
+          "classification": "NO",
+          "char_count": 12514
+        },
+        {
+          "source_id": "LEGAL-03:DOC-ade1b842",
+          "filename": "contrats/client/aurelia_fourniture_optronique_2025.pdf",
+          "classification": "NO",
+          "char_count": 12874
+        }
+      ]
+    },
+    {
+      "use_case_id": "LEGAL-04",
+      "question": "Quels contrats arrivent a echeance dans les 6 prochains mois? Renouvellements a negocier?",
+      "generation_archetype": {
+        "id": "legal_contracts",
+        "label": "Contracts, clauses, obligations, and regulatory legal review",
+        "focus": "parties, clauses, obligations, rights, scope, exceptions, dates, and governing restrictions",
+        "perfect_guidance": [
+          "Use clause-level obligations or restrictions explicitly stated in the contract evidence.",
+          "Keep the answer about what the clause says, not a broader legal conclusion unless the text states it."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported clause or obligation.",
+          "Pair it with one unresolved limitation about applicability, exception coverage, counterparty scope, or missing schedule."
+        ],
+        "wrong_guidance": [
+          "Invert a clause, assign it to the wrong party, change the scope, or invent consent/termination rights.",
+          "Do not include any source ids for unsupported legal claims."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 6961,
+      "documents": [
+        {
+          "source_id": "LEGAL-04:DOC-8a9aa9be",
+          "filename": "juridique/echeances/doc_legal04_001.pdf",
+          "classification": "EXPIRING",
+          "char_count": 10985
+        },
+        {
+          "source_id": "LEGAL-04:DOC-da28fe6b",
+          "filename": "juridique/echeances/doc_legal04_002.pdf",
+          "classification": "EXPIRING",
+          "char_count": 8975
+        },
+        {
+          "source_id": "LEGAL-04:DOC-7e2eea92",
+          "filename": "juridique/echeances/doc_legal04_003.pdf",
+          "classification": "EXPIRING",
+          "char_count": 27406
+        },
+        {
+          "source_id": "LEGAL-04:DOC-8e41f52f",
+          "filename": "juridique/echeances/doc_legal04_004.pdf",
+          "classification": "EXPIRING",
+          "char_count": 11268
+        },
+        {
+          "source_id": "LEGAL-04:DOC-ca313faa",
+          "filename": "juridique/echeances/doc_legal04_008.pdf",
+          "classification": "EXPIRING",
+          "char_count": 30062
+        },
+        {
+          "source_id": "LEGAL-04:DOC-6b24b52f",
+          "filename": "juridique/echeances/doc_legal04_014.pdf",
+          "classification": "NOT_EXPIRING",
+          "char_count": 16356
+        }
+      ]
+    },
+    {
+      "use_case_id": "MAROC-01",
+      "question": "FAI AeroHarness AH-100-G2 selon EN 9102?",
+      "generation_archetype": {
+        "id": "quality_audit",
+        "label": "Quality, batch record, audit, and certification",
+        "focus": "lot IDs, certificates, checklist status, test results, specifications, non-conformities, and missing artifacts",
+        "perfect_guidance": [
+          "Use exact lot, certificate, checklist, conformance, or missing-artifact facts.",
+          "A missing or incomplete status is valid only when the evidence explicitly says ABSENT, INCOMPLET, missing, or equivalent."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported artifact, test, checklist, or lot fact.",
+          "Pair it with one unresolved limitation about audit completeness, missing attachments, traceability, or certification coverage."
+        ],
+        "wrong_guidance": [
+          "Mutate lot number, conformance status, missing artifact, test result, supplier, or certificate.",
+          "Do not leave any unsupported quality claim partially grounded."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 17911,
+      "documents": [
+        {
+          "source_id": "MAROC-01:DOC-4b77774d",
+          "filename": "maroc_01/doc_001.pdf",
+          "classification": "RELEVANT",
+          "char_count": 5345
+        },
+        {
+          "source_id": "MAROC-01:DOC-3746e2d4",
+          "filename": "maroc_01/doc_002.pdf",
+          "classification": "RELEVANT",
+          "char_count": 5155
+        },
+        {
+          "source_id": "MAROC-01:DOC-badb05f3",
+          "filename": "maroc_01/doc_003.pdf",
+          "classification": "RELEVANT",
+          "char_count": 23760
+        },
+        {
+          "source_id": "MAROC-01:DOC-a1bca2c0",
+          "filename": "maroc_01/doc_004.pdf",
+          "classification": "RELEVANT",
+          "char_count": 7252
+        },
+        {
+          "source_id": "MAROC-01:DOC-96622f3a",
+          "filename": "maroc_01/doc_016.pdf",
+          "classification": "NOT_RELEVANT",
+          "char_count": 19203
+        },
+        {
+          "source_id": "MAROC-01:DOC-c0c19756",
+          "filename": "maroc_01/doc_007.pdf",
+          "classification": "RELEVANT",
+          "char_count": 17700
+        }
+      ]
+    },
+    {
+      "use_case_id": "MAROC-02",
+      "question": "Conformite zone franche pour audit douanes?",
+      "generation_archetype": {
+        "id": "default_enterprise",
+        "label": "General enterprise evidence review",
+        "focus": "explicit document facts, stated limitations, and unsupported business conclusions",
+        "perfect_guidance": [
+          "Use only affirmative facts directly stated in evidence.",
+          "Do not answer perfect with a generic missing-evidence caveat."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported fact and one unresolved limitation tied to the user question.",
+          "The unresolved limitation must not contradict the evidence."
+        ],
+        "wrong_guidance": [
+          "Make both claims materially unsupported.",
+          "Do not include source ids for unsupported claims."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 24280,
+      "documents": [
+        {
+          "source_id": "MAROC-02:DOC-065b894d",
+          "filename": "maroc_02/doc_001.pdf",
+          "classification": "RELEVANT",
+          "char_count": 5406
+        },
+        {
+          "source_id": "MAROC-02:DOC-2b884cee",
+          "filename": "maroc_02/doc_002.pdf",
+          "classification": "RELEVANT",
+          "char_count": 5198
+        },
+        {
+          "source_id": "MAROC-02:DOC-5e4bbc8d",
+          "filename": "maroc_02/doc_003.pdf",
+          "classification": "RELEVANT",
+          "char_count": 23658
+        },
+        {
+          "source_id": "MAROC-02:DOC-5b31ab64",
+          "filename": "maroc_02/doc_004.pdf",
+          "classification": "RELEVANT",
+          "char_count": 7246
+        },
+        {
+          "source_id": "MAROC-02:DOC-647f682f",
+          "filename": "maroc_02/doc_016.pdf",
+          "classification": "NOT_RELEVANT",
+          "char_count": 19332
+        },
+        {
+          "source_id": "MAROC-02:DOC-891da56e",
+          "filename": "maroc_02/declaration_douaniere_import_temp_2025.pdf",
+          "classification": "RELEVANT",
+          "char_count": 10638
+        }
+      ]
+    },
+    {
+      "use_case_id": "OPS-01",
+      "question": "Aeronord monte en cadence de 30%. Capacite par site? Investissements?",
+      "generation_archetype": {
+        "id": "operations_capacity",
+        "label": "Operations, production, maintenance, capacity, and planning",
+        "focus": "sites, capacity, maintenance, production constraints, capex, schedules, quantities, and bottlenecks",
+        "perfect_guidance": [
+          "Use explicit operational facts: site, capacity, budget, schedule, maintenance, or production constraint.",
+          "Do not add missing site-capacity conclusions unless those are directly stated."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported operations or capex fact.",
+          "Pair it with one unresolved limitation about site split, timing, realized capacity, or production coverage."
+        ],
+        "wrong_guidance": [
+          "Mutate site, capacity, amount, schedule, maintenance status, or production conclusion.",
+          "Unsupported operations claims should not cite source documents."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 20231,
+      "documents": [
+        {
+          "source_id": "OPS-01:DOC-3f99319f",
+          "filename": "production/capacite/plan_charge_toulouse_2025.pdf",
+          "classification": "CAPACITY",
+          "char_count": 12032
+        },
+        {
+          "source_id": "OPS-01:DOC-418df3dd",
+          "filename": "production/capacite/kapazitaetsplan_stuttgart_2025.pdf",
+          "classification": "CAPACITY",
+          "char_count": 9698
+        },
+        {
+          "source_id": "OPS-01:DOC-44235765",
+          "filename": "production/capacite/plan_charge_casablanca_2025.pdf",
+          "classification": "CAPACITY",
+          "char_count": 7205
+        },
+        {
+          "source_id": "OPS-01:DOC-4bdf13e2",
+          "filename": "production/capacite/plan_charge_valence_2025.pdf",
+          "classification": "NOT_AEROSPACE",
+          "char_count": 9779
+        },
+        {
+          "source_id": "OPS-01:DOC-3447dcab",
+          "filename": "contrats/client/aeronord_prevision_cadence_2025_2028.pdf",
+          "classification": "REFERENCE",
+          "char_count": 4817
+        },
+        {
+          "source_id": "OPS-01:DOC-03446d54",
+          "filename": "production/maintenance/plan_maintenance_preventive_toulouse_2025.pdf",
+          "classification": "REFERENCE",
+          "char_count": 12103
+        }
+      ]
+    },
+    {
+      "use_case_id": "PROC-01",
+      "question": "Forges Martelliere en redressement judiciaire. Exposition?",
+      "generation_archetype": {
+        "id": "procurement_supplier",
+        "label": "Procurement, supplier risk, delivery, and solvency",
+        "focus": "supplier status, delivery risk, credits, receivables, contracts, guarantees, and exposure",
+        "perfect_guidance": [
+          "Use supplier, contract, delivery, exposure, or credit facts that are explicitly stated.",
+          "Do not infer liquidation, full recovery, or offsets unless the evidence states them."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported supplier or exposure fact.",
+          "Pair it with one unresolved limitation about recovery, delivery continuity, guarantee coverage, or insolvency status."
+        ],
+        "wrong_guidance": [
+          "Invent liquidation, guarantees, automatic offsets, delivery continuity, or total irrecoverability.",
+          "Unsupported supplier-risk claims should have no source ids."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 4664,
+      "documents": [
+        {
+          "source_id": "PROC-01:DOC-50e34f02",
+          "filename": "correspondance/bdc/bdc_forges_martelliere_2025_001.pdf",
+          "classification": "AT_RISK",
+          "char_count": 108
+        },
+        {
+          "source_id": "PROC-01:DOC-1ceffca1",
+          "filename": "correspondance/bdc/bdc_forges_martelliere_2025_002.pdf",
+          "classification": "AT_RISK",
+          "char_count": 108
+        },
+        {
+          "source_id": "PROC-01:DOC-fa6b00bb",
+          "filename": "correspondance/bdc/bdc_rhein_metall_2025_001.pdf",
+          "classification": "NOT_AT_RISK",
+          "char_count": 106
+        },
+        {
+          "source_id": "PROC-01:DOC-9f0ca817",
+          "filename": "correspondance/bdc/bdc_titan_fluid_2025_001.pdf",
+          "classification": "NOT_AT_RISK",
+          "char_count": 102
+        },
+        {
+          "source_id": "PROC-01:DOC-a03146b5",
+          "filename": "contrats/fournisseur/forges_martelliere_msa_2022.pdf",
+          "classification": "REFERENCE",
+          "char_count": 23451
+        },
+        {
+          "source_id": "PROC-01:DOC-66804d3f",
+          "filename": "correspondance/emails/email_administrateur_judiciaire_mars2025.pdf",
+          "classification": "REFERENCE",
+          "char_count": 3392
+        }
+      ]
+    },
+    {
+      "use_case_id": "PROC-02",
+      "question": "Etat des certifications RSE des fournisseurs critiques pour le CSRD.",
+      "generation_archetype": {
+        "id": "procurement_supplier",
+        "label": "Procurement, supplier risk, delivery, and solvency",
+        "focus": "supplier status, delivery risk, credits, receivables, contracts, guarantees, and exposure",
+        "perfect_guidance": [
+          "Use supplier, contract, delivery, exposure, or credit facts that are explicitly stated.",
+          "Do not infer liquidation, full recovery, or offsets unless the evidence states them."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported supplier or exposure fact.",
+          "Pair it with one unresolved limitation about recovery, delivery continuity, guarantee coverage, or insolvency status."
+        ],
+        "wrong_guidance": [
+          "Invent liquidation, guarantees, automatic offsets, delivery continuity, or total irrecoverability.",
+          "Unsupported supplier-risk claims should have no source ids."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 15632,
+      "documents": [
+        {
+          "source_id": "PROC-02:DOC-e6fc70c7",
+          "filename": "certificats/forges_martelliere_iso14001_2023.pdf",
+          "classification": "HAS_CERT",
+          "char_count": 7020
+        },
+        {
+          "source_id": "PROC-02:DOC-ca878b5c",
+          "filename": "certificats/rhein_metall_sustainability_report_2024.pdf",
+          "classification": "HAS_CERT",
+          "char_count": 8890
+        },
+        {
+          "source_id": "PROC-02:DOC-48d73ec9",
+          "filename": "certificats/iberica_mecanizados_iso14001_2024.pdf",
+          "classification": "HAS_CERT",
+          "char_count": 2446
+        },
+        {
+          "source_id": "PROC-02:DOC-83f6e625",
+          "filename": "certificats/electropulse_carbon_trust_2024.pdf",
+          "classification": "HAS_CERT",
+          "char_count": 4122
+        },
+        {
+          "source_id": "PROC-02:DOC-b86fad1a",
+          "filename": "certificats/optovision_bcorp_2023.pdf",
+          "classification": "HAS_CERT",
+          "char_count": 2942
+        },
+        {
+          "source_id": "PROC-02:DOC-90cca04d",
+          "filename": "certificats/fonderie_piemontese_no_rse.pdf",
+          "classification": "NO_CERT",
+          "char_count": 69
+        }
+      ]
+    },
+    {
+      "use_case_id": "QUAL-01",
+      "question": "Dossier de production AV-3000 lot 2024-0312 complet pour audit EASA?",
+      "generation_archetype": {
+        "id": "quality_audit",
+        "label": "Quality, batch record, audit, and certification",
+        "focus": "lot IDs, certificates, checklist status, test results, specifications, non-conformities, and missing artifacts",
+        "perfect_guidance": [
+          "Use exact lot, certificate, checklist, conformance, or missing-artifact facts.",
+          "A missing or incomplete status is valid only when the evidence explicitly says ABSENT, INCOMPLET, missing, or equivalent."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported artifact, test, checklist, or lot fact.",
+          "Pair it with one unresolved limitation about audit completeness, missing attachments, traceability, or certification coverage."
+        ],
+        "wrong_guidance": [
+          "Mutate lot number, conformance status, missing artifact, test result, supplier, or certificate.",
+          "Do not leave any unsupported quality claim partially grounded."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 12761,
+      "documents": [
+        {
+          "source_id": "QUAL-01:DOC-2f0d8ec5",
+          "filename": "qualite/dossiers_lot/batch_record_av3000_lot_2024_0312.pdf",
+          "classification": "COMPLETE",
+          "char_count": 24841
+        },
+        {
+          "source_id": "QUAL-01:DOC-b823c25b",
+          "filename": "qualite/essais/rapport_essai_etancheite_lot_0312.pdf",
+          "classification": "COMPLETE",
+          "char_count": 6886
+        },
+        {
+          "source_id": "QUAL-01:DOC-1197f7b3",
+          "filename": "qualite/essais/rapport_essai_fonctionnel_lot_0312.pdf",
+          "classification": "COMPLETE",
+          "char_count": 12172
+        },
+        {
+          "source_id": "QUAL-01:DOC-db77caef",
+          "filename": "certificats/matiere/certificat_matiere_titane_ta6v_lot_2024.pdf",
+          "classification": "COMPLETE",
+          "char_count": 3427
+        },
+        {
+          "source_id": "QUAL-01:DOC-4a1690da",
+          "filename": "qualite/audit/checklist_completude_dossier_lot.pdf",
+          "classification": "CHECKLIST",
+          "char_count": 3092
+        },
+        {
+          "source_id": "QUAL-01:DOC-5737fb71",
+          "filename": "certificats/etalonnage/certificat_etalonnage_banc_essai_042.pdf",
+          "classification": "COMPLETE",
+          "char_count": 18640
+        }
+      ]
+    },
+    {
+      "use_case_id": "QUAL-02",
+      "question": "Historique des non-conformites fournisseurs sur 24 mois.",
+      "generation_archetype": {
+        "id": "quality_audit",
+        "label": "Quality, batch record, audit, and certification",
+        "focus": "lot IDs, certificates, checklist status, test results, specifications, non-conformities, and missing artifacts",
+        "perfect_guidance": [
+          "Use exact lot, certificate, checklist, conformance, or missing-artifact facts.",
+          "A missing or incomplete status is valid only when the evidence explicitly says ABSENT, INCOMPLET, missing, or equivalent."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported artifact, test, checklist, or lot fact.",
+          "Pair it with one unresolved limitation about audit completeness, missing attachments, traceability, or certification coverage."
+        ],
+        "wrong_guidance": [
+          "Mutate lot number, conformance status, missing artifact, test result, supplier, or certificate.",
+          "Do not leave any unsupported quality claim partially grounded."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 13650,
+      "documents": [
+        {
+          "source_id": "QUAL-02:DOC-00be47d0",
+          "filename": "qualite/rnc/registre_rnc_fournisseurs_2024.pdf",
+          "classification": "NCR_REGISTER",
+          "char_count": 19986
+        },
+        {
+          "source_id": "QUAL-02:DOC-d6900c9e",
+          "filename": "qualite/rnc/registre_rnc_fournisseurs_2025_q1.pdf",
+          "classification": "NCR_REGISTER",
+          "char_count": 7696
+        },
+        {
+          "source_id": "QUAL-02:DOC-183f009c",
+          "filename": "qualite/rnc/rnc_forges_martelliere_fb_2024_007.pdf",
+          "classification": "NCR",
+          "char_count": 3532
+        },
+        {
+          "source_id": "QUAL-02:DOC-992c3508",
+          "filename": "qualite/rnc/rnc_shanghai_xinhua_sx_2024_012.pdf",
+          "classification": "NCR",
+          "char_count": 5197
+        },
+        {
+          "source_id": "QUAL-02:DOC-fc30a465",
+          "filename": "qualite/audit/rapport_audit_fournisseur_forges_martelliere_2024.pdf",
+          "classification": "AUDIT",
+          "char_count": 21046
+        },
+        {
+          "source_id": "QUAL-02:DOC-55af5ab0",
+          "filename": "qualite/capa/capa_sudelec_maroc_2024_001.pdf",
+          "classification": "CAPA",
+          "char_count": 8433
+        }
+      ]
+    },
+    {
+      "use_case_id": "SALES-01",
+      "question": "Export OptiShield S-500 en Inde - controles export applicables?",
+      "generation_archetype": {
+        "id": "sales_export",
+        "label": "Sales, export control, sanctions, and customer clearance",
+        "focus": "customers, countries, end-use, shipment status, sanctions screening, licenses, and clearance",
+        "perfect_guidance": [
+          "Use explicit customer, destination, end-use, screening, license, or shipment facts.",
+          "Do not state clearance, shipment, or approval unless the evidence states it."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported customer, order, destination, or screening fact.",
+          "Pair it with one unresolved limitation about end-use, license status, sanctions clearance, or shipment authorization."
+        ],
+        "wrong_guidance": [
+          "Invent clearance, approval, shipment, customer identity, destination, or end-use.",
+          "Do not attach source ids to unsupported export-control claims."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 17806,
+      "documents": [
+        {
+          "source_id": "SALES-01:DOC-a6e6aed4",
+          "filename": "export/classification/fiche_classification_optishield_s500.pdf",
+          "classification": "EXPORT_CONTROL",
+          "char_count": 5053
+        },
+        {
+          "source_id": "SALES-01:DOC-c9742f01",
+          "filename": "export/licences/demande_licence_export_inde_draft.pdf",
+          "classification": "PENDING",
+          "char_count": 7036
+        },
+        {
+          "source_id": "SALES-01:DOC-886ae9ad",
+          "filename": "export/sanctions/verification_sanctions_client_indien_2025.pdf",
+          "classification": "SCREENING",
+          "char_count": 4969
+        },
+        {
+          "source_id": "SALES-01:DOC-0e44e405",
+          "filename": "export/itar/analyse_composants_itar_optishield.pdf",
+          "classification": "EXPORT_CONTROL",
+          "char_count": 6460
+        },
+        {
+          "source_id": "SALES-01:DOC-e227b489",
+          "filename": "export/licences/licence_export_dgam_optishield_uae_2023.pdf",
+          "classification": "REFERENCE",
+          "char_count": 10340
+        },
+        {
+          "source_id": "SALES-01:DOC-5c62a316",
+          "filename": "contrats/client/expression_besoin_indian_mod_2025.pdf",
+          "classification": "REFERENCE",
+          "char_count": 13734
+        }
+      ]
+    },
+    {
+      "use_case_id": "UK-01",
+      "question": "NADCAP special processes audit - certs current?",
+      "generation_archetype": {
+        "id": "quality_audit",
+        "label": "Quality, batch record, audit, and certification",
+        "focus": "lot IDs, certificates, checklist status, test results, specifications, non-conformities, and missing artifacts",
+        "perfect_guidance": [
+          "Use exact lot, certificate, checklist, conformance, or missing-artifact facts.",
+          "A missing or incomplete status is valid only when the evidence explicitly says ABSENT, INCOMPLET, missing, or equivalent."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported artifact, test, checklist, or lot fact.",
+          "Pair it with one unresolved limitation about audit completeness, missing attachments, traceability, or certification coverage."
+        ],
+        "wrong_guidance": [
+          "Mutate lot number, conformance status, missing artifact, test result, supplier, or certificate.",
+          "Do not leave any unsupported quality claim partially grounded."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 13449,
+      "documents": [
+        {
+          "source_id": "UK-01:DOC-acaa2666",
+          "filename": "uk_01/doc_001.pdf",
+          "classification": "RELEVANT",
+          "char_count": 4337
+        },
+        {
+          "source_id": "UK-01:DOC-24183c2c",
+          "filename": "uk_01/doc_002.pdf",
+          "classification": "RELEVANT",
+          "char_count": 6097
+        },
+        {
+          "source_id": "UK-01:DOC-88f4040b",
+          "filename": "uk_01/doc_003.pdf",
+          "classification": "RELEVANT",
+          "char_count": 20777
+        },
+        {
+          "source_id": "UK-01:DOC-a035afd6",
+          "filename": "uk_01/doc_004.pdf",
+          "classification": "RELEVANT",
+          "char_count": 8002
+        },
+        {
+          "source_id": "UK-01:DOC-6ca51940",
+          "filename": "uk_01/doc_020.pdf",
+          "classification": "NOT_RELEVANT",
+          "char_count": 19393
+        },
+        {
+          "source_id": "UK-01:DOC-9fbf0903",
+          "filename": "uk_01/doc_007.pdf",
+          "classification": "RELEVANT",
+          "char_count": 11721
+        }
+      ]
+    },
+    {
+      "use_case_id": "UK-02",
+      "question": "MOD DCMA review - DEFCON compliance evidence?",
+      "generation_archetype": {
+        "id": "default_enterprise",
+        "label": "General enterprise evidence review",
+        "focus": "explicit document facts, stated limitations, and unsupported business conclusions",
+        "perfect_guidance": [
+          "Use only affirmative facts directly stated in evidence.",
+          "Do not answer perfect with a generic missing-evidence caveat."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported fact and one unresolved limitation tied to the user question.",
+          "The unresolved limitation must not contradict the evidence."
+        ],
+        "wrong_guidance": [
+          "Make both claims materially unsupported.",
+          "Do not include source ids for unsupported claims."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 23515,
+      "documents": [
+        {
+          "source_id": "UK-02:DOC-439df4f5",
+          "filename": "uk_02/doc_001.pdf",
+          "classification": "RELEVANT",
+          "char_count": 4587
+        },
+        {
+          "source_id": "UK-02:DOC-1b0e2c00",
+          "filename": "uk_02/doc_002.pdf",
+          "classification": "RELEVANT",
+          "char_count": 6103
+        },
+        {
+          "source_id": "UK-02:DOC-a0eef42c",
+          "filename": "uk_02/doc_003.pdf",
+          "classification": "RELEVANT",
+          "char_count": 20697
+        },
+        {
+          "source_id": "UK-02:DOC-0cab3818",
+          "filename": "uk_02/doc_004.pdf",
+          "classification": "RELEVANT",
+          "char_count": 7846
+        },
+        {
+          "source_id": "UK-02:DOC-869ed51e",
+          "filename": "uk_02/doc_020.pdf",
+          "classification": "NOT_RELEVANT",
+          "char_count": 19322
+        },
+        {
+          "source_id": "UK-02:DOC-2597f8e9",
+          "filename": "uk_02/doc_007.pdf",
+          "classification": "RELEVANT",
+          "char_count": 11782
+        }
+      ]
+    },
+    {
+      "use_case_id": "US-01",
+      "question": "DDTC compliance review - ITAR documentation?",
+      "generation_archetype": {
+        "id": "legal_contracts",
+        "label": "Contracts, clauses, obligations, and regulatory legal review",
+        "focus": "parties, clauses, obligations, rights, scope, exceptions, dates, and governing restrictions",
+        "perfect_guidance": [
+          "Use clause-level obligations or restrictions explicitly stated in the contract evidence.",
+          "Keep the answer about what the clause says, not a broader legal conclusion unless the text states it."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported clause or obligation.",
+          "Pair it with one unresolved limitation about applicability, exception coverage, counterparty scope, or missing schedule."
+        ],
+        "wrong_guidance": [
+          "Invert a clause, assign it to the wrong party, change the scope, or invent consent/termination rights.",
+          "Do not include any source ids for unsupported legal claims."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 12085,
+      "documents": [
+        {
+          "source_id": "US-01:DOC-e462ab50",
+          "filename": "us_01/doc_001.pdf",
+          "classification": "RELEVANT",
+          "char_count": 4434
+        },
+        {
+          "source_id": "US-01:DOC-7fa6eedc",
+          "filename": "us_01/doc_002.pdf",
+          "classification": "RELEVANT",
+          "char_count": 6320
+        },
+        {
+          "source_id": "US-01:DOC-f47ff7f4",
+          "filename": "us_01/doc_003.pdf",
+          "classification": "RELEVANT",
+          "char_count": 20484
+        },
+        {
+          "source_id": "US-01:DOC-0ee4902e",
+          "filename": "us_01/doc_004.pdf",
+          "classification": "RELEVANT",
+          "char_count": 7986
+        },
+        {
+          "source_id": "US-01:DOC-ca42c2f1",
+          "filename": "us_01/doc_020.pdf",
+          "classification": "NOT_RELEVANT",
+          "char_count": 19403
+        },
+        {
+          "source_id": "US-01:DOC-57d52402",
+          "filename": "us_01/doc_007.pdf",
+          "classification": "RELEVANT",
+          "char_count": 11769
+        }
+      ]
+    },
+    {
+      "use_case_id": "US-02",
+      "question": "FAA PMA traceability for VRC-AV-3000-PMA-001?",
+      "generation_archetype": {
+        "id": "quality_audit",
+        "label": "Quality, batch record, audit, and certification",
+        "focus": "lot IDs, certificates, checklist status, test results, specifications, non-conformities, and missing artifacts",
+        "perfect_guidance": [
+          "Use exact lot, certificate, checklist, conformance, or missing-artifact facts.",
+          "A missing or incomplete status is valid only when the evidence explicitly says ABSENT, INCOMPLET, missing, or equivalent."
+        ],
+        "ambiguous_guidance": [
+          "Use one supported artifact, test, checklist, or lot fact.",
+          "Pair it with one unresolved limitation about audit completeness, missing attachments, traceability, or certification coverage."
+        ],
+        "wrong_guidance": [
+          "Mutate lot number, conformance status, missing artifact, test result, supplier, or certificate.",
+          "Do not leave any unsupported quality claim partially grounded."
+        ]
+      },
+      "document_count": 6,
+      "context_char_count": 18020,
+      "documents": [
+        {
+          "source_id": "US-02:DOC-2322c826",
+          "filename": "us_02/doc_001.pdf",
+          "classification": "RELEVANT",
+          "char_count": 4616
+        },
+        {
+          "source_id": "US-02:DOC-ce0e21a9",
+          "filename": "us_02/doc_002.pdf",
+          "classification": "RELEVANT",
+          "char_count": 6249
+        },
+        {
+          "source_id": "US-02:DOC-5a8ce8f3",
+          "filename": "us_02/doc_003.pdf",
+          "classification": "RELEVANT",
+          "char_count": 20718
+        },
+        {
+          "source_id": "US-02:DOC-12b81092",
+          "filename": "us_02/doc_004.pdf",
+          "classification": "RELEVANT",
+          "char_count": 8118
+        },
+        {
+          "source_id": "US-02:DOC-0cea9345",
+          "filename": "us_02/doc_020.pdf",
+          "classification": "NOT_RELEVANT",
+          "char_count": 19541
+        },
+        {
+          "source_id": "US-02:DOC-8bcd7acf",
+          "filename": "us_02/doc_007.pdf",
+          "classification": "RELEVANT",
+          "char_count": 11790
+        }
+      ]
+    }
+  ]
+}

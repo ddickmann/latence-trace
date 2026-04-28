@@ -1,0 +1,20 @@
+[
+  {
+    "total": 60,
+    "errors": 0,
+    "amber_leakage_rate": 0.2,
+    "red_precision": 0.3939,
+    "red_recall": 0.9286,
+    "green_precision": 0.9333,
+    "counts": {
+      "tp": 13,
+      "fp": 20,
+      "tn": 14,
+      "fn": 1,
+      "amber": 12
+    },
+    "bench": "ragtruth_qa",
+    "profile": "quality",
+    "elapsed_s": 36.71
+  }
+]

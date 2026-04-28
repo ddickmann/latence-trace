@@ -1,0 +1,893 @@
+{
+  "archetype_metrics": [
+    {
+      "amber_agreement": 0.8333333333333334,
+      "amber_expected": 6,
+      "amber_unstable_excluded": 0,
+      "green_denominator": 7,
+      "green_precision": 0.8571428571428571,
+      "headline_accuracy": 0.9444444444444444,
+      "headline_denominator": 18,
+      "id": "cyber_security",
+      "label": "Cybersecurity, NIS2, systems, and controls",
+      "red_denominator": 6,
+      "red_precision": 1.0,
+      "rows": 18
+    },
+    {
+      "amber_agreement": 1.0,
+      "amber_expected": 13,
+      "amber_unstable_excluded": 0,
+      "green_denominator": 14,
+      "green_precision": 1.0,
+      "headline_accuracy": 0.9285714285714286,
+      "headline_denominator": 42,
+      "id": "default_enterprise",
+      "label": "General enterprise evidence review",
+      "red_denominator": 12,
+      "red_precision": 1.0,
+      "rows": 42
+    },
+    {
+      "amber_agreement": 1.0,
+      "amber_expected": 2,
+      "amber_unstable_excluded": 0,
+      "green_denominator": 2,
+      "green_precision": 1.0,
+      "headline_accuracy": 1.0,
+      "headline_denominator": 6,
+      "id": "executive_contract_risk",
+      "label": "Executive contract, sanctions, and compliance risk map",
+      "red_denominator": 2,
+      "red_precision": 1.0,
+      "rows": 6
+    },
+    {
+      "amber_agreement": 1.0,
+      "amber_expected": 4,
+      "amber_unstable_excluded": 4,
+      "green_denominator": 8,
+      "green_precision": 1.0,
+      "headline_accuracy": 1.0,
+      "headline_denominator": 20,
+      "id": "finance_tax",
+      "label": "Finance, tax, transfer pricing, accounting",
+      "red_denominator": 8,
+      "red_precision": 1.0,
+      "rows": 24
+    },
+    {
+      "amber_agreement": 0.75,
+      "amber_expected": 4,
+      "amber_unstable_excluded": 0,
+      "green_denominator": 5,
+      "green_precision": 0.8,
+      "headline_accuracy": 0.8333333333333334,
+      "headline_denominator": 12,
+      "id": "hr_employment",
+      "label": "HR, employment, workforce, and labor compliance",
+      "red_denominator": 3,
+      "red_precision": 1.0,
+      "rows": 12
+    },
+    {
+      "amber_agreement": 1.0,
+      "amber_expected": 12,
+      "amber_unstable_excluded": 2,
+      "green_denominator": 14,
+      "green_precision": 1.0,
+      "headline_accuracy": 0.975,
+      "headline_denominator": 40,
+      "id": "legal_contracts",
+      "label": "Contracts, clauses, obligations, and regulatory legal review",
+      "red_denominator": 13,
+      "red_precision": 1.0,
+      "rows": 42
+    },
+    {
+      "amber_agreement": 1.0,
+      "amber_expected": 2,
+      "amber_unstable_excluded": 0,
+      "green_denominator": 2,
+      "green_precision": 1.0,
+      "headline_accuracy": 1.0,
+      "headline_denominator": 6,
+      "id": "legal_litigation",
+      "label": "Litigation and legal proceedings",
+      "red_denominator": 2,
+      "red_precision": 1.0,
+      "rows": 6
+    },
+    {
+      "amber_agreement": 1.0,
+      "amber_expected": 2,
+      "amber_unstable_excluded": 0,
+      "green_denominator": 2,
+      "green_precision": 1.0,
+      "headline_accuracy": 1.0,
+      "headline_denominator": 6,
+      "id": "operations_capacity",
+      "label": "Operations, production, maintenance, capacity, and planning",
+      "red_denominator": 2,
+      "red_precision": 1.0,
+      "rows": 6
+    },
+    {
+      "amber_agreement": 1.0,
+      "amber_expected": 2,
+      "amber_unstable_excluded": 2,
+      "green_denominator": 5,
+      "green_precision": 0.8,
+      "headline_accuracy": 0.6,
+      "headline_denominator": 10,
+      "id": "procurement_supplier",
+      "label": "Procurement, supplier risk, delivery, and solvency",
+      "red_denominator": 0,
+      "red_precision": 0.0,
+      "rows": 12
+    },
+    {
+      "amber_agreement": 0.9375,
+      "amber_expected": 16,
+      "amber_unstable_excluded": 0,
+      "green_denominator": 16,
+      "green_precision": 1.0,
+      "headline_accuracy": 0.9791666666666666,
+      "headline_denominator": 48,
+      "id": "quality_audit",
+      "label": "Quality, batch record, audit, and certification",
+      "red_denominator": 17,
+      "red_precision": 0.9411764705882353,
+      "rows": 48
+    },
+    {
+      "amber_agreement": 1.0,
+      "amber_expected": 2,
+      "amber_unstable_excluded": 0,
+      "green_denominator": 2,
+      "green_precision": 1.0,
+      "headline_accuracy": 0.8333333333333334,
+      "headline_denominator": 6,
+      "id": "sales_export",
+      "label": "Sales, export control, sanctions, and customer clearance",
+      "red_denominator": 1,
+      "red_precision": 1.0,
+      "rows": 6
+    },
+    {
+      "amber_agreement": 1.0,
+      "amber_expected": 4,
+      "amber_unstable_excluded": 2,
+      "green_denominator": 6,
+      "green_precision": 1.0,
+      "headline_accuracy": 1.0,
+      "headline_denominator": 16,
+      "id": "technical_architecture",
+      "label": "Technology architecture, migration, and dependencies",
+      "red_denominator": 6,
+      "red_precision": 1.0,
+      "rows": 18
+    }
+  ],
+  "generated_at": "2026-04-28T16:21:32.920536+00:00",
+  "headline_metrics": {
+    "amber": {
+      "agreement": 0.9565217391304348,
+      "excluded_unstable": 10,
+      "expected": 69,
+      "match": 66
+    },
+    "green": {
+      "denominator": 83,
+      "false_positive": 3,
+      "precision": 0.963855421686747,
+      "true_positive": 80
+    },
+    "red": {
+      "denominator": 72,
+      "false_positive": 1,
+      "precision": 0.9861111111111112,
+      "recall": 0.8987341772151899,
+      "recall_denominator": 79,
+      "recall_numerator": 71,
+      "true_positive": 71
+    },
+    "worker_timeouts": 2
+  },
+  "headline_targets": {
+    "amber_agreement_denominator": 34,
+    "amber_agreement_target": 28,
+    "green_precision_target": 0.97,
+    "red_precision_target": 0.95
+  },
+  "latency_summary": {
+    "quality": {
+      "count": 120.0,
+      "max_ms": 90675.03,
+      "mean_ms": 37366.955250000006,
+      "p50_ms": 32038.65,
+      "p95_ms": 83038.7
+    },
+    "standard": {
+      "count": 120.0,
+      "max_ms": 90455.91,
+      "mean_ms": 34745.91675,
+      "p50_ms": 31614.43,
+      "p95_ms": 66761.86
+    }
+  },
+  "refinement": {
+    "log": [
+      {
+        "accepted_attempt": 1,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "red",
+            "score": 0.3798
+          },
+          {
+            "attempt": 1,
+            "band": "amber",
+            "score": 0.6917
+          }
+        ],
+        "example_id": "AERO-01:ambiguous",
+        "final_status": "accepted",
+        "question_id": "AERO-01"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.7184
+          }
+        ],
+        "example_id": "AERO-02:ambiguous",
+        "final_status": "accepted",
+        "question_id": "AERO-02"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.5538
+          }
+        ],
+        "example_id": "CEO-01:ambiguous",
+        "final_status": "accepted",
+        "question_id": "CEO-01"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.7296
+          }
+        ],
+        "example_id": "CEO-02:ambiguous",
+        "final_status": "accepted",
+        "question_id": "CEO-02"
+      },
+      {
+        "accepted_attempt": 1,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "green",
+            "score": 0.8601
+          },
+          {
+            "attempt": 1,
+            "band": "amber",
+            "score": 0.74
+          }
+        ],
+        "example_id": "CISO-01:ambiguous",
+        "final_status": "accepted",
+        "question_id": "CISO-01"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.6701
+          }
+        ],
+        "example_id": "CISO-02:ambiguous",
+        "final_status": "accepted",
+        "question_id": "CISO-02"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.74
+          }
+        ],
+        "example_id": "CISO-03:ambiguous",
+        "final_status": "accepted",
+        "question_id": "CISO-03"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.74
+          }
+        ],
+        "example_id": "COMP-01:ambiguous",
+        "final_status": "accepted",
+        "question_id": "COMP-01"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.74
+          }
+        ],
+        "example_id": "COMP-02:ambiguous",
+        "final_status": "accepted",
+        "question_id": "COMP-02"
+      },
+      {
+        "accepted_attempt": null,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "red",
+            "score": 0.5048
+          },
+          {
+            "attempt": 1,
+            "band": "red",
+            "score": 0.3913
+          },
+          {
+            "attempt": 2,
+            "band": "red",
+            "score": 0.4993
+          },
+          {
+            "attempt": 3,
+            "band": "red",
+            "regen_error": "regeneration failed",
+            "score": 0.396
+          }
+        ],
+        "example_id": "CTO-01:ambiguous",
+        "final_status": "unstable",
+        "question_id": "CTO-01"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.55
+          }
+        ],
+        "example_id": "CTO-02:ambiguous",
+        "final_status": "accepted",
+        "question_id": "CTO-02"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.74
+          }
+        ],
+        "example_id": "CTO-03:ambiguous",
+        "final_status": "accepted",
+        "question_id": "CTO-03"
+      },
+      {
+        "accepted_attempt": 1,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "red",
+            "score": 0.4997
+          },
+          {
+            "attempt": 1,
+            "band": "amber",
+            "score": 0.74
+          }
+        ],
+        "example_id": "DEF-01:ambiguous",
+        "final_status": "accepted",
+        "question_id": "DEF-01"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.7334
+          }
+        ],
+        "example_id": "DEF-02:ambiguous",
+        "final_status": "accepted",
+        "question_id": "DEF-02"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.74
+          }
+        ],
+        "example_id": "ENRG-01:ambiguous",
+        "final_status": "accepted",
+        "question_id": "ENRG-01"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.69
+          }
+        ],
+        "example_id": "ENRG-02:ambiguous",
+        "final_status": "accepted",
+        "question_id": "ENRG-02"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.74
+          }
+        ],
+        "example_id": "FIN-01:ambiguous",
+        "final_status": "accepted",
+        "question_id": "FIN-01"
+      },
+      {
+        "accepted_attempt": null,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "red",
+            "regen_error": "regeneration failed",
+            "score": 0.4886
+          }
+        ],
+        "example_id": "FIN-02:ambiguous",
+        "final_status": "unstable",
+        "question_id": "FIN-02"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.7361
+          }
+        ],
+        "example_id": "FIN-03:ambiguous",
+        "final_status": "accepted",
+        "question_id": "FIN-03"
+      },
+      {
+        "accepted_attempt": null,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "red",
+            "score": 0.4929
+          },
+          {
+            "attempt": 1,
+            "band": "red",
+            "regen_error": "regeneration failed",
+            "score": 0.5248
+          }
+        ],
+        "example_id": "FIN-04:ambiguous",
+        "final_status": "unstable",
+        "question_id": "FIN-04"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.74
+          }
+        ],
+        "example_id": "GMBH-01:ambiguous",
+        "final_status": "accepted",
+        "question_id": "GMBH-01"
+      },
+      {
+        "accepted_attempt": 1,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "green",
+            "score": 0.8803
+          },
+          {
+            "attempt": 1,
+            "band": "amber",
+            "score": 0.7194
+          }
+        ],
+        "example_id": "GMBH-02:ambiguous",
+        "final_status": "accepted",
+        "question_id": "GMBH-02"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.7331
+          }
+        ],
+        "example_id": "HR-01:ambiguous",
+        "final_status": "accepted",
+        "question_id": "HR-01"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.74
+          }
+        ],
+        "example_id": "HR-02:ambiguous",
+        "final_status": "accepted",
+        "question_id": "HR-02"
+      },
+      {
+        "accepted_attempt": null,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "green",
+            "regen_error": "regeneration failed",
+            "score": 0.7508
+          }
+        ],
+        "example_id": "LEGAL-01:ambiguous",
+        "final_status": "unstable",
+        "question_id": "LEGAL-01"
+      },
+      {
+        "accepted_attempt": 1,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "green",
+            "score": 0.9246
+          },
+          {
+            "attempt": 1,
+            "band": "amber",
+            "score": 0.74
+          }
+        ],
+        "example_id": "LEGAL-02:ambiguous",
+        "final_status": "accepted",
+        "question_id": "LEGAL-02"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.74
+          }
+        ],
+        "example_id": "LEGAL-03:ambiguous",
+        "final_status": "accepted",
+        "question_id": "LEGAL-03"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.7145
+          }
+        ],
+        "example_id": "LEGAL-04:ambiguous",
+        "final_status": "accepted",
+        "question_id": "LEGAL-04"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.74
+          }
+        ],
+        "example_id": "MAROC-01:ambiguous",
+        "final_status": "accepted",
+        "question_id": "MAROC-01"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.74
+          }
+        ],
+        "example_id": "MAROC-02:ambiguous",
+        "final_status": "accepted",
+        "question_id": "MAROC-02"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.6434
+          }
+        ],
+        "example_id": "OPS-01:ambiguous",
+        "final_status": "accepted",
+        "question_id": "OPS-01"
+      },
+      {
+        "accepted_attempt": null,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "red",
+            "regen_error": "regeneration failed",
+            "score": 0.3184
+          }
+        ],
+        "example_id": "PROC-01:ambiguous",
+        "final_status": "unstable",
+        "question_id": "PROC-01"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.7032
+          }
+        ],
+        "example_id": "PROC-02:ambiguous",
+        "final_status": "accepted",
+        "question_id": "PROC-02"
+      },
+      {
+        "accepted_attempt": 1,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "red",
+            "score": 0.5027
+          },
+          {
+            "attempt": 1,
+            "band": "amber",
+            "score": 0.7219
+          }
+        ],
+        "example_id": "QUAL-01:ambiguous",
+        "final_status": "accepted",
+        "question_id": "QUAL-01"
+      },
+      {
+        "accepted_attempt": 1,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "red",
+            "score": 0.3273
+          },
+          {
+            "attempt": 1,
+            "band": "amber",
+            "score": 0.55
+          }
+        ],
+        "example_id": "QUAL-02:ambiguous",
+        "final_status": "accepted",
+        "question_id": "QUAL-02"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.74
+          }
+        ],
+        "example_id": "SALES-01:ambiguous",
+        "final_status": "accepted",
+        "question_id": "SALES-01"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.74
+          }
+        ],
+        "example_id": "UK-01:ambiguous",
+        "final_status": "accepted",
+        "question_id": "UK-01"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.5883
+          }
+        ],
+        "example_id": "UK-02:ambiguous",
+        "final_status": "accepted",
+        "question_id": "UK-02"
+      },
+      {
+        "accepted_attempt": 0,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "amber",
+            "score": 0.74
+          }
+        ],
+        "example_id": "US-01:ambiguous",
+        "final_status": "accepted",
+        "question_id": "US-01"
+      },
+      {
+        "accepted_attempt": 2,
+        "attempts": [
+          {
+            "attempt": 0,
+            "band": "red",
+            "score": 0.4964
+          },
+          {
+            "attempt": 1,
+            "band": "red",
+            "score": 0.2879
+          },
+          {
+            "attempt": 2,
+            "band": "amber",
+            "score": 0.6826
+          }
+        ],
+        "example_id": "US-02:ambiguous",
+        "final_status": "accepted",
+        "question_id": "US-02"
+      }
+    ],
+    "stats": {
+      "accepted_first_pass": 27,
+      "regenerated_accepted": 8,
+      "sandbox_calls": 53,
+      "total_ambiguous": 40,
+      "unstable_excluded": 5
+    }
+  },
+  "run_dir": "data/veracier-industries/trace_bench_runs/veracier_trace_validation_full_use_cases_20260428",
+  "scope": "full-use-cases",
+  "trace_counts": {
+    "by_profile": {
+      "quality": 120,
+      "standard": 120
+    },
+    "total": 240
+  },
+  "use_cases": [
+    "AERO-01",
+    "AERO-02",
+    "CEO-01",
+    "CEO-02",
+    "CISO-01",
+    "CISO-02",
+    "CISO-03",
+    "COMP-01",
+    "COMP-02",
+    "CTO-01",
+    "CTO-02",
+    "CTO-03",
+    "DEF-01",
+    "DEF-02",
+    "ENRG-01",
+    "ENRG-02",
+    "FIN-01",
+    "FIN-02",
+    "FIN-03",
+    "FIN-04",
+    "GMBH-01",
+    "GMBH-02",
+    "HR-01",
+    "HR-02",
+    "LEGAL-01",
+    "LEGAL-02",
+    "LEGAL-03",
+    "LEGAL-04",
+    "MAROC-01",
+    "MAROC-02",
+    "OPS-01",
+    "PROC-01",
+    "PROC-02",
+    "QUAL-01",
+    "QUAL-02",
+    "SALES-01",
+    "UK-01",
+    "UK-02",
+    "US-01",
+    "US-02"
+  ],
+  "variant_counts": {
+    "by_archetype": {
+      "cyber_security": 9,
+      "default_enterprise": 21,
+      "executive_contract_risk": 3,
+      "finance_tax": 12,
+      "hr_employment": 6,
+      "legal_contracts": 21,
+      "legal_litigation": 3,
+      "operations_capacity": 3,
+      "procurement_supplier": 6,
+      "quality_audit": 24,
+      "sales_export": 3,
+      "technical_architecture": 9
+    },
+    "by_mutation_type": {
+      "ambiguous": 40,
+      "perfect": 40,
+      "wrong": 40
+    },
+    "total": 120
+  }
+}

@@ -1,0 +1,149 @@
+{
+  "use_case_id": "CEO-01",
+  "question": "We acquired Precis-Tec six months ago. I need a full risk map of the inherited contracts.",
+  "role": "PDG / CEO",
+  "asker": "Helene Daubrac",
+  "entity": "veracier_sa",
+  "difficulty_factors": [
+    "multilingual",
+    "sanctions_entity_identification",
+    "varied_terminology",
+    "different_letterhead"
+  ],
+  "ground_truth": {
+    "sanctions_risk": [
+      "precistec_client_severneft_supply_2019.pdf",
+      "precistec_fournisseur_rosnuclear_2020.pdf"
+    ],
+    "compliance_risk": [
+      "precistec_agent_commercial_algerie_2020.pdf"
+    ],
+    "change_of_control": [
+      "precistec_client_enoceanes_msa_2021.pdf"
+    ],
+    "all_review": [
+      "contrats/acquired/precistec_client_enoceanes_msa_2021.pdf",
+      "contrats/acquired/precistec_bail_commercial_bordeaux.pdf",
+      "contrats/acquired/precistec_joint_venture_oman_2018.pdf",
+      "contrats/acquired/precistec_licence_brevet_us_2017.pdf",
+      "contrats/acquired/precistec_contrats_travail_lot_001.pdf",
+      "contrats/acquired/precistec_nda_batch_2019_2023.pdf",
+      "contrats/acquired/precistec_transaction_contentieuse_2022.pdf",
+      "contrats/acquired/precistec_assurance_rc_pro_2023.pdf",
+      "contrats/acquired/precistec_fournisseur_chine_2021.pdf",
+      "contrats/acquired/precistec_contrat_maintenance_enf_2022.pdf",
+      "contrats/acquired/precistec_accord_interessement_2021.pdf"
+    ]
+  },
+  "ground_truth_proxy": {
+    "source": "MASTER_INDEX.classification",
+    "positive_classes": [
+      "COMPLIANCE_RISK",
+      "SANCTIONS_RISK",
+      "SUMMARY"
+    ],
+    "distractor_classes": [
+      "REFERENCE",
+      "REVIEW"
+    ]
+  },
+  "selected_documents": [
+    {
+      "source_id": "CEO-01:DOC-a28fc9ca",
+      "corpus_source_id": "FULL:3d3f8c2423f9",
+      "doc_id": "DOC-a28fc9ca",
+      "entity": "precistec",
+      "filename": "contrats/acquired/precistec_client_severneft_supply_2019.pdf",
+      "classification": "SANCTIONS_RISK",
+      "language": "fr",
+      "format": "scanned",
+      "description": "Severneft subsidiary supply contract",
+      "char_count": 34594,
+      "text": "--- Page 1 ---\n\n### CONTRAT-CADRE DE FOURNITURE\n\nPTC-2022-0539\n\n15/06/2019\n\nENTRE LES SOUSSIGNES :\n\nPrecis-Tec S.A., societe anonyme au capital de 8 500 000 EUR, immatriculee au Registre du Commerce et des Societes sous le numero RCS Bordeaux 498 215 673, dont le siege social est situe 45 Rue de l'Industrie, 33700 Merignac, France, representee par Michel Dufour, en sa qualite de Ancien Directeur General,\n\nci-apres denommee \"le Client\",\n\n##### D'UNE PART\n\nEt Severneft Trading LLC, representee par son representant legal dument habilite,\n\nci-apres denommee \"le Fournisseur\",\n\n##### D'AUTRE PART\n\nCI-APRES DENOMMEES ENSEMBLE \"LES PARTIES\"\n\n#### IL A ETE CONVENU ET ARRETE CE QUI SUIT :\n\n### Article 1 - Objet du Contrat\n\nLe present contrat a pour objet de definir les"
+    },
+    {
+      "source_id": "CEO-01:DOC-6527c5c5",
+      "corpus_source_id": "FULL:774f2e475e90",
+      "doc_id": "DOC-6527c5c5",
+      "entity": "precistec",
+      "filename": "contrats/acquired/precistec_fournisseur_rosnuclear_2020.pdf",
+      "classification": "SANCTIONS_RISK",
+      "language": "fr",
+      "format": "scanned",
+      "description": "RosNuclear State Corp supply chain entity contract",
+      "char_count": 31053,
+      "text": "--- Page 1 ---\n\n## CONTRAT-CADRE DE FOURNITURE\n\nPTC-2022-0930\n\n20/03/2020\n\nENTRE LES SOUSSIGNES :\n\nPrecis-Tec S.A., societe anonyme au capital de 8 500 000 EUR, immatriculee au Registre du Commerce et des Societes sous le numero RCS Bordeaux 498 215 673, dont le siege social est situe 45 Rue de l'Industrie, 33700 Merignac, France, representee par Michel Dufour, en sa qualité de Ancien Directeur General,\n\nci-apres denommee \"le Client\",\n\n##### D'UNE PART,\n\nEt TVEL Fuel Company (RosNuclear State Corp), representee par son representant legal dument habilite,\n\nci-apres denommee \"le Fournisseur\",\n\n#### D'AUTRE PART,\n\nCI-APRES DENOMMEES ENSEMBLE \"LES PARTIES\"\n\nIL A ETE CONVENU ET ARRETE CE QUI SUIT :\n\n### Article 1 - Objet du Contrat\n\nLe present contrat a pour objet"
+    },
+    {
+      "source_id": "CEO-01:DOC-4b498970",
+      "corpus_source_id": "FULL:261ca411facc",
+      "doc_id": "DOC-4b498970",
+      "entity": "precistec",
+      "filename": "contrats/acquired/precistec_client_enoceanes_msa_2021.pdf",
+      "classification": "REVIEW",
+      "language": "fr",
+      "format": "searchable",
+      "description": "Energies Oceanes S.A. MSA with change-of-control clause",
+      "char_count": 30142,
+      "text": "--- Page 1 ---\n\nPTC-2023-0359\n\n01/09/2021\n\n# CONTRAT-CADRE CLIENT\n\nPrecis-Tec / Energies Oceanes S.A. SE\n\n##### ENTRE LES SOUSSIGNES :\n\nEnergies Oceanes S.A. SE, representee par son representant legal dument habilite,\n\nci-apres denommee \"le Client\",\n\n##### D'UNE PART,\n\nEt Precis-Tec S.A., RCS Bordeaux 498 215 673, dont le siege social est situe 45 Rue de l'Industrie, 33700 Merignac, France, representee par Michel Dufour,\n\nci-apres denommee \"le Fournisseur\",\n\nD'AUTRE PART.\n\n### Article 1 — Objet\n\nLe présent contrat définit les conditions dans lesquelles Precis-Tec S.A. s'engage à fournir à Energies Oceanes S.A. SE les produits et prestations décrits en Annexe technique.\n\n#### Article 2 — Duree et Jalons\n\nLe present contrat est conclu pour une duree de cinq (5) ans.\n\n## Article 3 — Prix"
+    },
+    {
+      "source_id": "CEO-01:DOC-85b9f832",
+      "corpus_source_id": "FULL:90f2a69ee0f4",
+      "doc_id": "DOC-85b9f832",
+      "entity": "precistec",
+      "filename": "contrats/acquired/precistec_agent_commercial_algerie_2020.pdf",
+      "classification": "COMPLIANCE_RISK",
+      "language": "fr",
+      "format": "scanned",
+      "description": "Algerian sales agent - Sapin II due diligence missing",
+      "char_count": 28614,
+      "text": "--- Page 1 ---\n\n## CONTRAT D'AGENT COMMERCIAL\n\n01/02/2020\n\n## Article 1 - Designation de l'Agent\n\nLa société désigne l'Agent comme son représentant commercial exclusif.\n\nArticle 2 - Commission\n\nL'Agent percevra une commission de 5% sur le montant net des ventes.\n\n--- Page 2 ---\n\nL'évaluation du dispositif anti-corruption par un cabinet indépendant a revele des axes d'amelioration concernant l'évaluation des tiers (agents commerciaux et intermediaires), pour lesquels les diligences de connaissance client (KYC) doivent être renforces.\n\nLe Comité Social et Economique a été informé de la mise en place d'un dispositif de signalement interne (whistleblowing) conforme aux exigences de la loi Sapin II et de la directive europeenne 2019/1937 sur la protection des lanc"
+    },
+    {
+      "source_id": "CEO-01:DOC-920b2f03",
+      "corpus_source_id": "FULL:fd3bced8cb52",
+      "doc_id": "DOC-920b2f03",
+      "entity": "veracier_sa",
+      "filename": "correspondance/emails/email_integration_precistec_comex_jan2024.pdf",
+      "classification": "REFERENCE",
+      "language": "fr",
+      "format": "searchable",
+      "description": "Email COMEX janvier 2024 - point integration Precis-Tec",
+      "char_count": 5628,
+      "text": "--- Page 1 ---\n\n# Point d'avancement integration Precis-Tec - COMEX Janvier 2024\n\nDe : expediteur@veracier.com A : destinataire@veracier.com Date : Objet : Point d'avancement  \n\nintegration Precis-Tec - COMEX Janvier 2024\n\n### Chers membres du COMEX\n\nVoici le point d'avancement de l'integration Precis-Tec au 31/01/2024 :\n\n1. CONTRATS A RISQUE : 2 contrats avec entites russes suspendus. Notification de changement de controle envoyée à Energies Oceanes S.A. (reponse attendue sous 30 jours). Agent Algerie : audit Sapin II programme en mars.\n\n2. RH : 312 salaries sur 320 ont signé l'avenant de transfert. 8 refus en cours de traitement.\n\n3. IT : Migration du système qualité Precis-Tec vers Veracier en cours. Echeance prevue : Q2 2024.\n\n## Cordialement, Antoine Morel, CFO\n\nLe Fournisseur s'engage à maintenir un système de tracabilite permettant d'identifier, pour chaque produit livre, les matieres premieres utilisees, les operations de fabrication effectuees, et les controles realises. Cette tracabilite devra être conservee pendant une duree minimale de dix (10) ans.\n\nLa documentation technique de référence applicable au lot est la spécification SP-AV3000-Rev.D, datee du 01/11/2019, associee au plan de controle PC-AV3000-Rev.D et a la gamme de fabrication GF-AV3000-Rev.D.\n\nLe Fournisseur garantit qu'il dispose de toutes les autorisations, licences et habilitations necessaires à l'execution de ses obligations. Il s'engage à informer le Client sans delai de toute modification susceptible d'affecter sa capacité à exécuter le contrat.\n\nEn cas de litige relatif à l'interpretation ou à l'execution du présent contrat, les Parties s'engagent à rechercher une solution amiable dans un delai de trente (30) jours. À défaut, le litige sera soumis aux tribunaux competents du ressort du siege social du Client.\n\nLa revue du dossier de fabrication a été effectuee par la Directrice Qualité & Certification (DOA/POA) prealablement à la libération du lot. Toutes les non-conformites identifiées ont été traitees et cloturees.\n\nLes transactions intra-groupe sont remunerees conformement au principe de pleine concurrence (arm's length) tel que defini par les Principes de l'OCDE en matière de prix de transfert et l'article 57 du Code general des impots.\n\nLe contentieux a été inscrit au registre des risques juridiques du groupe sous la référence RJ-2024-XXX. Son suivi est place sous la responsabilité directe du directeur juridique.\n\nLe budget des œuvres sociales et culturelles gère par le CSE represente 1,2% de la masse salariale, soit 2,1 millions d'euros, destines aux activités sportives et culturelles, aux cheques vacances, et a l'arbre de Noël.\n\nLa gestion previsionnelle des emplois et des competences (GPEC) fait apparaître un besoin de recrutement de 150 postes sur les 18 prochains mois, principalement des operateurs d'usinage (60), des ingenieurs R&D (30) et des techniciens qualite (25).\n\nLa politique de remuneration variable des cadres dirigeants prevoit une part variable pouvant atteindre 30% du salaire annuel brut, articulee autour d'objectifs quantitatifs (60%) et qualitatifs (40%), valides par\n\n--- Page 2 ---\n\nle comite des remunerations.\n\nLe traitement thermique de mise en solution et vieillissement a été réalisé conformément au cycle prescrit : mise en solution à 940 degrés C pendant 2 heures, trempe à l'eau, puis vieillissement à 540 degrés C pendant 8 heures, refroidissement à l'air.\n\nLe plan de sensibilisation a la cybersecurite comprend quatre modules obligatoires (hameconnage, mots de passe, classification des informations, signalement des incidents) et fait l'objet d'un exercice de simulation de phishing trimestriel.\n\nLe comité social et économique central (CSE-C) a été consulte conformément aux articles L.2312-8 et suivants du Code du travail sur le projet de reorganisation de la direction industrielle et ses consequences sociales.\n\nEn cas d'évolution de la réglementation applicable impactant significativement les conditions d'execution du contrat, les Parties s'engagent à se concerter de bonne foi afin d'adapter les stipulations contractuelles dans un delai raisonnable.\n\nLe registre des activites de traitement prevu a l'article 30 du RGPD est tenu a jour par chaque entite du groupe et fait l'objet d'une consolidation annuelle par le DPO. Il recense 147 traitements de données personnelles au niveau du groupe.\n\nLe rapport annuel sur la mise en oeuvre du dispositif Sapin II a été présente au conseil d'administration et fait apparaître un taux de completion de 92% des actions planifiées, avec un retard sur le deploiement de la formation anti-corruption pour les équipes commerciales internationales.\n\nLe test de depreciation des ecarts d'acquisition a été réalisé conformément à IAS 36, sur la base d'une projection des flux de trésorerie futurs actualisés à un taux de 9,5% (WACC). Aucune perte de valeur n'a été constatée.\n\nLe CAPA ouvert suite à la non-conformite recurrente prevoit les actions suivantes : audit supplementaire du fournisseur, renforcement des controles de reception, et mise en place d'un plan de qualification d'un fournisseur alternatif.\n\nLa direction juridique recommande de constituer une provision correspondant à la fourchette basse de l'estimation du risque, étant donné le stade encore preliminaire de la procédure et l'incertitude quant à l'issue du litige.\n\nEn cas de manquement par le Fournisseur a ses obligations en matière de delais de livraison, le Client pourra appliquer des penalites de retard d'un montant de 0,5% du prix de la commande concernee par semaine de retard, plafonnees a 10% du montant total de la commande."
+    },
+    {
+      "source_id": "CEO-01:DOC-eb42d212",
+      "corpus_source_id": "FULL:3f2e54668966",
+      "doc_id": "DOC-eb42d212",
+      "entity": "precistec",
+      "filename": "contrats/acquired/precistec_bail_entrepot_merignac_2020.pdf",
+      "classification": "REVIEW",
+      "language": "fr",
+      "format": "scanned",
+      "description": "Bail entrepot logistique Merignac - 6 ans restants",
+      "char_count": 28997,
+      "text": "--- Page 1 ---\n\n## BAIL COMMERCIAL\n\n01/01/2020\n\nArticle 1 - Objet du Bail\n\nLe present bail porte sur un entrepot logistique de 2 500 m2 situe Zone Industrielle de Merignac, lot 12.\n\nArticle 2 - Duree\n\nBail de 9 ans à compter du 01/01/2020. Clause de resiliation triennale.\n\nArticle 3 - Loyer\n\nLoyer annuel : 187 500 EUR HT, indexe sur l'indice ILAT.\n\n--- Page 2 ---\n\nLe contrat ne pourra être cede, en tout ou en partie, par l'une ou l'autre des Parties sans l'accord prealable écrit de l'autre Partie. Toute cession non autorisee sera reputee nulle et non avenue.\n\nLe plan de sensibilisation a la cybersecurite comprend quatre modules obligatoires (hameconnage, mots de passe, classification des informations, signalement des incidents) et fait l'objet d'un exercice de simulation de phishing trimestriel.\n\nLa medecine du travail a realise 8 450 visites au cours de l'exercice, dont 2 340 visites periodiques, 1 890 visites de reprise, et 4 220 visites à la demande. Douze (12) avis d'inaptitude ont été rendus.\n\nToute notification au titre du présent contrat devra etre effectuee par lettre recommandee avec accuse de\n\n[...evidence excerpt...]\n\ndu prix de revient majore (cost plus method) a ete retenue pour la remuneration des activites de fabrication sous contrat, avec une marge de 8% applicable aux couts directs et indirects de production.\n\nLe plan d'epargne entreprise (PEE) offre aux salaries le choix entre cinq fonds communs de placement d'entreprise (FCPE), dont un fonds ISR et un fonds d'actionnariat salarie investi en actions Veracier.\n\nLe controle non destructif par ressuage fluorescent (penetrant testing) a ete effectue conformement à la norme NAS 410 / EN 4179 Niveau 2, par un operateur certifie COFREND. Aucune indication lineaire superieure à 1,5 mm n'a ete detectee.\n\nLes conclusions de cette analyse juridique sont couvertes par le privilege de la correspondance avocat-client et ne doivent en aucun cas etre communiquees a des tiers sans l'accord prealable de la direction juridique.\n\nLa provision a ete evaluee selon la norme IAS 37, en tenant compte de la meilleure estimation de la depense necessaire a l'extinction de l'obligation a la date de cloture, actualisee au taux d'actualisation sans risque de 3,2%.\n\nL'évaluation du dispositif anti-corruption par un cabinet indépendant a revele des axes d'amelioration concernant l'évaluation des tiers (agents commerciaux et intermediaires), pour lesquels les diligences de connaissance client (KYC) doivent être renforces.\n\nLe Fournisseur s'engage à maintenir un système de tracabilite permettant d'identifier, pour chaque produit livre, les matières premières utilisée"
+    }
+  ],
+  "raw_context": "[CEO-01:DOC-a28fc9ca | SANCTIONS_RISK | contrats/acquired/precistec_client_severneft_supply_2019.pdf]\n--- Page 1 ---\n\n### CONTRAT-CADRE DE FOURNITURE\n\nPTC-2022-0539\n\n15/06/2019\n\nENTRE LES SOUSSIGNES :\n\nPrecis-Tec S.A., societe anonyme au capital de 8 500 000 EUR, immatriculee au Registre du Commerce et des Societes sous le numero RCS Bordeaux 498 215 673, dont le siege social est situe 45 Rue de l'Industrie, 33700 Merignac, France, representee par Michel Dufour, en sa qualite de Ancien Directeur General,\n\nci-apres denommee \"le Client\",\n\n##### D'UNE PART\n\nEt Severneft Trading LLC, representee par son representant legal dument habilite,\n\nci-apres denommee \"le Fournisseur\",\n\n##### D'AUTRE PART\n\nCI-APRES DENOMMEES ENSEMBLE \"LES PARTIES\"\n\n#### IL A ETE CONVENU ET ARRETE CE QUI SUIT :\n\n### Article 1 - Objet du Contrat\n\nLe present contrat a pour objet de definir les\n\n[CEO-01:DOC-6527c5c5 | SANCTIONS_RISK | contrats/acquired/precistec_fournisseur_rosnuclear_2020.pdf]\n--- Page 1 ---\n\n## CONTRAT-CADRE DE FOURNITURE\n\nPTC-2022-0930\n\n20/03/2020\n\nENTRE LES SOUSSIGNES :\n\nPrecis-Tec S.A., societe anonyme au capital de 8 500 000 EUR, immatriculee au Registre du Commerce et des Societes sous le numero RCS Bordeaux 498 215 673, dont le siege social est situe 45 Rue de l'Industrie, 33700 Merignac, France, representee par Michel Dufour, en sa qualité de Ancien Directeur General,\n\nci-apres denommee \"le Client\",\n\n##### D'UNE PART,\n\nEt TVEL Fuel Company (RosNuclear State Corp), representee par son representant legal dument habilite,\n\nci-apres denommee \"le Fournisseur\",\n\n#### D'AUTRE PART,\n\nCI-APRES DENOMMEES ENSEMBLE \"LES PARTIES\"\n\nIL A ETE CONVENU ET ARRETE CE QUI SUIT :\n\n### Article 1 - Objet du Contrat\n\nLe present contrat a pour objet\n\n[CEO-01:DOC-4b498970 | REVIEW | contrats/acquired/precistec_client_enoceanes_msa_2021.pdf]\n--- Page 1 ---\n\nPTC-2023-0359\n\n01/09/2021\n\n# CONTRAT-CADRE CLIENT\n\nPrecis-Tec / Energies Oceanes S.A. SE\n\n##### ENTRE LES SOUSSIGNES :\n\nEnergies Oceanes S.A. SE, representee par son representant legal dument habilite,\n\nci-apres denommee \"le Client\",\n\n##### D'UNE PART,\n\nEt Precis-Tec S.A., RCS Bordeaux 498 215 673, dont le siege social est situe 45 Rue de l'Industrie, 33700 Merignac, France, representee par Michel Dufour,\n\nci-apres denommee \"le Fournisseur\",\n\nD'AUTRE PART.\n\n### Article 1 — Objet\n\nLe présent contrat définit les conditions dans lesquelles Precis-Tec S.A. s'engage à fournir à Energies Oceanes S.A. SE les produits et prestations décrits en Annexe technique.\n\n#### Article 2 — Duree et Jalons\n\nLe present contrat est conclu pour une duree de cinq (5) ans.\n\n## Article 3 — Prix\n\n[CEO-01:DOC-85b9f832 | COMPLIANCE_RISK | contrats/acquired/precistec_agent_commercial_algerie_2020.pdf]\n--- Page 1 ---\n\n## CONTRAT D'AGENT COMMERCIAL\n\n01/02/2020\n\n## Article 1 - Designation de l'Agent\n\nLa société désigne l'Agent comme son représentant commercial exclusif.\n\nArticle 2 - Commission\n\nL'Agent percevra une commission de 5% sur le montant net des ventes.\n\n--- Page 2 ---\n\nL'évaluation du dispositif anti-corruption par un cabinet indépendant a revele des axes d'amelioration concernant l'évaluation des tiers (agents commerciaux et intermediaires), pour lesquels les diligences de connaissance client (KYC) doivent être renforces.\n\nLe Comité Social et Economique a été informé de la mise en place d'un dispositif de signalement interne (whistleblowing) conforme aux exigences de la loi Sapin II et de la directive europeenne 2019/1937 sur la protection des lanc\n\n[CEO-01:DOC-920b2f03 | REFERENCE | correspondance/emails/email_integration_precistec_comex_jan2024.pdf]\n--- Page 1 ---\n\n# Point d'avancement integration Precis-Tec - COMEX Janvier 2024\n\nDe : expediteur@veracier.com A : destinataire@veracier.com Date : Objet : Point d'avancement  \n\nintegration Precis-Tec - COMEX Janvier 2024\n\n### Chers membres du COMEX\n\nVoici le point d'avancement de l'integration Precis-Tec au 31/01/2024 :\n\n1. CONTRATS A RISQUE : 2 contrats avec entites russes suspendus. Notification de changement de controle envoyée à Energies Oceanes S.A. (reponse attendue sous 30 jours). Agent Algerie : audit Sapin II programme en mars.\n\n2. RH : 312 salaries sur 320 ont signé l'avenant de transfert. 8 refus en cours de traitement.\n\n3. IT : Migration du système qualité Precis-Tec vers Veracier en cours. Echeance prevue : Q2 2024.\n\n## Cordialement, Antoine Morel, CFO\n\nLe Fournisseur s'engage à maintenir un système de tracabilite permettant d'identifier, pour chaque produit livre, les matieres premieres utilisees, les operations de fabrication effectuees, et les controles realises. Cette tracabilite devra être conservee pendant une duree minimale de dix (10) ans.\n\nLa documentation technique de référence applicable au lot est la spécification SP-AV3000-Rev.D, datee du 01/11/2019, associee au plan de controle PC-AV3000-Rev.D et a la gamme de fabrication GF-AV3000-Rev.D.\n\nLe Fournisseur garantit qu'il dispose de toutes les autorisations, licences et habilitations necessaires à l'execution de ses obligations. Il s'engage à informer le Client sans delai de toute modification susceptible d'affecter sa capacité à exécuter le contrat.\n\nEn cas de litige relatif à l'interpretation ou à l'execution du présent contrat, les Parties s'engagent à rechercher une solution amiable dans un delai de trente (30) jours. À défaut, le litige sera soumis aux tribunaux competents du ressort du siege social du Client.\n\nLa revue du dossier de fabrication a été effectuee par la Directrice Qualité & Certification (DOA/POA) prealablement à la libération du lot. Toutes les non-conformites identifiées ont été traitees et cloturees.\n\nLes transactions intra-groupe sont remunerees conformement au principe de pleine concurrence (arm's length) tel que defini par les Principes de l'OCDE en matière de prix de transfert et l'article 57 du Code general des impots.\n\nLe contentieux a été inscrit au registre des risques juridiques du groupe sous la référence RJ-2024-XXX. Son suivi est place sous la responsabilité directe du directeur juridique.\n\nLe budget des œuvres sociales et culturelles gère par le CSE represente 1,2% de la masse salariale, soit 2,1 millions d'euros, destines aux activités sportives et culturelles, aux cheques vacances, et a l'arbre de Noël.\n\nLa gestion previsionnelle des emplois et des competences (GPEC) fait apparaître un besoin de recrutement de 150 postes sur les 18 prochains mois, principalement des operateurs d'usinage (60), des ingenieurs R&D (30) et des techniciens qualite (25).\n\nLa politique de remuneration variable des cadres dirigeants prevoit une part variable pouvant atteindre 30% du salaire annuel brut, articulee autour d'objectifs quantitatifs (60%) et qualitatifs (40%), valides par\n\n--- Page 2 ---\n\nle comite des remunerations.\n\nLe traitement thermique de mise en solution et vieillissement a été réalisé conformément au cycle prescrit : mise en solution à 940 degrés C pendant 2 heures, trempe à l'eau, puis vieillissement à 540 degrés C pendant 8 heures, refroidissement à l'air.\n\nLe plan de sensibilisation a la cybersecurite comprend quatre modules obligatoires (hameconnage, mots de passe, classification des informations, signalement des incidents) et fait l'objet d'un exercice de simulation de phishing trimestriel.\n\nLe comité social et économique central (CSE-C) a été consulte conformément aux articles L.2312-8 et suivants du Code du travail sur le projet de reorganisation de la direction industrielle et ses consequences sociales.\n\nEn cas d'évolution de la réglementation applicable impactant significativement les conditions d'execution du contrat, les Parties s'engagent à se concerter de bonne foi afin d'adapter les stipulations contractuelles dans un delai raisonnable.\n\nLe registre des activites de traitement prevu a l'article 30 du RGPD est tenu a jour par chaque entite du groupe et fait l'objet d'une consolidation annuelle par le DPO. Il recense 147 traitements de données personnelles au niveau du groupe.\n\nLe rapport annuel sur la mise en oeuvre du dispositif Sapin II a été présente au conseil d'administration et fait apparaître un taux de completion de 92% des actions planifiées, avec un retard sur le deploiement de la formation anti-corruption pour les équipes commerciales internationales.\n\nLe test de depreciation des ecarts d'acquisition a été réalisé conformément à IAS 36, sur la base d'une projection des flux de trésorerie futurs actualisés à un taux de 9,5% (WACC). Aucune perte de valeur n'a été constatée.\n\nLe CAPA ouvert suite à la non-conformite recurrente prevoit les actions suivantes : audit supplementaire du fournisseur, renforcement des controles de reception, et mise en place d'un plan de qualification d'un fournisseur alternatif.\n\nLa direction juridique recommande de constituer une provision correspondant à la fourchette basse de l'estimation du risque, étant donné le stade encore preliminaire de la procédure et l'incertitude quant à l'issue du litige.\n\nEn cas de manquement par le Fournisseur a ses obligations en matière de delais de livraison, le Client pourra appliquer des penalites de retard d'un montant de 0,5% du prix de la commande concernee par semaine de retard, plafonnees a 10% du montant total de la commande.\n\n[CEO-01:DOC-eb42d212 | REVIEW | contrats/acquired/precistec_bail_entrepot_merignac_2020.pdf]\n--- Page 1 ---\n\n## BAIL COMMERCIAL\n\n01/01/2020\n\nArticle 1 - Objet du Bail\n\nLe present bail porte sur un entrepot logistique de 2 500 m2 situe Zone Industrielle de Merignac, lot 12.\n\nArticle 2 - Duree\n\nBail de 9 ans à compter du 01/01/2020. Clause de resiliation triennale.\n\nArticle 3 - Loyer\n\nLoyer annuel : 187 500 EUR HT, indexe sur l'indice ILAT.\n\n--- Page 2 ---\n\nLe contrat ne pourra être cede, en tout ou en partie, par l'une ou l'autre des Parties sans l'accord prealable écrit de l'autre Partie. Toute cession non autorisee sera reputee nulle et non avenue.\n\nLe plan de sensibilisation a la cybersecurite comprend quatre modules obligatoires (hameconnage, mots de passe, classification des informations, signalement des incidents) et fait l'objet d'un exercice de simulation de phishing trimestriel.\n\nLa medecine du travail a realise 8 450 visites au cours de l'exercice, dont 2 340 visites periodiques, 1 890 visites de reprise, et 4 220 visites à la demande. Douze (12) avis d'inaptitude ont été rendus.\n\nToute notification au titre du présent contrat devra etre effectuee par lettre recommandee avec accuse de\n\n[...evidence excerpt...]\n\ndu prix de revient majore (cost plus method) a ete retenue pour la remuneration des activites de fabrication sous contrat, avec une marge de 8% applicable aux couts directs et indirects de production.\n\nLe plan d'epargne entreprise (PEE) offre aux salaries le choix entre cinq fonds communs de placement d'entreprise (FCPE), dont un fonds ISR et un fonds d'actionnariat salarie investi en actions Veracier.\n\nLe controle non destructif par ressuage fluorescent (penetrant testing) a ete effectue conformement à la norme NAS 410 / EN 4179 Niveau 2, par un operateur certifie COFREND. Aucune indication lineaire superieure à 1,5 mm n'a ete detectee.\n\nLes conclusions de cette analyse juridique sont couvertes par le privilege de la correspondance avocat-client et ne doivent en aucun cas etre communiquees a des tiers sans l'accord prealable de la direction juridique.\n\nLa provision a ete evaluee selon la norme IAS 37, en tenant compte de la meilleure estimation de la depense necessaire a l'extinction de l'obligation a la date de cloture, actualisee au taux d'actualisation sans risque de 3,2%.\n\nL'évaluation du dispositif anti-corruption par un cabinet indépendant a revele des axes d'amelioration concernant l'évaluation des tiers (agents commerciaux et intermediaires), pour lesquels les diligences de connaissance client (KYC) doivent être renforces.\n\nLe Fournisseur s'engage à maintenir un système de tracabilite permettant d'identifier, pour chaque produit livre, les matières premières utilisée",
+  "context_char_count": 11377,
+  "generation_archetype": {
+    "id": "executive_contract_risk",
+    "label": "Executive contract, sanctions, and compliance risk map",
+    "focus": "inherited contracts, counterparties, sanctions, anti-corruption, change of control, and integration risk",
+    "perfect_guidance": [
+      "Use explicit counterparty, contract, sanctions, compliance, or change-of-control facts.",
+      "Do not turn a partial risk map into a complete inherited-contract assessment."
+    ],
+    "ambiguous_guidance": [
+      "Use one supported counterparty or contract-risk fact.",
+      "Pair it with one unresolved limitation about full perimeter, KYC, anti-corruption review, or inherited contract coverage."
+    ],
+    "wrong_guidance": [
+      "Invent sanctions status, counterparty identity, KYC completion, approval, or contract rights.",
+      "Unsupported executive risk claims should have no source ids."
+    ]
+  }
+}

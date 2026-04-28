@@ -1,0 +1,117 @@
+{
+  "use_case_id": "LEGAL-04",
+  "question": "Quels contrats arrivent a echeance dans les 6 prochains mois? Renouvellements a negocier?",
+  "role": "Directeur Juridique",
+  "asker": "Jean-Philippe Garnier",
+  "entity": "veracier_sa",
+  "difficulty_factors": [
+    "cross_entity",
+    "multilingual",
+    "temporal_reasoning"
+  ],
+  "ground_truth": {},
+  "ground_truth_proxy": {
+    "source": "MASTER_INDEX.classification",
+    "positive_classes": [],
+    "distractor_classes": []
+  },
+  "selected_documents": [
+    {
+      "source_id": "LEGAL-04:DOC-8a9aa9be",
+      "corpus_source_id": "FULL:35e0023dd128",
+      "doc_id": "DOC-8a9aa9be",
+      "entity": "veracier_sa",
+      "filename": "juridique/echeances/doc_legal04_001.pdf",
+      "classification": "EXPIRING",
+      "language": "fr",
+      "format": "searchable",
+      "description": "LEGAL-04 contract expiry doc 1",
+      "char_count": 10985,
+      "text": "--- Page 1 ---\n\nVRC-SA-2022-0622\n\n15/03/2022\n\n# CONTRAT-CADRE DE FOURNITURE\n\nEntre Veracier SA et Forges Martelliere S.A.\n\n##### ENTRE LES SOUSSIGNES :\n\nVeracier Industries S.A., societe anonyme au capital de 285 000 000 EUR, immatriculee au Registre du Commerce et des Societes sous le numero RCS Paris 412 587 936, dont le siege social est situe 42 Avenue de la Grande Armee, 75017 Paris, France, representee par Helene Daubrac, en sa qualite de Presidente-Directrice Generale,\n\nci-apres denommee \"le Client\",\n\nD'UNE PART,\n\nEt Forges Martelliere S.A., representee par son representant legal dument habilite,\n\nci-apres denommee \"le Fournisseur\",\n\nD'AUTRE PART.\n\nCI-APRES DENOMMEES ENSEMBLE \"LES PARTIES\"\n\nIL A ETE CONVENU ET ARRETE CE QUI SUIT :\n\n#### Article 1 — Objet du Contrat\n\nLe présent cont"
+    },
+    {
+      "source_id": "LEGAL-04:DOC-da28fe6b",
+      "corpus_source_id": "FULL:202c9bdd1c70",
+      "doc_id": "DOC-da28fe6b",
+      "entity": "veracier_aero",
+      "filename": "juridique/echeances/doc_legal04_002.pdf",
+      "classification": "EXPIRING",
+      "language": "fr",
+      "format": "searchable",
+      "description": "LEGAL-04 contract expiry doc 2",
+      "char_count": 8975,
+      "text": "--- Page 1 ---\n\nVRC-AE-2023-0139\n\n15/01/2023\n\n# CONTRAT-CADRE CLIENT\n\nVeracier Aero / Aeronord Industries S.A.\n\n#### ENTRE LES SOUSSIGNES :\n\nAeronord Industries S.A., representee par son representant legal dument habilite,\n\nci-apres denommee \"le Client\",\n\nD'UNE PART,\n\nEt Veracier Aero S.A.S., RCS Toulouse 523 198 472, dont le siege social est situe 8 Rue des Ailes, 31400 Toulouse, France, representee par Cedric Fonteneau,\n\nci-apres denommee \"le Fournisseur\",\n\nD'AUTRE PART.\n\n### Article 1 — Objet\n\nLe présent contrat définit les conditions dans lesquelles Veracier Aero S.A.S. s'engage à fournir à Aeronord Industries S.A. les produits et prestations décrits en Annexe technique.\n\n### Article 2 — Duree et Jalons\n\nLe present contrat est conclu pour une duree de cinq (5) ans.\n\n## Article 3 — Pr"
+    },
+    {
+      "source_id": "LEGAL-04:DOC-7e2eea92",
+      "corpus_source_id": "FULL:2cd83582b872",
+      "doc_id": "DOC-7e2eea92",
+      "entity": "veracier_defense",
+      "filename": "juridique/echeances/doc_legal04_003.pdf",
+      "classification": "EXPIRING",
+      "language": "fr",
+      "format": "scanned",
+      "description": "LEGAL-04 contract expiry doc 3",
+      "char_count": 27406,
+      "text": "--- Page 1 ---\n\n### CONTRAT-CADRE DE FOURNITURE\n\nVRC-DF-2022-0391\n\n15/03/2022\n\n##### ENTRE LES SOUSSIGNES :\n\nVeracier Defence & Securite S.A.S., societe anonyme au capital de 30 000 000 EUR, immatriculee au Registre du Commerce et des Societes sous le numero RCS Evry 534 762 198, dont le siege social est situe Zone Industrielle de Saclay, 91120 Palaiseau, France, representee par General (2S) Patrick Vidal, en sa qualite de Directeur General,\n\nci-apres denommee \"le Client\",\n\n##### D'UNE PART,\n\nEt Forges Martelliere S.A., representee par son representant legal dument habilite,\n\nci-apres denommee \"le Fournisseur\",\n\n##### D'AUTRE PART\n\nCI-APRES DENOMMEES ENSEMBLE \"LES PARTIES\"\n\n### IL A ETE CONVENU ET ARRETE CE QUI SUIT :\n\n### Article 1 - Objet du Contrat\n\nLe prés"
+    },
+    {
+      "source_id": "LEGAL-04:DOC-8e41f52f",
+      "corpus_source_id": "FULL:bcbb284f48e5",
+      "doc_id": "DOC-8e41f52f",
+      "entity": "veracier_energie",
+      "filename": "juridique/echeances/doc_legal04_004.pdf",
+      "classification": "EXPIRING",
+      "language": "fr",
+      "format": "searchable",
+      "description": "LEGAL-04 contract expiry doc 4",
+      "char_count": 11268,
+      "text": "--- Page 1 ---\n\nVRC-EN-2023-0712\n\n15/01/2023\n\n# CONTRAT-CADRE CLIENT\n\nVeracier Energie / Aeronord Industries S.A.\n\n##### ENTRE LES SOUSSIGNES :\n\nAeronord Industries S.A., representee par son representant legal dument habilite,\n\nci-apres denommee \"le Client\",\n\nD'UNE PART,\n\nEt Veracier Energie S.A.S., RCS Romans 498 321 657, dont le siege social est situe 120 Route de Lyon, 26000 Valence, France, representee par Dominique Faure,\n\nci-apres denommee \"le Fournisseur\",\n\nD'AUTRE PART.\n\n### Article 1 — Objet\n\nLe présent contrat définit les conditions dans lesquelles Veracier Energie S.A.S. s'engage à fournir à Aeronord Industries S.A. les produits et prestations décrits en Annexe technique.\n\n### Article 2 — Duree et Jalons\n\nLe present contrat est conclu pour une duree de cinq (5) ans.\n\n## Articl"
+    },
+    {
+      "source_id": "LEGAL-04:DOC-ca313faa",
+      "corpus_source_id": "FULL:869b9a88370b",
+      "doc_id": "DOC-ca313faa",
+      "entity": "veracier_maroc",
+      "filename": "juridique/echeances/doc_legal04_008.pdf",
+      "classification": "EXPIRING",
+      "language": "fr",
+      "format": "scanned",
+      "description": "LEGAL-04 contract expiry doc 8",
+      "char_count": 30062,
+      "text": "--- Page 1 ---\n\n### CONTRAT-CADRE CLIENT\n\nVRC-MA-2023-0430\n\n15/01/2023\n\nENTRE LES SOUSSIGNES :\n\nAeronord Industries S.A., representee par son representant legal dument habilite,\n\nci-apres denommee \"le Client\",\n\n##### D'UNE PART\n\nEt Veracier Maroc S.A.R.L., RC Casablanca 387 451, dont le siege social est situe Zone Franche d'Exportation, Route de Nouaceur, Casablanca, Maroc, representee par Rachid Benali,\n\nci-apres denommee \"le Fournisseur\",\n\nD'AUTRE PART,\n\n#### Article 1 - Objet\n\nLe présent contrat définit les conditions dans lesquelles Veracier Maroc S.A.R.L. s'engage à fournir à Aeronord Industries S.A. les produits et prestations décrits en Annexe technique.\n\n#### Article 2 - Duree et Jalons\n\nLe present contrat est conclu pour une duree de cinq (5) ans.\n\n##"
+    },
+    {
+      "source_id": "LEGAL-04:DOC-6b24b52f",
+      "corpus_source_id": "FULL:cdcb69b0f7de",
+      "doc_id": "DOC-6b24b52f",
+      "entity": "veracier_inc",
+      "filename": "juridique/echeances/doc_legal04_014.pdf",
+      "classification": "NOT_EXPIRING",
+      "language": "en",
+      "format": "scanned",
+      "description": "LEGAL-04 contract expiry doc 14",
+      "char_count": 16356,
+      "text": "er\")\n\nAND\n\nVeracier Inc. (\"Supplier\")\n\nSection 1 - Scope of Supply\n\nVeracier Inc. shall supply to Aeronord Industries S.A. the products and services described in the Technical Schedule.\n\nSection 2 - Term\n\nThis Agreement shall be for an initial term of five (5) years from the Effective Date.\n\nSection 3 - Pricing\n\nPrices are as set forth in the Pricing Schedule.\n\nSection 4 - Delay Penalties\n\nLate deliveries shall be subject to liquidated damages of 0.5% per week, capped at 10%.\n\nSection 5 - Warranty\n\nSupplier warrants all Products against defects in design, materials, and workmanship for twenty-four (24) months from delivery.\n\nSection 6 - Liability\n\nSupplier's aggregate liability under this Agreement shall not exceed two (2) times the annual contract value.\n\nSection 7 - Governing Law\n\nThis Agreement shall be governed by the laws of England and Wales.\n\n--- Page 2 ---\n\nThe Legal Department has identified a contagion risk, as the facts underlying the claim may be replicated at other production sites within the Group.\n\nThe CAPA opened in response to the recurring non-conformity includes the following actions: supplementary supplier audit, enhanced receiving inspection, and qualification of an alternative supplier.\n\nYear-end accruals include the following items: customer delay penalties (EUR 2.1M), product warranty provisions (EUR 1.2M), tax risk provisions (EUR 0.8M), and voluntary redundancy payments (EUR 0.6M).\n\nStorage conditions for released parts conform to requirements: tempe\n\n[...evidence excerpt...]\n\nowed by ageing at 540 degrees C for 8 hours, air cool.\n\nThe Legal Department recommends appointment of a mediator accredited by the Centre for Effective Dispute Resolution (CEI) to attempt settlement before the commencement of substantive proceedings.\n\nDimensional inspections were performed on a Metrologix M-G2 coordinate measuring machine (CMM), calibrated and certified in accordance with ISO 10360-2. The expanded measurement uncertainty (k=2) is +/- 0.003 mm.\n\nThe matter will be monitored by the Legal Department in coordination with external counsel. A progress update will be presented to the Audit Committee at its next quarterly meeting.\n\nIt is recommended that no public statement be made regarding this matter, given the confidentiality obligations under the mediation clause and the potential for reputational harm.\n\nThe matter has been entered in the Group's legal risk register under reference LR-2024-XXX. Oversight has been assigned to the General Counsel.\n\nThe legal risk analysis has been conducted in accordance with IAS 37 principles concerning provisions, contingent liabilities, and contingent assets. The probability of the risk materializing has been assessed on a three-tier scale: probable, possible, or remote.\n\nAny amendment to this Agreement shall be in writing and duly executed by authorized representatives of both Parties. No oral modification or waiver shall be binding upon either Party.\n\nThe Supplier shall maintain a traceability system enabling identification"
+    }
+  ],
+  "raw_context": "[LEGAL-04:DOC-8a9aa9be | EXPIRING | juridique/echeances/doc_legal04_001.pdf]\n--- Page 1 ---\n\nVRC-SA-2022-0622\n\n15/03/2022\n\n# CONTRAT-CADRE DE FOURNITURE\n\nEntre Veracier SA et Forges Martelliere S.A.\n\n##### ENTRE LES SOUSSIGNES :\n\nVeracier Industries S.A., societe anonyme au capital de 285 000 000 EUR, immatriculee au Registre du Commerce et des Societes sous le numero RCS Paris 412 587 936, dont le siege social est situe 42 Avenue de la Grande Armee, 75017 Paris, France, representee par Helene Daubrac, en sa qualite de Presidente-Directrice Generale,\n\nci-apres denommee \"le Client\",\n\nD'UNE PART,\n\nEt Forges Martelliere S.A., representee par son representant legal dument habilite,\n\nci-apres denommee \"le Fournisseur\",\n\nD'AUTRE PART.\n\nCI-APRES DENOMMEES ENSEMBLE \"LES PARTIES\"\n\nIL A ETE CONVENU ET ARRETE CE QUI SUIT :\n\n#### Article 1 — Objet du Contrat\n\nLe présent cont\n\n[LEGAL-04:DOC-da28fe6b | EXPIRING | juridique/echeances/doc_legal04_002.pdf]\n--- Page 1 ---\n\nVRC-AE-2023-0139\n\n15/01/2023\n\n# CONTRAT-CADRE CLIENT\n\nVeracier Aero / Aeronord Industries S.A.\n\n#### ENTRE LES SOUSSIGNES :\n\nAeronord Industries S.A., representee par son representant legal dument habilite,\n\nci-apres denommee \"le Client\",\n\nD'UNE PART,\n\nEt Veracier Aero S.A.S., RCS Toulouse 523 198 472, dont le siege social est situe 8 Rue des Ailes, 31400 Toulouse, France, representee par Cedric Fonteneau,\n\nci-apres denommee \"le Fournisseur\",\n\nD'AUTRE PART.\n\n### Article 1 — Objet\n\nLe présent contrat définit les conditions dans lesquelles Veracier Aero S.A.S. s'engage à fournir à Aeronord Industries S.A. les produits et prestations décrits en Annexe technique.\n\n### Article 2 — Duree et Jalons\n\nLe present contrat est conclu pour une duree de cinq (5) ans.\n\n## Article 3 — Pr\n\n[LEGAL-04:DOC-7e2eea92 | EXPIRING | juridique/echeances/doc_legal04_003.pdf]\n--- Page 1 ---\n\n### CONTRAT-CADRE DE FOURNITURE\n\nVRC-DF-2022-0391\n\n15/03/2022\n\n##### ENTRE LES SOUSSIGNES :\n\nVeracier Defence & Securite S.A.S., societe anonyme au capital de 30 000 000 EUR, immatriculee au Registre du Commerce et des Societes sous le numero RCS Evry 534 762 198, dont le siege social est situe Zone Industrielle de Saclay, 91120 Palaiseau, France, representee par General (2S) Patrick Vidal, en sa qualite de Directeur General,\n\nci-apres denommee \"le Client\",\n\n##### D'UNE PART,\n\nEt Forges Martelliere S.A., representee par son representant legal dument habilite,\n\nci-apres denommee \"le Fournisseur\",\n\n##### D'AUTRE PART\n\nCI-APRES DENOMMEES ENSEMBLE \"LES PARTIES\"\n\n### IL A ETE CONVENU ET ARRETE CE QUI SUIT :\n\n### Article 1 - Objet du Contrat\n\nLe prés\n\n[LEGAL-04:DOC-8e41f52f | EXPIRING | juridique/echeances/doc_legal04_004.pdf]\n--- Page 1 ---\n\nVRC-EN-2023-0712\n\n15/01/2023\n\n# CONTRAT-CADRE CLIENT\n\nVeracier Energie / Aeronord Industries S.A.\n\n##### ENTRE LES SOUSSIGNES :\n\nAeronord Industries S.A., representee par son representant legal dument habilite,\n\nci-apres denommee \"le Client\",\n\nD'UNE PART,\n\nEt Veracier Energie S.A.S., RCS Romans 498 321 657, dont le siege social est situe 120 Route de Lyon, 26000 Valence, France, representee par Dominique Faure,\n\nci-apres denommee \"le Fournisseur\",\n\nD'AUTRE PART.\n\n### Article 1 — Objet\n\nLe présent contrat définit les conditions dans lesquelles Veracier Energie S.A.S. s'engage à fournir à Aeronord Industries S.A. les produits et prestations décrits en Annexe technique.\n\n### Article 2 — Duree et Jalons\n\nLe present contrat est conclu pour une duree de cinq (5) ans.\n\n## Articl\n\n[LEGAL-04:DOC-ca313faa | EXPIRING | juridique/echeances/doc_legal04_008.pdf]\n--- Page 1 ---\n\n### CONTRAT-CADRE CLIENT\n\nVRC-MA-2023-0430\n\n15/01/2023\n\nENTRE LES SOUSSIGNES :\n\nAeronord Industries S.A., representee par son representant legal dument habilite,\n\nci-apres denommee \"le Client\",\n\n##### D'UNE PART\n\nEt Veracier Maroc S.A.R.L., RC Casablanca 387 451, dont le siege social est situe Zone Franche d'Exportation, Route de Nouaceur, Casablanca, Maroc, representee par Rachid Benali,\n\nci-apres denommee \"le Fournisseur\",\n\nD'AUTRE PART,\n\n#### Article 1 - Objet\n\nLe présent contrat définit les conditions dans lesquelles Veracier Maroc S.A.R.L. s'engage à fournir à Aeronord Industries S.A. les produits et prestations décrits en Annexe technique.\n\n#### Article 2 - Duree et Jalons\n\nLe present contrat est conclu pour une duree de cinq (5) ans.\n\n##\n\n[LEGAL-04:DOC-6b24b52f | NOT_EXPIRING | juridique/echeances/doc_legal04_014.pdf]\ner\")\n\nAND\n\nVeracier Inc. (\"Supplier\")\n\nSection 1 - Scope of Supply\n\nVeracier Inc. shall supply to Aeronord Industries S.A. the products and services described in the Technical Schedule.\n\nSection 2 - Term\n\nThis Agreement shall be for an initial term of five (5) years from the Effective Date.\n\nSection 3 - Pricing\n\nPrices are as set forth in the Pricing Schedule.\n\nSection 4 - Delay Penalties\n\nLate deliveries shall be subject to liquidated damages of 0.5% per week, capped at 10%.\n\nSection 5 - Warranty\n\nSupplier warrants all Products against defects in design, materials, and workmanship for twenty-four (24) months from delivery.\n\nSection 6 - Liability\n\nSupplier's aggregate liability under this Agreement shall not exceed two (2) times the annual contract value.\n\nSection 7 - Governing Law\n\nThis Agreement shall be governed by the laws of England and Wales.\n\n--- Page 2 ---\n\nThe Legal Department has identified a contagion risk, as the facts underlying the claim may be replicated at other production sites within the Group.\n\nThe CAPA opened in response to the recurring non-conformity includes the following actions: supplementary supplier audit, enhanced receiving inspection, and qualification of an alternative supplier.\n\nYear-end accruals include the following items: customer delay penalties (EUR 2.1M), product warranty provisions (EUR 1.2M), tax risk provisions (EUR 0.8M), and voluntary redundancy payments (EUR 0.6M).\n\nStorage conditions for released parts conform to requirements: tempe\n\n[...evidence excerpt...]\n\nowed by ageing at 540 degrees C for 8 hours, air cool.\n\nThe Legal Department recommends appointment of a mediator accredited by the Centre for Effective Dispute Resolution (CEI) to attempt settlement before the commencement of substantive proceedings.\n\nDimensional inspections were performed on a Metrologix M-G2 coordinate measuring machine (CMM), calibrated and certified in accordance with ISO 10360-2. The expanded measurement uncertainty (k=2) is +/- 0.003 mm.\n\nThe matter will be monitored by the Legal Department in coordination with external counsel. A progress update will be presented to the Audit Committee at its next quarterly meeting.\n\nIt is recommended that no public statement be made regarding this matter, given the confidentiality obligations under the mediation clause and the potential for reputational harm.\n\nThe matter has been entered in the Group's legal risk register under reference LR-2024-XXX. Oversight has been assigned to the General Counsel.\n\nThe legal risk analysis has been conducted in accordance with IAS 37 principles concerning provisions, contingent liabilities, and contingent assets. The probability of the risk materializing has been assessed on a three-tier scale: probable, possible, or remote.\n\nAny amendment to this Agreement shall be in writing and duly executed by authorized representatives of both Parties. No oral modification or waiver shall be binding upon either Party.\n\nThe Supplier shall maintain a traceability system enabling identification",
+  "context_char_count": 6961,
+  "generation_archetype": {
+    "id": "legal_contracts",
+    "label": "Contracts, clauses, obligations, and regulatory legal review",
+    "focus": "parties, clauses, obligations, rights, scope, exceptions, dates, and governing restrictions",
+    "perfect_guidance": [
+      "Use clause-level obligations or restrictions explicitly stated in the contract evidence.",
+      "Keep the answer about what the clause says, not a broader legal conclusion unless the text states it."
+    ],
+    "ambiguous_guidance": [
+      "Use one supported clause or obligation.",
+      "Pair it with one unresolved limitation about applicability, exception coverage, counterparty scope, or missing schedule."
+    ],
+    "wrong_guidance": [
+      "Invert a clause, assign it to the wrong party, change the scope, or invent consent/termination rights.",
+      "Do not include any source ids for unsupported legal claims."
+    ]
+  }
+}

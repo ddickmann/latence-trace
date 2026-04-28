@@ -1,0 +1,116 @@
+{
+  "use_case_id": "PROC-01",
+  "question": "Forges Martelliere en redressement judiciaire. Exposition?",
+  "role": "Directrice Achats",
+  "asker": "Isabelle Roche",
+  "entity": "veracier_sa",
+  "difficulty_factors": [
+    "cross_entity",
+    "urgency"
+  ],
+  "ground_truth": {},
+  "ground_truth_proxy": {
+    "source": "MASTER_INDEX.classification",
+    "positive_classes": [],
+    "distractor_classes": []
+  },
+  "selected_documents": [
+    {
+      "source_id": "PROC-01:DOC-50e34f02",
+      "corpus_source_id": "FULL:67a9a101f0a7",
+      "doc_id": "DOC-50e34f02",
+      "entity": "veracier_aero",
+      "filename": "correspondance/bdc/bdc_forges_martelliere_2025_001.pdf",
+      "classification": "AT_RISK",
+      "language": "fr",
+      "format": "searchable",
+      "description": "PO 340k forgings AV-3000",
+      "char_count": 108,
+      "text": "--- Page 1 ---\n\n## BON DE COMMANDE\n\nFournisseur : Forges Martelliere S.A.\n\nMontant total : 340 000,00 EUR HT"
+    },
+    {
+      "source_id": "PROC-01:DOC-1ceffca1",
+      "corpus_source_id": "FULL:b03ba0a3f405",
+      "doc_id": "DOC-1ceffca1",
+      "entity": "veracier_energie",
+      "filename": "correspondance/bdc/bdc_forges_martelliere_2025_002.pdf",
+      "classification": "AT_RISK",
+      "language": "fr",
+      "format": "searchable",
+      "description": "PO 180k NuSafe valve bodies",
+      "char_count": 108,
+      "text": "--- Page 1 ---\n\n## BON DE COMMANDE\n\nFournisseur : Forges Martelliere S.A.\n\nMontant total : 180 000,00 EUR HT"
+    },
+    {
+      "source_id": "PROC-01:DOC-fa6b00bb",
+      "corpus_source_id": "FULL:985d994832c6",
+      "doc_id": "DOC-fa6b00bb",
+      "entity": "veracier_gmbh",
+      "filename": "correspondance/bdc/bdc_rhein_metall_2025_001.pdf",
+      "classification": "NOT_AT_RISK",
+      "language": "de",
+      "format": "searchable",
+      "description": "Different supplier",
+      "char_count": 106,
+      "text": "--- Page 1 ---\n\n## BON DE COMMANDE\n\nFournisseur : Rhein-Metall Prazision GmbH\n\nMontant total : 0,00 EUR HT"
+    },
+    {
+      "source_id": "PROC-01:DOC-9f0ca817",
+      "corpus_source_id": "FULL:69fbbb100033",
+      "doc_id": "DOC-9f0ca817",
+      "entity": "veracier_inc",
+      "filename": "correspondance/bdc/bdc_titan_fluid_2025_001.pdf",
+      "classification": "NOT_AT_RISK",
+      "language": "en",
+      "format": "searchable",
+      "description": "Different supplier",
+      "char_count": 102,
+      "text": "--- Page 1 ---\n\n## BON DE COMMANDE\n\nFournisseur : Titan Fluid Systems Inc\n\nMontant total : USD 0.00 HT"
+    },
+    {
+      "source_id": "PROC-01:DOC-a03146b5",
+      "corpus_source_id": "FULL:6f84b0f1ad9c",
+      "doc_id": "DOC-a03146b5",
+      "entity": "veracier_sa",
+      "filename": "contrats/fournisseur/forges_martelliere_msa_2022.pdf",
+      "classification": "REFERENCE",
+      "language": "fr",
+      "format": "searchable",
+      "description": "MSA with insolvency clauses",
+      "char_count": 23451,
+      "text": "--- Page 1 ---\n\nVRC-SA-2022-0657\n\n15/03/2022\n\n# CONTRAT-CADRE DE FOURNITURE\n\nEntre Veracier SA et Forges Martelliere S.A.\n\n##### ENTRE LES SOUSSIGNES :\n\nVeracier Industries S.A., societe anonyme au capital de 285 000 000 EUR, immatriculee au Registre du Commerce et des Societes sous le numero RCS Paris 412 587 936, dont le siege social est situe 42 Avenue de la Grande Armee, 75017 Paris, France, representee par Helene Daubrac, en sa qualite de Presidente-Directrice Generale,\n\nci-apres denommee \"le Client\",\n\nD'UNE PART,\n\nEt Forges Martelliere S.A., representee par son representant legal dument habilite,\n\nci-apres denommee \"le Fournisseur\",\n\nD'AUTRE PART.\n\nCI-APRES DENOMMEES ENSEMBLE \"LES PARTIES\"\n\nIL A ETE CONVENU ET ARRETE CE QUI SUIT :\n\n#### Article 1 — Objet du Contrat\n\nLe présent contrat a pour objet de definir les conditions dans le"
+    },
+    {
+      "source_id": "PROC-01:DOC-66804d3f",
+      "corpus_source_id": "FULL:675414c58e30",
+      "doc_id": "DOC-66804d3f",
+      "entity": "veracier_sa",
+      "filename": "correspondance/emails/email_administrateur_judiciaire_mars2025.pdf",
+      "classification": "REFERENCE",
+      "language": "fr",
+      "format": "searchable",
+      "description": "Courrier administrateur judiciaire Forges Martelliere — declaration de creances",
+      "char_count": 3392,
+      "text": "--- Page 1 ---\n\n# Declaration de creances — RJ Forges Martelliere — Tribunal de Commerce de Chaumont\n\nDe : expediteur@veracier.com A : destinataire@veracier.com Date : Objet : Declaration de creances — RJ Forges Martelliere — Tribunal de Commerce de Chaumont\n\n## Maitre,\n\nSuite a l'ouverture de la procedure de redressement judiciaire de la société Forges Martelliere S.A. (jugement du Tribunal de Commerce de Chaumont du 10/02/2025), Veracier Industries S.A. declare les creances suivantes :\n\n1. BDC VRC-AE-2025-001 : 340 000 EUR (facture non reglee) 2. BDC VRC-AE-2024-015 : 95 000 EUR (solde livraison partielle) 3. BDC VRC-AE-2024-URG : 120 000 EUR (avance non recuperee) 4. BDC VRC-EN-2025-003 : 220 000 EUR 5. BDC VRC-MA-2025-001 : 85 000 EUR 6. BDC VRC-DF-2025-001 : 175 000 EUR\n\nTotal : 1 035 000 EUR\n\nCordialement, Isabelle Roche, Directrice des Achats Veracier Industries S.A.\n\nL'analyse de sensibilite montre que le montant de la provision pour demantement nucléaire est particulièrement sensible au taux d'actualisation retenu : une variation de +/- 0,5% du taux se traduit par une variation de +/- 1,2 million d'euros.\n\nLe rapport de la declaration pays par pays (Country-by-Country Report) a ete prepare conformement aux dispositions de l'article 223 quinquies C du Code general des impots et deposé aupres de l'administration fiscale dans le delai legal.\n\nLe traitement thermique de mise en solution et vieillissement a été réalisé conformément au cycle prescrit : mise en solution à 940 degrés C pendant 2 heures, trempe à l'eau, puis vieillissement à 540 degrés C pendant 8 heures, refroidissement à l'air.\n\nL'homologation des systemes d'information traitant des informations classifiees de defense est conduite conformement à l'Instruction Generale Interministerielle n 1300 et à l'instruction particuliere du Ministère des Armees. L'homologation est delivree par l'autorite d'homologation designee.\n\nLe règlement interieur a été mis à jour pour intégrer les dispositions relatives au droit à la deconnexion, à la prevention du harcelement moral et sexuel, et à l'utilisation des outils numeriques professionnels.\n\nLe comité social et économique central (CSE-C) a été consulte conformément aux articles L.2312-8 et suivants du Code du travail sur le projet de reorganisation de la direction industrielle et ses consequences sociales.\n\nLe dispositif de controle export du groupe est organise autour d'un correspondant export au sein de chaque entite, coordonne par la direction de la conformite du siege. Chaque expedition fait l'objet d'une classification reglementaire prealable.\n\nLes droits de propriete intellectuelle preexistants de chaque Partie restent sa propriete exclusive. Les developpements specifiques realises par le Fournisseur dans le cadre du present contrat et finances par le Client seront cedes au Client des leur creation.\n\nLa politique de mobilite interne du groupe encourage les transferts entre entites et sites de production. Un portail de mobilite interne a été deployé, proposant l'ensemble des postes ouverts au sein du groupe avant toute publication externe.\n\n--- Page 2 ---\n\nEn cas de manquement par le Fournisseur a ses obligations en matière de delais de livraison, le Client pourra appliquer des penalites de retard d'un montant de 0,5% du prix de la commande concernee par semaine de retard, plafonnees a 10% du montant total de la commande."
+    }
+  ],
+  "raw_context": "[PROC-01:DOC-50e34f02 | AT_RISK | correspondance/bdc/bdc_forges_martelliere_2025_001.pdf]\n--- Page 1 ---\n\n## BON DE COMMANDE\n\nFournisseur : Forges Martelliere S.A.\n\nMontant total : 340 000,00 EUR HT\n\n[PROC-01:DOC-1ceffca1 | AT_RISK | correspondance/bdc/bdc_forges_martelliere_2025_002.pdf]\n--- Page 1 ---\n\n## BON DE COMMANDE\n\nFournisseur : Forges Martelliere S.A.\n\nMontant total : 180 000,00 EUR HT\n\n[PROC-01:DOC-fa6b00bb | NOT_AT_RISK | correspondance/bdc/bdc_rhein_metall_2025_001.pdf]\n--- Page 1 ---\n\n## BON DE COMMANDE\n\nFournisseur : Rhein-Metall Prazision GmbH\n\nMontant total : 0,00 EUR HT\n\n[PROC-01:DOC-9f0ca817 | NOT_AT_RISK | correspondance/bdc/bdc_titan_fluid_2025_001.pdf]\n--- Page 1 ---\n\n## BON DE COMMANDE\n\nFournisseur : Titan Fluid Systems Inc\n\nMontant total : USD 0.00 HT\n\n[PROC-01:DOC-a03146b5 | REFERENCE | contrats/fournisseur/forges_martelliere_msa_2022.pdf]\n--- Page 1 ---\n\nVRC-SA-2022-0657\n\n15/03/2022\n\n# CONTRAT-CADRE DE FOURNITURE\n\nEntre Veracier SA et Forges Martelliere S.A.\n\n##### ENTRE LES SOUSSIGNES :\n\nVeracier Industries S.A., societe anonyme au capital de 285 000 000 EUR, immatriculee au Registre du Commerce et des Societes sous le numero RCS Paris 412 587 936, dont le siege social est situe 42 Avenue de la Grande Armee, 75017 Paris, France, representee par Helene Daubrac, en sa qualite de Presidente-Directrice Generale,\n\nci-apres denommee \"le Client\",\n\nD'UNE PART,\n\nEt Forges Martelliere S.A., representee par son representant legal dument habilite,\n\nci-apres denommee \"le Fournisseur\",\n\nD'AUTRE PART.\n\nCI-APRES DENOMMEES ENSEMBLE \"LES PARTIES\"\n\nIL A ETE CONVENU ET ARRETE CE QUI SUIT :\n\n#### Article 1 — Objet du Contrat\n\nLe présent contrat a pour objet de definir les conditions dans le\n\n[PROC-01:DOC-66804d3f | REFERENCE | correspondance/emails/email_administrateur_judiciaire_mars2025.pdf]\n--- Page 1 ---\n\n# Declaration de creances — RJ Forges Martelliere — Tribunal de Commerce de Chaumont\n\nDe : expediteur@veracier.com A : destinataire@veracier.com Date : Objet : Declaration de creances — RJ Forges Martelliere — Tribunal de Commerce de Chaumont\n\n## Maitre,\n\nSuite a l'ouverture de la procedure de redressement judiciaire de la société Forges Martelliere S.A. (jugement du Tribunal de Commerce de Chaumont du 10/02/2025), Veracier Industries S.A. declare les creances suivantes :\n\n1. BDC VRC-AE-2025-001 : 340 000 EUR (facture non reglee) 2. BDC VRC-AE-2024-015 : 95 000 EUR (solde livraison partielle) 3. BDC VRC-AE-2024-URG : 120 000 EUR (avance non recuperee) 4. BDC VRC-EN-2025-003 : 220 000 EUR 5. BDC VRC-MA-2025-001 : 85 000 EUR 6. BDC VRC-DF-2025-001 : 175 000 EUR\n\nTotal : 1 035 000 EUR\n\nCordialement, Isabelle Roche, Directrice des Achats Veracier Industries S.A.\n\nL'analyse de sensibilite montre que le montant de la provision pour demantement nucléaire est particulièrement sensible au taux d'actualisation retenu : une variation de +/- 0,5% du taux se traduit par une variation de +/- 1,2 million d'euros.\n\nLe rapport de la declaration pays par pays (Country-by-Country Report) a ete prepare conformement aux dispositions de l'article 223 quinquies C du Code general des impots et deposé aupres de l'administration fiscale dans le delai legal.\n\nLe traitement thermique de mise en solution et vieillissement a été réalisé conformément au cycle prescrit : mise en solution à 940 degrés C pendant 2 heures, trempe à l'eau, puis vieillissement à 540 degrés C pendant 8 heures, refroidissement à l'air.\n\nL'homologation des systemes d'information traitant des informations classifiees de defense est conduite conformement à l'Instruction Generale Interministerielle n 1300 et à l'instruction particuliere du Ministère des Armees. L'homologation est delivree par l'autorite d'homologation designee.\n\nLe règlement interieur a été mis à jour pour intégrer les dispositions relatives au droit à la deconnexion, à la prevention du harcelement moral et sexuel, et à l'utilisation des outils numeriques professionnels.\n\nLe comité social et économique central (CSE-C) a été consulte conformément aux articles L.2312-8 et suivants du Code du travail sur le projet de reorganisation de la direction industrielle et ses consequences sociales.\n\nLe dispositif de controle export du groupe est organise autour d'un correspondant export au sein de chaque entite, coordonne par la direction de la conformite du siege. Chaque expedition fait l'objet d'une classification reglementaire prealable.\n\nLes droits de propriete intellectuelle preexistants de chaque Partie restent sa propriete exclusive. Les developpements specifiques realises par le Fournisseur dans le cadre du present contrat et finances par le Client seront cedes au Client des leur creation.\n\nLa politique de mobilite interne du groupe encourage les transferts entre entites et sites de production. Un portail de mobilite interne a été deployé, proposant l'ensemble des postes ouverts au sein du groupe avant toute publication externe.\n\n--- Page 2 ---\n\nEn cas de manquement par le Fournisseur a ses obligations en matière de delais de livraison, le Client pourra appliquer des penalites de retard d'un montant de 0,5% du prix de la commande concernee par semaine de retard, plafonnees a 10% du montant total de la commande.",
+  "context_char_count": 4664,
+  "generation_archetype": {
+    "id": "procurement_supplier",
+    "label": "Procurement, supplier risk, delivery, and solvency",
+    "focus": "supplier status, delivery risk, credits, receivables, contracts, guarantees, and exposure",
+    "perfect_guidance": [
+      "Use supplier, contract, delivery, exposure, or credit facts that are explicitly stated.",
+      "Do not infer liquidation, full recovery, or offsets unless the evidence states them."
+    ],
+    "ambiguous_guidance": [
+      "Use one supported supplier or exposure fact.",
+      "Pair it with one unresolved limitation about recovery, delivery continuity, guarantee coverage, or insolvency status."
+    ],
+    "wrong_guidance": [
+      "Invent liquidation, guarantees, automatic offsets, delivery continuity, or total irrecoverability.",
+      "Unsupported supplier-risk claims should have no source ids."
+    ]
+  }
+}

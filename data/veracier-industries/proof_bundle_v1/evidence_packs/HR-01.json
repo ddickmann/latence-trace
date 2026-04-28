@@ -1,0 +1,117 @@
+{
+  "use_case_id": "HR-01",
+  "question": "Inventaire des clauses de non-concurrence pour due diligence M&A.",
+  "role": "DRH",
+  "asker": "Nathalie Verdier",
+  "entity": "veracier_sa",
+  "difficulty_factors": [
+    "jurisdictional_nuance",
+    "cross_entity",
+    "near_miss_trap"
+  ],
+  "ground_truth": {},
+  "ground_truth_proxy": {
+    "source": "MASTER_INDEX.classification",
+    "positive_classes": [],
+    "distractor_classes": []
+  },
+  "selected_documents": [
+    {
+      "source_id": "HR-01:DOC-393c0e56",
+      "corpus_source_id": "FULL:106a64d2db08",
+      "doc_id": "DOC-393c0e56",
+      "entity": "veracier_sa",
+      "filename": "contrats/personnel/contrat_pdg_daubrac_2021.pdf",
+      "classification": "HAS_NC_24",
+      "language": "fr",
+      "format": "searchable",
+      "description": "CDI Helene Daubrac, PDG - NC 24 mois, 285 000 EUR fixe + 30% variable",
+      "char_count": 27044,
+      "text": "--- Page 1 ---\n\n## CONTRAT DE TRAVAIL A DUREE INDETERMINEE\n\n### Article 1 — Engagement et Fonctions\n\nVeracier Industries S.A. engage Helene Daubrac en qualité de Presidente-Directrice Generale, statut cadre, position III-A de la Convention Collective Nationale de la Metallurgie. Le salarie exercera ses fonctions sous l'autorité hierarchique du directeur de son département.\n\nLe salarie s'engage à consacrer l'integralite de son activité professionnelle à la société et a ne pas exercer d'autre activité professionnelle, salariee ou non, sans l'accord prealable et écrit de la société.\n\n### Article 2 — Lieu de Travail\n\nLe lieu de travail principal est fixe à 42 Avenue de la Grande Armee, 75017 Paris, France. Le salarie pourra être amene à effectuer des deplacements profession"
+    },
+    {
+      "source_id": "HR-01:DOC-03f2e2a2",
+      "corpus_source_id": "FULL:bc705f7e188f",
+      "doc_id": "DOC-03f2e2a2",
+      "entity": "veracier_aero",
+      "filename": "contrats/personnel/contrat_dg_aero_fonteneau_2022.pdf",
+      "classification": "HAS_NC_18",
+      "language": "fr",
+      "format": "searchable",
+      "description": "CDI Cedric Fonteneau, DG Aero - NC 18 mois, 195 000 EUR",
+      "char_count": 19883,
+      "text": "--- Page 1 ---\n\n## CONTRAT DE TRAVAIL A DUREE INDETERMINEE\n\n### Article 1 — Engagement et Fonctions\n\nVeracier Aero S.A.S. engage Cedric Fonteneau en qualité de Directeur General, statut cadre, position III-A de la Convention Collective Nationale de la Metallurgie. Le salarie exercera ses fonctions sous l'autorité hierarchique du directeur de son département.\n\nLe salarie s'engage à consacrer l'integralité de son activité professionnelle à la société et a ne pas exercer d'autre activité professionnelle, salarée ou non, sans l'accord prealable et écrit de la société.\n\n#### Article 2 — Lieu de Travail\n\nLe lieu de travail principal est fixe à 8 Rue des Ailes, 31400 Toulouse, France. Le salarie pourra être amene à effectuer des deplacements professionnels en France et à l'étr"
+    },
+    {
+      "source_id": "HR-01:DOC-74d24b2c",
+      "corpus_source_id": "FULL:870bd6f4d609",
+      "doc_id": "DOC-74d24b2c",
+      "entity": "veracier_uk",
+      "filename": "contrats/personnel/contrat_dg_uk_hartley_2023.pdf",
+      "classification": "HAS_NC_12",
+      "language": "en",
+      "format": "searchable",
+      "description": "Employment James Hartley, MD UK - NC 12 months, GBP 145,000",
+      "char_count": 14853,
+      "text": "--- Page 1 ---\n\n# EMPLOYMENT AGREEMENT\n\n## Section 1 — Position and Duties\n\nVeracier UK Ltd hereby employs James Hartley as Managing Director. The Employee shall report to the head of the relevant department and shall perform duties as reasonably assigned.\n\n#### Section 2 — Place of Work\n\nThe Employee's principal place of work shall be Innovation Park, Filton, Bristol BS34 7QN, United Kingdom. The Employee may be required to travel domestically and internationally as reasonably required by the business.\n\n### Section 3 — Hours of Work\n\nThe Employee's normal hours of work are 40 hours per week, Monday to Friday. The Employee may be required to work additional hours as the needs of the business require.\n\n### Section 4 — Remuneration\n\nThe Employee shall receive"
+    },
+    {
+      "source_id": "HR-01:DOC-d9bccc94",
+      "corpus_source_id": "FULL:c3678876f0c1",
+      "doc_id": "DOC-d9bccc94",
+      "entity": "veracier_inc",
+      "filename": "contrats/personnel/contrat_president_inc_mckenzie_2022.pdf",
+      "classification": "HAS_NC_12",
+      "language": "en",
+      "format": "searchable",
+      "description": "Employment Brian McKenzie, President US - NC 12 months Kansas, USD 210,000",
+      "char_count": 19034,
+      "text": "--- Page 1 ---\n\n# EMPLOYMENT AGREEMENT\n\n## Section 1 — Position and Duties\n\nVeracier Inc. hereby employs Brian McKenzie as President & CEO. The Employee shall report to the head of the relevant department and shall perform duties as reasonably assigned.\n\n#### Section 2 — Place of Work\n\nThe Employee's principal place of work shall be 2400 Aerospace Boulevard, Wichita, KS 67226, USA. The Employee may be required to travel domestically and internationally as reasonably required by the business.\n\n### Section 3 — Hours of Work\n\nThe Employee's normal hours of work are 40 hours per week, Monday to Friday. The Employee may be required to work additional hours as the needs of the business require.\n\n### Section 4 — Remuneration\n\nThe Employee shall receive an annual gr"
+    },
+    {
+      "source_id": "HR-01:DOC-e4917604",
+      "corpus_source_id": "FULL:cc059c8eb4b0",
+      "doc_id": "DOC-e4917604",
+      "entity": "veracier_maroc",
+      "filename": "contrats/personnel/lot_contrats_casablanca_2023.pdf",
+      "classification": "HAS_NC",
+      "language": "fr",
+      "format": "scanned",
+      "description": "Lot 15 CDI operateurs Casablanca - NC 12 mois, 216-360k MAD/an",
+      "char_count": 29638,
+      "text": "--- Page 1 ---\n\n## CONTRAT DE TRAVAIL A DUREE INDETERMINEE\n\n## 15 /01/2023\n\n## Article 1 - Engagement et Fonctions\n\nVeracier Maroc S.A.R.L. engage Lot de 15 operateurs (dont K. Amrani, F. Belhaj, M. Chakir, S. Daoudi, A. El Amrani, H. Fikri, Y. Ghali, N. Hajji, R. Idrissi, O. Jabri, L. Kabbaj, M. Lamrani, S. Mansouri, A. Naciri, F. Ouazzani) en qualite de Operateur de production cablage, statut cadre, position III-A de la Convention Collective Nationale de la Metallurgie. Le salarie exercera ses fonctions sous l’autorite hierarchique du directeur de son département.\n\nLe salarie s'engage à consacrer l'integralite de son activité professionnelle à la société et a ne pas exercer d'autre activité professionnelle, salariee ou non, sans l'accord prealable et écrit de la socié"
+    },
+    {
+      "source_id": "HR-01:DOC-64c230df",
+      "corpus_source_id": "FULL:c401ebc754a8",
+      "doc_id": "DOC-64c230df",
+      "entity": "veracier_maroc",
+      "filename": "contrats/personnel/contrat_dg_maroc_benali_2022.pdf",
+      "classification": "HAS_NC_12",
+      "language": "fr",
+      "format": "searchable",
+      "description": "CDI Rachid Benali, DG Maroc - NC 12 mois, 1 200 000 MAD/an",
+      "char_count": 14966,
+      "text": "--- Page 1 ---\n\n## CONTRAT DE TRAVAIL A DUREE INDETERMINEE\n\n### Article 1 — Engagement et Fonctions\n\nVeracier Maroc S.A.R.L. engage Rachid Benali en qualite de Directeur General, statut cadre, position III-A de la Convention Collective Nationale de la Metallurgie. Le salarie exercera ses fonctions sous l'autorite hierarchique du directeur de son département.\n\nLe salarie s'engage à consacrer l'integralité de son activité professionnelle à la société et a ne pas exercer d'autre activité professionnelle, salarée ou non, sans l'accord prealable et écrit de la société.\n\n#### Article 2 — Lieu de Travail\n\nLe lieu de travail principal est fixe à Zone Franche d'Exportation, Route de Nouceur, Casablanca, Maroc. Le salarie pourra être amene à effectuer des deplacements professionn"
+    }
+  ],
+  "raw_context": "[HR-01:DOC-393c0e56 | HAS_NC_24 | contrats/personnel/contrat_pdg_daubrac_2021.pdf]\n--- Page 1 ---\n\n## CONTRAT DE TRAVAIL A DUREE INDETERMINEE\n\n### Article 1 — Engagement et Fonctions\n\nVeracier Industries S.A. engage Helene Daubrac en qualité de Presidente-Directrice Generale, statut cadre, position III-A de la Convention Collective Nationale de la Metallurgie. Le salarie exercera ses fonctions sous l'autorité hierarchique du directeur de son département.\n\nLe salarie s'engage à consacrer l'integralite de son activité professionnelle à la société et a ne pas exercer d'autre activité professionnelle, salariee ou non, sans l'accord prealable et écrit de la société.\n\n### Article 2 — Lieu de Travail\n\nLe lieu de travail principal est fixe à 42 Avenue de la Grande Armee, 75017 Paris, France. Le salarie pourra être amene à effectuer des deplacements profession\n\n[HR-01:DOC-03f2e2a2 | HAS_NC_18 | contrats/personnel/contrat_dg_aero_fonteneau_2022.pdf]\n--- Page 1 ---\n\n## CONTRAT DE TRAVAIL A DUREE INDETERMINEE\n\n### Article 1 — Engagement et Fonctions\n\nVeracier Aero S.A.S. engage Cedric Fonteneau en qualité de Directeur General, statut cadre, position III-A de la Convention Collective Nationale de la Metallurgie. Le salarie exercera ses fonctions sous l'autorité hierarchique du directeur de son département.\n\nLe salarie s'engage à consacrer l'integralité de son activité professionnelle à la société et a ne pas exercer d'autre activité professionnelle, salarée ou non, sans l'accord prealable et écrit de la société.\n\n#### Article 2 — Lieu de Travail\n\nLe lieu de travail principal est fixe à 8 Rue des Ailes, 31400 Toulouse, France. Le salarie pourra être amene à effectuer des deplacements professionnels en France et à l'étr\n\n[HR-01:DOC-74d24b2c | HAS_NC_12 | contrats/personnel/contrat_dg_uk_hartley_2023.pdf]\n--- Page 1 ---\n\n# EMPLOYMENT AGREEMENT\n\n## Section 1 — Position and Duties\n\nVeracier UK Ltd hereby employs James Hartley as Managing Director. The Employee shall report to the head of the relevant department and shall perform duties as reasonably assigned.\n\n#### Section 2 — Place of Work\n\nThe Employee's principal place of work shall be Innovation Park, Filton, Bristol BS34 7QN, United Kingdom. The Employee may be required to travel domestically and internationally as reasonably required by the business.\n\n### Section 3 — Hours of Work\n\nThe Employee's normal hours of work are 40 hours per week, Monday to Friday. The Employee may be required to work additional hours as the needs of the business require.\n\n### Section 4 — Remuneration\n\nThe Employee shall receive\n\n[HR-01:DOC-d9bccc94 | HAS_NC_12 | contrats/personnel/contrat_president_inc_mckenzie_2022.pdf]\n--- Page 1 ---\n\n# EMPLOYMENT AGREEMENT\n\n## Section 1 — Position and Duties\n\nVeracier Inc. hereby employs Brian McKenzie as President & CEO. The Employee shall report to the head of the relevant department and shall perform duties as reasonably assigned.\n\n#### Section 2 — Place of Work\n\nThe Employee's principal place of work shall be 2400 Aerospace Boulevard, Wichita, KS 67226, USA. The Employee may be required to travel domestically and internationally as reasonably required by the business.\n\n### Section 3 — Hours of Work\n\nThe Employee's normal hours of work are 40 hours per week, Monday to Friday. The Employee may be required to work additional hours as the needs of the business require.\n\n### Section 4 — Remuneration\n\nThe Employee shall receive an annual gr\n\n[HR-01:DOC-e4917604 | HAS_NC | contrats/personnel/lot_contrats_casablanca_2023.pdf]\n--- Page 1 ---\n\n## CONTRAT DE TRAVAIL A DUREE INDETERMINEE\n\n## 15 /01/2023\n\n## Article 1 - Engagement et Fonctions\n\nVeracier Maroc S.A.R.L. engage Lot de 15 operateurs (dont K. Amrani, F. Belhaj, M. Chakir, S. Daoudi, A. El Amrani, H. Fikri, Y. Ghali, N. Hajji, R. Idrissi, O. Jabri, L. Kabbaj, M. Lamrani, S. Mansouri, A. Naciri, F. Ouazzani) en qualite de Operateur de production cablage, statut cadre, position III-A de la Convention Collective Nationale de la Metallurgie. Le salarie exercera ses fonctions sous l’autorite hierarchique du directeur de son département.\n\nLe salarie s'engage à consacrer l'integralite de son activité professionnelle à la société et a ne pas exercer d'autre activité professionnelle, salariee ou non, sans l'accord prealable et écrit de la socié\n\n[HR-01:DOC-64c230df | HAS_NC_12 | contrats/personnel/contrat_dg_maroc_benali_2022.pdf]\n--- Page 1 ---\n\n## CONTRAT DE TRAVAIL A DUREE INDETERMINEE\n\n### Article 1 — Engagement et Fonctions\n\nVeracier Maroc S.A.R.L. engage Rachid Benali en qualite de Directeur General, statut cadre, position III-A de la Convention Collective Nationale de la Metallurgie. Le salarie exercera ses fonctions sous l'autorite hierarchique du directeur de son département.\n\nLe salarie s'engage à consacrer l'integralité de son activité professionnelle à la société et a ne pas exercer d'autre activité professionnelle, salarée ou non, sans l'accord prealable et écrit de la société.\n\n#### Article 2 — Lieu de Travail\n\nLe lieu de travail principal est fixe à Zone Franche d'Exportation, Route de Nouceur, Casablanca, Maroc. Le salarie pourra être amene à effectuer des deplacements professionn",
+  "context_char_count": 4655,
+  "generation_archetype": {
+    "id": "hr_employment",
+    "label": "HR, employment, workforce, and labor compliance",
+    "focus": "employees, contracts, consultation, dates, populations, obligations, disputes, and compliance status",
+    "perfect_guidance": [
+      "Use explicit employment, consultation, workforce, date, or obligation facts.",
+      "Do not infer affected population or compliance completion unless the text states it."
+    ],
+    "ambiguous_guidance": [
+      "Use one supported HR or employment fact.",
+      "Pair it with one unresolved limitation about population scope, consultation status, date coverage, or missing file."
+    ],
+    "wrong_guidance": [
+      "Invent employee counts, termination status, consultation completion, dispute outcome, or compliance status.",
+      "Unsupported HR claims should have no source ids."
+    ]
+  }
+}
