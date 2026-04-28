@@ -138,10 +138,31 @@ more representative of your traffic.
 
 ## Step 5 — Roll out
 
+Two supported rollout modes — pick one:
+
+### 5a. Hot-reload (zero-downtime, Business+ tier)
+
+The scoring service watches `LATENCE_TRACE_THRESHOLDS_FILE` for
+changes and hot-swaps the thresholds artefact without dropping in-flight
+requests.  This is the recommended path when the `ConfigMap` is
+mounted from a `RollingUpdate`-friendly volume.
+
 ```bash
 kubectl --namespace rag-platform create configmap \
-  lt-thresholds --from-file=thresholds.json=latence_trace/core/thresholds.acme-corp.json
+  lt-thresholds --from-file=thresholds.json=latence_trace/core/thresholds.acme-corp.json \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
 
+The pod receives the new `ConfigMap` contents within ~60 seconds and
+log-lines `thresholds.hot_reload path=... version=...` confirm the
+swap.  No restart required.
+
+### 5b. Explicit rollout (initial bootstrap only)
+
+Use this form only on the first deployment, when the mount path was
+not previously configured:
+
+```bash
 helm upgrade lt latence-ai/latence-trace \
   --reuse-values \
   --set extraVolumes[0].name=thresholds \
@@ -151,6 +172,15 @@ helm upgrade lt latence-ai/latence-trace \
   --set extraEnv[0].name=LATENCE_TRACE_THRESHOLDS_FILE \
   --set extraEnv[0].value=/etc/latence-trace/thresholds/thresholds.json
 ```
+
+### Per-tenant routing
+
+For hosted SaaS and multi-tenant self-hosted deployments, store
+tenant-specific thresholds at
+`/etc/latence-trace/thresholds/{tenant}.json`.  The gateway picks the
+file matching the request's tenant claim; fall-back is the default
+`thresholds.json` artefact.  This is the B2 per-tenant threshold
+routing; see `commercial/hosted-sla.md` for tier availability.
 
 Verify::
 

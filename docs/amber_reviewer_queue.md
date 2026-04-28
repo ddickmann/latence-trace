@@ -109,6 +109,37 @@ to TRACE.
   amber volume on prose domains is a sign of mis-calibrated
   thresholds, not of a better model.
 
+## Per-vertical risk-band semantics (v1)
+
+The meaning of amber is not uniform across verticals.  The table
+below is the v1 policy; it is encoded as the default per-tenant
+configuration under `config/amber-policy/` and can be overridden
+per tenant through the per-tenant threshold endpoint (see B2).
+
+| Vertical | Green semantics | Amber semantics | Red semantics | Recommended amber SLA |
+| --- | --- | --- | --- | --- |
+| Finance | Release to FP&A / tax workflow | Route to Controller or Head of Tax with evidence | Block and log | 2 business hours |
+| Legal | Release to drafting tool / matter | Route to Counsel with hedge-gate rationale | Block; tag matter | 4 business hours |
+| HR | Release to HRBP workflow | Route to HRBP or Legal-HR with evidence | Block; open HR-ops ticket | 1 business day |
+| Compliance | Release to downstream control | Route to 2LoD reviewer | Block and route to CCO | 1 business hour |
+| Engineering | Release to engineer / PLM | Route to principal engineer or quality | Block and flag spec revision | 1 business day |
+| Marketing | Release to content workflow | Route to Legal-Marketing | Block and do not publish | 4 business hours |
+
+### How to read the table
+
+- Green is **permission**, never obligation.  The pipeline owner
+  can always require a reviewer override for high-value decisions.
+- Amber volume on prose verticals is expected.  Under the Veracier
+  run, ~29% of variants are amber; that is the product surface for
+  ambiguity.
+- Red should be rare in production because it maps to a detected
+  contradiction; alert on red-rate spikes (e.g. >5% over a rolling
+  hour) as a content-quality signal.
+
+The portal amber reviewer queue (see C4) records accept / edit /
+reject decisions per row; those decisions are the labeled data that
+powers any future v2 student training (`v2_prep_c4_reviewer_labels`).
+
 ## Links
 
 - `proof_report.md` section 6 (customer-facing summary, generated per
@@ -118,3 +149,5 @@ to TRACE.
 - `scripts/calibrate_rag_prose.py` (fit harness).
 - `tests/core/test_epistemic_hedge_gate.py` (decision-matrix tests
   for the scorer-side gate).
+- `commercial/verticals/*.md` — per-vertical one-pagers that cite the
+  semantics above.

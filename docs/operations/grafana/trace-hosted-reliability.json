@@ -1,0 +1,95 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {"type": "grafana", "uid": "-- Grafana --"},
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "TRACE v1 hosted SaaS reliability dashboard. Import under Dashboards > Import > Upload JSON.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "description": "p50 / p95 / p99 for TRACE groundedness scoring, split by profile. Compare against the `commercial/hosted-sla.md` targets.",
+      "fieldConfig": {"defaults": {"unit": "ms"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "id": 1,
+      "options": {},
+      "targets": [
+        {"expr": "histogram_quantile(0.50, sum(rate(trace_score_duration_ms_bucket{profile=~\"$profile\"}[5m])) by (le, profile))", "legendFormat": "p50 {{profile}}", "refId": "A"},
+        {"expr": "histogram_quantile(0.95, sum(rate(trace_score_duration_ms_bucket{profile=~\"$profile\"}[5m])) by (le, profile))", "legendFormat": "p95 {{profile}}", "refId": "B"},
+        {"expr": "histogram_quantile(0.99, sum(rate(trace_score_duration_ms_bucket{profile=~\"$profile\"}[5m])) by (le, profile))", "legendFormat": "p99 {{profile}}", "refId": "C"}
+      ],
+      "title": "Score latency by profile",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "description": "Share of score responses landing in each band. A red rate above 5% sustained is a content-quality alert.",
+      "fieldConfig": {"defaults": {"unit": "percentunit"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "id": 2,
+      "options": {},
+      "targets": [
+        {"expr": "sum(rate(trace_score_band_total{band=\"green\"}[5m])) / sum(rate(trace_score_band_total[5m]))", "legendFormat": "green", "refId": "A"},
+        {"expr": "sum(rate(trace_score_band_total{band=\"amber\"}[5m])) / sum(rate(trace_score_band_total[5m]))", "legendFormat": "amber", "refId": "B"},
+        {"expr": "sum(rate(trace_score_band_total{band=\"red\"}[5m])) / sum(rate(trace_score_band_total[5m]))", "legendFormat": "red", "refId": "C"}
+      ],
+      "title": "Band mix",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "description": "Error rate for 5xx + worker timeouts. Alert `HighErrorRate` fires when > 1% sustained.",
+      "fieldConfig": {"defaults": {"unit": "percentunit"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "id": 3,
+      "options": {},
+      "targets": [
+        {"expr": "sum(rate(trace_score_errors_total[5m])) / sum(rate(trace_score_total[5m]))", "legendFormat": "error rate", "refId": "A"}
+      ],
+      "title": "Error rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "description": "Rate-limit saturation per tenant. A tenant sustained above 80% of RPS ceiling triggers RateLimitSaturationHigh.",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "id": 4,
+      "options": {},
+      "targets": [
+        {"expr": "sum by (tenant) (rate(trace_rate_limit_consumed_total[1m])) / sum by (tenant) (trace_rate_limit_ceiling)", "legendFormat": "{{tenant}}", "refId": "A"}
+      ],
+      "title": "Rate limit saturation",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["latence", "trace"],
+  "templating": {
+    "list": [
+      {"current": {"selected": false, "text": "All", "value": "$__all"}, "includeAll": true, "multi": true, "name": "profile", "options": [], "query": "label_values(trace_score_duration_ms_bucket, profile)", "type": "query"}
+    ]
+  },
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "TRACE - Hosted reliability",
+  "uid": "trace-hosted-reliability",
+  "version": 1,
+  "weekStart": ""
+}

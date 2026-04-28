@@ -11,6 +11,9 @@ All numbers below are sourced from saved JSON reports under
 `research/triangular_maxsim/reports/`. Each row of every table cites
 its source artefact.
 
+For the enterprise RAG validation run on the full Veracier Industries labeled
+use-case set, see [`veracier_trace_validation.md`](veracier_trace_validation.md).
+
 ## Headline (production config)
 
 Source: [`reports/truth_bench_n120.json`](../research/triangular_maxsim/reports/truth_bench_n120.json),

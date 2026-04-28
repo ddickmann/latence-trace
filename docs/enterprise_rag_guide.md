@@ -139,7 +139,7 @@ async with AsyncClient("http://latence-trace.internal:8090") as client:
 
 ## LangChain / LlamaIndex adapters
 
-See [`clients/python/latence_trace_client/adapters/`](../clients/python/latence_trace_client/adapters/)
+See [`clients/python/latence_trace_client/integrations/`](../clients/python/latence_trace_client/integrations/)
 for drop-in callbacks that attach groundedness scoring to your
 existing chain / query-engine.
 

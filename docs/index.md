@@ -18,6 +18,7 @@ risk band. It is **multilingual: English + German** out of the box.
 - **Concurrency & batching (inflight semaphore, `LATENCE_TRACE_MAX_INFLIGHT`):**
   [`guides/concurrency.md`](guides/concurrency.md)
 - **Benchmarks:** [`benchmarks.md`](benchmarks.md)
+- **Veracier enterprise RAG validation:** [`veracier_trace_validation.md`](veracier_trace_validation.md)
 - **Algorithm audit (per-channel ablations and verdict):**
   [`algorithm-audit.md`](algorithm-audit.md)
 - **Quickstart and integration notes:** see the top-level `README.md`.

@@ -162,3 +162,38 @@ availability:
 
 Each step is additive and non-breaking - existing English and German
 traffic is unaffected.
+
+## v1.1 language matrix (FR, ES, IT added)
+
+As of v1.1, the scorer cue dictionary and null-bank have been
+extended to first-class French, Spanish, and Italian support.  The
+existing English + German stack is unchanged; FR/ES/IT arrive as
+additive entries in `EPISTEMIC_HEDGE_CUES` and
+`DEFAULT_NULL_BANK_TEXTS`.
+
+| Language | ISO | Hedge cues | Null bank sentences | Calibrated strata | Benchmark rows |
+| --- | --- | ---: | ---: | --- | ---: |
+| English | `en` | 14 | 16 | `default`, `qa`, `dialogue`, `code` | 40 (synthetic marketing) |
+| French  | `fr` | 25 | 12 | `default`, `qa` | 72+ (Veracier, FR use cases) |
+| German  | `de` | 8  | 16 | `default`, `qa` | 6 (Veracier GMBH) |
+| Spanish | `es` | 12 | 12 | `default`, `qa` | — (production evaluation in progress) |
+| Italian | `it` | 11 | 12 | `default`, `qa` | — (production evaluation in progress) |
+
+Hedge cues are matched case-insensitively; both accented
+(`n'est pas établi`) and deaccented (`n'est pas etabli`) forms are
+included so OCR artefacts do not bypass the gate.
+
+Tenant-specific cue extensions are supported through the
+`tenant_hedge_cues` field of the per-tenant threshold artefact (see
+`docs/operations/calibration-runbook.md`).  Extensions are additive
+and do not replace the built-in cues.
+
+### Known limitations (v1.1)
+
+- The multilingual NLI model
+  (`MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7`) was
+  not re-fine-tuned for v1.1; cross-language performance on non-
+  matrix languages (JA, AR, HE) degrades gracefully but is not
+  claimed.
+- The code profile (`profile=code`) remains English-only; mixed-
+  language code comments are handled as prose.
