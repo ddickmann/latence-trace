@@ -18,9 +18,13 @@ This Order Form references the Master Subscription Agreement
 | Max workers (license-enforced) | 8 |
 | Deployment fingerprint (optional) | sha256:<hash of deployment id> |
 | Feature flags | groundedness, calibration, otel, prometheus |
-| Annual Fee | EUR <amount> |
+| Plan | Enterprise (see `commercial/hosted-price-card.md`) |
+| Annual Fee | EUR 60,000 list (negotiable; design-partner rate available) |
+| Included scores / month | 1,000,000 |
+| Overage rate | EUR 0.005 / score (negotiable) |
 | Payment terms | Net 30, annually in advance |
-| Support tier | Standard (business hours) |
+| Support tier | Enterprise (24x7 P1 via PagerDuty; 4 biz-hr P2) |
+| Veracier proof bundle annex | Attached as Annex B (`data/veracier-industries/proof_bundle_v1/proof_report.md` + `MANIFEST.sha256`) |
 | License delivery | License JWT delivered out-of-band to security contact |
 | Special terms | <none / list> |
 
