@@ -537,11 +537,8 @@ def _jsonl_write(rows: Iterable[dict[str, Any]], path: Path) -> None:
 def _jsonl_read(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
-    return [
-        json.loads(line)
-        for line in path.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
+    with path.open("r", encoding="utf-8") as fh:
+        return [json.loads(line) for line in fh if line.strip()]
 
 
 def _doc_key(entity: str, filename: str) -> str:
@@ -2036,6 +2033,24 @@ def _extractive_perfect_variant(pack: dict[str, Any]) -> dict[str, Any]:
                         candidates.append((hits, doc, sentence))
 
     if len(candidates) < 2:
+        # Some full-scope use cases have sparse/no answer-key hints. Keep the
+        # green anchor grounded by falling back to exact evidence sentences,
+        # preferring documents marked RELEVANT by the Veracier metadata.
+        for doc in sorted(
+            pack["selected_documents"],
+            key=lambda item: (item.get("classification") != "RELEVANT", item["source_id"]),
+        ):
+            for sentence in _split_sentences(doc.get("text") or ""):
+                sentence = _clean_extractive_sentence(sentence)
+                if 60 <= len(sentence) <= 260:
+                    score = 1 if doc.get("classification") == "RELEVANT" else 0
+                    candidates.append((score, doc, sentence))
+                if len(candidates) >= 8:
+                    break
+            if len(candidates) >= 8:
+                break
+
+    if len(candidates) < 2:
         raise ValueError(f"could not build extractive perfect variant for {qid}")
 
     candidates.sort(key=lambda item: (-item[0], item[1]["source_id"], len(item[2])))
@@ -2057,6 +2072,25 @@ def _extractive_perfect_variant(pack: dict[str, Any]) -> dict[str, Any]:
                 selected.append((doc, sentence))
             if len(selected) == 2:
                 break
+
+    if len(selected) < 2:
+        for doc in sorted(
+            pack["selected_documents"],
+            key=lambda item: (item.get("classification") != "RELEVANT", item["source_id"]),
+        ):
+            for sentence in _split_sentences(doc.get("text") or ""):
+                sentence = _clean_extractive_sentence(sentence)
+                if not (60 <= len(sentence) <= 260):
+                    continue
+                if any(sentence == existing for _doc, existing in selected):
+                    continue
+                selected.append((doc, sentence))
+                break
+            if len(selected) == 2:
+                break
+
+    if len(selected) < 2:
+        raise ValueError(f"could not build two extractive perfect quotes for {qid}")
 
     response_text = " ".join(f'"{sentence}"' for _doc, sentence in selected)
     return {
@@ -2427,9 +2461,10 @@ def generate_responses(args: argparse.Namespace) -> Path:
 
     from openai import OpenAI
 
-    client = OpenAI(api_key=api_key)
-    rows_out: list[dict[str, Any]] = []
-    for pack, messages in prompt_inputs:
+    def generate_one(
+        index: int, pack: dict[str, Any], messages: list[dict[str, str]]
+    ) -> tuple[int, list[dict[str, Any]]]:
+        client = OpenAI(api_key=api_key)
         qid = pack["use_case_id"]
 
         payload: dict[str, Any] | None = None
@@ -2437,108 +2472,134 @@ def generate_responses(args: argparse.Namespace) -> Path:
         attempt_messages = list(messages)
         errors: list[str] = []
         allowed_source_ids = {doc["source_id"] for doc in pack["selected_documents"]}
-        for attempt in range(1, args.openai_max_attempts + 1):
-            print(f"generating variants for {qid} with {args.openai_model} attempt={attempt}")
-            completion = client.responses.create(
-                model=args.openai_model,
-                input=_responses_input(attempt_messages),
-                text={
-                    "format": {
-                        "type": "json_schema",
-                        "name": "veracier_trace_variants",
-                        "schema": schema,
-                        "strict": True,
-                    }
-                },
-                reasoning={},
-                tools=[],
-                temperature=args.temperature,
-                max_output_tokens=args.openai_max_output_tokens,
-                top_p=args.openai_top_p,
-                store=False,
-                include=["web_search_call.action.sources"],
-            )
-            content = _responses_output_text(completion)
-            try:
-                payload = json.loads(content)
-                # Keep "perfect" deterministic: it is the anchor used to
-                # distinguish scorer calibration issues from generator drift.
-                # The model still creates ambiguous/wrong variants, but exact
-                # evidence quotes make the green label auditable per archetype.
-                _force_extractive_perfect(pack, payload)
-                errors = _validate_generated(
-                    qid,
-                    payload,
-                    pack=pack,
-                    allowed_source_ids=allowed_source_ids,
+        try:
+            for attempt in range(1, args.openai_max_attempts + 1):
+                print(f"generating variants for {qid} with {args.openai_model} attempt={attempt}")
+                completion = client.responses.create(
+                    model=args.openai_model,
+                    input=_responses_input(attempt_messages),
+                    text={
+                        "format": {
+                            "type": "json_schema",
+                            "name": "veracier_trace_variants",
+                            "schema": schema,
+                            "strict": True,
+                        }
+                    },
+                    reasoning={},
+                    tools=[],
+                    temperature=args.temperature,
+                    max_output_tokens=args.openai_max_output_tokens,
+                    top_p=args.openai_top_p,
+                    store=False,
+                    include=["web_search_call.action.sources"],
                 )
-            except json.JSONDecodeError as exc:
-                payload = None
-                errors = [f"invalid JSON response: {exc}"]
-            except ValueError as exc:
-                payload = None
-                errors = [str(exc)]
-            if not errors:
-                break
-            _json_dump(
-                {
-                    "attempt": attempt,
-                    "errors": errors,
-                    "payload": payload,
-                    "content": content,
-                    "response": _model_dump(completion),
-                },
-                args.output_dir / "openai_raw" / f"{qid}.invalid_attempt_{attempt}.json",
-            )
-            attempt_messages = [
-                *messages,
-                {
-                    "role": "user",
-                    "content": (
-                        "The previous JSON failed validation: "
-                        f"{errors}. Regenerate the full JSON. The perfect variant "
-                        "must be affirmative/extractive, contain only claims labelled supported, "
-                        "use expected_groundedness_range min>=0.8 max=1.0, and must not "
-                        "use missing-evidence caveats unless the missing/incomplete status is "
-                        "explicitly quoted from evidence; ambiguous must "
-                        "contain exactly one supported claim and exactly one ambiguous "
-                        "or partially_supported claim, with expected_groundedness_range "
-                        "min=0.55 max=0.74, an explicit uncertainty cue, and no source ids "
-                        "on the unresolved claim; wrong "
-                        "must contain only unsupported claims and no source ids. The response_text "
-                        "must not include DOC ids or citations. The perfect response must include "
-                        "two ASCII double-quoted phrases copied verbatim from evidence; numeric "
-                        "literals are allowed only when copied from evidence. "
-                        "source_doc_ids must use "
-                        f"only these exact values: {sorted(allowed_source_ids)}."
-                    ),
-                },
-            ]
+                content = _responses_output_text(completion)
+                try:
+                    payload = json.loads(content)
+                    # Keep "perfect" deterministic: it is the anchor used to
+                    # distinguish scorer calibration issues from generator drift.
+                    # The model still creates ambiguous/wrong variants, but exact
+                    # evidence quotes make the green label auditable per archetype.
+                    _force_extractive_perfect(pack, payload)
+                    errors = _validate_generated(
+                        qid,
+                        payload,
+                        pack=pack,
+                        allowed_source_ids=allowed_source_ids,
+                    )
+                except json.JSONDecodeError as exc:
+                    payload = None
+                    errors = [f"invalid JSON response: {exc}"]
+                except ValueError as exc:
+                    payload = None
+                    errors = [str(exc)]
+                if not errors:
+                    break
+                _json_dump(
+                    {
+                        "attempt": attempt,
+                        "errors": errors,
+                        "payload": payload,
+                        "content": content,
+                        "response": _model_dump(completion),
+                    },
+                    args.output_dir / "openai_raw" / f"{qid}.invalid_attempt_{attempt}.json",
+                )
+                attempt_messages = [
+                    *messages,
+                    {
+                        "role": "user",
+                        "content": (
+                            "The previous JSON failed validation: "
+                            f"{errors}. Regenerate the full JSON. The perfect variant "
+                            "must be affirmative/extractive, contain only claims labelled supported, "
+                            "use expected_groundedness_range min>=0.8 max=1.0, and must not "
+                            "use missing-evidence caveats unless the missing/incomplete status is "
+                            "explicitly quoted from evidence; ambiguous must "
+                            "contain exactly one supported claim and exactly one ambiguous "
+                            "or partially_supported claim, with expected_groundedness_range "
+                            "min=0.55 max=0.74, an explicit uncertainty cue, and no source ids "
+                            "on the unresolved claim; wrong "
+                            "must contain only unsupported claims and no source ids. The response_text "
+                            "must not include DOC ids or citations. The perfect response must include "
+                            "two ASCII double-quoted phrases copied verbatim from evidence; numeric "
+                            "literals are allowed only when copied from evidence. "
+                            "source_doc_ids must use "
+                            f"only these exact values: {sorted(allowed_source_ids)}."
+                        ),
+                    },
+                ]
 
-        if payload is None or errors:
-            raise ValueError(f"generated payload failed validation for {qid}: {errors}")
+            if payload is None or errors:
+                raise ValueError(f"generated payload failed validation for {qid}: {errors}")
 
-        raw_path = args.output_dir / "openai_raw" / f"{qid}.json"
-        _json_dump({"payload": payload, "response": _model_dump(completion)}, raw_path)
-        for variant in payload["variants"]:
-            rows_out.append(
-                {
-                    "example_id": f"{qid}:{variant['mutation_type']}",
-                    "question_id": qid,
-                    "query_text": pack["question"],
-                    "generation_archetype": pack.get("generation_archetype") or _infer_case_archetype(pack),
-                    "mutation_type": variant["mutation_type"],
-                    "expected_band": variant["expected_band"],
-                    "expected_groundedness_range": variant["expected_groundedness_range"],
-                    "response_text": variant["response_text"],
-                    "claims": variant["claims"],
-                    "coverage_notes": variant["coverage_notes"],
-                    "utilization_notes": variant["utilization_notes"],
-                    "context_doc_ids": [doc["source_id"] for doc in pack["selected_documents"]],
-                    "context_filenames": [doc["filename"] for doc in pack["selected_documents"]],
-                    "raw_context": pack["raw_context"],
-                }
-            )
+            raw_path = args.output_dir / "openai_raw" / f"{qid}.json"
+            _json_dump({"payload": payload, "response": _model_dump(completion)}, raw_path)
+            generated_rows = []
+            for variant in payload["variants"]:
+                generated_rows.append(
+                    {
+                        "example_id": f"{qid}:{variant['mutation_type']}",
+                        "question_id": qid,
+                        "query_text": pack["question"],
+                        "generation_archetype": pack.get("generation_archetype") or _infer_case_archetype(pack),
+                        "mutation_type": variant["mutation_type"],
+                        "expected_band": variant["expected_band"],
+                        "expected_groundedness_range": variant["expected_groundedness_range"],
+                        "response_text": variant["response_text"],
+                        "claims": variant["claims"],
+                        "coverage_notes": variant["coverage_notes"],
+                        "utilization_notes": variant["utilization_notes"],
+                        "context_doc_ids": [doc["source_id"] for doc in pack["selected_documents"]],
+                        "context_filenames": [doc["filename"] for doc in pack["selected_documents"]],
+                        "raw_context": pack["raw_context"],
+                    }
+                )
+            return index, generated_rows
+        finally:
+            close = getattr(client, "close", None)
+            if callable(close):
+                close()
+
+    print(
+        f"generating variants for {len(prompt_inputs)} use cases "
+        f"(openai_concurrency={args.openai_concurrency})"
+    )
+    rows_by_index: dict[int, list[dict[str, Any]]] = {}
+    with ThreadPoolExecutor(max_workers=max(1, args.openai_concurrency)) as executor:
+        futures = {
+            executor.submit(generate_one, index, pack, messages): index
+            for index, (pack, messages) in enumerate(prompt_inputs)
+        }
+        for future in as_completed(futures):
+            index, rows = future.result()
+            rows_by_index[index] = rows
+            print(f"generated variants for {prompt_inputs[index][0]['use_case_id']}")
+
+    rows_out: list[dict[str, Any]] = []
+    for index in range(len(prompt_inputs)):
+        rows_out.extend(rows_by_index[index])
 
     output_path = args.output_dir / "variants.jsonl"
     _jsonl_write(rows_out, output_path)
@@ -2579,64 +2640,105 @@ def refine_ambiguous(args: argparse.Namespace) -> Path:
     from latence import Latence
     from openai import OpenAI
 
-    lat_client = Latence(
-        api_key=latence_key,
-        base_url=os.environ.get("LATENCE_BASE_URL"),
-        timeout=args.sdk_timeout,
-    )
-    oai_client = OpenAI(api_key=openai_key)
-
-    def score_fn(variant: dict[str, Any]) -> dict[str, Any]:
-        response = lat_client.experimental.trace.rag(
-            response_text=variant["response_text"],
-            query_text=variant["query_text"],
-            raw_context=variant["raw_context"],
-            primary_metric="triangular",
-            segmentation_mode="sentence_packed",
-            heatmap_format="none",
-            profile="standard",
-            structured_verification=args.structured_verification,
-            verbose=False,
+    def refine_one(index: int, variant: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        lat_client = Latence(
+            api_key=latence_key,
+            base_url=os.environ.get("LATENCE_BASE_URL"),
+            timeout=args.sdk_timeout,
         )
-        dumped = _model_dump(response)
-        return {"band": dumped.get("band"), "score": dumped.get("score")}
+        oai_client = OpenAI(api_key=openai_key)
+        try:
+            def score_fn(current: dict[str, Any]) -> dict[str, Any]:
+                response = lat_client.experimental.trace.rag(
+                    response_text=current["response_text"],
+                    query_text=current["query_text"],
+                    raw_context=current["raw_context"],
+                    primary_metric="triangular",
+                    segmentation_mode="sentence_packed",
+                    heatmap_format="none",
+                    profile="standard",
+                    structured_verification=args.structured_verification,
+                    verbose=False,
+                )
+                dumped = _model_dump(response)
+                return {"band": dumped.get("band"), "score": dumped.get("score")}
 
-    def regenerate_fn(
-        variant: dict[str, Any], feedback: dict[str, Any], attempt: int
-    ) -> dict[str, Any] | None:
-        pack = packs.get(variant["question_id"])
-        if pack is None:
-            print(f"refine: no pack for {variant['example_id']}")
-            return None
-        allowed_source_ids = {doc["source_id"] for doc in pack["selected_documents"]}
-        candidate, errors, _completion = _regenerate_ambiguous_variant(
-            pack=pack,
-            current=variant,
-            feedback=feedback,
-            allowed_source_ids=allowed_source_ids,
-            oai_client=oai_client,
-            args=args,
-            attempt_number=attempt,
-            qid=variant["question_id"],
-        )
-        if errors:
-            print(
-                f"refine: regen invalid for {variant['example_id']} attempt={attempt} "
-                f"errors={errors}"
+            def regenerate_fn(
+                current: dict[str, Any], feedback: dict[str, Any], attempt: int
+            ) -> dict[str, Any] | None:
+                pack = packs.get(current["question_id"])
+                if pack is None:
+                    print(f"refine: no pack for {current['example_id']}")
+                    return None
+                allowed_source_ids = {doc["source_id"] for doc in pack["selected_documents"]}
+                candidate, errors, _completion = _regenerate_ambiguous_variant(
+                    pack=pack,
+                    current=current,
+                    feedback=feedback,
+                    allowed_source_ids=allowed_source_ids,
+                    oai_client=oai_client,
+                    args=args,
+                    attempt_number=attempt,
+                    qid=current["question_id"],
+                )
+                if errors:
+                    print(
+                        f"refine: regen invalid for {current['example_id']} attempt={attempt} "
+                        f"errors={errors}"
+                    )
+                    return None
+                return candidate
+
+            summary = _refine_ambiguous_loop(
+                [variant],
+                score_fn=score_fn,
+                regenerate_fn=regenerate_fn,
+                max_attempts=args.refine_max_attempts,
             )
-            return None
-        return candidate
+            return index, summary
+        finally:
+            lat_client.close()
+            close = getattr(oai_client, "close", None)
+            if callable(close):
+                close()
 
-    print(f"refining {len(ambiguous)} ambiguous variants (max_attempts={args.refine_max_attempts})")
-    try:
-        summary = _refine_ambiguous_loop(
-            variants,
-            score_fn=score_fn,
-            regenerate_fn=regenerate_fn,
-            max_attempts=args.refine_max_attempts,
-        )
-    finally:
-        lat_client.close()
+    print(
+        f"refining {len(ambiguous)} ambiguous variants "
+        f"(max_attempts={args.refine_max_attempts}, "
+        f"trace_concurrency={args.trace_concurrency}, "
+        f"openai_concurrency={args.openai_concurrency})"
+    )
+    summaries_by_index: dict[int, dict[str, Any]] = {}
+    with ThreadPoolExecutor(max_workers=max(1, min(args.trace_concurrency, len(ambiguous)))) as executor:
+        futures = {
+            executor.submit(refine_one, index, variant): index
+            for index, variant in enumerate(ambiguous)
+        }
+        for future in as_completed(futures):
+            index, item_summary = future.result()
+            summaries_by_index[index] = item_summary
+            log_item = item_summary["log"][0] if item_summary.get("log") else {}
+            print(
+                "refined "
+                f"{ambiguous[index]['example_id']} "
+                f"status={log_item.get('final_status', 'unknown')}"
+            )
+
+    summary = {
+        "stats": {
+            "total_ambiguous": 0,
+            "accepted_first_pass": 0,
+            "regenerated_accepted": 0,
+            "unstable_excluded": 0,
+            "sandbox_calls": 0,
+        },
+        "log": [],
+    }
+    for index in range(len(ambiguous)):
+        item_summary = summaries_by_index[index]
+        for key in summary["stats"]:
+            summary["stats"][key] += item_summary["stats"].get(key, 0)
+        summary["log"].extend(item_summary["log"])
 
     _jsonl_write(variants, variants_path)
     summary_path = args.output_dir / "refinement_summary.json"
@@ -2666,49 +2768,70 @@ def run_trace(args: argparse.Namespace) -> Path:
     from latence import Latence
 
     profiles = ["standard", "quality"] if args.trace_profile == "both" else [args.trace_profile]
-    client = Latence(
-        api_key=api_key,
-        base_url=os.environ.get("LATENCE_BASE_URL"),
-        timeout=args.sdk_timeout,
+    tasks = list(
+        enumerate(
+            (variant, profile)
+            for variant in variants
+            for profile in profiles
+        )
     )
 
-    rows_out: list[dict[str, Any]] = []
-    try:
-        for variant in variants:
-            for profile in profiles:
-                print(f"trace {variant['example_id']} profile={profile}")
-                started = time.perf_counter()
-                response = client.experimental.trace.rag(
-                    response_text=variant["response_text"],
-                    query_text=variant["query_text"],
-                    raw_context=variant["raw_context"],
-                    primary_metric="triangular",
-                    segmentation_mode="sentence_packed",
-                    heatmap_format="none",
-                    profile=profile,  # type: ignore[arg-type]
-                    structured_verification=args.structured_verification,
-                    verbose=True,
-                )
-                elapsed_ms = (time.perf_counter() - started) * 1000.0
-                dumped = _model_dump(response)
-                rows_out.append(
-                    {
-                        "example_id": variant["example_id"],
-                        "question_id": variant["question_id"],
-                        "generation_archetype": variant.get("generation_archetype"),
-                        "mutation_type": variant["mutation_type"],
-                        "expected_band": variant["expected_band"],
-                        "expected_groundedness_range": variant["expected_groundedness_range"],
-                        "ambiguous_unstable": bool(variant.get("ambiguous_unstable", False)),
-                        "refined_sandbox_band": variant.get("refined_sandbox_band"),
-                        "refined_sandbox_score": variant.get("refined_sandbox_score"),
-                        "profile": profile,
-                        "wall_ms": round(elapsed_ms, 2),
-                        "trace": {key: dumped.get(key) for key in TRACE_SCORE_FIELDS if key in dumped},
-                    }
-                )
-    finally:
-        client.close()
+    def trace_one(index: int, variant: dict[str, Any], profile: str) -> tuple[int, dict[str, Any]]:
+        client = Latence(
+            api_key=api_key,
+            base_url=os.environ.get("LATENCE_BASE_URL"),
+            timeout=args.sdk_timeout,
+        )
+        try:
+            print(f"trace {variant['example_id']} profile={profile}")
+            started = time.perf_counter()
+            response = client.experimental.trace.rag(
+                response_text=variant["response_text"],
+                query_text=variant["query_text"],
+                raw_context=variant["raw_context"],
+                primary_metric="triangular",
+                segmentation_mode="sentence_packed",
+                heatmap_format="none",
+                profile=profile,  # type: ignore[arg-type]
+                structured_verification=args.structured_verification,
+                verbose=True,
+            )
+            elapsed_ms = (time.perf_counter() - started) * 1000.0
+            dumped = _model_dump(response)
+            return (
+                index,
+                {
+                    "example_id": variant["example_id"],
+                    "question_id": variant["question_id"],
+                    "generation_archetype": variant.get("generation_archetype"),
+                    "mutation_type": variant["mutation_type"],
+                    "expected_band": variant["expected_band"],
+                    "expected_groundedness_range": variant["expected_groundedness_range"],
+                    "ambiguous_unstable": bool(variant.get("ambiguous_unstable", False)),
+                    "refined_sandbox_band": variant.get("refined_sandbox_band"),
+                    "refined_sandbox_score": variant.get("refined_sandbox_score"),
+                    "profile": profile,
+                    "wall_ms": round(elapsed_ms, 2),
+                    "trace": {key: dumped.get(key) for key in TRACE_SCORE_FIELDS if key in dumped},
+                },
+            )
+        finally:
+            client.close()
+
+    print(f"scoring {len(tasks)} TRACE calls (trace_concurrency={args.trace_concurrency})")
+    rows_by_index: dict[int, dict[str, Any]] = {}
+    with ThreadPoolExecutor(max_workers=max(1, args.trace_concurrency)) as executor:
+        futures = {
+            executor.submit(trace_one, index, variant, profile): index
+            for index, (variant, profile) in tasks
+        }
+        for completed, future in enumerate(as_completed(futures), start=1):
+            index, row = future.result()
+            rows_by_index[index] = row
+            if completed % 25 == 0 or completed == len(tasks):
+                print(f"trace completed {completed}/{len(tasks)}")
+
+    rows_out = [rows_by_index[index] for index in range(len(tasks))]
 
     output_path = args.output_dir / "trace_results.jsonl"
     _jsonl_write(rows_out, output_path)
@@ -2736,8 +2859,34 @@ def _row_archetype_label(row: dict[str, Any]) -> str:
 
 GREEN_PRECISION_TARGET = 0.97
 RED_PRECISION_TARGET = 0.95
+RED_RECALL_TARGET = 0.90
 AMBER_AGREEMENT_TARGET = 28
 AMBER_AGREEMENT_DENOMINATOR = 34
+
+
+def _is_worker_timeout(row: dict[str, Any]) -> bool:
+    """Detect rows whose scoring timed out at the worker.
+
+    A scored row must carry at least a numeric ``score``.  Rows with an
+    empty scoring payload and a long wall time are treated as worker
+    timeouts so we never print blank cells in a customer-facing report
+    without an explicit reason (Plan A5).
+    """
+
+    trace = row.get("trace") or {}
+    score = trace.get("score")
+    if isinstance(score, (int, float)):
+        return False
+    if trace.get("error") or trace.get("worker_timeout"):
+        return True
+    wall = row.get("wall_ms")
+    if isinstance(wall, (int, float)) and wall >= 60_000:
+        return True
+    return False
+
+
+def _row_is_scored(row: dict[str, Any]) -> bool:
+    return not _is_worker_timeout(row)
 
 
 def _classify_confusion(row: dict[str, Any]) -> tuple[str, str]:
@@ -2764,7 +2913,13 @@ def _compute_headline_metrics(traces: Sequence[dict[str, Any]]) -> dict[str, Any
     amber_expected_total = 0
     amber_observed_match = 0
     amber_excluded = 0
+    red_expected_total = 0
+    red_observed_on_red_expected = 0
+    worker_timeout_rows = 0
     for row in traces:
+        if _is_worker_timeout(row):
+            worker_timeout_rows += 1
+            continue
         expected, observed = _classify_confusion(row)
         # Unstable-amber rows are excluded from every headline denominator
         # because the benchmark already labelled their ambiguous ground truth
@@ -2787,6 +2942,10 @@ def _compute_headline_metrics(traces: Sequence[dict[str, Any]]) -> dict[str, Any
             amber_expected_total += 1
             if observed == "amber":
                 amber_observed_match += 1
+        if expected == "red":
+            red_expected_total += 1
+            if observed == "red":
+                red_observed_on_red_expected += 1
     green_denominator = green_tp + green_fp
     red_denominator = red_tp + red_fp
     return {
@@ -2801,6 +2960,16 @@ def _compute_headline_metrics(traces: Sequence[dict[str, Any]]) -> dict[str, Any
             "true_positive": red_tp,
             "false_positive": red_fp,
             "denominator": red_denominator,
+            # Red recall = of all intentionally-wrong answers, how many did
+            # TRACE actually label red.  This catches wrong-variant leakage
+            # into amber/green that red precision alone hides.
+            "recall": (
+                red_observed_on_red_expected / float(red_expected_total)
+                if red_expected_total
+                else 0.0
+            ),
+            "recall_numerator": red_observed_on_red_expected,
+            "recall_denominator": red_expected_total,
         },
         "amber": {
             "agreement": (
@@ -2812,6 +2981,7 @@ def _compute_headline_metrics(traces: Sequence[dict[str, Any]]) -> dict[str, Any
             "expected": amber_expected_total,
             "excluded_unstable": amber_excluded,
         },
+        "worker_timeouts": worker_timeout_rows,
     }
 
 
@@ -2989,6 +3159,7 @@ def write_report(args: argparse.Namespace) -> Path:
         green = headline["green"]
         red = headline["red"]
         amber = headline["amber"]
+        worker_timeouts = int(headline.get("worker_timeouts") or 0)
         lines.extend(
             [
                 "| Metric | Value | Target |",
@@ -3006,6 +3177,12 @@ def write_report(args: argparse.Namespace) -> Path:
                     f"| >= {_format_pct(RED_PRECISION_TARGET)} |"
                 ),
                 (
+                    "| Red recall (expected red => TRACE red) "
+                    f"| {red['recall_numerator']}/{red['recall_denominator']} "
+                    f"({_format_pct(red['recall'])}) "
+                    f"| >= {_format_pct(RED_RECALL_TARGET)} |"
+                ),
+                (
                     "| Amber agreement (expected amber => TRACE amber) "
                     f"| {amber['match']}/{amber['expected']} "
                     f"({_format_pct(amber['agreement'])}) "
@@ -3016,9 +3193,14 @@ def write_report(args: argparse.Namespace) -> Path:
                 f"{amber['excluded_unstable']}",
                 "- Ambiguous variants accepted by refinement: "
                 f"{amber_accepted_total}",
+                f"- Worker-timeout rows excluded from headline: {worker_timeouts}"
+                if worker_timeouts
+                else "- Worker-timeout rows excluded from headline: 0",
                 "",
                 "Amber is reported as a reviewer-queue band; accuracy targets above do"
-                " not assume amber is a final decision (see section 6).",
+                " not assume amber is a final decision (see section 6).  Red recall is"
+                " reported explicitly so wrong-variant leakage into amber or green is"
+                " visible and cannot hide behind red precision.",
             ]
         )
     else:
@@ -3162,13 +3344,26 @@ def write_report(args: argparse.Namespace) -> Path:
     lines.extend(["", "## Appendix A - Ambiguous refinement", ""])
     if refinement_summary:
         stats = refinement_summary.get("stats") or {}
+        total_ambig = int(stats.get("total_ambiguous", 0) or 0)
+        first_pass = int(stats.get("accepted_first_pass", 0) or 0)
+        regen_accepted = int(stats.get("regenerated_accepted", 0) or 0)
+        unstable = int(stats.get("unstable_excluded", 0) or 0)
+        accepted_total = first_pass + regen_accepted
         lines.extend(
             [
-                f"- Total ambiguous variants: {stats.get('total_ambiguous', 0)}",
-                f"- Accepted first pass: {stats.get('accepted_first_pass', 0)}",
-                f"- Accepted after regeneration: {stats.get('regenerated_accepted', 0)}",
-                f"- Excluded as unstable: {stats.get('unstable_excluded', 0)}",
-                f"- Sandbox trace calls: {stats.get('sandbox_calls', 0)}",
+                (
+                    f"- Accepted: **{accepted_total}/{total_ambig}** "
+                    f"(= {first_pass} accepted first pass + {regen_accepted} "
+                    f"accepted after regeneration)."
+                ),
+                f"- Excluded as unstable: **{unstable}**.",
+                f"- Sandbox trace calls: {stats.get('sandbox_calls', 0)}.",
+                "",
+                (
+                    "Headline metrics and executive summary use the accepted "
+                    "count; unstable rows are reported for auditability but "
+                    "excluded from precision and agreement denominators."
+                ),
             ]
         )
     else:
@@ -3198,11 +3393,16 @@ def write_report(args: argparse.Namespace) -> Path:
     lines.extend(["", "## Appendix C - Per-row trace results", ""])
     if traces:
         lines.append(
-            "| Example | Profile | Expected | Band | Score | NLI | Coverage | Usage | Wall ms | Unstable |"
+            "| Example | Profile | Expected | Band | Score | NLI | Coverage | Usage | Wall ms | Unstable | Note |"
         )
-        lines.append("| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | :---: |")
+        lines.append(
+            "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | :---: | --- |"
+        )
         for row in traces:
             trace = row.get("trace") or {}
+            timeout = _is_worker_timeout(row)
+            note = "worker_timeout" if timeout else ""
+            band_cell = str(trace.get("band", "")) or ("worker_timeout" if timeout else "")
             lines.append(
                 "| "
                 + " | ".join(
@@ -3210,13 +3410,14 @@ def write_report(args: argparse.Namespace) -> Path:
                         row["example_id"],
                         row["profile"],
                         str(row.get("expected_band") or ""),
-                        str(trace.get("band", "")),
+                        band_cell,
                         _fmt_float(trace.get("score")),
                         _fmt_float(trace.get("nli_aggregate")),
                         _fmt_float(trace.get("context_coverage_ratio")),
                         _fmt_float(trace.get("context_usage_ratio")),
                         _fmt_float(row.get("wall_ms")),
                         "yes" if row.get("ambiguous_unstable") else "no",
+                        note,
                     ]
                 )
                 + " |"
@@ -3342,9 +3543,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--openai-max-attempts", type=int, default=3)
     parser.add_argument("--openai-max-output-tokens", type=int, default=2048)
     parser.add_argument("--openai-top-p", type=float, default=1.0)
+    parser.add_argument(
+        "--openai-concurrency",
+        type=int,
+        default=1,
+        help="Number of concurrent OpenAI response-generation requests.",
+    )
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--max-prompt-context-chars", type=int, default=36_000)
     parser.add_argument("--trace-profile", choices=["standard", "quality", "both"], default="both")
+    parser.add_argument(
+        "--trace-concurrency",
+        type=int,
+        default=1,
+        help="Number of concurrent TRACE RAG scoring requests.",
+    )
     parser.add_argument(
         "--refine-max-attempts",
         type=int,
