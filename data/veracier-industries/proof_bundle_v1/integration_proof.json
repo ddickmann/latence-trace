@@ -1,0 +1,98 @@
+{
+  "run_at": "2026-04-28T19:07:29Z",
+  "sidecar_base_url": "http://127.0.0.1:8092",
+  "mcp_base_url": "http://127.0.0.1:8093",
+  "fixtures": {
+    "green": {
+      "question": "What was the Eiffel Tower completion year?",
+      "response_text": "The Eiffel Tower was completed in 1889.",
+      "raw_context": "The Eiffel Tower in Paris was completed in 1889 for the World's Fair."
+    },
+    "contradiction": {
+      "question": "What was the Eiffel Tower completion year?",
+      "response_text": "The Eiffel Tower was completed in 1743 by Napoleon.",
+      "raw_context": "The Eiffel Tower in Paris was completed in 1889 for the World's Fair."
+    }
+  },
+  "checks": [
+    {
+      "name": "1. raw HTTP POST /v1/score/groundedness (green + contradiction)",
+      "ok": true,
+      "note": "green=green/0.996 contradiction=red/0.041"
+    },
+    {
+      "name": "2. Python sync client",
+      "ok": true,
+      "note": "band=green"
+    },
+    {
+      "name": "3. Python async client",
+      "ok": true,
+      "note": "band=green"
+    },
+    {
+      "name": "4. LangGraph node",
+      "ok": true,
+      "note": "trace_band=green score=0.996"
+    },
+    {
+      "name": "5. CrewAI callback",
+      "ok": true,
+      "note": "trace_band=green"
+    },
+    {
+      "name": "6. AutoGen hook",
+      "ok": true,
+      "note": "band=green"
+    },
+    {
+      "name": "7. Pydantic AI validator",
+      "ok": true,
+      "note": "band=green result_preserved=True"
+    },
+    {
+      "name": "8. MCP stdio (initialize + tools/list + tools/call)",
+      "ok": true,
+      "note": "band=green"
+    },
+    {
+      "name": "9a. MCP HTTP streamable",
+      "ok": true,
+      "note": "band=green"
+    },
+    {
+      "name": "9b. MCP SSE (GET /mcp/sse + POST /mcp/messages)",
+      "ok": true,
+      "note": "band=green session=6e5c1f74"
+    },
+    {
+      "name": "10. TypeScript SDK live call",
+      "ok": true,
+      "note": "band=green score=0.996"
+    },
+    {
+      "name": "11. Haystack 2 scorer",
+      "ok": true,
+      "note": "band=green"
+    },
+    {
+      "name": "12. LangChain callback (on_chain_start + on_chain_end)",
+      "ok": true,
+      "note": "band=green groundedness_v2=None"
+    },
+    {
+      "name": "13. LlamaIndex postprocessor (_postprocess_nodes live)",
+      "ok": true,
+      "note": "risk_band=green"
+    },
+    {
+      "name": "14. OpenAI wrapper",
+      "ok": true,
+      "note": "adapter importable; score_openai_response + wrap_openai_chat present"
+    }
+  ],
+  "summary": {
+    "passed": 15,
+    "total": 15
+  }
+}
