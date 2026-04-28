@@ -1,0 +1,49 @@
+{
+  "name": "@latence/trace",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for Latence TRACE — groundedness scoring for RAG and agent pipelines.",
+  "keywords": ["latence", "trace", "rag", "groundedness", "hallucination", "llm"],
+  "license": "Apache-2.0",
+  "homepage": "https://latence.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/latence-ai/latence-trace.git",
+    "directory": "clients/typescript"
+  },
+  "author": {
+    "name": "Latence",
+    "email": "support@latence.ai"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "type": "module",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist", "src", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "test": "vitest run",
+    "lint": "eslint src --ext .ts"
+  },
+  "peerDependencies": {
+    "@opentelemetry/api": "^1.7.0"
+  },
+  "peerDependenciesMeta": {
+    "@opentelemetry/api": { "optional": true }
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.4.0"
+  }
+}
