@@ -1,0 +1,35 @@
+name = "latence-trace-gateway"
+main = "src/index.ts"
+compatibility_date = "2026-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Cloudflare resources - bindings resolved at deploy time.
+kv_namespaces = [
+  { binding = "API_KEYS", id = "<api-keys-kv-id>" },
+  { binding = "THRESHOLDS", id = "<thresholds-kv-id>" }
+]
+
+d1_databases = [
+  { binding = "USAGE_DB", database_id = "<usage-d1-id>", database_name = "latence-usage" },
+  { binding = "AUDIT_DB", database_id = "<audit-d1-id>", database_name = "latence-audit" }
+]
+
+analytics_engine_datasets = [
+  { binding = "ANALYTICS", dataset = "latence-trace-usage" }
+]
+
+[[durable_objects.bindings]]
+name = "RATE_LIMITER"
+class_name = "RateLimiter"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["RateLimiter"]
+
+[vars]
+TRACE_ORIGIN = "https://trace.latence.ai.runpod.net"
+TRACE_ORIGIN_KEY = "<secret via wrangler secret put TRACE_ORIGIN_KEY>"
+MCP_ORIGIN = "https://mcp.latence.ai.runpod.net"
+
+[env.production]
+route = "api.latence.ai/*"
