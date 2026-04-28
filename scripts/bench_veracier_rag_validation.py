@@ -1226,7 +1226,7 @@ def _generation_messages(pack: dict[str, Any]) -> list[dict[str, str]]:
 Create exactly three answer variants for this enterprise RAG question:
 
 1. perfect: short, extractive, fully grounded in the provided document text, no unsupported claims.
-2. ambiguous: partly useful but incomplete or vague; include supported and ambiguous/partial claims.
+2. ambiguous: intentionally mid-band. Include exactly one modest supported claim and exactly one unresolved/insufficient-evidence claim.
 3. wrong: plausible but materially unsupported or contradicted by the provided documents.
 
 Rules:
@@ -1239,6 +1239,12 @@ Rules:
 - For the perfect answer, preserve the original language of the quoted evidence instead of translating it.
 - The perfect answer must not contain numeric literals, percentages, years, or quantities.
 - The wrong answer must still sound realistic, but its unsupported claims must be clearly labelled.
+- The ambiguous answer must NOT be a complete answer. It should be useful but inconclusive.
+- The ambiguous answer must contain one uncertainty cue such as "unclear", "not established", "does not show",
+  "ne permet pas", "pas clair", "n'établit pas", "nicht klar", or "nicht belegt".
+- The ambiguous answer must not include direct evidence quotes, DOC ids, citations, tables, or semicolon-heavy lists.
+- The ambiguous answer must not contradict the documents and must not contain claims labelled unsupported.
+- For ambiguous, set expected_groundedness_range to {{"min": 0.55, "max": 0.74}}; this variant should be amber, not near-green.
 - Include exact source_id values from selected_documents.source_id in source_doc_ids only where the claim is actually supported.
 - Include source_filenames only where the claim is actually supported.
 - Use expected_band green for perfect, amber for ambiguous, red for wrong.
@@ -1284,6 +1290,40 @@ def _validate_generated(
                 errors.append("perfect variant contains numeric literal")
             if variant.get("response_text", "").count('"') < 4:
                 errors.append("perfect variant lacks two double-quoted evidence snippets")
+        if variant.get("mutation_type") == "ambiguous":
+            range_payload = variant.get("expected_groundedness_range") or {}
+            if range_payload.get("min") != 0.55 or range_payload.get("max") != 0.74:
+                errors.append("ambiguous variant must use expected_groundedness_range min=0.55 max=0.74")
+            claim_labels = [
+                claim.get("expected_label")
+                for claim in variant.get("claims", [])
+                if isinstance(claim, dict)
+            ]
+            if claim_labels.count("supported") != 1 or (
+                claim_labels.count("ambiguous") + claim_labels.count("partially_supported")
+            ) != 1:
+                errors.append(
+                    "ambiguous variant must contain exactly one supported claim and one ambiguous/partially_supported claim"
+                )
+            if "unsupported" in labels:
+                errors.append("ambiguous variant must not contain unsupported claims")
+            response_lower = variant.get("response_text", "").lower()
+            uncertainty_cues = (
+                "unclear",
+                "not established",
+                "does not show",
+                "not clear",
+                "ne permet pas",
+                "pas clair",
+                "n'établit pas",
+                "n’etablit pas",
+                "nicht klar",
+                "nicht belegt",
+            )
+            if not any(cue in response_lower for cue in uncertainty_cues):
+                errors.append("ambiguous variant lacks an explicit uncertainty cue")
+            if variant.get("response_text", "").count('"') >= 2:
+                errors.append("ambiguous variant should not quote evidence directly")
         if variant.get("mutation_type") == "wrong" and "unsupported" not in labels:
             errors.append("wrong variant lacks an unsupported claim")
         if allowed_source_ids is not None:
@@ -1520,8 +1560,10 @@ def generate_responses(args: argparse.Namespace) -> Path:
                     "content": (
                         "The previous JSON failed validation: "
                         f"{errors}. Regenerate the full JSON. The perfect variant "
-                        "must contain only claims labelled supported; ambiguous can "
-                        "mix supported/partially_supported/ambiguous claims; wrong "
+                        "must contain only claims labelled supported; ambiguous must "
+                        "contain exactly one supported claim and exactly one ambiguous "
+                        "or partially_supported claim, with expected_groundedness_range "
+                        "min=0.55 max=0.74 and an explicit uncertainty cue; wrong "
                         "must contain at least one unsupported claim. The response_text "
                         "must not include DOC ids, citations, or numeric literals. The perfect response "
                         "must include two ASCII double-quoted phrases copied verbatim from evidence. "
