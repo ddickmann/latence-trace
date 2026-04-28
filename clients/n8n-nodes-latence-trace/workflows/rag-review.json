@@ -1,0 +1,88 @@
+{
+  "name": "RAG review with Latence TRACE (community node)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "start",
+      "name": "When clicking 'execute workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [260, 360]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { question: 'What was our 2023 ARR?', response_text: 'ARR reached 12.4M USD in 2023.', raw_context: 'FY23 shareholder letter: ARR ended 2023 at 12.4M USD.' } }];"
+      },
+      "id": "fixture",
+      "name": "Fixture RAG payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 360]
+    },
+    {
+      "parameters": {
+        "operation": "route",
+        "question": "={{ $json.question }}",
+        "responseText": "={{ $json.response_text }}",
+        "rawContext": "={{ $json.raw_context }}",
+        "profile": "standard"
+      },
+      "id": "trace",
+      "name": "Latence TRACE",
+      "type": "n8n-nodes-latence-trace.latenceTrace",
+      "typeVersion": 1,
+      "credentials": {
+        "latenceTraceApi": {
+          "id": "REPLACE_ME",
+          "name": "Latence TRACE API"
+        }
+      },
+      "position": [780, 360]
+    },
+    {
+      "parameters": {
+        "content": "Deliver answer to the user."
+      },
+      "id": "green",
+      "name": "Green: deliver",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1060, 220]
+    },
+    {
+      "parameters": {
+        "content": "Send to Slack reviewer queue."
+      },
+      "id": "amber",
+      "name": "Amber: review queue",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1060, 360]
+    },
+    {
+      "parameters": {
+        "content": "Fail closed; ask LLM to retry with more evidence."
+      },
+      "id": "red",
+      "name": "Red: retry / block",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1060, 500]
+    }
+  ],
+  "connections": {
+    "When clicking 'execute workflow'": {
+      "main": [[{ "node": "Fixture RAG payload", "type": "main", "index": 0 }]]
+    },
+    "Fixture RAG payload": {
+      "main": [[{ "node": "Latence TRACE", "type": "main", "index": 0 }]]
+    },
+    "Latence TRACE": {
+      "main": [
+        [{ "node": "Green: deliver", "type": "main", "index": 0 }],
+        [{ "node": "Amber: review queue", "type": "main", "index": 0 }],
+        [{ "node": "Red: retry / block", "type": "main", "index": 0 }]
+      ]
+    }
+  }
+}

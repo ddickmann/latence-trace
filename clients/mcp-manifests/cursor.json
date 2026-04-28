@@ -1,0 +1,12 @@
+{
+  "$schema": "https://cursor.com/schema/mcp.json",
+  "name": "latence-trace",
+  "description": "Score groundedness, dead-weight and drift of RAG / agent responses via Latence TRACE.",
+  "transport": {
+    "type": "streamable-http",
+    "url": "https://api.latence.ai/mcp",
+    "headers": {
+      "Authorization": "Bearer ${env:LATENCE_API_KEY}"
+    }
+  }
+}

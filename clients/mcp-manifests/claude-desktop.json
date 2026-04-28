@@ -1,0 +1,16 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schema/claude-desktop.json",
+  "name": "latence-trace",
+  "description": "Score groundedness, dead-weight and drift of RAG / agent responses via Latence TRACE.",
+  "transport": {
+    "type": "sse",
+    "url": "https://api.latence.ai/mcp/sse",
+    "messages_url": "https://api.latence.ai/mcp/messages",
+    "headers": {
+      "Authorization": "Bearer {{env:LATENCE_API_KEY}}"
+    }
+  },
+  "capabilities": {
+    "tools": true
+  }
+}

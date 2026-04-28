@@ -1,0 +1,112 @@
+{
+  "name": "RAG review with Latence TRACE (HTTP Request blueprint)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "start",
+      "name": "When clicking 'execute workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [260, 360]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { question: 'What was our 2023 ARR?', response_text: 'ARR reached 12.4M USD in 2023.', raw_context: 'FY23 shareholder letter: ARR ended 2023 at 12.4M USD.' } }];"
+      },
+      "id": "fixture",
+      "name": "Fixture RAG payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 360]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.latence.ai/v1/score/groundedness",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"question\": \"{{ $json.question.replaceAll('\"','\\\"') }}\",\n  \"response_text\": \"{{ $json.response_text.replaceAll('\"','\\\"') }}\",\n  \"raw_context\": \"{{ $json.raw_context.replaceAll('\"','\\\"') }}\",\n  \"profile\": \"standard\"\n}",
+        "options": {}
+      },
+      "id": "score",
+      "name": "TRACE score (HTTP)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "Authorization: Bearer LATENCE_API_KEY"
+        }
+      },
+      "position": [760, 360]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "typeValidation": "loose" },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.band }}",
+                    "rightValue": "green",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": "green"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "typeValidation": "loose" },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.band }}",
+                    "rightValue": "amber",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": "amber"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "typeValidation": "loose" },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.band }}",
+                    "rightValue": "red",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": "red"
+            }
+          ]
+        }
+      },
+      "id": "switch",
+      "name": "Switch on band",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [1040, 360]
+    }
+  ],
+  "connections": {
+    "When clicking 'execute workflow'": {
+      "main": [[{ "node": "Fixture RAG payload", "type": "main", "index": 0 }]]
+    },
+    "Fixture RAG payload": {
+      "main": [[{ "node": "TRACE score (HTTP)", "type": "main", "index": 0 }]]
+    },
+    "TRACE score (HTTP)": {
+      "main": [[{ "node": "Switch on band", "type": "main", "index": 0 }]]
+    }
+  }
+}
