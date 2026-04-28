@@ -11,7 +11,7 @@ Six months ago we started from a simple question: why are enterprise RAG pipelin
 How we validated it:
 
 - Veracier Industries v1, a 118-case enterprise RAG benchmark across six verticals (finance, legal, HR, compliance, engineering, marketing), three answer variants per case, every row hand-reviewed by a domain specialist.  On that benchmark TRACE scores 100% red precision, 100% green precision, and 88% amber agreement.
-- External benchmarks (HaluEval QA, RAGTruth QA) are below state-of-the-art at this snapshot: 0.59 and 0.36 red precision.  We publish those numbers, their failure modes, and the v2 biaffine student architecture that targets exactly those weak cases.  No hiding.
+- External benchmarks (HaluEval QA, RAGTruth QA, RAGTruth Summ) under the production config (English NLI + atomic claims + reranker, n=120 seed=42): HaluEval QA paired accuracy 0.72, RAGTruth QA F1 0.69 at precision 0.93, RAGTruth Summ F1 0.68. Competitive but not best-in-class, and within 3-8pp of our internal English-NLI reference. Every number cites an artefact file; reconciliation notes live in proof_bundle_v1/external_bench_production/reconciliation.md. Adversarial coding (HumanEval+ + CRUXEval identifier/literal/API-signature swaps) is the one place v1 still misses its gate; the v2 biaffine student is architected for that case.
 
 Why this matters for your RAG pipeline:
 

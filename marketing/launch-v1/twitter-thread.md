@@ -33,14 +33,13 @@ Every row hand-reviewed by a domain specialist.
 
 Dataset + curation log + failure appendix = all public.
 
-**4/** External benchmarks are NOT SOTA at this snapshot.
+**4/** External benchmarks (production config, n=120 seed=42, reconciled 2026-04-28):
 
-HaluEval QA standard red precision: 0.59
-RAGTruth QA quality red precision: 0.36
+HaluEval QA paired accuracy: 0.72
+RAGTruth QA F1 / precision: 0.69 / 0.93
+RAGTruth Summ F1: 0.68
 
-We publish the numbers, the failure modes, and the v2 biaffine student architecture that targets exactly those weak cases.
-
-No hiding.
+Competitive, not best-in-class. Where we miss: adversarial code hallucinations. v2 biaffine student targets exactly that.
 
 **5/** The v2 student is a tiny learned local-support head on top of the existing late-interaction encoder.
 

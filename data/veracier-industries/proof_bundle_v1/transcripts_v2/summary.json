@@ -1,0 +1,76 @@
+{
+  "n_scenarios": 60,
+  "n_rows": 180,
+  "profile": "quality",
+  "scoring_mode": "code",
+  "paired": {
+    "correct_vs_wrong": {
+      "n_pairs": 60,
+      "correct_wins": 49,
+      "wrong_wins": 9,
+      "ties": 2,
+      "paired_accuracy": 0.8167,
+      "f1_at_best_threshold": {
+        "f1": 0.702,
+        "precision": 0.5824,
+        "recall": 0.8833,
+        "threshold": 0.6634,
+        "counts": {
+          "tp": 53,
+          "fp": 38,
+          "tn": 22,
+          "fn": 7
+        }
+      }
+    },
+    "correct_vs_ambiguous": {
+      "n_pairs": 60,
+      "correct_wins": 33,
+      "wrong_wins": 23,
+      "ties": 4,
+      "paired_accuracy": 0.55,
+      "f1_at_best_threshold": {
+        "f1": 0.6704,
+        "precision": 0.5042,
+        "recall": 1.0,
+        "threshold": 0.6774,
+        "counts": {
+          "tp": 60,
+          "fp": 59,
+          "tn": 1,
+          "fn": 0
+        }
+      }
+    }
+  },
+  "band_counts": {
+    "correct": {
+      "green": 0,
+      "amber": 0,
+      "red": 0,
+      "other": 60
+    },
+    "wrong": {
+      "green": 0,
+      "amber": 0,
+      "red": 0,
+      "other": 60
+    },
+    "ambiguous": {
+      "green": 0,
+      "amber": 0,
+      "red": 0,
+      "other": 60
+    }
+  },
+  "green_precision_on_correct": {
+    "correct": 0,
+    "wrong_or_amber": 0,
+    "precision_excluding_amber": null
+  },
+  "red_precision_on_wrong": {
+    "correct": 0,
+    "wrong_or_amber": 0,
+    "precision_excluding_amber": null
+  }
+}

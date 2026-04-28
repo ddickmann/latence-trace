@@ -41,29 +41,53 @@ appendix, latency harness) is in
 
 ## The honest bit: external benchmarks
 
-We ran HaluEval QA + RAGTruth QA at two profiles.  Here are the
-numbers as measured on 2026-04-28:
+We ran HaluEval QA, HaluEval Summ, RAGTruth QA, and RAGTruth Summ
+under the **production config** (English NLI + atomic claims +
+reranker + quality profile) on 2026-04-28, at n=120 seed=42. Reference
+framing (positive = faithful):
 
-| bench | profile | red precision | red recall | green precision |
-|---|---|---|---|---|
-| HaluEval QA | standard | 0.59 | 0.58 | 0.57 |
-| HaluEval Summ | standard | 0.68 | 0.40 | 0.53 |
-| RAGTruth QA | quality | 0.36 | 0.93 | 0.93 |
-| RAGTruth Summ | quality | 0.53 | 0.38 | 0.74 |
+| bench | F1@best | paired accuracy | precision@median | recall@median |
+|---|---:|---:|---:|---:|
+| HaluEval QA | 0.68 | 0.72 | 0.57 | 0.90 |
+| HaluEval Summ | 0.65 | 0.67 | 0.53 | 0.85 |
+| RAGTruth QA | 0.69 | -- | 0.93 | 0.55 |
+| RAGTruth Summ | 0.68 | -- | 0.83 | 0.57 |
 
-On HaluEval QA we miss short-factoid hallucinations where the
-response is 1-5 tokens and the NLI can't align.  On RAGTruth we
-over-flag enumerated multi-step paraphrases where each bullet is
-genuinely supported but the ColBERT MaxSim can't resolve the
-alignment.
+These are the numbers you can reproduce; the raw rows and summaries
+live under
+[`proof_bundle_v1/external_bench_production/`](../../data/veracier-industries/proof_bundle_v1/external_bench_production/).
 
-The score distributions are indistinguishable between `exp=green`
-and `exp=red` on these rows, which means **no threshold change can
-close the gap**.  The v2 biaffine student (learned local-support
-head on top of the existing late-interaction encoder) is now in
-training with that exact failure set as the distillation target.
-Architecture + training loop are in
+**Two bug fixes landed on the way here.** Earlier public numbers
+around "0.59 red precision" on HaluEval QA and "0.36" on RAGTruth QA
+came from a bench harness that (a) sent `{"question": ...}` on each
+call while the RunPod handler only reads `query_text` - the anchor
+question was silently dropped on every row, and (b) flattened
+RAGTruth's `source_info` dict into "natural prose" instead of the
+reference methodology's `json.dumps(source_info)`. Both fixes are in
+[`reconciliation.md`](../../data/veracier-industries/proof_bundle_v1/external_bench_production/reconciliation.md).
+The delta is real, the root cause is documented, the numbers are
+lower-bounded.
+
+### Where v1 still misses
+
+On adversarial coding (HumanEval+ + CRUXEval, three rule-based
+variants per grounded row: identifier swap, literal swap, API-
+signature swap) the v1 RAG lane is **not** code-aware. Paired
+accuracy lands between 0.21 and 0.62 per variant - below the 0.80
+ship gate. This is architectural, not a threshold issue: the
+late-interaction encoder scores `authorize` and `authenticate` as
+near-neighbours, which is exactly wrong for a symbol-swap
+hallucination. The v2 biaffine student adds explicit code channels
+(identifier-match bit, numeric-match bit, AST role, source-type) on
+top of the existing encoder precisely to close this.  Artefact:
+[`proof_bundle_v1/coding_bench/report.md`](../../data/veracier-industries/proof_bundle_v1/coding_bench/report.md).
+
+Architecture + training loop for the v2 student are in
 [`research/triangular_maxsim/student_v2/`](../../research/triangular_maxsim/student_v2/).
+Student training is **blocked on user-level confirmation** of the
+corpus mix and the public-SOTA target. Evidence report driving that
+decision:
+[`proof_bundle_v2/EVIDENCE_REPORT.md`](../../data/veracier-industries/proof_bundle_v2/EVIDENCE_REPORT.md).
 
 ## How to actually use it
 
@@ -98,10 +122,16 @@ The proof that each one actually lands a valid band is at
 
 ## What's next
 
-* v1.2: GA hardening, first pen-test report, SOC 2 Type I letter.
-* v2.0: biaffine student head.  Target: HaluEval QA red precision
-  >= 0.90, RAGTruth QA red precision >= 0.80, Veracier precision
-  unchanged.
+* v1.2: GA hardening, first pen-test report, SOC 2 Type I letter,
+  auto-decide middleware as opt-in (per-tenant flag
+  `auto_decide=true` on the request). The middleware is already
+  wired end-to-end; the ship gate on external corpora is not yet
+  met with the compact judge payload, see
+  [`proof_bundle_v1/auto_decide/report.md`](../../data/veracier-industries/proof_bundle_v1/auto_decide/report.md).
+* v2.0: biaffine student head.  Target: HaluEval QA paired accuracy
+  >= 0.85, RAGTruth QA F1 >= 0.80, coding adversarial paired
+  accuracy >= 0.80 on identifier / literal / API-signature swaps,
+  Veracier precision unchanged.
 
 Try the free tier at [latence.ai/signup](https://latence.ai/signup)
 or replay the Veracier benchmark in your own browser at

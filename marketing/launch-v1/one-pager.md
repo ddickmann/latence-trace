@@ -35,15 +35,21 @@ Proof JSON: `proof_bundle_v1/integration_proof.json`
 **Latency.**  Isolated p95 < 200 ms on A10.  Sustained p95 < 600 ms
 at concurrency 32.
 
-**Honest about external benchmarks.**
+**Honest about external benchmarks (production config, n=120, seed=42, reconciled 2026-04-28).**
 
-| benchmark | red precision | target |
-|---|---|---|
-| HaluEval QA standard | 0.59 | 0.80 |
-| RAGTruth QA quality | 0.36 | 0.80 |
+| benchmark | metric | measured | website value | delta |
+|---|---|---:|---:|---:|
+| HaluEval QA | paired accuracy | 0.72 | 0.78 | -0.06 |
+| HaluEval Summ | paired accuracy | 0.67 | 0.75 | -0.08 |
+| RAGTruth QA | F1 @ median | 0.69 | 0.73 | -0.04 |
+| RAGTruth QA | precision @ median | 0.93 | 0.98 | -0.05 |
+| RAGTruth Summ | F1 @ median | 0.68 | 0.65 | +0.03 |
 
-We publish the gap, the failure modes, and the v2 biaffine student
-architecture that targets exactly those weak cases.
+Competitive, not best-in-class. On adversarial code hallucinations
+(HumanEval+ + CRUXEval identifier / literal / API-signature swaps)
+the v1 RAG lane is not code-aware and misses the 0.80 gate; the v2
+biaffine student with explicit code channels is architected for
+that gap.
 
 **Pricing.**  Free tier with $50 of usage.  Self-serve pro tier.
 Enterprise pilot contract with Veracier PDF annex.

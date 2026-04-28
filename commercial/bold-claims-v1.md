@@ -47,24 +47,73 @@ any customer-facing surface.
 | "ISO 27001 roadmap" | "ISO 27001 certified" |
 | "GDPR-aligned hosting" | "GDPR certified" (no such cert exists) |
 
-## External benchmark positioning
+## External benchmark positioning (reconciled 2026-04-28)
 
-On external corpora TRACE v1.1 is competitive but not best-in-class:
+On external corpora TRACE v1.1 is competitive on RAGTruth and coming
+within single-digit pp of the English-NLI diagnose reference on
+HaluEval. Artefact:
+[`data/veracier-industries/proof_bundle_v1/external_bench_production/reconciliation.md`](../data/veracier-industries/proof_bundle_v1/external_bench_production/reconciliation.md).
 
-* HaluEval QA @ standard red precision: **0.59**  (target 0.80)
-* HaluEval Summ @ standard red precision: **0.68**  (target 0.85)
-* RAGTruth QA @ quality red precision: **0.39**  (target 0.80)
-* RAGTruth Summ @ standard red precision: **0.47**  (target 0.80)
+Reference framing (positive = faithful, predict faithful if score >= threshold), n=120 per stratum, quality profile + English NLI + atomic claims + reranker:
 
-These numbers are published in `proof_bundle_v1/external_benchmarks.md`
-and `proof_bundle_v1/failure_modes_v1.md`. The sales guidance is:
+| Bench | Metric | Measured | Website value | Delta |
+|---|---|---:|---:|---:|
+| HaluEval QA | paired_accuracy | **0.717** | 0.78 | -6.3pp (drift) |
+| HaluEval Summ | paired_accuracy | **0.667** | 0.75 | -8.3pp (drift) |
+| RAGTruth QA | F1@median | **0.691** | 0.73 | -3.9pp (reconciled) |
+| RAGTruth QA | precision@median | **0.933** | 0.98 | -4.7pp (reconciled) |
+| RAGTruth Summ | F1@median | **0.676** | 0.65 | +2.6pp (above) |
+| RAGTruth Summ | precision@median | **0.833** | 0.80 | +3.3pp (above) |
 
-> Lead with Veracier Industries. Acknowledge HaluEval / RAGTruth gap.
-> The v2 biaffine student is in training (see `research/triangular_maxsim/
-> student_v2/`) to close the gap.
+Operational red/green precision and recall against the hosted thresholds
+are in the reconciliation artefact. The historical 0.39 / 0.48 numbers
+in earlier drafts of this doc came from runs where (a) the anchor
+question was silently dropped at the RunPod handler boundary (fixed
+2026-04-28) and (b) RAGTruth `source_info` was flattened into "natural
+prose" instead of the reference methodology's `json.dumps` (fixed
+2026-04-28). Both artefacts are now correct.
 
-Do **not** claim best-in-class on HaluEval or RAGTruth until the v2
-student ships and clears its success criteria.
+Coding adversarial hallucinations (HumanEval+ + CRUXEval, seed=42, 120 pairs/dataset):
+
+| Variant | Paired accuracy | F1@best |
+|---|---:|---:|
+| identifier_swap | 0.27 | 0.67 |
+| literal_swap | 0.62 | 0.67 |
+| api_signature_swap | 0.21 | 0.67 |
+
+Artefact: [`data/veracier-industries/proof_bundle_v1/coding_bench/report.md`](../data/veracier-industries/proof_bundle_v1/coding_bench/report.md).
+
+**Sales guidance**:
+
+> Lead with Veracier Industries. Acknowledge the 3-8pp drift from the
+> website English-NLI diagnose reference as a fusion-weights tunable,
+> not a regression. On coding adversarials, be honest: the v1 RAG lane
+> is not code-aware; the v2 biaffine student is architected for this
+> case and is blocked only on corpus + target confirmation (see
+> `data/veracier-industries/proof_bundle_v2/EVIDENCE_REPORT.md`).
+
+Do **not** claim best-in-class on HaluEval paired accuracy, RAGTruth
+F1, or coding adversarial detection until the v2 student ships and
+clears its success criteria.
+
+## Auto-decide positioning
+
+Auto-decide middleware (`latence_trace/middleware/amber_escalation.py`)
+is GA-ready but ship gate not met on external corpora. Results:
+
+| Bench | Auto-decide accuracy | Ship target |
+|---|---:|---:|
+| HaluEval QA | 0.65 | 0.85 |
+| HaluEval Summ | 0.63 | 0.85 |
+| RAGTruth QA | 0.46 | 0.90 |
+| RAGTruth Summ | 0.65 | 0.90 |
+
+Artefact: [`data/veracier-industries/proof_bundle_v1/auto_decide/report.md`](../data/veracier-industries/proof_bundle_v1/auto_decide/report.md).
+
+Auto-decide is **opt-in per tenant** for design partners and is wired
+through `auto_decide=true` on the request payload. The hosted default
+remains conservative amber hedge until a richer judge payload closes
+the accuracy gap.
 
 ## Review cadence
 

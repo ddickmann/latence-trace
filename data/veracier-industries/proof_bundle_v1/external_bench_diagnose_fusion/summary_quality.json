@@ -1,0 +1,352 @@
+[
+  {
+    "total": 120,
+    "errors": 0,
+    "amber_leakage_rate": 0.4833,
+    "red_precision": 0.4348,
+    "red_recall": 0.3448,
+    "green_precision": 0.5128,
+    "counts": {
+      "tp": 10,
+      "fp": 13,
+      "tn": 20,
+      "fn": 19,
+      "amber": 58
+    },
+    "f1_at_best_threshold": {
+      "f1": 0.6667,
+      "precision": 0.5,
+      "recall": 1.0,
+      "threshold": 0.9351,
+      "counts": {
+        "tp": 60,
+        "fp": 60,
+        "tn": 0,
+        "fn": 0
+      }
+    },
+    "faithful_positive_framing": {
+      "median": {
+        "threshold": 0.6843,
+        "precision": 0.5,
+        "recall": 0.5,
+        "f1": 0.5,
+        "counts": {
+          "tp": 30,
+          "fp": 30,
+          "fn": 30,
+          "tn": 30
+        }
+      },
+      "best_f1_sweep": {
+        "threshold": 0.1093,
+        "precision": 0.5,
+        "recall": 1.0,
+        "f1": 0.6667,
+        "counts": {
+          "tp": 60,
+          "fp": 60,
+          "fn": 0,
+          "tn": 0
+        }
+      }
+    },
+    "roc_auc": 0.4481,
+    "paired": {
+      "n_pairs": 60,
+      "paired_accuracy": 0.4167,
+      "ties": 0,
+      "delta_mean": -0.0538,
+      "delta_median": -0.0349
+    },
+    "auto_decide": {
+      "correct": 30,
+      "wrong": 32,
+      "amber": 58,
+      "errors": 0,
+      "accuracy_excluding_amber": 0.4839,
+      "accuracy_including_amber": 0.25
+    },
+    "bench": "halueval_qa",
+    "profile": "quality",
+    "elapsed_s": 22.43,
+    "effective_config": {
+      "profile": "quality",
+      "config_tag": "diagnose_fusion_0p5_0p2_0p3_2026_04_28",
+      "atomic_claims_override": "true",
+      "request_extra": {
+        "nli_use_atomic_claims": true
+      },
+      "nli_model_env": null,
+      "nli_reranker_env": null,
+      "fusion_w_calibrated_env": null,
+      "fusion_w_literal_env": null,
+      "fusion_w_nli_env": null,
+      "n": 120,
+      "seed": 42,
+      "url": "http://127.0.0.1:8091/runsync"
+    }
+  },
+  {
+    "total": 120,
+    "errors": 0,
+    "amber_leakage_rate": 0.05,
+    "red_precision": 0.5,
+    "red_recall": 0.0179,
+    "green_precision": 0.5089,
+    "counts": {
+      "tp": 1,
+      "fp": 1,
+      "tn": 57,
+      "fn": 55,
+      "amber": 6
+    },
+    "f1_at_best_threshold": {
+      "f1": 0.6832,
+      "precision": 0.5446,
+      "recall": 0.9167,
+      "threshold": 0.9656,
+      "counts": {
+        "tp": 55,
+        "fp": 46,
+        "tn": 14,
+        "fn": 5
+      }
+    },
+    "faithful_positive_framing": {
+      "median": {
+        "threshold": 0.9096,
+        "precision": 0.6167,
+        "recall": 0.6167,
+        "f1": 0.6167,
+        "counts": {
+          "tp": 37,
+          "fp": 23,
+          "fn": 23,
+          "tn": 37
+        }
+      },
+      "best_f1_sweep": {
+        "threshold": 0.804,
+        "precision": 0.5446,
+        "recall": 0.9167,
+        "f1": 0.6832,
+        "counts": {
+          "tp": 55,
+          "fp": 46,
+          "fn": 5,
+          "tn": 14
+        }
+      }
+    },
+    "roc_auc": 0.6471,
+    "paired": {
+      "n_pairs": 60,
+      "paired_accuracy": 0.6833,
+      "ties": 1,
+      "delta_mean": 0.0386,
+      "delta_median": 0.0337
+    },
+    "auto_decide": {
+      "correct": 58,
+      "wrong": 56,
+      "amber": 6,
+      "errors": 0,
+      "accuracy_excluding_amber": 0.5088,
+      "accuracy_including_amber": 0.4833
+    },
+    "bench": "halueval_summ",
+    "profile": "quality",
+    "elapsed_s": 78.73,
+    "effective_config": {
+      "profile": "quality",
+      "config_tag": "diagnose_fusion_0p5_0p2_0p3_2026_04_28",
+      "atomic_claims_override": "true",
+      "request_extra": {
+        "nli_use_atomic_claims": true
+      },
+      "nli_model_env": null,
+      "nli_reranker_env": null,
+      "fusion_w_calibrated_env": null,
+      "fusion_w_literal_env": null,
+      "fusion_w_nli_env": null,
+      "n": 120,
+      "seed": 42,
+      "url": "http://127.0.0.1:8091/runsync"
+    }
+  },
+  {
+    "total": 120,
+    "errors": 0,
+    "amber_leakage_rate": 0.1667,
+    "red_precision": 0.0,
+    "red_recall": 0.0,
+    "green_precision": 0.875,
+    "counts": {
+      "tp": 0,
+      "fp": 4,
+      "tn": 84,
+      "fn": 12,
+      "amber": 20
+    },
+    "f1_at_best_threshold": {
+      "f1": 0.4528,
+      "precision": 0.3429,
+      "recall": 0.6667,
+      "threshold": 0.7664,
+      "counts": {
+        "tp": 12,
+        "fp": 23,
+        "tn": 79,
+        "fn": 6
+      }
+    },
+    "faithful_positive_framing": {
+      "median": {
+        "threshold": 0.8241,
+        "precision": 0.9333,
+        "recall": 0.549,
+        "f1": 0.6914,
+        "counts": {
+          "tp": 56,
+          "fp": 4,
+          "fn": 46,
+          "tn": 14
+        }
+      },
+      "best_f1_sweep": {
+        "threshold": 0.1191,
+        "precision": 0.85,
+        "recall": 1.0,
+        "f1": 0.9189,
+        "counts": {
+          "tp": 102,
+          "fp": 18,
+          "fn": 0,
+          "tn": 0
+        }
+      }
+    },
+    "roc_auc": 0.6836,
+    "paired": {
+      "n_pairs": 0,
+      "paired_accuracy": null,
+      "ties": 0,
+      "delta_mean": null
+    },
+    "auto_decide": {
+      "correct": 84,
+      "wrong": 16,
+      "amber": 20,
+      "errors": 0,
+      "accuracy_excluding_amber": 0.84,
+      "accuracy_including_amber": 0.7
+    },
+    "bench": "ragtruth_qa",
+    "profile": "quality",
+    "elapsed_s": 80.12,
+    "effective_config": {
+      "profile": "quality",
+      "config_tag": "diagnose_fusion_0p5_0p2_0p3_2026_04_28",
+      "atomic_claims_override": "true",
+      "request_extra": {
+        "nli_use_atomic_claims": true
+      },
+      "nli_model_env": null,
+      "nli_reranker_env": null,
+      "fusion_w_calibrated_env": null,
+      "fusion_w_literal_env": null,
+      "fusion_w_nli_env": null,
+      "n": 120,
+      "seed": 42,
+      "url": "http://127.0.0.1:8091/runsync"
+    }
+  },
+  {
+    "total": 120,
+    "errors": 0,
+    "amber_leakage_rate": 0.0083,
+    "red_precision": null,
+    "red_recall": 0.0,
+    "green_precision": 0.7311,
+    "counts": {
+      "tp": 0,
+      "fp": 0,
+      "tn": 87,
+      "fn": 32,
+      "amber": 1
+    },
+    "f1_at_best_threshold": {
+      "f1": 0.4938,
+      "precision": 0.4082,
+      "recall": 0.625,
+      "threshold": 0.8999,
+      "counts": {
+        "tp": 20,
+        "fp": 29,
+        "tn": 59,
+        "fn": 12
+      }
+    },
+    "faithful_positive_framing": {
+      "median": {
+        "threshold": 0.9095,
+        "precision": 0.8167,
+        "recall": 0.5568,
+        "f1": 0.6622,
+        "counts": {
+          "tp": 49,
+          "fp": 11,
+          "fn": 39,
+          "tn": 21
+        }
+      },
+      "best_f1_sweep": {
+        "threshold": 0.8414,
+        "precision": 0.7611,
+        "recall": 0.9773,
+        "f1": 0.8557,
+        "counts": {
+          "tp": 86,
+          "fp": 27,
+          "fn": 2,
+          "tn": 5
+        }
+      }
+    },
+    "roc_auc": 0.6715,
+    "paired": {
+      "n_pairs": 0,
+      "paired_accuracy": null,
+      "ties": 0,
+      "delta_mean": null
+    },
+    "auto_decide": {
+      "correct": 87,
+      "wrong": 32,
+      "amber": 1,
+      "errors": 0,
+      "accuracy_excluding_amber": 0.7311,
+      "accuracy_including_amber": 0.725
+    },
+    "bench": "ragtruth_summ",
+    "profile": "quality",
+    "elapsed_s": 134.62,
+    "effective_config": {
+      "profile": "quality",
+      "config_tag": "diagnose_fusion_0p5_0p2_0p3_2026_04_28",
+      "atomic_claims_override": "true",
+      "request_extra": {
+        "nli_use_atomic_claims": true
+      },
+      "nli_model_env": null,
+      "nli_reranker_env": null,
+      "fusion_w_calibrated_env": null,
+      "fusion_w_literal_env": null,
+      "fusion_w_nli_env": null,
+      "n": 120,
+      "seed": 42,
+      "url": "http://127.0.0.1:8091/runsync"
+    }
+  }
+]

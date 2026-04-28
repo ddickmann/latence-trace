@@ -346,6 +346,19 @@ class GroundednessRequest(BaseModel):
             "quality rate by the gateway."
         ),
     )
+    auto_decide: Optional[bool] = Field(
+        default=None,
+        description=(
+            "Opt into zero-human-in-the-loop mode. When True and the initial "
+            "scoring band is ``amber`` (hedge-gate), the service runs one "
+            "pinned LLM-judge call over the atomic-claim + evidence pairs and "
+            "collapses the band to ``green`` or ``red``. Budget is capped at "
+            "one judge call per request; per-tenant daily spend is enforced "
+            "at the gateway. Defaults to the tenant-level default "
+            "(``VOYAGER_TRACE_AUTO_DECIDE_DEFAULT``); set to False to force "
+            "the conservative amber hedge even on auto-decide tenants."
+        ),
+    )
     session_id: Optional[str] = Field(
         default=None,
         description=(
@@ -739,6 +752,38 @@ class GroundednessNLIDiagnostics(BaseModel):
         validation_alias=AliasChoices("aggregate_score", "aggregate"),
     )
     claims: List[GroundednessNLIClaim] = Field(default_factory=list)
+
+
+class AmberEscalationDiagnostics(BaseModel):
+    """Per-request amber auto-decide diagnostics (Phase 2)."""
+
+    original_band: str = Field(
+        ...,
+        description="Band TRACE emitted before auto-decide ran. Always 'amber' when escalation fires.",
+    )
+    final_band: str = Field(
+        ...,
+        description="Band after the judge ran. Either 'green', 'red', or 'amber' (if the judge failed).",
+    )
+    judge_verdict: str = Field(
+        ...,
+        description="Judge verdict as emitted: 'green', 'red', or 'amber' when the judge failed to produce one.",
+    )
+    reasoning: Optional[str] = Field(
+        default=None,
+        description="Short judge-provided reasoning string, clipped to 600 chars.",
+    )
+    judge_provider: str = Field(
+        ...,
+        description="Provider used: 'openai', 'anthropic', or 'offline' (deterministic heuristic).",
+    )
+    judge_model: Optional[str] = Field(default=None)
+    judge_latency_ms: float = Field(default=0.0)
+    judge_cost_usd: Optional[float] = Field(default=None)
+    judge_error: Optional[str] = Field(
+        default=None,
+        description="Populated when the judge call failed; the final_band stays 'amber'.",
+    )
 
 
 class GroundednessSemanticEntropyCluster(BaseModel):
@@ -1468,6 +1513,15 @@ class GroundednessResponse(BaseModel):
     attribution_mode: Optional[AttributionMode] = Field(
         default=None,
         description="Echo of the request attribution_mode for downstream auditing.",
+    )
+    amber_escalation: Optional[AmberEscalationDiagnostics] = Field(
+        default=None,
+        description=(
+            "Populated when the request opted into ``auto_decide`` and the "
+            "initial band was ``amber``. Records the pinned LLM judge's "
+            "verdict, reasoning, latency, and cost so the caller can audit "
+            "the zero-human-in-the-loop path."
+        ),
     )
     reason: Optional[str] = Field(
         default=None,

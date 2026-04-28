@@ -70,7 +70,7 @@ async def _call_upstream(payload: dict[str, Any]) -> dict[str, Any]:
 async def groundedness(request: Request) -> dict[str, Any]:
     body = await request.json()
     payload = {
-        "question": body.get("query") or body.get("question") or "",
+        "query_text": body.get("query") or body.get("question") or "",
         "response_text": body.get("response_text") or body.get("response") or "",
         "raw_context": _coerce_context(body.get("raw_context") or body.get("context") or ""),
         "profile": body.get("profile") or "standard",

@@ -63,11 +63,14 @@ Total: 3 minutes. Hard-cap at 3:00.
 > Haystack, Pydantic AI, n8n, TypeScript SDK - is proved live in one
 > JSON file."
 >
-> [02:10]  "The honest bit. On external corpora like HaluEval and
-> RAGTruth we're below SOTA right now. Short-factoid hallucinations
-> and multi-step paraphrased answers are the two weak modes. We
-> publish those numbers, we publish the failure analysis, and the
-> v2 biaffine student is in training against that exact gap."
+> [02:10]  "The honest bit. External corpora under the production
+> config: HaluEval QA paired accuracy 0.72, RAGTruth QA F1 0.69 at
+> precision 0.93, RAGTruth Summ F1 0.68, n=120 seed=42. Competitive,
+> not best-in-class. Where we still miss: adversarial code
+> hallucinations - identifier swaps, literal swaps, API-signature
+> swaps. The v1 RAG lane is not code-aware; the v2 biaffine student
+> with explicit code channels is architected for exactly that gap
+> and is ready to train on user confirmation."
 >
 > [02:45]  "Free tier at latence.ai/signup with fifty dollars of
 > usage. No-signup sandbox at latence.ai/try. Pilot contract

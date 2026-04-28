@@ -26,10 +26,19 @@ claim in every asset here must map to a row in
    LangGraph, LlamaIndex, CrewAI, AutoGen, Haystack, Pydantic AI,
    OpenAI, n8n, TypeScript SDK.  All 15 transports are proved by the
    integration proof JSON in `proof_bundle_v1/integration_proof.json`.
-3. **External benchmarks are below SOTA and we say so.**  HaluEval QA
-   red precision ~0.59, RAGTruth QA red precision ~0.39.  This is why
-   we are training the v2 biaffine student in
-   `research/triangular_maxsim/student_v2/`.  Do not hide this.
+3. **External benchmarks are reconciled (2026-04-28 rebench).** Under
+   the production config (English NLI + atomic claims + reranker +
+   quality profile) TRACE v1.1 lands at HaluEval QA paired accuracy
+   ~0.72 and RAGTruth QA F1 ~0.69 / precision ~0.93 at n=120 seed=42.
+   Earlier "~0.59" / "~0.39" rows came from a harness that silently
+   dropped the anchor question and broke RAGTruth packing — both bugs
+   fixed and documented in
+   `data/veracier-industries/proof_bundle_v1/external_bench_production/reconciliation.md`.
+   Coding adversarial detection on HumanEval+ + CRUXEval identifier /
+   literal / API-signature swaps is below target; the v2 biaffine
+   student is architected for this case and is blocked on user-level
+   corpus + target confirmation
+   (see `data/veracier-industries/proof_bundle_v2/EVIDENCE_REPORT.md`).
 4. **Real-time latency envelope.**  Isolated p95 < 200ms on A10,
    sustained p95 < 600ms at concurrency 32.  Exact numbers in
    `proof_bundle_v1/latency_bench/`.

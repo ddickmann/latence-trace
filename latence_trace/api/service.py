@@ -37,6 +37,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 import torch
 
 from latence_trace.api.models import (
+    AmberEscalationDiagnostics,
     AttributionMode,
     CodeLaneAstDiagnostics,
     CodeLaneCompositeContributions,
@@ -68,6 +69,11 @@ from latence_trace.api.models import (
 )
 from latence_trace.api.heatmap import build_heatmap, render_heatmap_html
 from latence_trace.api.rollup import aggregate_turns
+from latence_trace.middleware.amber_escalation import (
+    AmberEscalationConfig,
+    build_payload as build_amber_payload,
+    escalate as run_amber_escalate,
+)
 from latence_trace.core.groundedness import (
     SupportUnitInput,
     _build_null_bank_pack,
@@ -468,6 +474,76 @@ def _profile_diagnostics(
         "verification_sample_count": len(verification_samples or []),
         "semantic_entropy_skipped_reason": semantic_entropy_skipped_reason,
     }
+
+
+def _auto_decide_requested(request: GroundednessRequest) -> bool:
+    if request.auto_decide is not None:
+        return bool(request.auto_decide)
+    raw = os.environ.get("VOYAGER_TRACE_AUTO_DECIDE_DEFAULT", "")
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _maybe_auto_decide(
+    response: GroundednessResponse, request: GroundednessRequest
+) -> None:
+    """Collapse amber -> green/red via a pinned LLM judge when requested.
+
+    No-op when:
+    * The request did not opt into ``auto_decide`` (explicitly or via the
+      tenant default env knob).
+    * The scored band is not ``amber`` (green/red stay as they are; red is
+      already an accept/reject signal for the caller).
+    * The escalation middleware is not enabled (provider misconfigured or
+      API key missing).
+
+    On judge success we rewrite the risk band on the response in-place so the
+    existing response-serialisation path stays untouched. On judge failure
+    the band stays amber and the caller sees the error in the diagnostics.
+    """
+    if not _auto_decide_requested(request):
+        return
+    try:
+        band_value = str(response.scores.risk_band or "").lower()
+    except Exception:  # pragma: no cover - defensive
+        band_value = ""
+    if band_value != "amber":
+        return
+    config = AmberEscalationConfig.from_env()
+    if not config.enabled:
+        return
+    nli_diag = getattr(response, "nli_diagnostics", None)
+    claim_payloads: List[Dict[str, Any]] = []
+    if nli_diag is not None:
+        for claim in getattr(nli_diag, "claims", []) or []:
+            claim_dict = (
+                claim.model_dump() if hasattr(claim, "model_dump") else dict(claim)
+            )
+            claim_payloads.append(claim_dict)
+    payload = build_amber_payload(
+        query_text=str(request.query_text or ""),
+        response_text=str(request.response_text or ""),
+        nli_claims=claim_payloads,
+        config=config,
+    )
+    scores_obj = response.scores
+    fallback_score = getattr(scores_obj, "groundedness_v2", None)
+    if fallback_score is None:
+        fallback_score = getattr(scores_obj, "primary_score", None)
+    verdict = run_amber_escalate(payload, config, fallback_score=fallback_score)
+    final_band = verdict.verdict if verdict.verdict in ("green", "red") else "amber"
+    if final_band in ("green", "red"):
+        response.scores.risk_band = final_band
+    response.amber_escalation = AmberEscalationDiagnostics(
+        original_band="amber",
+        final_band=final_band,
+        judge_verdict=verdict.verdict,
+        reasoning=verdict.reasoning,
+        judge_provider=verdict.judge_provider,
+        judge_model=verdict.judge_model,
+        judge_latency_ms=verdict.judge_latency_ms,
+        judge_cost_usd=verdict.judge_cost_usd,
+        judge_error=verdict.error,
+    )
 
 
 @dataclass(frozen=True)
@@ -1379,7 +1455,7 @@ class GroundednessService:
             response_tokens=scored.get("response_tokens") or [],
             session_signals=None,
         )
-        return GroundednessResponse(
+        response = GroundednessResponse(
             collection=self._collection_label,
             mode=mode,
             model=model_name,
@@ -1426,6 +1502,8 @@ class GroundednessService:
             session_id=request.session_id,
             attribution_mode=request.attribution_mode,
         )
+        _maybe_auto_decide(response, request)
+        return response
 
     # --- code-lane ------------------------------------------------------
 

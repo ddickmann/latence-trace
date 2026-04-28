@@ -13,7 +13,7 @@ TRACE is a real-time groundedness verifier for RAG pipelines and AI agents. Cali
 1. **100% red + green precision on Veracier Industries v1** - 118 hand-reviewed RAG cases across six verticals.
 2. **Real-time** - <200ms isolated p95 on A10, <600ms at concurrency 32.
 3. **15 integrations, all proved live** - MCP (Cursor, Claude Desktop, OpenAI Agents), LangChain, LangGraph, LlamaIndex, CrewAI, AutoGen, Haystack, Pydantic AI, n8n, TypeScript + Python SDKs.
-4. **Honest about external benchmarks** - HaluEval QA ~0.59, RAGTruth QA ~0.36. Failure modes documented, v2 student training in the open.
+4. **Honest about external benchmarks** - reconciled production config n=120 seed=42: HaluEval QA paired accuracy 0.72, RAGTruth QA F1 0.69 / precision 0.93, RAGTruth Summ F1 0.68. Competitive, not SOTA on adversarial coding; failure modes documented, v2 biaffine student architected for that gap.
 5. **Audit-ready** - append-only per-score log, per-tenant thresholds, DPA, pilot contract template.
 
 ## First comment (from maker)
@@ -32,7 +32,7 @@ Everything we claim maps to an artifact in our public repo:
 - `data/veracier-industries/proof_bundle_v1/` - the benchmark bundle
 - `research/triangular_maxsim/student_v2/` - the v2 biaffine student
 
-External benchmarks are the hard part. We publish HaluEval and RAGTruth numbers below SOTA and the failure-mode analysis, and we're training the v2 student against exactly that gap. Happy to discuss the architecture.
+External benchmarks are the hard part. Under the production config we land at HaluEval QA paired accuracy 0.72 and RAGTruth QA F1 0.69 at precision 0.93 (n=120 seed=42, reconciled after fixing two real bench-harness bugs - anchor-question drop + RAGTruth packing). Competitive, not best-in-class on adversarial code hallucinations. The v2 biaffine student is architected to close that gap. Happy to discuss the architecture.
 
 Thanks for reading!
 

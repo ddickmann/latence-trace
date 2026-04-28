@@ -1,0 +1,320 @@
+[
+  {
+    "total": 120,
+    "errors": 0,
+    "amber_leakage_rate": 0.125,
+    "red_precision": 0.7778,
+    "red_recall": 0.625,
+    "green_precision": 0.65,
+    "counts": {
+      "tp": 35,
+      "fp": 10,
+      "tn": 39,
+      "fn": 21,
+      "amber": 15
+    },
+    "f1_at_best_threshold": {
+      "f1": 0.6909,
+      "precision": 0.76,
+      "recall": 0.6333,
+      "threshold": 0.6585,
+      "counts": {
+        "tp": 38,
+        "fp": 12,
+        "tn": 48,
+        "fn": 22
+      }
+    },
+    "faithful_positive_framing": {
+      "median": {
+        "threshold": 0.7526,
+        "precision": 0.65,
+        "recall": 0.65,
+        "f1": 0.65,
+        "counts": {
+          "tp": 39,
+          "fp": 21,
+          "fn": 21,
+          "tn": 39
+        }
+      },
+      "best_f1_sweep": {
+        "threshold": 0.5211,
+        "precision": 0.6506,
+        "recall": 0.9,
+        "f1": 0.7552,
+        "counts": {
+          "tp": 54,
+          "fp": 29,
+          "fn": 6,
+          "tn": 31
+        }
+      }
+    },
+    "roc_auc": 0.6731,
+    "paired": {
+      "n_pairs": 60,
+      "paired_accuracy": 0.7167,
+      "ties": 0,
+      "delta_mean": 0.2244,
+      "delta_median": 0.2205
+    },
+    "bench": "halueval_qa",
+    "profile": "quality",
+    "elapsed_s": 22.18,
+    "effective_config": {
+      "profile": "quality",
+      "config_tag": "english_nli_quality_voyager_layout_2026_04_28",
+      "atomic_claims_override": "true",
+      "request_extra": {
+        "nli_use_atomic_claims": true
+      },
+      "nli_model_env": null,
+      "nli_reranker_env": null,
+      "fusion_w_calibrated_env": null,
+      "fusion_w_literal_env": null,
+      "fusion_w_nli_env": null,
+      "n": 120,
+      "seed": 42,
+      "url": "http://127.0.0.1:8091/runsync"
+    }
+  },
+  {
+    "total": 120,
+    "errors": 0,
+    "amber_leakage_rate": 0.2583,
+    "red_precision": 0.7273,
+    "red_recall": 0.381,
+    "green_precision": 0.6119,
+    "counts": {
+      "tp": 16,
+      "fp": 6,
+      "tn": 41,
+      "fn": 26,
+      "amber": 31
+    },
+    "f1_at_best_threshold": {
+      "f1": 0.6909,
+      "precision": 0.5429,
+      "recall": 0.95,
+      "threshold": 0.9558,
+      "counts": {
+        "tp": 57,
+        "fp": 48,
+        "tn": 12,
+        "fn": 3
+      }
+    },
+    "faithful_positive_framing": {
+      "median": {
+        "threshold": 0.7835,
+        "precision": 0.6333,
+        "recall": 0.6333,
+        "f1": 0.6333,
+        "counts": {
+          "tp": 38,
+          "fp": 22,
+          "fn": 22,
+          "tn": 38
+        }
+      },
+      "best_f1_sweep": {
+        "threshold": 0.6153,
+        "precision": 0.5699,
+        "recall": 0.8833,
+        "f1": 0.6928,
+        "counts": {
+          "tp": 53,
+          "fp": 40,
+          "fn": 7,
+          "tn": 20
+        }
+      }
+    },
+    "roc_auc": 0.6663,
+    "paired": {
+      "n_pairs": 60,
+      "paired_accuracy": 0.6667,
+      "ties": 1,
+      "delta_mean": 0.1137,
+      "delta_median": 0.0899
+    },
+    "bench": "halueval_summ",
+    "profile": "quality",
+    "elapsed_s": 80.06,
+    "effective_config": {
+      "profile": "quality",
+      "config_tag": "english_nli_quality_voyager_layout_2026_04_28",
+      "atomic_claims_override": "true",
+      "request_extra": {
+        "nli_use_atomic_claims": true
+      },
+      "nli_model_env": null,
+      "nli_reranker_env": null,
+      "fusion_w_calibrated_env": null,
+      "fusion_w_literal_env": null,
+      "fusion_w_nli_env": null,
+      "n": 120,
+      "seed": 42,
+      "url": "http://127.0.0.1:8091/runsync"
+    }
+  },
+  {
+    "total": 120,
+    "errors": 0,
+    "amber_leakage_rate": 0.125,
+    "red_precision": 0.2333,
+    "red_recall": 0.7778,
+    "green_precision": 0.9111,
+    "counts": {
+      "tp": 14,
+      "fp": 46,
+      "tn": 41,
+      "fn": 4,
+      "amber": 15
+    },
+    "f1_at_best_threshold": {
+      "f1": 0.3774,
+      "precision": 0.2857,
+      "recall": 0.5556,
+      "threshold": 0.4499,
+      "counts": {
+        "tp": 10,
+        "fp": 25,
+        "tn": 77,
+        "fn": 8
+      }
+    },
+    "faithful_positive_framing": {
+      "median": {
+        "threshold": 0.554,
+        "precision": 0.9333,
+        "recall": 0.549,
+        "f1": 0.6914,
+        "counts": {
+          "tp": 56,
+          "fp": 4,
+          "fn": 46,
+          "tn": 14
+        }
+      },
+      "best_f1_sweep": {
+        "threshold": 0.0384,
+        "precision": 0.85,
+        "recall": 1.0,
+        "f1": 0.9189,
+        "counts": {
+          "tp": 102,
+          "fp": 18,
+          "fn": 0,
+          "tn": 0
+        }
+      }
+    },
+    "roc_auc": 0.646,
+    "paired": {
+      "n_pairs": 0,
+      "paired_accuracy": null,
+      "ties": 0,
+      "delta_mean": null
+    },
+    "bench": "ragtruth_qa",
+    "profile": "quality",
+    "elapsed_s": 80.38,
+    "effective_config": {
+      "profile": "quality",
+      "config_tag": "english_nli_quality_voyager_layout_2026_04_28",
+      "atomic_claims_override": "true",
+      "request_extra": {
+        "nli_use_atomic_claims": true
+      },
+      "nli_model_env": null,
+      "nli_reranker_env": null,
+      "fusion_w_calibrated_env": null,
+      "fusion_w_literal_env": null,
+      "fusion_w_nli_env": null,
+      "n": 120,
+      "seed": 42,
+      "url": "http://127.0.0.1:8091/runsync"
+    }
+  },
+  {
+    "total": 120,
+    "errors": 0,
+    "amber_leakage_rate": 0.3833,
+    "red_precision": 1.0,
+    "red_recall": 0.0667,
+    "green_precision": 0.8082,
+    "counts": {
+      "tp": 1,
+      "fp": 0,
+      "tn": 59,
+      "fn": 14,
+      "amber": 46
+    },
+    "f1_at_best_threshold": {
+      "f1": 0.4882,
+      "precision": 0.3263,
+      "recall": 0.9688,
+      "threshold": 0.8773,
+      "counts": {
+        "tp": 31,
+        "fp": 64,
+        "tn": 24,
+        "fn": 1
+      }
+    },
+    "faithful_positive_framing": {
+      "median": {
+        "threshold": 0.7958,
+        "precision": 0.8333,
+        "recall": 0.5682,
+        "f1": 0.6757,
+        "counts": {
+          "tp": 50,
+          "fp": 10,
+          "fn": 38,
+          "tn": 22
+        }
+      },
+      "best_f1_sweep": {
+        "threshold": 0.5836,
+        "precision": 0.7458,
+        "recall": 1.0,
+        "f1": 0.8544,
+        "counts": {
+          "tp": 88,
+          "fp": 30,
+          "fn": 0,
+          "tn": 2
+        }
+      }
+    },
+    "roc_auc": 0.6655,
+    "paired": {
+      "n_pairs": 0,
+      "paired_accuracy": null,
+      "ties": 0,
+      "delta_mean": null
+    },
+    "bench": "ragtruth_summ",
+    "profile": "quality",
+    "elapsed_s": 134.93,
+    "effective_config": {
+      "profile": "quality",
+      "config_tag": "english_nli_quality_voyager_layout_2026_04_28",
+      "atomic_claims_override": "true",
+      "request_extra": {
+        "nli_use_atomic_claims": true
+      },
+      "nli_model_env": null,
+      "nli_reranker_env": null,
+      "fusion_w_calibrated_env": null,
+      "fusion_w_literal_env": null,
+      "fusion_w_nli_env": null,
+      "n": 120,
+      "seed": 42,
+      "url": "http://127.0.0.1:8091/runsync"
+    }
+  }
+]

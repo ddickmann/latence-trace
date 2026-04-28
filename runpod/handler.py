@@ -552,6 +552,7 @@ def _build_request(input_data: dict[str, Any]) -> tuple[GroundednessRequest, boo
         "emit_chunk_ownership",
         "session_state",
         "heatmap_format",
+        "auto_decide",
     )
     for key in passthrough_keys:
         if key in input_data:
@@ -660,6 +661,8 @@ def _compact_response(response: GroundednessResponse, *, verbose: bool) -> dict[
         result["reason"] = response.reason
     if response.warnings:
         result["warnings"] = list(response.warnings)
+    if response.amber_escalation is not None:
+        result["amber_escalation"] = response.amber_escalation.model_dump(mode="json")
     if verbose:
         result["full"] = response.model_dump(mode="json")
     return result

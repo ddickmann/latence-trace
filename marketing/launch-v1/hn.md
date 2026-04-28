@@ -20,7 +20,8 @@ What's different:
 Proof we didn't just cherry-pick:
 
 - Veracier Industries v1, 118 curated enterprise RAG cases with three answer variants each. TRACE hit 100% red precision, 100% green precision, 88% amber agreement. Full curated dataset, curation log, failure appendix and reproducer script are in the repo.
-- External benchmarks are NOT SOTA yet. HaluEval QA standard profile is ~0.59 red precision, RAGTruth QA quality is ~0.36. We publish those numbers. We also publish the failure-mode analysis and the v2 biaffine student architecture + training loop that targets exactly those weak cases.
+- External benchmarks under the production config (English NLI + atomic claims + reranker, n=120 seed=42, reconciled 2026-04-28): HaluEval QA paired accuracy ~0.72, RAGTruth QA F1 ~0.69 / precision ~0.93, RAGTruth Summ F1 ~0.68. Earlier public numbers around 0.59 / 0.36 came from a bench harness that silently dropped the anchor question and broke RAGTruth packing - both fixed, both documented under `data/veracier-industries/proof_bundle_v1/external_bench_production/reconciliation.md`.
+- On adversarial coding (HumanEval+ + CRUXEval identifier / literal / API-signature swaps) the v1 RAG lane is not code-aware and misses the 0.80 paired-accuracy gate. We publish that result too. The v2 biaffine student with explicit code channels (identifier-match bit, numeric-match bit, AST role, source-type) targets exactly that gap; architecture + training loop live in `research/triangular_maxsim/student_v2/`.
 
 Integrations: MCP (stdio + HTTP + SSE), LangChain, LangGraph, LlamaIndex, CrewAI, AutoGen, Haystack 2, Pydantic AI, OpenAI, n8n, TypeScript SDK, Python SDK. Every one is proved live in `proof_bundle_v1/integration_proof.json`.
 
