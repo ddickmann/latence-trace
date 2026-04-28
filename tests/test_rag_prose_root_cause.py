@@ -288,9 +288,75 @@ def test_lexical_rescue_rejects_low_lexical_overlap() -> None:
         [{"text": "support about network security policies"}],
         reverse_context_calibrated=0.90,
         literal_guarded=0.90,
-        nli_aggregate=0.30,
+        nli_aggregate=0.65,
     )
     assert rescue is None
+
+
+def test_lexical_rescue_rejects_strong_nli_contradiction() -> None:
+    """NLI aggregate below 0.50 must never be overridden by lexical overlap."""
+    rescue = _lexical_rescue_floor(
+        "Les entites concernees doivent notifier la violation dans les 72 heures "
+        "a l'autorite de controle designee.",
+        [
+            {
+                "text": (
+                    "En cas de violation, l'autorite de controle doit etre notifiee "
+                    "dans les 72 heures par les entites concernees."
+                )
+            }
+        ],
+        reverse_context_calibrated=0.90,
+        literal_guarded=0.88,
+        nli_aggregate=0.25,
+    )
+    assert rescue is None
+
+
+def test_lexical_rescue_rejects_injected_negation_en() -> None:
+    """A response that inserts a negation where support has none must not be lifted."""
+    rescue = _lexical_rescue_floor(
+        "The directive does not require reporting incidents to the CSIRT within 24 hours.",
+        [{"text": "The directive requires reporting incidents to the CSIRT within 24 hours."}],
+        reverse_context_calibrated=0.90,
+        literal_guarded=0.85,
+        nli_aggregate=0.55,
+    )
+    assert rescue is None
+
+
+def test_lexical_rescue_rejects_injected_negation_fr() -> None:
+    rescue = _lexical_rescue_floor(
+        "Les entites ne doivent pas notifier la violation dans les 72 heures.",
+        [{"text": "Les entites doivent notifier la violation dans les 72 heures."}],
+        reverse_context_calibrated=0.88,
+        literal_guarded=0.85,
+        nli_aggregate=0.55,
+    )
+    assert rescue is None
+
+
+def test_lexical_rescue_rejects_injected_negation_de() -> None:
+    rescue = _lexical_rescue_floor(
+        "Die Einrichtung muss keine erheblichen Vorfaelle innerhalb von 24 Stunden melden.",
+        [{"text": "Die Einrichtung muss erhebliche Vorfaelle innerhalb von 24 Stunden melden."}],
+        reverse_context_calibrated=0.88,
+        literal_guarded=0.85,
+        nli_aggregate=0.55,
+    )
+    assert rescue is None
+
+
+def test_lexical_rescue_allows_symmetric_negation() -> None:
+    """A response that keeps the same negation cue as support is still rescued."""
+    rescue = _lexical_rescue_floor(
+        "The provider must not share credentials outside of the approved tunnel.",
+        [{"text": "The provider must not share credentials outside of the approved tunnel."}],
+        reverse_context_calibrated=0.92,
+        literal_guarded=0.92,
+        nli_aggregate=0.60,
+    )
+    assert rescue == pytest.approx(0.85)
 
 
 # ----------------------------------------------------------------------

@@ -1012,6 +1012,19 @@ def _normalize_text_for_verbatim_support(text: str) -> str:
 
 _LEXICAL_TOKEN_RE = re.compile(r"[\w\u00C0-\u017F]{2,}", re.UNICODE)
 
+# Cross-lingual negation cues. Counts are compared between response and support
+# so a response that injects a negation where support has none (or strips one
+# where support has one) refuses the lexical rescue, even when surface token
+# overlap is high.
+_NEGATION_TOKENS = {
+    # English
+    "not", "no", "never", "none", "cannot", "nor", "without",
+    # French (conservative subset — 'ne' and 'pas' are most common cues)
+    "pas", "non", "aucun", "aucune", "aucuns", "aucunes", "jamais", "sans",
+    # German
+    "nicht", "kein", "keine", "keinen", "keiner", "keines", "nie", "ohne",
+}
+
 
 def _lexical_token_set(text: str) -> set[str]:
     """Return a lowercase token set used by the near-verbatim Jaccard check."""
@@ -1020,6 +1033,13 @@ def _lexical_token_set(text: str) -> set[str]:
     if not normalized:
         return set()
     return {tok for tok in _LEXICAL_TOKEN_RE.findall(normalized)}
+
+
+def _negation_count(text: str) -> int:
+    normalized = _normalize_text_for_verbatim_support(text)
+    if not normalized:
+        return 0
+    return sum(1 for tok in _LEXICAL_TOKEN_RE.findall(normalized) if tok in _NEGATION_TOKENS)
 
 
 def _verbatim_support_floor(
@@ -1096,23 +1116,38 @@ def _lexical_rescue_floor(
 ) -> Optional[float]:
     """Rescue for NLI under-confidence on multilingual / legal prose.
 
-    Fires when two independent lexical channels (``reverse_context_calibrated``
-    and ``literal_guarded``) both agree the response is grounded (>= 0.80)
-    but NLI is below 0.80, *and* the response has meaningful lexical
-    overlap with support (token-level precision >= 0.70). In that case we
-    lift the NLI aggregate to ``max(nli_aggregate, 0.85)`` so the fused
-    headline is not dragged down by a single under-confident NLI channel.
+    Fires only when **all** of the following hold:
 
-    Returns the rescued floor (>= 0.85) or ``None`` when it should not
-    apply. The caller merges this with ``_verbatim_support_floor``.
+    1. Two independent lexical channels agree the response is grounded
+       (``reverse_context_calibrated >= 0.80`` AND ``literal_guarded >= 0.80``).
+    2. NLI is below 0.80 but not strongly contradicting (``>= 0.50``).
+       A very low NLI score is treated as a real semantic mismatch signal
+       that must NOT be overridden by lexical overlap alone — this blocks
+       the classic "response is a copy of support with a negation
+       inserted" failure mode.
+    3. Response-side token precision against support is at least 0.70,
+       so incidental keyword overlap cannot trigger the rescue.
+    4. The response and support use negation symmetrically: a response
+       that contains more negation tokens than its supporting evidence
+       (or fewer) refuses the rescue, even if surface overlap is high.
+
+    Returns the rescued floor (0.85) or ``None`` when any safeguard
+    blocks the lift. The caller merges this with
+    :func:`_verbatim_support_floor`.
     """
 
     if reverse_context_calibrated is None or literal_guarded is None:
         return None
     if float(reverse_context_calibrated) < 0.80 or float(literal_guarded) < 0.80:
         return None
-    if nli_aggregate is not None and float(nli_aggregate) >= 0.80:
-        return None
+    if nli_aggregate is not None:
+        nli_value = float(nli_aggregate)
+        if nli_value >= 0.80:
+            return None
+        # Strong NLI contradiction: likely a real semantic mismatch. Do
+        # NOT override with lexical overlap.
+        if nli_value < 0.50:
+            return None
     response_tokens = _lexical_token_set(response_text or "")
     if len(response_tokens) < 6:
         return None
@@ -1124,13 +1159,28 @@ def _lexical_rescue_floor(
             text = getattr(unit, "text", "")
         if text:
             support_parts.append(str(text))
-    support_tokens = _lexical_token_set(" ".join(support_parts))
+    support_joined = " ".join(support_parts)
+    support_tokens = _lexical_token_set(support_joined)
     if not support_tokens:
         return None
     overlap = len(response_tokens & support_tokens)
     precision = overlap / float(len(response_tokens))
     if precision < 0.70:
         return None
+    # Asymmetric negation: response injects or removes a negation cue
+    # that is not balanced by a matching cue on the support side. The
+    # check uses a multilingual EN/FR/DE negation stop-list so it is
+    # cheap and language-independent.
+    response_negations = _negation_count(response_text or "")
+    support_negations = _negation_count(support_joined)
+    if response_negations != support_negations:
+        # If either side has zero negations and the other has >=1, the
+        # response changed polarity — refuse the rescue.
+        if min(response_negations, support_negations) == 0:
+            return None
+        # Otherwise allow up to a one-token drift (natural paraphrase).
+        if abs(response_negations - support_negations) > 1:
+            return None
     return 0.85
 
 
@@ -2743,6 +2793,14 @@ def score_groundedness(
         if structured_payload
         else 0
     )
+    structured_gate_applied = bool(
+        typed_structured_score is not None
+        and (
+            str(structured_source_format or "").strip().lower()
+            in {"json", "markdown_table"}
+            or typed_claims_matched >= 2
+        )
+    )
     usage_aggregates = apply_support_unit_usage_classification(
         support_units_payload=support_units_payload,
         support_inputs=support_units,
@@ -2852,6 +2910,7 @@ def score_groundedness(
             if structured_payload and structured_payload.get("structured_verification")
             else resolve_structured_mode(structured_verification)
         ),
+        "structured_gate_applied": bool(structured_gate_applied),
         "risk_band": risk_band,
         "context_coverage_ratio": float(coverage["coverage_ratio"]),
         "context_coverage_threshold": float(coverage["threshold"]),
@@ -3729,6 +3788,14 @@ def score_groundedness_chunked(
         if structured_payload
         else 0
     )
+    structured_gate_applied = bool(
+        typed_structured_score is not None
+        and (
+            str(structured_source_format or "").strip().lower()
+            in {"json", "markdown_table"}
+            or typed_claims_matched >= 2
+        )
+    )
 
     groundedness_v2 = fuse_groundedness_v2(
         reverse_context_calibrated=(
@@ -3836,6 +3903,7 @@ def score_groundedness_chunked(
             if structured_payload and structured_payload.get("structured_verification")
             else resolve_structured_mode(structured_verification)
         ),
+        "structured_gate_applied": bool(structured_gate_applied),
         "risk_band": risk_band,
         "context_coverage_ratio": float(coverage["coverage_ratio"]),
         "context_coverage_threshold": float(coverage["threshold"]),
