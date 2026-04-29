@@ -43,13 +43,34 @@ from research.triangular_maxsim.student_v2.distill_dataset import split_rows
 logger = logging.getLogger("trace.v2.merge_corpus")
 
 
+_INT_TO_BAND = {0: "green", 1: "amber", 2: "red"}
+
+
+def _normalize_row(row: dict) -> dict:
+    """Harmonize the row shape so ``collate.build_example`` accepts it.
+
+    Teacher-labeled rows emitted by older revisions of ``teacher_label``
+    stored ``turn_band`` as an int (0/1/2). The synthetic lane and the
+    downstream collate use the string name ("green"/"amber"/"red"). We
+    rewrite the int form on the fly so both corpora merge cleanly.
+    """
+
+    tb = row.get("turn_band")
+    if isinstance(tb, int):
+        row = {**row, "turn_band": _INT_TO_BAND.get(tb, "amber")}
+    gb = row.get("gold_band")
+    if isinstance(gb, int):
+        row["gold_band"] = _INT_TO_BAND.get(gb, "amber")
+    return row
+
+
 def _iter_jsonl(path: pathlib.Path) -> Iterable[dict]:
     with path.open(encoding="utf-8") as fh:
         for line in fh:
             line = line.strip()
             if not line:
                 continue
-            yield json.loads(line)
+            yield _normalize_row(json.loads(line))
 
 
 def _load_all(paths: list[pathlib.Path]) -> list[dict]:

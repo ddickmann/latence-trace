@@ -76,14 +76,14 @@ def test_turn_score_clamped_to_unit_interval() -> None:
 def test_gold_band_overrides_teacher_band() -> None:
     resp = _make_resp(score=0.95, band="green")
     out = extract_labels(resp, gold_band="red")
-    assert out["turn_band"] == 2
+    assert out["turn_band"] == "red"
     assert out["teacher_band"] == "green"
 
 
 def test_band_falls_back_to_thresholds_when_missing() -> None:
-    assert extract_labels(_make_resp(score=0.85, band=None))["turn_band"] == 0
-    assert extract_labels(_make_resp(score=0.1, band=None))["turn_band"] == 2
-    assert extract_labels(_make_resp(score=0.5, band=None))["turn_band"] == 1
+    assert extract_labels(_make_resp(score=0.85, band=None))["turn_band"] == "green"
+    assert extract_labels(_make_resp(score=0.1, band=None))["turn_band"] == "red"
+    assert extract_labels(_make_resp(score=0.5, band=None))["turn_band"] == "amber"
 
 
 def test_token_support_labels_use_calibrated_threshold() -> None:
@@ -122,8 +122,13 @@ def test_unit_labels_derive_from_usage_state_and_coverage() -> None:
             {"text": "unit C", "usage_state": "uncertain", "used": True, "coverage_score": 0.5},
         ]
     )
-    out = extract_labels(resp)
-    assert out["evidence_units"] == ["unit A", "unit B", "unit C"]
+    evidence = "unit A unit B unit C"
+    out = extract_labels(resp, evidence_text=evidence)
+    texts = [u["text"] for u in out["evidence_units"]]
+    spans = [(u["char_start"], u["char_end"]) for u in out["evidence_units"]]
+    assert texts == ["unit A", "unit B", "unit C"]
+    # Each unit appears once in the evidence in order.
+    assert spans == [(0, 6), (7, 13), (14, 20)]
     assert out["dead_weight_unit_labels"] == [0, 1, 0]
     assert out["coverage_unit_labels"] == [1, 0, 1]
 

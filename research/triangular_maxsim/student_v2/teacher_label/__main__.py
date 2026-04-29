@@ -191,7 +191,11 @@ def main() -> None:
                     break
                 continue
             consecutive_failures = 0
-            labels = extract_labels(resp, gold_band=row.get("gold_band"))
+            labels = extract_labels(
+                resp,
+                gold_band=row.get("gold_band"),
+                evidence_text=row.get("evidence_text", ""),
+            )
             merged = _emit(row, labels)
             with write_lock:
                 out_fh.write(json.dumps(merged, ensure_ascii=False) + "\n")

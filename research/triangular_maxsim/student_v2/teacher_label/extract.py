@@ -32,6 +32,7 @@ from typing import Mapping
 logger = logging.getLogger("trace.v2.teacher_label.extract")
 
 _BAND_TO_INT = {"green": 0, "amber": 1, "red": 2, "unknown": 1, "unsupported": 2}
+_INT_TO_BAND = {0: "green", 1: "amber", 2: "red"}
 _DEFAULT_GREEN_THRESHOLD = 0.72
 _DEFAULT_RED_THRESHOLD = 0.38
 # Per-token thresholds. The teacher's `nli_score` is the propagated
@@ -125,20 +126,47 @@ def _response_token_labels(resp: dict) -> tuple[list[str], list[int]]:
     return out_tokens, out_labels
 
 
-def _unit_labels(resp: dict) -> tuple[list[str], list[int], list[int]]:
+def _find_span(haystack: str, needle: str, cursor: int) -> tuple[int, int]:
+    """Return (char_start, char_end) for ``needle`` inside ``haystack``.
+
+    Walks forward from ``cursor`` so repeated phrases map to distinct
+    locations in source order. Falls back to (cursor, cursor + len) on
+    miss so we never crash — the downstream collate clamps spans.
+    """
+
+    if not needle:
+        return (cursor, cursor)
+    idx = haystack.find(needle, cursor)
+    if idx < 0:
+        # Retry from the start: teacher chunker may have reordered
+        # trailing fragments.
+        idx = haystack.find(needle)
+        if idx < 0:
+            return (cursor, cursor + len(needle))
+    return (idx, idx + len(needle))
+
+
+def _unit_labels(
+    resp: dict, *, evidence_text: str = ""
+) -> tuple[list[dict], list[int], list[int]]:
+    """Return (evidence_units, dead_labels, coverage_labels).
+
+    ``evidence_units`` follows the synthetic-lane schema:
+    ``{"text": str, "char_start": int, "char_end": int, "tokens": []}``
+    so the student's collate can align labels via offsets.
+    """
+
     compact_units = resp.get("support_units") or []
     full_units = _dig(resp, "full", "support_units") or []
-    # Compact payload keys: support_id, usage_state, coverage_score, used.
-    # Full payload keys: support_id, usage_state, coverage_score, used, text.
-    # We merge by support_id so we keep the per-unit text from `full`.
     text_by_id: dict[str, str] = {}
     for u in full_units:
         if isinstance(u, Mapping):
             text_by_id[str(u.get("support_id"))] = str(u.get("text") or "")
 
-    texts: list[str] = []
+    units_out: list[dict] = []
     dead: list[int] = []
     coverage: list[int] = []
+    cursor = 0
     ordered = compact_units if compact_units else full_units
     for u in ordered:
         if not isinstance(u, Mapping):
@@ -148,8 +176,16 @@ def _unit_labels(resp: dict) -> tuple[list[str], list[int], list[int]]:
         state = str(u.get("usage_state") or "").lower()
         used = bool(u.get("used", False))
         cov_score = float(u.get("coverage_score") or 0.0)
-        texts.append(text)
-        # dead_weight: 1 = teacher says the unit was NOT used
+        char_start, char_end = _find_span(evidence_text, text, cursor)
+        cursor = char_end
+        units_out.append(
+            {
+                "text": text,
+                "tokens": [],
+                "char_start": char_start,
+                "char_end": char_end,
+            }
+        )
         if state == "unused":
             dead.append(1)
         elif state == "used":
@@ -157,15 +193,22 @@ def _unit_labels(resp: dict) -> tuple[list[str], list[int], list[int]]:
         else:
             dead.append(0 if used else 1)
         coverage.append(1 if cov_score >= _COVERAGE_THRESHOLD else 0)
-    return texts, dead, coverage
+    return units_out, dead, coverage
 
 
 def extract_labels(
     resp: dict,
     *,
     gold_band: str | None = None,
+    evidence_text: str = "",
 ) -> dict:
-    """Return the 5-axis label dict for the teacher response ``resp``."""
+    """Return the 5-axis label dict for the teacher response ``resp``.
+
+    Passing ``evidence_text`` lets the extractor compute char spans on
+    each support unit so downstream collate can align per-unit labels
+    to tokenizer offsets. When not supplied we emit char_start=0 /
+    char_end=len(text) which the collate will treat as whole-evidence.
+    """
 
     teacher_band = _risk_band(resp)
     effective_band = (gold_band or "").strip().lower()
@@ -173,11 +216,17 @@ def extract_labels(
         effective_band = teacher_band
 
     tokens, token_labels = _response_token_labels(resp)
-    evidence_units, dead_labels, coverage_labels = _unit_labels(resp)
+    evidence_units, dead_labels, coverage_labels = _unit_labels(
+        resp, evidence_text=evidence_text
+    )
+
+    # Emit band as its string name for downstream consistency with the
+    # synthetic labeler. ``collate.BAND_TO_IDX`` maps back to the int.
+    band_idx = _BAND_TO_INT.get(effective_band, 1)
 
     return {
         "turn_score": _turn_score(resp),
-        "turn_band": _BAND_TO_INT.get(effective_band, 1),
+        "turn_band": _INT_TO_BAND.get(band_idx, "amber"),
         "teacher_band": teacher_band,
         "nli_aggregate": resp.get("nli_aggregate"),
         "response_tokens_teacher": tokens,
