@@ -181,6 +181,7 @@ def _base_row(
     split_hint: str,
     upweight_factor: int,
     synthetic: bool,
+    pair_row_id: str | None = None,
     role: str | None = None,
     industry: str | None = None,
     sub_domain: str | None = None,
@@ -191,6 +192,8 @@ def _base_row(
 ) -> dict[str, Any]:
     return {
         "pair_id": pair_id,
+        # Fallback: if the row has no disambiguator, reuse pair_id.
+        "pair_row_id": pair_row_id or pair_id,
         "class_key": class_key,
         "response_text": response_text,
         "evidence_text": evidence_text,
@@ -413,8 +416,12 @@ def iter_synthetic_enterprise(
     for r in rows:
         if (r.pair_id, r.role) in dropped_pairs:
             continue
+        # Preserve the passage-level pair_id so the margin-ranking loss
+        # can cluster grounded + adversarial rows of the same stem.
+        # The role+variant disambiguator now goes into ``pair_row_id``.
         row = _base_row(
-            pair_id=f"{r.pair_id}::{r.role}::{r.paraphrase_variant}",
+            pair_id=r.pair_id,
+            pair_row_id=f"{r.pair_id}::{r.role}::{r.paraphrase_variant}",
             class_key=r.class_key,
             response_text=r.response_text,
             evidence_text=r.evidence_text,

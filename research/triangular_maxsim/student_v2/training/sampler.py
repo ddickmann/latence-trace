@@ -131,40 +131,42 @@ class PairAwareBatchSampler:
     def __iter__(self) -> Iterator[list[int]]:
         clusters = [list(c) for c in self._clusters]
         self.rng.shuffle(clusters)
-        orphans = list(self._orphans)
-        self.rng.shuffle(orphans)
 
+        # Policy:
+        #   1. Keep adding whole clusters until we've accumulated AT
+        #      LEAST ``min_pairs_per_batch`` clusters. Only then do we
+        #      enforce the ``batch_size`` cap.
+        #   2. When we would exceed ``batch_size`` after adding another
+        #      cluster AND ``pairs_in_batch >= min_pairs_per_batch``,
+        #      yield the current batch (trimmed to batch_size) and
+        #      start a fresh one with the new cluster.
+        #   3. At stream end, yield the tail iff it meets the pair
+        #      floor.
+        #
+        # This gives consistent batch sizes on average and never drops
+        # a cluster just because it would push us over batch_size - we
+        # simply trim to ``batch_size`` at yield time.
         batch: list[int] = []
         pairs_in_batch = 0
-        cluster_iter = iter(clusters)
-        orphan_iter = iter(orphans)
+        for cluster in clusters:
+            # If we haven't hit the pair floor yet, absorb the cluster
+            # unconditionally.
+            if pairs_in_batch < self.min_pairs_per_batch:
+                batch.extend(cluster)
+                pairs_in_batch += 1
+                continue
 
-        while True:
-            # Take one cluster if batch has room.
-            try:
-                cluster = next(cluster_iter)
-            except StopIteration:
-                # Exhausted clusters; if batch is non-empty and satisfies
-                # the pair-count floor, yield it.
-                if batch and pairs_in_batch >= self.min_pairs_per_batch:
-                    yield batch[: self.batch_size]
-                return
+            # We have enough pairs; check the size cap before adding.
             if len(batch) + len(cluster) > self.batch_size:
-                # Yield current batch before adding this cluster.
-                if batch and pairs_in_batch >= self.min_pairs_per_batch:
-                    yield batch[: self.batch_size]
-                batch = []
-                pairs_in_batch = 0
-            batch.extend(cluster)
-            pairs_in_batch += 1
-            if len(batch) >= self.batch_size:
-                if pairs_in_batch >= self.min_pairs_per_batch:
-                    yield batch[: self.batch_size]
-                batch = []
-                pairs_in_batch = 0
-        # Note: orphan_iter reserved for future extension; current
-        # policy yields only pair-heavy batches to keep Stage-2 signal
-        # clean.
+                yield batch[: self.batch_size]
+                batch = list(cluster)
+                pairs_in_batch = 1
+            else:
+                batch.extend(cluster)
+                pairs_in_batch += 1
+
+        if batch and pairs_in_batch >= self.min_pairs_per_batch:
+            yield batch[: self.batch_size]
 
     def __len__(self) -> int:
         # Upper bound on number of batches (over-approx).
