@@ -56,12 +56,18 @@ def stage_configs(
             name="stage2_gold_and_pairs",
             epochs=stage2_epochs,
             lambda_support=1.0,
-            lambda_band=1.0,
+            # Down-weight teacher-band CE in favour of gold-band CE so
+            # the model learns the binary grounded/ungrounded signal
+            # on the hallucination axis directly. The teacher band has
+            # near-identical mode as the gold band for synthetic rows
+            # so they mostly agree; the gold-band term is what breaks
+            # the "predict red always" failure mode.
+            lambda_band=0.3,
             lambda_score=0.5,
             lambda_pair=1.0,
             lambda_dead=0.7,
             lambda_cov=0.5,
-            lambda_gold=0.5,
+            lambda_gold=1.5,
             use_pair_sampler=True,
             pair_margin=0.2,
         ),
@@ -69,12 +75,12 @@ def stage_configs(
             name="stage3_hard_cases",
             epochs=stage3_epochs,
             lambda_support=0.5,
-            lambda_band=0.5,
+            lambda_band=0.2,
             lambda_score=0.3,
             lambda_pair=1.5,
-            lambda_dead=1.2,
+            lambda_dead=1.0,
             lambda_cov=0.3,
-            lambda_gold=1.0,
+            lambda_gold=2.0,
             use_pair_sampler=True,
             pair_margin=0.4,
         ),

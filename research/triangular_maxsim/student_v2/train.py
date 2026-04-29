@@ -203,8 +203,17 @@ def _run_stage(
             ds, batch_sampler=batch_sampler, collate_fn=build_batch,
         )
     else:
+        # Role-balanced sampling: the synthetic enterprise lane has a
+        # 3:9 grounded:adversarial ratio per passage. Without re-
+        # weighting, the band head learns a strong "predict red"
+        # prior. We weight rows by the (class_key, role_bucket) pair
+        # where role_bucket is "grounded" vs "adversarial" so the
+        # effective class ratio during training is closer to 1:1.
+        def _bucket(r: dict) -> str:
+            role = (r.get("role") or "grounded").lower()
+            return f"{r.get('class_key') or ''}::{'grounded' if role == 'grounded' else 'adversarial'}"
         sampler = ClassWeightedSampler(
-            [r.get("class_key") or "" for r in rows],
+            [_bucket(r) for r in rows],
             num_samples=len(rows),
             rng=rng,
         )
