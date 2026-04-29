@@ -622,6 +622,15 @@ def main() -> None:
         action="store_true",
         help="Opt into the zero-human-in-the-loop amber escalation on every row.",
     )
+    parser.add_argument(
+        "--corpus-type",
+        default=None,
+        help=(
+            "Optional explicit corpus type for every request (e.g. "
+            "rag.prose.short_factoid). Passed through as the request's "
+            "corpus_type so the router skips classification."
+        ),
+    )
     args = parser.parse_args()
 
     extra: dict[str, Any] = {}
@@ -629,6 +638,8 @@ def main() -> None:
         extra["nli_use_atomic_claims"] = (args.atomic_claims == "true")
     if args.auto_decide:
         extra["auto_decide"] = True
+    if args.corpus_type:
+        extra["corpus_type"] = args.corpus_type
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)

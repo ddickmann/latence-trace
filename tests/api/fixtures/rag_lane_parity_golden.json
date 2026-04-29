@@ -2,7 +2,7 @@
   {
     "scores": {
       "context_coverage_ratio": 0.0,
-      "literal_guarded": 0.21494470437367755,
+      "literal_guarded": 0.20940497318903603,
       "primary_name": "reverse_context",
       "primary_score": 0.09512087371614245,
       "reverse_context": 0.09512087371614245,
@@ -36,7 +36,7 @@
   {
     "scores": {
       "context_coverage_ratio": 0.0,
-      "literal_guarded": 0.5045375347137451,
+      "literal_guarded": 0.4983613517549303,
       "primary_name": "reverse_context",
       "primary_score": 0.2923767301771376,
       "reverse_context": 0.2923767301771376,
@@ -70,7 +70,7 @@
   {
     "scores": {
       "context_coverage_ratio": 0.0,
-      "literal_guarded": 0.5657289624214172,
+      "literal_guarded": 0.5671230554580688,
       "primary_name": "reverse_context",
       "primary_score": 0.2805478274822235,
       "reverse_context": 0.2805478274822235,

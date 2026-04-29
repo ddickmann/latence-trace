@@ -48,6 +48,34 @@ class ScoringMode(str, Enum):
     CODE = "code"
 
 
+class CorpusType(str, Enum):
+    """Caller-declared or inferred corpus type for per-class calibration.
+
+    Set by the corpus router middleware
+    (:mod:`latence_trace.middleware.corpus_router`); callers may also
+    pre-declare the class when they know it (e.g. a structured-reporting
+    tenant that always routes through ``rag.structured``).
+
+    Six classes are shipped in v1, each with its own calibrated
+    ``(fusion_weights, thresholds)`` bundle in
+    ``latence_trace/data/calibration.<class>.json``:
+
+    * ``rag.prose.enterprise``    - Veracier-style enterprise RAG prose
+    * ``rag.prose.short_factoid`` - HaluEval QA-style short factoid QA
+    * ``rag.prose.multi_claim``   - RAGTruth-style multi-claim summaries
+    * ``rag.structured``          - Data2Text / tabular / schema-shaped
+    * ``rag.code_in_context``     - prose-about-code agent turns
+    * ``code.agentic_trace``      - agentic coding turns with fenced code
+    """
+
+    RAG_PROSE_ENTERPRISE = "rag.prose.enterprise"
+    RAG_PROSE_SHORT_FACTOID = "rag.prose.short_factoid"
+    RAG_PROSE_MULTI_CLAIM = "rag.prose.multi_claim"
+    RAG_STRUCTURED = "rag.structured"
+    RAG_CODE_IN_CONTEXT = "rag.code_in_context"
+    CODE_AGENTIC_TRACE = "code.agentic_trace"
+
+
 class TraceRuntimeProfile(str, Enum):
     """Hosted runtime profile selected per request.
 
@@ -379,6 +407,17 @@ class GroundednessRequest(BaseModel):
             "the AST extractor falls back to the language declared on the "
             "response's first fenced code block, then to content heuristics. "
             "Ignored by the RAG lane."
+        ),
+    )
+    corpus_type: Optional[CorpusType] = Field(
+        default=None,
+        description=(
+            "Optional tenant-declared corpus type. Forces the corpus "
+            "router to use the matching per-class calibration bundle "
+            "(``latence_trace/data/calibration.<class>.json``) regardless "
+            "of what the classifier would infer. When omitted, the "
+            "classifier infers the class from request features in "
+            "<= 3 ms on CPU."
         ),
     )
     emit_chunk_ownership: bool = Field(
@@ -752,6 +791,72 @@ class GroundednessNLIDiagnostics(BaseModel):
         validation_alias=AliasChoices("aggregate_score", "aggregate"),
     )
     claims: List[GroundednessNLIClaim] = Field(default_factory=list)
+
+
+class CorpusRouteDiagnostics(BaseModel):
+    """Per-request corpus router diagnostics.
+
+    Emitted when the router produced a class assignment for the request
+    (whether from the classifier or a tenant-supplied override). Carries
+    enough information for dashboards / auditors to reproduce the
+    scoring configuration that was actually applied.
+    """
+
+    corpus_type: str = Field(
+        ..., description="Inferred or declared corpus class (e.g. 'rag.prose.enterprise')."
+    )
+    source: str = Field(
+        ...,
+        description=(
+            "Where the class came from. ``classifier`` = inferred from "
+            "request features by the LR classifier; ``rule`` = a high-"
+            "precision structural rule in the overlay fired before the "
+            "classifier (see ``rule_reason``); ``explicit`` = caller "
+            "supplied ``corpus_type`` on the request; ``fallback`` = "
+            "classifier unavailable, default bundle used."
+        ),
+    )
+    confidence: Optional[float] = Field(
+        default=None,
+        description="Classifier posterior probability for the selected class (None for explicit / fallback).",
+    )
+    classifier_latency_ms: float = Field(
+        default=0.0,
+        description="Wall-clock latency of the featurize + predict_proba pass.",
+    )
+    artefact_sha256: Optional[str] = Field(
+        default=None,
+        description="SHA256 of the corpus_classifier.joblib artefact actually loaded at serving time.",
+    )
+    rule_reason: Optional[str] = Field(
+        default=None,
+        description=(
+            "Human-readable reason string when a high-precision rule in "
+            "the router overlay fired (e.g. ``rule:json_rooted_context``). "
+            "Null when the LR classifier or a fallback path produced the "
+            "decision."
+        ),
+    )
+    fusion_weights_applied: Optional[Dict[str, float]] = Field(
+        default=None,
+        description="Fusion weights from the calibration bundle that were layered on top of the runtime profile.",
+    )
+    thresholds_applied: Optional[Dict[str, float]] = Field(
+        default=None,
+        description="Green / amber thresholds applied by the scoring layer for this class.",
+    )
+    scoring_mode_applied: Optional[str] = Field(
+        default=None,
+        description="Scoring mode actually used after router override (``rag`` or ``code``).",
+    )
+    bundle_metric: Optional[str] = Field(
+        default=None,
+        description="Objective name from the calibration bundle (``f1_at_best_threshold`` / ``veracier_composite`` / ``paired_accuracy``).",
+    )
+    bundle_metric_value: Optional[float] = Field(
+        default=None,
+        description="Recorded value of that objective at calibration time (for transparency).",
+    )
 
 
 class AmberEscalationDiagnostics(BaseModel):
@@ -1513,6 +1618,16 @@ class GroundednessResponse(BaseModel):
     attribution_mode: Optional[AttributionMode] = Field(
         default=None,
         description="Echo of the request attribution_mode for downstream auditing.",
+    )
+    corpus_route: Optional["CorpusRouteDiagnostics"] = Field(
+        default=None,
+        description=(
+            "Populated when the corpus router is enabled. Records the "
+            "inferred (or explicitly declared) corpus type, the source "
+            "of the decision (``classifier`` vs ``explicit``), the "
+            "classifier latency, and the calibrated (fusion_weights, "
+            "thresholds) bundle actually applied by the scoring service."
+        ),
     )
     amber_escalation: Optional[AmberEscalationDiagnostics] = Field(
         default=None,

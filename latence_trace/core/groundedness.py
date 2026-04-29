@@ -2631,6 +2631,7 @@ def score_groundedness(
     verification_samples: Optional[Sequence[str]] = None,
     semantic_entropy_enabled: Optional[bool] = None,
     fusion_weights: Optional[Dict[str, float]] = None,
+    fusion_substitute_missing_channels_threshold: float = 0.0,
     risk_band_stratum: Optional[str] = None,
     risk_band_policy: Optional[RiskBandPolicy] = None,
     content_type: Optional[str] = None,
@@ -3040,6 +3041,7 @@ def score_groundedness(
         source_format=structured_source_format,
         typed_claims_matched=typed_claims_matched,
         weights=fusion_weights,
+        substitute_missing_channels_threshold=fusion_substitute_missing_channels_threshold,
     )
     for token_idx, row in enumerate(response_token_rows):
         row["nli_score"] = nli_per_token[token_idx] if token_idx < len(nli_per_token) else None
@@ -3514,6 +3516,7 @@ def score_groundedness_chunked(
     verification_samples: Optional[Sequence[str]] = None,
     semantic_entropy_enabled: Optional[bool] = None,
     fusion_weights: Optional[Dict[str, float]] = None,
+    fusion_substitute_missing_channels_threshold: float = 0.0,
     risk_band_stratum: Optional[str] = None,
     risk_band_policy: Optional[RiskBandPolicy] = None,
     content_type: Optional[str] = None,
@@ -3556,6 +3559,9 @@ def score_groundedness_chunked(
             verification_samples=verification_samples,
             semantic_entropy_enabled=semantic_entropy_enabled,
             fusion_weights=fusion_weights,
+            fusion_substitute_missing_channels_threshold=(
+                fusion_substitute_missing_channels_threshold
+            ),
             risk_band_stratum=risk_band_stratum,
             risk_band_policy=risk_band_policy,
             content_type=content_type,
@@ -4040,6 +4046,7 @@ def score_groundedness_chunked(
         source_format=structured_source_format,
         typed_claims_matched=typed_claims_matched,
         weights=fusion_weights,
+        substitute_missing_channels_threshold=fusion_substitute_missing_channels_threshold,
     )
     for token_idx, row in enumerate(response_token_rows):
         row["nli_score"] = (
@@ -4339,6 +4346,7 @@ def score_groundedness_response_chunked(
     verification_samples: Optional[Sequence[str]] = None,
     semantic_entropy_enabled: Optional[bool] = None,
     fusion_weights: Optional[Dict[str, float]] = None,
+    fusion_substitute_missing_channels_threshold: float = 0.0,
     risk_band_stratum: Optional[str] = None,
     risk_band_policy: Optional[RiskBandPolicy] = None,
     content_type: Optional[str] = None,
@@ -4412,6 +4420,9 @@ def score_groundedness_response_chunked(
             verification_samples=verification_samples,
             semantic_entropy_enabled=semantic_entropy_enabled,
             fusion_weights=fusion_weights,
+            fusion_substitute_missing_channels_threshold=(
+                fusion_substitute_missing_channels_threshold
+            ),
             risk_band_stratum=risk_band_stratum,
             risk_band_policy=risk_band_policy,
             content_type=content_type,
@@ -4464,6 +4475,9 @@ def score_groundedness_response_chunked(
             verification_samples=verification_samples if is_first else None,
             semantic_entropy_enabled=semantic_entropy_enabled if is_first else None,
             fusion_weights=fusion_weights,
+            fusion_substitute_missing_channels_threshold=(
+                fusion_substitute_missing_channels_threshold
+            ),
             risk_band_stratum=risk_band_stratum,
             risk_band_policy=risk_band_policy,
             content_type=content_type,
@@ -4643,6 +4657,7 @@ def score_groundedness_response_chunked(
         structured_source_guarded=structured_aggregate,
         typed_structured=typed_structured_score,
         weights=fusion_weights,
+        substitute_missing_channels_threshold=fusion_substitute_missing_channels_threshold,
     )
     groundedness_v2 = fused if fused is not None else base_groundedness_v2
 

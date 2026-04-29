@@ -955,6 +955,8 @@ def fuse_groundedness_v2(
     source_format: Optional[str] = None,
     typed_claims_matched: Optional[int] = None,
     weights: Optional[Dict[str, float]] = None,
+    substitute_missing_channels_threshold: float = 0.0,
+    substitute_missing_channels_prior: float = 0.5,
 ) -> Optional[float]:
     """Convex-combination fusion of the available peer scores.
 
@@ -1064,6 +1066,29 @@ def fuse_groundedness_v2(
         ("semantic_entropy", semantic_entropy, weights.get("semantic_entropy", 0.0)),
         ("structured", structured_channel_value, weights.get("structured", 0.0)),
     ]
+
+    # Production hardening: when a bundle assigns a non-trivial weight to
+    # a channel but the channel came back ``None`` (e.g. NLI engine
+    # crashed mid-request), substituting the uncertainty prior (0.5)
+    # for that missing channel dampens the fused score toward amber so
+    # the caller never sees an artificially high "green" headline just
+    # because the discriminative channel was silently dropped. Opt-in
+    # via ``substitute_missing_channels_threshold > 0`` - the router
+    # sets this for every production request. The legacy drop-and-
+    # renormalise behaviour is preserved when the threshold is 0.0.
+    if substitute_missing_channels_threshold > 0.0:
+        prior = float(substitute_missing_channels_prior)
+        patched: list[tuple[str, Optional[float], float]] = []
+        for name, value, weight in channels:
+            if (
+                value is None
+                and weight >= float(substitute_missing_channels_threshold)
+            ):
+                patched.append((name, prior, weight))
+            else:
+                patched.append((name, value, weight))
+        channels = patched
+
     contributing = [
         (value, max(0.0, weight))
         for _name, value, weight in channels

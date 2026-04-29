@@ -118,7 +118,21 @@ from latence_trace.core.nli import (
 )
 from latence_trace.core.thresholds import RiskBandPolicy, load_risk_band_policy
 
+import contextvars
+
+from latence_trace.middleware import corpus_router as _corpus_router_middleware
+
 logger = logging.getLogger(__name__)
+
+
+# Request-scoped corpus-router decision. Populated at the top of
+# :meth:`groundedness()` before we dispatch to ``_score_rag`` /
+# ``_score_code`` so ``resolve_request_runtime_profile`` can layer the
+# class-specific fusion weights + thresholds on top of the hosted
+# profile preset without changing any callsite signatures.
+_ACTIVE_ROUTE_DECISION: "contextvars.ContextVar[Optional[_corpus_router_middleware.CorpusRouteDecision]]" = (
+    contextvars.ContextVar("_ACTIVE_ROUTE_DECISION", default=None)
+)
 
 
 # ---------------------------------------------------------------------------
@@ -308,6 +322,7 @@ class RequestRuntimeProfile:
     fusion_weights: Dict[str, float]
     thresholds_path: Optional[str]
     risk_band_policy: Optional[RiskBandPolicy]
+    fusion_substitute_missing_channels_threshold: float = 0.0
 
     @property
     def is_quality(self) -> bool:
@@ -414,6 +429,60 @@ def resolve_request_runtime_profile(
                 },
             )
 
+    fusion_weights = _profile_fusion_weights(provisional)
+    # Production fusion hardening: a non-zero threshold tells
+    # ``fuse_groundedness_v2`` to substitute a 0.5 uncertainty prior for
+    # any channel that has non-trivial weight but came back ``None``
+    # (e.g. NLI engine crashed mid-request). Drift-safe default is 0.0
+    # so direct in-process callers keep legacy drop-and-renormalise
+    # behaviour. The router flips it on below for every routed request.
+    fusion_substitute_threshold = 0.0
+
+    # Layer in the per-class calibration bundle if the corpus router
+    # produced one for this request. The router's decision lives on a
+    # context variable so both ``_score_rag`` and ``_score_code`` pick it
+    # up without threading a new argument through every callsite.
+    route_decision = _ACTIVE_ROUTE_DECISION.get()
+    if route_decision is not None and route_decision.bundle is not None:
+        bundle = route_decision.bundle
+        if bundle.scoring_mode == "rag" and bundle.fusion_weights:
+            # Overwrite channel-by-channel so unspecified channels fall
+            # through to the hosted preset (mostly a no-op since bundles
+            # cover all five channels).
+            fusion_weights = dict(fusion_weights)
+            for channel, value in bundle.fusion_weights.items():
+                fusion_weights[channel] = float(value)
+        # Build a single-stratum RiskBandPolicy from the bundle so the
+        # downstream classifier honours class-specific green / amber
+        # thresholds. Preserving the source string ("calibration_bundle:<class>")
+        # keeps provenance traceable in profile_diagnostics.
+        risk_band_policy = RiskBandPolicy(
+            headline="groundedness_v2",
+            precision_target=0.75,
+            nli_enabled=provisional.nli_enabled,
+            strata={
+                "default": {
+                    "green_min": float(bundle.thresholds.get("green", 0.80)),
+                    "amber_min": float(bundle.thresholds.get("amber", 0.60)),
+                }
+            },
+            source=f"calibration_bundle:{bundle.class_key}",
+            schema_version=1,
+        )
+        thresholds_path = f"calibration_bundle:{bundle.class_key}"
+        # Enable missing-channel substitution for every routed request.
+        # 0.2 = "only substitute channels the bundle actually relies on"
+        # (all six shipped bundles assign at least 0.2 to any channel
+        # they keep), which avoids penalising channels the bundle
+        # already dropped to zero. Override via
+        # ``LATENCE_TRACE_FUSION_SUBSTITUTE_MISSING_THRESHOLD``.
+        fusion_substitute_threshold = float(
+            os.environ.get(
+                "LATENCE_TRACE_FUSION_SUBSTITUTE_MISSING_THRESHOLD",
+                "0.2",
+            )
+        )
+
     return RequestRuntimeProfile(
         requested_profile=profile,
         effective_profile=effective,
@@ -434,9 +503,10 @@ def resolve_request_runtime_profile(
             nli_is_premise_concat_enabled(),
         ),
         nli_reranker_model=nli_reranker_model,
-        fusion_weights=_profile_fusion_weights(provisional),
+        fusion_weights=fusion_weights,
         thresholds_path=thresholds_path,
         risk_band_policy=risk_band_policy,
+        fusion_substitute_missing_channels_threshold=fusion_substitute_threshold,
     )
 
 
@@ -1037,10 +1107,51 @@ class GroundednessService:
           after the shared encoder pass so all code-specific signals
           (AST drift, literal novelty, NLI cascade, composite score,
           file attribution) can layer on top of the MaxSim backbone.
+
+        The corpus-type router runs first: it infers the corpus class
+        (or accepts ``request.corpus_type`` as an explicit override) and
+        loads the matching calibration bundle. The bundle's fusion
+        weights + thresholds are layered on top of the hosted profile
+        via a request-scoped ``contextvars.ContextVar`` so every
+        downstream scorer sees a single, coherent runtime profile.
         """
-        if request.scoring_mode == ScoringMode.CODE:
-            return self._score_code(request)
-        return self._score_rag(request)
+        decision = _corpus_router_middleware.route(request)
+        # Router may override the scoring mode (e.g. agentic-coding
+        # classifier chose code.agentic_trace even though the caller
+        # left scoring_mode unset on default). Respect explicit caller
+        # values (CODE was passed explicitly) unless the explicit
+        # corpus_type path told us otherwise.
+        effective_scoring_mode = request.scoring_mode
+        if decision.bundle is not None:
+            bundle_mode = decision.bundle.scoring_mode
+            if bundle_mode == "code":
+                effective_scoring_mode = ScoringMode.CODE
+            elif bundle_mode == "rag":
+                # Only downgrade CODE->RAG if the router (not the caller)
+                # picked the class. Explicit caller-set CODE always wins.
+                if decision.source != "explicit" and request.scoring_mode == ScoringMode.RAG:
+                    effective_scoring_mode = ScoringMode.RAG
+        if effective_scoring_mode != request.scoring_mode:
+            request = request.model_copy(update={"scoring_mode": effective_scoring_mode})
+        token = _ACTIVE_ROUTE_DECISION.set(decision)
+        try:
+            if request.scoring_mode == ScoringMode.CODE:
+                response = self._score_code(request)
+            else:
+                response = self._score_rag(request)
+        finally:
+            _ACTIVE_ROUTE_DECISION.reset(token)
+        # Attach router diagnostics for audit / dashboards. Kept as a
+        # best-effort attach — a missing CorpusRouteDiagnostics field on
+        # the response model would fail import, not runtime.
+        try:
+            from latence_trace.api.models import CorpusRouteDiagnostics
+            response.corpus_route = CorpusRouteDiagnostics.model_validate(
+                _corpus_router_middleware.build_diagnostics(decision)
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("corpus_router: failed to attach diagnostics: %r", exc)
+        return response
 
     def rollup(self, request: RollupRequest) -> RollupResponse:
         """Aggregate a sequence of per-turn records into session metrics.
@@ -1377,12 +1488,19 @@ class GroundednessService:
                 ),
                 "nli_use_atomic_claims": runtime_profile.nli_use_atomic_claims,
                 "fusion_weights": runtime_profile.fusion_weights,
+                "fusion_substitute_missing_channels_threshold": (
+                    runtime_profile.fusion_substitute_missing_channels_threshold
+                ),
                 "risk_band_policy": runtime_profile.risk_band_policy,
             }
         elif runtime_profile.is_quality:
             warnings.append("quality_profile_nli_unavailable")
         if request.verification_samples:
             nli_kwargs.setdefault("fusion_weights", runtime_profile.fusion_weights)
+            nli_kwargs.setdefault(
+                "fusion_substitute_missing_channels_threshold",
+                runtime_profile.fusion_substitute_missing_channels_threshold,
+            )
             nli_kwargs["verification_samples"] = list(request.verification_samples)
             nli_kwargs["semantic_entropy_enabled"] = True
         elif runtime_profile.is_quality:
@@ -1670,6 +1788,22 @@ class GroundednessService:
             scores=scores,
             code_result=code_result,
         )
+
+        # Apply router-supplied thresholds to the code lane's
+        # ``composite_phantom_score`` so ``code.agentic_trace`` requests
+        # come back with a band (previously only the RAG lane did). When
+        # the router didn't install a policy, stay None so callers can
+        # tell the difference between "no band" and "green".
+        if (
+            runtime_profile.risk_band_policy is not None
+            and scores.composite_phantom_score is not None
+        ):
+            from latence_trace.core.thresholds import classify_risk_band
+
+            scores.risk_band = classify_risk_band(
+                float(scores.composite_phantom_score),
+                policy=runtime_profile.risk_band_policy,
+            )
 
         # Mirror the code-lane file-attribution onto the lane-neutral
         # top-level field so downstream dashboards have one canonical

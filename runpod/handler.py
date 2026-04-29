@@ -553,6 +553,9 @@ def _build_request(input_data: dict[str, Any]) -> tuple[GroundednessRequest, boo
         "session_state",
         "heatmap_format",
         "auto_decide",
+        # Corpus router: tenant-declared override for the per-class
+        # calibration bundle. Ignored when absent (classifier infers).
+        "corpus_type",
     )
     for key in passthrough_keys:
         if key in input_data:
@@ -663,6 +666,8 @@ def _compact_response(response: GroundednessResponse, *, verbose: bool) -> dict[
         result["warnings"] = list(response.warnings)
     if response.amber_escalation is not None:
         result["amber_escalation"] = response.amber_escalation.model_dump(mode="json")
+    if response.corpus_route is not None:
+        result["corpus_route"] = response.corpus_route.model_dump(mode="json")
     if verbose:
         result["full"] = response.model_dump(mode="json")
     return result

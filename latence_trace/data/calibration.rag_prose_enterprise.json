@@ -1,0 +1,41 @@
+{
+  "fusion_weights": {
+    "calibrated": 0.625,
+    "literal": 0.0,
+    "nli": 0.37499999999999994,
+    "semantic_entropy": 0.0,
+    "structured": 0.0
+  },
+  "fusion_weights_raw": {
+    "calibrated": 0.5,
+    "literal": 0.0,
+    "nli": 0.3,
+    "semantic_entropy": 0.0,
+    "structured": 0.0
+  },
+  "metric": "veracier_composite",
+  "metric_value": 0.8805940594059406,
+  "nli_model_hint": "en",
+  "scoring_mode": "rag",
+  "test_validation": {
+    "amber_rate": 0.0,
+    "green_precision": 0.44,
+    "green_recall": 1.0,
+    "n_rows": 50,
+    "objective": 0.188,
+    "red_precision": 0.0,
+    "red_recall": 0.0
+  },
+  "thresholds": {
+    "amber": 0.8200000000000005,
+    "green": 0.9500000000000004
+  },
+  "train_components": {
+    "amber_rate": 0.297029702970297,
+    "green_precision": 1.0,
+    "green_recall": 1.0,
+    "red_precision": 0.85,
+    "red_recall": 0.9444444444444444
+  },
+  "trained_on": "db7242af8874a042351ce53dbaad659c96292075293af65ea7e7dee42575c225"
+}

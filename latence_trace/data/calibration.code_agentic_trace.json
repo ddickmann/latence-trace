@@ -1,0 +1,36 @@
+{
+  "fusion_weights": {
+    "calibrated": 0.0,
+    "literal": 0.0,
+    "nli": 0.0,
+    "semantic_entropy": 0.0,
+    "structured": 0.0
+  },
+  "fusion_weights_raw": {
+    "calibrated": 0.0,
+    "literal": 0.0,
+    "nli": 0.0,
+    "semantic_entropy": 0.0,
+    "structured": 0.0
+  },
+  "metric": "paired_accuracy",
+  "metric_value": 0.7391304347826086,
+  "nli_model_hint": "en",
+  "notes": "Thresholds apply to composite_phantom_score produced by the code lane; fusion_weights are inert because the code lane runs its own AST+literal+NLI cascade.",
+  "scoring_mode": "code",
+  "test_validation": {
+    "n_pairs": 2,
+    "paired_accuracy": 1.0,
+    "wins": 2
+  },
+  "thresholds": {
+    "amber": 0.61,
+    "green": 0.66
+  },
+  "train_support": {
+    "n_pairs": 23,
+    "paired_accuracy": 0.7391304347826086,
+    "wins": 17
+  },
+  "trained_on": "db7242af8874a042351ce53dbaad659c96292075293af65ea7e7dee42575c225"
+}
