@@ -254,6 +254,50 @@ def test_prose_rule_defers_on_medium_length() -> None:
     assert dec.corpus_type is None
 
 
+def test_short_factoid_rule_rejects_condensed_enterprise_summary() -> None:
+    # Single-sentence response that cites revenue + margin + EPS in
+    # one go is NOT a factoid — it's a dense enterprise summary.
+    # Rule must defer to the LR classifier so it can route to
+    # ``rag.prose.enterprise`` instead of the NLI-heavy factoid
+    # bundle (which false-reds enterprise payloads).
+    resp = "Q3 revenue rose 11% to $48.2B, margin expanded to 29.4%, EPS was $2.10."
+    ctx = "Apple Q3 earnings release. Revenue 48.2B. Operating margin 29.4%. EPS 2.10."
+    dec = apply_rules(query="Summarise Apple Q3.", response=resp, raw_context=ctx)
+    assert dec.corpus_type is None, (
+        "dense enterprise summaries must not hit the short_factoid rule"
+    )
+
+
+def test_short_factoid_rule_rejects_long_context() -> None:
+    # HaluEval-style one-liner answer but with a production-sized
+    # vector-DB context (>= 60 tokens). Real RAG users chunk at
+    # 256-512 tokens so the rule must defer here too.
+    resp = "The capital of France is Paris."
+    ctx = " ".join(
+        [
+            "France is a country in Western Europe with an extensive",
+            "history of political, cultural, and scientific influence",
+            "across the continent. Its capital city, Paris, is located",
+            "on the Seine river in the north-central part of the country",
+            "and is widely regarded as a global centre of art, fashion,",
+            "gastronomy and diplomacy; numerous international summits",
+            "have been hosted there since the post-war period.",
+        ]
+    )
+    dec = apply_rules(query="q", response=resp, raw_context=ctx)
+    assert dec.corpus_type is None
+
+
+def test_short_factoid_rule_still_fires_for_true_halueval_shape() -> None:
+    # Classic HaluEval QA shape: one-liner answer, short single-
+    # sentence context, minimal numeric density. Rule must still
+    # fire so the NLI-heavy fusion bundle is selected.
+    resp = "Antoni Gaudi designed the Sagrada Familia."
+    ctx = "Antoni Gaudi was a Catalan architect active in Barcelona."
+    dec = apply_rules(query="Who designed the Sagrada Familia?", response=resp, raw_context=ctx)
+    assert dec.corpus_type == "rag.prose.short_factoid"
+
+
 def test_apply_rules_is_deterministic() -> None:
     ctx = json.dumps({"a": 1, "b": 2})
     d1 = apply_rules(query="q", response="r", raw_context=ctx)

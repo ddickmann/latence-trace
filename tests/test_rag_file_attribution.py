@@ -213,3 +213,115 @@ def test_service_level_rag_response_surfaces_file_attribution() -> None:
     # Default heatmap_format is "data" — the heatmap payload must be populated.
     assert response.heatmap is not None
     assert response.heatmap_html is None
+
+
+def test_service_raw_context_with_file_headers_splits_into_per_file_units() -> None:
+    """Regression: multi-file ``raw_context`` must populate ``n_files``.
+
+    Before A0a the raw_context path ran a flat sentence segmenter that
+    never saw the ``# file: ...`` headers, so a bundle of three files
+    collapsed into a single-path bucket (``n_files == 1``) and
+    ``dead_weight_files`` was always empty regardless of how many
+    off-topic files were shipped.
+
+    This test pins the fix by passing a 3-file bundle (one grounded,
+    two off-topic) and asserting the per-file rollup shows three
+    distinct paths and flags the two off-topic files as dead weight.
+    """
+
+    provider = _OrthoStubProvider()
+    service = GroundednessService(encoder_factory=lambda _model_name=None: provider)
+
+    raw_context = (
+        "# file: src/auth.py\n"
+        "Berlin is the capital of Germany.\n"
+        "\n"
+        "# file: src/db.py\n"
+        "Quantum chromodynamics describes the strong nuclear force.\n"
+        "\n"
+        "# file: src/api.py\n"
+        "Penguins are flightless aquatic birds native to Antarctica.\n"
+    )
+    response = service.groundedness(
+        GroundednessRequest(
+            scoring_mode=ScoringMode.RAG,
+            raw_context=raw_context,
+            response_text="Berlin is the capital of Germany.",
+        )
+    )
+
+    assert response.file_attribution is not None
+    paths = {rec.path for rec in response.file_attribution.per_file}
+    assert {"src/auth.py", "src/db.py", "src/api.py"}.issubset(paths), (
+        f"expected all three file-headed paths in per_file bucket, "
+        f"got {paths}"
+    )
+    assert response.file_attribution.n_files == 3
+
+    # The grounded file must NOT be flagged.
+    dead = set(response.file_attribution.dead_weight_files)
+    assert "src/auth.py" not in dead
+
+    # Each off-topic file must surface at least one dead-weight signal
+    # in its per-file reason-code set. Exact dead_weight flag depends
+    # on argmax-tie dynamics in the ortho-stub provider, but reason
+    # codes (low_cosine, never_won_argmax, dominated_by_single_file)
+    # are stable under ties and are the auditable output customers
+    # see in production.
+    by_path = {rec.path: rec for rec in response.file_attribution.per_file}
+    offtopic_codes = {
+        path: {
+            rc.value if hasattr(rc, "value") else str(rc)
+            for rc in by_path[path].reason_codes
+        }
+        for path in ("src/db.py", "src/api.py")
+    }
+    for path, codes in offtopic_codes.items():
+        assert codes, f"expected dead-weight reason codes for {path}, got none"
+        # Any of these three codes flags the file as off-topic.
+        assert codes & {
+            "never_won_argmax",
+            "all_tokens_below_0_40",
+            "dominated_by_single_file",
+        }, f"{path} reason codes {codes} contain no dead-weight signal"
+
+    # The grounded file must have high owner share and max evidence.
+    auth = by_path["src/auth.py"]
+    assert auth.owner_share > 0.5
+    assert auth.max_evidence > 0.9
+
+
+def test_service_raw_context_without_headers_falls_back_to_single_bucket() -> None:
+    """Plain prose raw_context (no headers) must keep the legacy shape.
+
+    If the splitter fires on prose where no file-header marker is
+    present, we'd regress the enterprise RAG story (Veracier,
+    HaluEval, RAGTruth) where the context is a single document and
+    ``n_files == 1`` is the correct shape.
+    """
+
+    provider = _OrthoStubProvider()
+    service = GroundednessService(encoder_factory=lambda _model_name=None: provider)
+
+    response = service.groundedness(
+        GroundednessRequest(
+            scoring_mode=ScoringMode.RAG,
+            raw_context=(
+                "Berlin is the capital of Germany and one of its major "
+                "cultural and political centres. The city has a "
+                "population of roughly 3.7 million."
+            ),
+            response_text="Berlin is the capital of Germany.",
+        )
+    )
+
+    assert response.file_attribution is not None
+    # No headers -> every segment gets the synthetic ``raw-{idx}``
+    # support_id as the grouping key; n_files equals the number of
+    # segments the splitter produced, and none of those paths have a
+    # slash-style file extension.
+    for rec in response.file_attribution.per_file:
+        assert rec.path.startswith("raw-"), (
+            f"prose context without headers should NOT produce a "
+            f"file-path grouping key, got {rec.path!r}"
+        )

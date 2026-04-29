@@ -929,6 +929,106 @@ def segment_text(
     return _sentence_spans(text)
 
 
+# --------------------------------------------------------------------------
+# File-header splitter for multi-file ``raw_context`` bundles.
+# --------------------------------------------------------------------------
+
+# Four patterns cover the real-world shapes we see in production:
+#
+# 1. ``# file: <path>`` / ``# File: <path>`` - conventional markdown-ish
+#    header emitted by most agent harnesses and enterprise RAG stacks.
+# 2. ``=== <token> ===`` - Voyager / legacy Trace convention used in
+#    curated bench corpora (Veracier, transcripts_v2).
+# 3. ``--- a/<path>`` - unified-diff "before" header; common when the
+#    caller ships a patch as context (Cursor / Aider / git-like tools).
+# 4. ``+++ b/<path>`` - unified-diff "after" header; captured for
+#    completeness but we prefer ``a/`` when both are present on the
+#    same hunk.
+#
+# The patterns MUST be anchored to a line start so they don't match
+# prose like "see --- a/README.md ---" inside a paragraph. Each pattern
+# captures the path as group 1 so the caller can stamp it onto the
+# resulting support unit's ``metadata["path"]`` slot, which
+# ``file_attribution.resolve_attribution_key`` will then pick up and
+# bucket per-file dead-weight + owner-share statistics against.
+_FILE_HEADER_PATTERNS: Tuple[re.Pattern[str], ...] = (
+    re.compile(r"^\s*#\s*file:\s*(\S+)\s*$", re.MULTILINE | re.IGNORECASE),
+    re.compile(r"^===\s+(\S+?)\s+===\s*$", re.MULTILINE),
+    re.compile(r"^---\s+a/(\S+)\s*$", re.MULTILINE),
+    re.compile(r"^\+\+\+\s+b/(\S+)\s*$", re.MULTILINE),
+)
+
+
+def split_raw_context_by_file_headers(
+    raw_context: str,
+) -> List[Dict[str, Any]]:
+    """Split a multi-file ``raw_context`` bundle into per-file blocks.
+
+    Returns a list of ``{"path": str | None, "offset_start": int,
+    "offset_end": int, "text": str}`` dicts, one per file header found.
+    Offsets are relative to the full ``raw_context`` so downstream
+    attribution, heatmap rendering, and per-unit offset bookkeeping keep
+    working unchanged.
+
+    When no file headers are detected, returns a single block with
+    ``path=None`` spanning the entire context. Callers should treat a
+    ``None`` path as "no per-file attribution possible for this unit"
+    and fall back to the existing ``support-<idx>`` grouping.
+
+    Overlapping headers (e.g. diff emits both ``--- a/`` and ``+++ b/``
+    for the same hunk) collapse to the first match at each offset so
+    every source character belongs to exactly one block. Headers that
+    appear at the very start of the context absorb the line above into
+    their block only if no prior block exists (defensive for stray
+    preambles / banner lines).
+    """
+
+    if not raw_context:
+        return [{"path": None, "offset_start": 0, "offset_end": 0, "text": ""}]
+
+    matches: List[Tuple[int, int, str]] = []
+    seen_starts: set[int] = set()
+    for pattern in _FILE_HEADER_PATTERNS:
+        for m in pattern.finditer(raw_context):
+            if m.start() in seen_starts:
+                continue
+            seen_starts.add(m.start())
+            matches.append((m.start(), m.end(), m.group(1).strip()))
+    matches.sort(key=lambda x: x[0])
+
+    if not matches:
+        return [{
+            "path": None,
+            "offset_start": 0,
+            "offset_end": len(raw_context),
+            "text": raw_context,
+        }]
+
+    blocks: List[Dict[str, Any]] = []
+    # Preamble: any text before the first header. Only emit if
+    # non-whitespace, so we don't create a dead bucket for the blank
+    # line above a header.
+    first_start = matches[0][0]
+    if first_start > 0 and raw_context[:first_start].strip():
+        blocks.append({
+            "path": None,
+            "offset_start": 0,
+            "offset_end": first_start,
+            "text": raw_context[:first_start],
+        })
+
+    for idx, (h_start, h_end, path) in enumerate(matches):
+        next_start = matches[idx + 1][0] if idx + 1 < len(matches) else len(raw_context)
+        blocks.append({
+            "path": path,
+            "offset_start": h_start,
+            "offset_end": next_start,
+            "text": raw_context[h_start:next_start],
+        })
+
+    return blocks
+
+
 _DEFAULT_COVERAGE_THRESHOLD = 0.5
 
 

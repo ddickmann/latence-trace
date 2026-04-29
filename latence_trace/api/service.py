@@ -84,6 +84,7 @@ from latence_trace.core.groundedness import (
     provider_token_limit,
     score_groundedness_response_chunked,
     segment_text,
+    split_raw_context_by_file_headers,
     tokenize_text,
 )
 from latence_trace.core.code_lane import (
@@ -1345,12 +1346,31 @@ class GroundednessService:
                         encoder_token_limit,
                     )
                 )
-            segments = segment_text(
-                request.raw_context or "",
-                request.segmentation_mode.value,
-                provider=provider,
-                chunk_token_budget=request.raw_context_chunk_tokens,
+            # File-header-aware segmentation so multi-file raw_context
+            # bundles emit per-file support units (populates n_files,
+            # dead_weight_files, per_file.owner_share instead of
+            # collapsing to a single anonymous bucket). Collapses back
+            # to the legacy single-block path when no headers are
+            # present.
+            file_blocks = split_raw_context_by_file_headers(
+                request.raw_context or ""
             )
+            segments: List[Dict[str, Any]] = []
+            segment_paths: List[Optional[str]] = []
+            for block in file_blocks:
+                block_segments = segment_text(
+                    block["text"],
+                    request.segmentation_mode.value,
+                    provider=provider,
+                    chunk_token_budget=request.raw_context_chunk_tokens,
+                )
+                block_offset = int(block["offset_start"])
+                for seg in block_segments:
+                    rebased = dict(seg)
+                    rebased["offset_start"] = int(seg["offset_start"]) + block_offset
+                    rebased["offset_end"] = int(seg["offset_end"]) + block_offset
+                    segments.append(rebased)
+                    segment_paths.append(block["path"])
             if not segments:
                 raise ValidationError("raw_context did not produce any support units")
             segment_texts = [segment["text"] for segment in segments]
@@ -1367,6 +1387,8 @@ class GroundednessService:
                     expected_len=int(tensor.shape[0]),
                     is_query=False,
                 )
+                path = segment_paths[idx]
+                metadata: Dict[str, Any] = {"path": path} if path else {}
                 support_units.append(
                     SupportUnitInput(
                         support_id=f"raw-{idx}",
@@ -1377,6 +1399,7 @@ class GroundednessService:
                         tokens=tokens,
                         offset_start=int(segment["offset_start"]),
                         offset_end=int(segment["offset_end"]),
+                        metadata=metadata,
                     )
                 )
 
@@ -1979,12 +2002,34 @@ class GroundednessService:
                     encoder_token_limit,
                 )
             )
-        segments = segment_text(
-            request.raw_context or "",
-            request.segmentation_mode.value,
-            provider=provider,
-            chunk_token_budget=request.raw_context_chunk_tokens,
+        # Split the raw_context on file headers first so per-file
+        # attribution (``n_files``, ``dead_weight_files``, owner_share,
+        # per-file coverage) works on multi-file bundles. When no
+        # headers are present this collapses back to the legacy single-
+        # block path with ``path=None`` - existing callers are
+        # unaffected. Patterns recognised: ``# file: <path>``,
+        # ``=== <path> ===``, ``--- a/<path>``, ``+++ b/<path>``.
+        file_blocks = split_raw_context_by_file_headers(
+            request.raw_context or ""
         )
+        segments: List[Dict[str, Any]] = []
+        segment_paths: List[Optional[str]] = []
+        for block in file_blocks:
+            block_segments = segment_text(
+                block["text"],
+                request.segmentation_mode.value,
+                provider=provider,
+                chunk_token_budget=request.raw_context_chunk_tokens,
+            )
+            block_offset = int(block["offset_start"])
+            for seg in block_segments:
+                # Rebase segment offsets onto the full raw_context so
+                # per-unit offsets match pre-splitter behaviour.
+                rebased = dict(seg)
+                rebased["offset_start"] = int(seg["offset_start"]) + block_offset
+                rebased["offset_end"] = int(seg["offset_end"]) + block_offset
+                segments.append(rebased)
+                segment_paths.append(block["path"])
         if not segments:
             raise ValidationError("raw_context did not produce any support units")
         segment_texts = [segment["text"] for segment in segments]
@@ -2001,6 +2046,8 @@ class GroundednessService:
                 expected_len=int(tensor.shape[0]),
                 is_query=False,
             )
+            path = segment_paths[idx]
+            metadata: Dict[str, Any] = {"path": path} if path else {}
             support_units.append(
                 SupportUnitInput(
                     support_id=f"raw-{idx}",
@@ -2011,6 +2058,7 @@ class GroundednessService:
                     tokens=tokens,
                     offset_start=int(segment["offset_start"]),
                     offset_end=int(segment["offset_end"]),
+                    metadata=metadata,
                 )
             )
         return support_units

@@ -145,6 +145,18 @@ def _fenced_total_nonblank_lines(response: str) -> int:
 # a list don't false-positive.
 _DIFF_LINE_RE = re.compile(r"^\s*[+\-]\s+\S", re.MULTILINE)
 
+# Counts distinct numeric tokens in a response. Used to reject dense
+# enterprise summaries (which routinely cite 3+ numbers in a single
+# sentence) from the ``short_factoid`` rule, without hurting HaluEval
+# QA answers that typically cite at most 1–2 numbers per answer.
+_NUMBER_RE = re.compile(r"(?<![A-Za-z])\d+(?:[.,]\d+)*(?![A-Za-z])")
+
+
+def _count_numbers(text: str) -> int:
+    if not text:
+        return 0
+    return len(_NUMBER_RE.findall(text))
+
 
 def _has_diff_markers(response: str) -> bool:
     if not response:
@@ -287,21 +299,38 @@ def apply_rules(
         sentence_count = _count_sentences(rsp)
         token_count = _count_tokens(rsp)
         ctx_tokens = _count_tokens(ctx)
-        # Short factoid: one concise answer sentence, short context.
+        rsp_numbers = _count_numbers(rsp)
+        # Short factoid: one concise answer sentence, short context,
+        # low numeric density. HaluEval QA answers are typically
+        # single-claim one-liners (0-2 numbers). Dense enterprise
+        # summaries pack 3+ numbers into a single sentence (revenue,
+        # margin, EPS in one go) and must defer to the LR classifier
+        # so they route to ``rag.prose.enterprise``.
+        #
         # Minimum response / context lengths guard against trivial
-        # pytest fixtures and Veracier metadata snippets that happen to
-        # be short but are NOT factoid prose.
+        # pytest fixtures and Veracier metadata snippets that happen
+        # to be short but are NOT factoid prose. The context-token
+        # ceiling (<= 60) prevents production RAG contexts from
+        # vector DBs (typically >= 256 tokens) from ever being
+        # misrouted here — that's the path that burns enterprise
+        # customers with false reds.
         if (
             sentence_count <= 1
             and 4 <= token_count <= 25
-            and len(ctx) <= 800
+            and rsp_numbers <= 2
+            and len(ctx) <= 500
             and ctx_tokens >= 5
+            and ctx_tokens <= 60
             and not ctx.lstrip().startswith("[")
         ):
             return RuleDecision(
                 corpus_type="rag.prose.short_factoid",
                 confidence=0.91,
-                reason=f"rule:short_factoid(sentences={sentence_count},tokens={token_count})",
+                reason=(
+                    f"rule:short_factoid(sentences={sentence_count},"
+                    f"tokens={token_count},numbers={rsp_numbers},"
+                    f"ctx_tokens={ctx_tokens})"
+                ),
             )
         # Multi-claim summary: paragraph response with several claims.
         # Picks up summary-style answers with >= 3 sentences AND >= 60
