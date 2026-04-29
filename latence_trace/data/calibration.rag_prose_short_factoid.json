@@ -18,8 +18,8 @@
   "nli_model_hint": "en",
   "scoring_mode": "rag",
   "test_validation": {
-    "f1": 0.0,
-    "n_rows": 150
+    "f1": 0.7471698113207547,
+    "n_rows": 300
   },
   "thresholds": {
     "amber": 0.45854754447937013,

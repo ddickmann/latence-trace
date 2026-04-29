@@ -1,34 +1,34 @@
 {
   "fusion_weights": {
     "calibrated": 0.0,
-    "literal": 0.0,
-    "nli": 1.0,
+    "literal": 0.28571428571428575,
+    "nli": 0.7142857142857143,
     "semantic_entropy": 0.0,
     "structured": 0.0
   },
   "fusion_weights_raw": {
     "calibrated": 0.0,
-    "literal": 0.0,
+    "literal": 0.2,
     "nli": 0.5,
     "semantic_entropy": 0.0,
     "structured": 0.0
   },
   "metric": "f1_at_best_threshold",
-  "metric_value": 0.6846846846846847,
+  "metric_value": 0.691358024691358,
   "nli_model_hint": "en",
   "scoring_mode": "rag",
   "test_validation": {
-    "f1": 0.0,
+    "f1": 0.2,
     "n_rows": 13
   },
   "thresholds": {
-    "amber": 0.4908887625671923,
-    "green": 0.5408887625671923
+    "amber": 0.4993098504069085,
+    "green": 0.5493098504069085
   },
   "train_support": {
-    "n_rows": 78,
-    "precision": 0.5205479452054794,
-    "recall": 1.0
+    "n_rows": 76,
+    "precision": 0.6363636363636364,
+    "recall": 0.7567567567567568
   },
   "trained_on": "db7242af8874a042351ce53dbaad659c96292075293af65ea7e7dee42575c225"
 }

@@ -126,6 +126,34 @@ def _fenced_max_nonblank_lines(response: str) -> int:
     return best
 
 
+def _fenced_total_nonblank_lines(response: str) -> int:
+    """Sum of non-blank lines across every fenced block.
+
+    Real agentic traces often contain several short diffs / patches
+    rather than one long listing. Counting total lines captures that
+    shape where ``max_nonblank_lines`` would miss it.
+    """
+    total = 0
+    for m in _FENCE_RE.finditer(response or ""):
+        total += sum(1 for ln in m.group(1).splitlines() if ln.strip())
+    return total
+
+
+# Regex matches a line that starts with a `+` or `-` marker followed by
+# whitespace — the standard unified-diff / Cursor diff shape. Requires
+# the marker to sit on its own line so prose bullets like "- item" inside
+# a list don't false-positive.
+_DIFF_LINE_RE = re.compile(r"^\s*[+\-]\s+\S", re.MULTILINE)
+
+
+def _has_diff_markers(response: str) -> bool:
+    if not response:
+        return False
+    # A single stray ``- ...`` line is usually a bullet, not a diff.
+    # Require at least two diff-shaped lines for confidence.
+    return len(_DIFF_LINE_RE.findall(response)) >= 2
+
+
 def apply_rules(
     *,
     query: str,
@@ -150,6 +178,8 @@ def apply_rules(
     file_headers = _count_file_headers(ctx)
     n_fences = _fenced_code_blocks(rsp)
     max_fence_lines = _fenced_max_nonblank_lines(rsp)
+    total_fence_lines = _fenced_total_nonblank_lines(rsp)
+    diff_markers = _has_diff_markers(rsp)
 
     # Pre-compute "looks like a code bundle" so the structured rules
     # below can defer to the code rules when the context is clearly a
@@ -180,12 +210,16 @@ def apply_rules(
 
     # ------------------------------------------------------------------
     # Rule 2: agentic code trace.
-    # Multi-file context (3+ file headers) + fenced code block whose
-    # largest block has >= 5 non-blank lines. The 5-line cut matches
-    # the training-time splitter for ``code.agentic_trace`` vs
-    # ``rag.code_in_context`` (see research/corpus_classifier dataset
-    # builder), so the rule mirrors the gold definition rather than
-    # learning it from features.
+    # Multi-file context (3+ file headers) plus one of three agentic
+    # shapes on the response side:
+    #   a) one long fenced block (>= 5 non-blank lines) — mirrors the
+    #      training-time splitter for transcripts_v2 gold labels
+    #   b) multiple fenced blocks totalling >= 6 non-blank lines —
+    #      captures real agentic diffs where the model ships 2-3 short
+    #      hunks instead of one long listing
+    #   c) diff-marker lines (``+`` / ``-``) plus at least one fenced
+    #      block — Cursor / Aider style patches are unambiguously
+    #      agentic regardless of block length
     # ------------------------------------------------------------------
     if file_headers >= 3 and n_fences >= 1 and max_fence_lines >= 5:
         return RuleDecision(
@@ -193,6 +227,24 @@ def apply_rules(
             confidence=0.95,
             reason=(
                 f"rule:multi_file_trace(headers={file_headers},"
+                f"fences={n_fences},max_lines={max_fence_lines})"
+            ),
+        )
+    if file_headers >= 3 and n_fences >= 2 and total_fence_lines >= 6:
+        return RuleDecision(
+            corpus_type="code.agentic_trace",
+            confidence=0.93,
+            reason=(
+                f"rule:multi_file_trace_multi_block(headers={file_headers},"
+                f"fences={n_fences},total_lines={total_fence_lines})"
+            ),
+        )
+    if file_headers >= 3 and n_fences >= 1 and diff_markers:
+        return RuleDecision(
+            corpus_type="code.agentic_trace",
+            confidence=0.93,
+            reason=(
+                f"rule:multi_file_trace_with_diff(headers={file_headers},"
                 f"fences={n_fences},max_lines={max_fence_lines})"
             ),
         )

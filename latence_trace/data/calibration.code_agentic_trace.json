@@ -14,7 +14,7 @@
     "structured": 0.0
   },
   "metric": "paired_accuracy",
-  "metric_value": 0.7391304347826086,
+  "metric_value": 0.8695652173913043,
   "nli_model_hint": "en",
   "notes": "Thresholds apply to composite_phantom_score produced by the code lane; fusion_weights are inert because the code lane runs its own AST+literal+NLI cascade.",
   "scoring_mode": "code",
@@ -29,8 +29,8 @@
   },
   "train_support": {
     "n_pairs": 23,
-    "paired_accuracy": 0.7391304347826086,
-    "wins": 17
+    "paired_accuracy": 0.8695652173913043,
+    "wins": 20
   },
   "trained_on": "db7242af8874a042351ce53dbaad659c96292075293af65ea7e7dee42575c225"
 }
