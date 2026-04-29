@@ -324,6 +324,8 @@ class TestStudentForward:
             [0, 0, 0, 1, 1, 1, 2, 2],
         ]
         inputs = _mk_inputs(units_per_batch=units)
+        # Pass class_idx so the FiLM class-conditioning params get grad.
+        inputs["class_idx"] = torch.tensor([0, 3], dtype=torch.long)
         out = model(**inputs)
         # Sum every output head into one scalar.
         loss = (
@@ -464,6 +466,115 @@ class TestTurnStateVector:
         out = model(**inputs)
         out["turn_state_vector"].sum().backward()
         assert model.turn_state_proj.weight.grad is not None
+
+
+# ---------------------------------------------------------------------------
+# s1b - SOTA refinements (gated phi fusion, dropout, FiLM, LayerNorm)
+# ---------------------------------------------------------------------------
+
+
+class TestSotaRefinements:
+    def test_gated_phi_fusion_returns_gate(self) -> None:
+        model = _mk_student()
+        inputs = _mk_inputs()
+        inputs.pop("unit_assign")
+        inputs.pop("num_units")
+        out = model(**inputs)
+        gate = out["phi_gate"]
+        assert gate is not None
+        assert gate.shape == (2, 6, 8)
+        # Sigmoid output: strictly in (0, 1).
+        assert (gate > 0.0).all()
+        assert (gate < 1.0).all()
+
+    def test_gated_phi_off_when_disabled(self) -> None:
+        cfg = StudentConfig(
+            hidden_dim=32, proj_dim=16, biaffine_rank=8,
+            phi_feature_dim=12, use_gated_phi=False,
+        )
+        model = BiaffineStudent(_DummyEncoder(dim=32), cfg)
+        inputs = _mk_inputs()
+        inputs.pop("unit_assign")
+        inputs.pop("num_units")
+        out = model(**inputs)
+        # phi_gate is None in the legacy (ungated) path.
+        assert out["phi_gate"] is None
+
+    def test_pair_logit_dropout_fires_in_train_mode_only(self) -> None:
+        """Pair-logit dropout is train-only: same inputs produce two
+        different pair_logits under .train(), identical under .eval().
+        """
+        cfg = StudentConfig(
+            hidden_dim=32, proj_dim=16, biaffine_rank=8,
+            phi_feature_dim=12, pair_logit_dropout=0.3,
+        )
+        model = BiaffineStudent(_DummyEncoder(dim=32), cfg)
+        inputs = _mk_inputs()
+        inputs.pop("unit_assign")
+        inputs.pop("num_units")
+
+        model.eval()
+        torch.manual_seed(0)
+        eval_1 = model(**inputs)["pair_logits"]
+        torch.manual_seed(1)
+        eval_2 = model(**inputs)["pair_logits"]
+        assert torch.allclose(eval_1, eval_2)
+
+        model.train()
+        torch.manual_seed(0)
+        train_1 = model(**inputs)["pair_logits"]
+        torch.manual_seed(1)
+        train_2 = model(**inputs)["pair_logits"]
+        # With p=0.3 dropout and different RNG, the masks differ.
+        assert not torch.allclose(train_1, train_2)
+
+    def test_class_film_shifts_predictions_per_class(self) -> None:
+        """Passing different class indices should produce different
+        turn_score / turn_band outputs (same inputs, different class).
+        """
+        model = _mk_student()
+        model.eval()
+        inputs = _mk_inputs()
+        inputs.pop("unit_assign")
+        inputs.pop("num_units")
+
+        # Seed the FiLM layer with non-trivial weights so the default
+        # near-identity init doesn't hide the effect.
+        with torch.no_grad():
+            model.class_film.to_film.weight.normal_(std=0.5)
+            model.class_film.to_film.bias.normal_(std=0.2)
+
+        out_class_0 = model(**inputs, class_idx=torch.tensor([0, 0]))
+        out_class_5 = model(**inputs, class_idx=torch.tensor([5, 5]))
+
+        assert not torch.allclose(
+            out_class_0["turn_score"], out_class_5["turn_score"]
+        )
+        assert not torch.allclose(
+            out_class_0["turn_band_logits"], out_class_5["turn_band_logits"]
+        )
+
+    def test_class_film_identity_when_class_idx_none(self) -> None:
+        """Without class_idx, the model runs and predictions match the
+        LayerNorm-only branch (FiLM is a pass-through).
+        """
+        model = _mk_student()
+        model.eval()
+        inputs = _mk_inputs()
+        inputs.pop("unit_assign")
+        inputs.pop("num_units")
+        out = model(**inputs)  # no class_idx
+        assert out["turn_score"].shape == (2,)
+        assert out["turn_band_logits"].shape == (2, 3)
+
+    def test_head_layernorm_can_be_disabled(self) -> None:
+        cfg = StudentConfig(
+            hidden_dim=32, proj_dim=16, biaffine_rank=8,
+            phi_feature_dim=12, head_layernorm=False,
+        )
+        model = BiaffineStudent(_DummyEncoder(dim=32), cfg)
+        from torch import nn as _nn
+        assert isinstance(model.turn_feat_norm, _nn.Identity)
 
 
 if __name__ == "__main__":

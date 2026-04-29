@@ -89,6 +89,35 @@ class StudentConfig:
     # Zero training cost for v2.
     turn_state_dim: int = 32
 
+    # ---- SOTA refinements (s1b) ----
+
+    # Number of corpus classes the FiLM class-conditioning layer learns
+    # an embedding for. Defaults to the 6 production classes:
+    #   0: rag.prose.enterprise
+    #   1: rag.prose.short_factoid
+    #   2: rag.prose.multi_claim
+    #   3: rag.structured
+    #   4: rag.code_in_context
+    #   5: code.agentic_trace
+    # Passing class_idx is optional at inference; when absent (None),
+    # a uniform "no-class" bias is applied so the model still runs.
+    num_classes: int = 6
+    class_embed_dim: int = 16
+
+    # Dropout on the pair-logit matrix during training. No-op in eval.
+    # Keeps the biaffine from collapsing to trivial token-match on
+    # long-tail slot patterns.
+    pair_logit_dropout: float = 0.1
+
+    # When True, gate the phi contribution by a learned sigmoid gate
+    # over the phi features themselves. Lets the model learn when to
+    # trust lexical signals vs the biaffine geometry.
+    use_gated_phi: bool = True
+
+    # When True, LayerNorm the 3-d turn_feat vector before the score +
+    # band heads (multi-task stability).
+    head_layernorm: bool = True
+
 
 # ---------------------------------------------------------------------------
 # Sub-modules
@@ -124,7 +153,7 @@ class LowRankBiaffine(nn.Module):
 
 
 class PhiFeatureMLP(nn.Module):
-    """Cheap pairwise feature channel — added to the biaffine logit."""
+    """Cheap pairwise feature channel — produces a scalar per pair."""
 
     def __init__(self, feat_dim: int, hidden: int = 32) -> None:
         super().__init__()
@@ -135,6 +164,84 @@ class PhiFeatureMLP(nn.Module):
         # phi: (B, Tr, Te, F)
         x = F.gelu(self.fc1(phi))
         return self.fc2(x).squeeze(-1)
+
+
+class GatedPhiFusion(nn.Module):
+    """Learned gate that decides how much the phi contribution influences
+    each pair logit.
+
+    Input: ``phi`` of shape ``(B, Tr, Te, F)``.
+    Output: ``(phi_contribution, gate)`` where ``phi_contribution`` is
+    the scalar-per-pair phi score and ``gate`` is a sigmoid in
+    ``[0, 1]``. The caller fuses as
+    ``pair_logits = biaffine + gate * phi_contribution``.
+
+    This lets the model learn when to rely on cheap lexical signals
+    (phi) vs the biaffine geometry. When the biaffine is highly
+    confident (large |pair_logit|), the gate learns to close; when
+    biaffine is ambiguous but lexical exact-match is strong, it opens.
+    """
+
+    def __init__(self, feat_dim: int, hidden: int = 32) -> None:
+        super().__init__()
+        self.phi_mlp = PhiFeatureMLP(feat_dim, hidden=hidden)
+        # Gate head: smaller than the phi MLP, reads the same phi
+        # features. Init biased negative so the model starts close to
+        # "phi off" and learns to open where useful.
+        self.gate_fc1 = nn.Linear(feat_dim, 16)
+        self.gate_fc2 = nn.Linear(16, 1)
+        nn.init.zeros_(self.gate_fc2.bias)
+
+    def forward(self, phi: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        phi_contribution = self.phi_mlp(phi)          # (B, Tr, Te)
+        gate_logits = self.gate_fc2(
+            F.gelu(self.gate_fc1(phi))
+        ).squeeze(-1)                                  # (B, Tr, Te)
+        gate = torch.sigmoid(gate_logits)
+        return phi_contribution, gate
+
+
+class ClassFiLM(nn.Module):
+    """FiLM-style class conditioning for the response-side heads.
+
+    Given a class index in ``[0, num_classes)``, produce per-class
+    ``(gamma, beta)`` affine parameters applied to the 3-d
+    ``turn_feat = [mean, max, min]`` vector before the score + band
+    heads. One student can specialise across the 6 production classes
+    without per-class head weights.
+
+    When ``class_idx`` is ``None`` (unconditional inference path),
+    return identity affine (gamma=1, beta=0) so the model still runs
+    without any class information.
+    """
+
+    def __init__(self, num_classes: int, embed_dim: int, feat_dim: int = 3) -> None:
+        super().__init__()
+        self.embed = nn.Embedding(num_classes, embed_dim)
+        self.to_film = nn.Linear(embed_dim, 2 * feat_dim)
+        # Initialise so that the untrained model behaves *close to*
+        # identity: gamma ~ 1, beta ~ 0. We use a small non-zero std on
+        # ``to_film.weight`` so gradients flow to ``self.embed`` from
+        # the very first step (zero-init would kill the embedding's
+        # upstream grad until ``to_film.weight`` moves off zero).
+        nn.init.normal_(self.to_film.weight, std=0.02)
+        with torch.no_grad():
+            bias = self.to_film.bias
+            bias.zero_()
+            # First feat_dim outputs are gamma biases -> init to 1.
+            bias[:feat_dim] = 1.0
+
+    def forward(
+        self,
+        turn_feat: torch.Tensor,
+        class_idx: torch.Tensor | None,
+    ) -> torch.Tensor:
+        if class_idx is None:
+            return turn_feat
+        emb = self.embed(class_idx)                    # (B, embed_dim)
+        film = self.to_film(emb)                       # (B, 2 * feat_dim)
+        gamma, beta = film.chunk(2, dim=-1)            # (B, feat_dim) each
+        return gamma * turn_feat + beta
 
 
 class DeadWeightHead(nn.Module):
@@ -308,16 +415,42 @@ class BiaffineStudent(nn.Module):
         self.encoder = encoder
         self.proj = nn.Linear(self.cfg.hidden_dim, self.cfg.proj_dim)
         self.scorer = LowRankBiaffine(self.cfg.proj_dim, self.cfg.biaffine_rank)
-        self.phi = PhiFeatureMLP(self.cfg.phi_feature_dim)
 
-        # Response-side heads.
+        # s1b: gated phi fusion (learned gate over phi contribution).
+        # Backward-compat: when ``use_gated_phi`` is False, fall back to
+        # the v1 sum-based fusion with a plain PhiFeatureMLP.
+        if self.cfg.use_gated_phi:
+            self.phi_fusion = GatedPhiFusion(self.cfg.phi_feature_dim)
+            self.phi = None
+        else:
+            self.phi_fusion = None
+            self.phi = PhiFeatureMLP(self.cfg.phi_feature_dim)
+
+        # s1b: dropout on the pair-logit matrix (train-time only).
+        self.pair_logit_dropout = nn.Dropout(self.cfg.pair_logit_dropout)
+
+        # s1b: LayerNorm on turn_feat (3-d) before the score + band heads.
+        if self.cfg.head_layernorm:
+            self.turn_feat_norm = nn.LayerNorm(3)
+        else:
+            self.turn_feat_norm = nn.Identity()
+
+        # s1b: FiLM class conditioning on the 3-d turn_feat.
+        self.class_film = ClassFiLM(
+            num_classes=self.cfg.num_classes,
+            embed_dim=self.cfg.class_embed_dim,
+            feat_dim=3,
+        )
+
+        # Response-side heads (consume the class-conditioned 3-d feat).
         self.token_support = nn.Linear(self.cfg.proj_dim, 1)
         self.turn_score_head = nn.Sequential(
             nn.Linear(3, 16), nn.GELU(), nn.Linear(16, 1), nn.Sigmoid(),
         )
         self.turn_band_head = nn.Linear(3, self.cfg.num_bands)
 
-        # Evidence-side heads (new in v2).
+        # Evidence-side heads (class-agnostic: they operate on per-unit
+        # geometric features, not class-specific semantics).
         self.dead_weight_head = DeadWeightHead(
             input_dim=3, hidden=self.cfg.unit_feat_hidden
         )
@@ -353,6 +486,7 @@ class BiaffineStudent(nn.Module):
         hard_pool: bool = False,
         unit_assign: Optional[torch.Tensor] = None,
         num_units: Optional[int] = None,
+        class_idx: Optional[torch.Tensor] = None,
     ) -> dict[str, torch.Tensor]:
         """Forward pass.
 
@@ -369,6 +503,11 @@ class BiaffineStudent(nn.Module):
                 ``num_units``), the dead-weight + coverage heads fire;
                 when absent, they return ``None`` (legacy call path).
             num_units: maximum number of units in the batch.
+            class_idx: optional ``(B,)`` int tensor of class indices in
+                ``[0, cfg.num_classes)``. When provided, FiLM applies
+                per-class ``(gamma, beta)`` affine to the turn feature
+                before the score + band heads. When omitted, the heads
+                run unconditionally (backward-compat).
 
         Returns:
             Dict with keys:
@@ -378,6 +517,7 @@ class BiaffineStudent(nn.Module):
               - ``turn_band_logits``      (B, num_bands)
               - ``token_support_logits``  (B, Tr)
               - ``per_evidence_max``      (B, Te)
+              - ``phi_gate``              (B, Tr, Te) or None  [s1b gated fusion]
               - ``dead_weight_unit_logits`` (B, U) or None
               - ``coverage_unit_scores``    (B, U) or None
               - ``unit_mask``              (B, U) or None
@@ -386,7 +526,19 @@ class BiaffineStudent(nn.Module):
         h_r = self.encode(resp_ids, resp_mask)  # (B, Tr, D)
         h_e = self.encode(ev_ids, ev_mask)      # (B, Te, D)
 
-        pair_logits = self.scorer(h_r, h_e) + self.phi(phi_features)
+        biaffine_pair = self.scorer(h_r, h_e)   # (B, Tr, Te)
+
+        # s1b: gated phi fusion (or v1 sum-based fallback).
+        phi_gate: Optional[torch.Tensor] = None
+        if self.phi_fusion is not None:
+            phi_contribution, phi_gate = self.phi_fusion(phi_features)
+            pair_logits = biaffine_pair + phi_gate * phi_contribution
+        else:
+            assert self.phi is not None
+            pair_logits = biaffine_pair + self.phi(phi_features)
+
+        # s1b: train-time dropout on pair logits (regularization).
+        pair_logits = self.pair_logit_dropout(pair_logits)
 
         # Mask padded evidence positions with a large negative so they
         # never win the max / log-sum-exp.
@@ -417,8 +569,11 @@ class BiaffineStudent(nn.Module):
             ~resp_mask.bool(), 1e4
         ).min(dim=1).values
         turn_feat = torch.stack([turn_mean, turn_max, turn_min], dim=-1)
-        turn_score = self.turn_score_head(turn_feat).squeeze(-1)
-        turn_band_logits = self.turn_band_head(turn_feat)
+        # s1b: LayerNorm on head inputs + FiLM class-conditioning.
+        turn_feat_norm = self.turn_feat_norm(turn_feat)
+        turn_feat_cond = self.class_film(turn_feat_norm, class_idx)
+        turn_score = self.turn_score_head(turn_feat_cond).squeeze(-1)
+        turn_band_logits = self.turn_band_head(turn_feat_cond)
         token_support_logits = self.token_support(h_r).squeeze(-1)
 
         # Evidence-side pooling: per-evidence-token max over response
@@ -460,6 +615,7 @@ class BiaffineStudent(nn.Module):
             "turn_band_logits": turn_band_logits,
             "token_support_logits": token_support_logits,
             "per_evidence_max": per_evidence_max,
+            "phi_gate": phi_gate,
             "dead_weight_unit_logits": dead_weight_unit_logits,
             "coverage_unit_scores": coverage_unit_scores,
             "unit_mask": unit_mask,

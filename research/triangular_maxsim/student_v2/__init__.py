@@ -10,8 +10,10 @@ from __future__ import annotations
 
 from research.triangular_maxsim.student_v2.architecture import (
     BiaffineStudent,
+    ClassFiLM,
     CoverageHead,
     DeadWeightHead,
+    GatedPhiFusion,
     LowRankBiaffine,
     PhiFeatureMLP,
     StudentConfig,
@@ -23,8 +25,10 @@ from research.triangular_maxsim.student_v2.architecture import (
 
 __all__ = [
     "BiaffineStudent",
+    "ClassFiLM",
     "CoverageHead",
     "DeadWeightHead",
+    "GatedPhiFusion",
     "LowRankBiaffine",
     "PhiFeatureMLP",
     "StudentConfig",

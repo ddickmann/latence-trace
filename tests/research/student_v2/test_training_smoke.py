@@ -102,6 +102,21 @@ def _band_to_idx(band):
     return {"green": 0, "amber": 1, "red": 2}.get((band or "").lower(), 1)
 
 
+# Class index mapping for FiLM conditioning (mirror of service-side mapping).
+_CLASS_TO_IDX = {
+    "rag.prose.enterprise": 0,
+    "rag.prose.short_factoid": 1,
+    "rag.prose.multi_claim": 2,
+    "rag.structured": 3,
+    "rag.code_in_context": 4,
+    "code.agentic_trace": 5,
+}
+
+
+def _class_to_idx(class_key):
+    return _CLASS_TO_IDX.get(class_key or "", 0)
+
+
 def _build_toy_batch(rows):
     B = len(rows)
     resp_ids = torch.zeros(B, RESP_MAX, dtype=torch.long)
@@ -114,6 +129,7 @@ def _build_toy_batch(rows):
     token_support = torch.zeros(B, RESP_MAX, dtype=torch.float32)
     dead = torch.zeros(B, UNITS_MAX, dtype=torch.float32)
     cov = torch.zeros(B, UNITS_MAX, dtype=torch.float32)
+    class_idx = torch.zeros(B, dtype=torch.long)
 
     for i, row in enumerate(rows):
         r_ids, r_m = _char_hash_tokenise(row.get("response_text", ""), RESP_MAX)
@@ -129,12 +145,14 @@ def _build_toy_batch(rows):
         d, c = _toy_three_axis_labels(row)
         dead[i] = torch.tensor(d)
         cov[i] = torch.tensor(c)
+        class_idx[i] = _class_to_idx(row.get("class_key"))
 
     phi = torch.zeros(B, RESP_MAX, EV_MAX, 12, dtype=torch.float32)
     return {
         "resp_ids": resp_ids, "resp_mask": resp_mask,
         "ev_ids": ev_ids, "ev_mask": ev_mask,
         "phi": phi, "unit_assign": unit_assign,
+        "class_idx": class_idx,
         "turn_band": band, "turn_score": score,
         "token_support_labels": token_support,
         "dead_weight_unit_labels": dead,
@@ -178,6 +196,7 @@ def test_smoke_training_200_rows_all_five_losses_finite():
             batch["phi"],
             unit_assign=batch["unit_assign"],
             num_units=UNITS_MAX,
+            class_idx=batch["class_idx"],
         )
         losses = loss_multi_task(
             out,
@@ -254,6 +273,7 @@ def test_smoke_loss_decreases_over_three_steps():
             batch["resp_ids"], batch["resp_mask"], batch["ev_ids"],
             batch["ev_mask"], batch["phi"],
             unit_assign=batch["unit_assign"], num_units=UNITS_MAX,
+            class_idx=batch["class_idx"],
         )
         losses = loss_multi_task(
             out,

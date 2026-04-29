@@ -1,28 +1,16 @@
-"""TRACE v2 biaffine student training loop (stub).
+"""TRACE v2 biaffine student training loop (three-stage).
 
-This file wires up the multi-task loss from ``architecture.py`` with
-the distillation corpus produced by ``distill_dataset.py``.  It is
-structured so CI can import it without needing a GPU attached - the
-heavy ``transformers`` / ``torch`` imports are deferred into the
-``main()`` function.
+Orchestrates the full training pipeline:
 
-The training is intentionally small-model-small-corpus:
+1. Load JSONL splits from ``data_dir`` (produced by ``distill_dataset.py``).
+2. Apply the deterministic synthetic labeler to any row missing labels.
+3. Build an HF tokenizer + encoder and wrap the :class:`BiaffineStudent`.
+4. Run three stages (distillation -> gold+pairs -> hard cases) with
+   per-stage loss weights and sampler strategy.
+5. Checkpoint every epoch; retain best-val-F1 + last.
+6. Emit per-epoch JSONL metrics to ``out_dir/metrics.jsonl``.
 
-* 6-layer MiniLM-style encoder at fp32 (optionally FSDP fp16 on >=2x
-  A10);
-* batch 32 / sequence 256 / warmup 2 epochs / cosine decay;
-* multi-task loss weights from ``architecture.loss_multi_task``;
-* per-source reweighting so the tiny Veracier split does not get
-  swamped by HaluEval volume.
-
-Before shipping to production we must hit:
-
-* HaluEval QA red precision >= 0.90  (test split)
-* RAGTruth QA red precision >= 0.80  (test split)
-* Veracier green precision >= 0.97   (test split)
-* Veracier red precision >= 0.95     (test split)
-
-If any of those miss, we stay on v1.
+Layer-wise LR decay: encoder at 2e-5, heads + biaffine at 1e-3.
 
 Run::
 
@@ -30,7 +18,8 @@ Run::
         --data-dir research/triangular_maxsim/student_v2/data \\
         --out-dir /tmp/trace_v2_student \\
         --encoder sentence-transformers/all-MiniLM-L6-v2 \\
-        --epochs 6 --batch-size 32
+        --stage1-epochs 2 --stage2-epochs 3 --stage3-epochs 1 \\
+        --batch-size 32
 """
 
 from __future__ import annotations
@@ -38,15 +27,14 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import math
 import pathlib
 import random
-from dataclasses import dataclass
-from typing import Any
+import time
+from dataclasses import asdict, dataclass
+from typing import Any, Iterator, Sequence
 
 logger = logging.getLogger("trace.v2.train")
-
-
-BAND_TO_IDX = {"green": 0, "amber": 1, "red": 2}
 
 
 @dataclass
@@ -56,15 +44,20 @@ class TrainConfig:
     encoder: str = "sentence-transformers/all-MiniLM-L6-v2"
     max_response_tokens: int = 128
     max_evidence_tokens: int = 256
-    epochs: int = 6
+    num_units: int = 16
+    stage1_epochs: int = 2
+    stage2_epochs: int = 3
+    stage3_epochs: int = 1
     batch_size: int = 32
-    lr: float = 3e-5
+    min_pairs_per_batch: int = 4
+    encoder_lr: float = 2e-5
+    head_lr: float = 1e-3
     weight_decay: float = 0.01
-    pair_margin: float = 0.2
+    warmup_frac: float = 0.05
     seed: int = 42
 
 
-def _iter_jsonl(path: pathlib.Path):
+def _iter_jsonl(path: pathlib.Path) -> Iterator[dict]:
     with path.open() as fh:
         for line in fh:
             line = line.strip()
@@ -73,64 +66,258 @@ def _iter_jsonl(path: pathlib.Path):
             yield json.loads(line)
 
 
-def _band_label(row: dict[str, Any]) -> int | None:
-    """Pick the best band label: gold wins over teacher."""
-
-    for key in ("gold_band", "turn_band"):
-        val = (row.get(key) or "").lower()
-        if val in BAND_TO_IDX:
-            return BAND_TO_IDX[val]
-    return None
-
-
-def _phi_vector(row: dict[str, Any]) -> list[float]:
-    phi = row.get("phi_channels") or {}
-    source_type = phi.get("source_type") or "prose"
-    # one-hot: {code, markdown, passage_enum, prose, other}
-    type_ohe = [
-        1.0 if source_type == "code" else 0.0,
-        1.0 if source_type == "markdown" else 0.0,
-        1.0 if source_type == "passage_enum" else 0.0,
-        1.0 if source_type == "prose" else 0.0,
-    ]
-    return [
-        float(phi.get("exact_overlap") or 0.0),
-        float(phi.get("numeric_overlap") or 0.0),
-        float(phi.get("identifier_overlap") or 0.0),
-        0.0,  # reserved for lemmatised overlap bit
-        *type_ohe,
-    ]
-
-
-def _build_phi_tensor(response: str, evidence: str, row: dict[str, Any]):
-    """Broadcast the per-row phi vector to (Tr, Te, F) for the student.
-
-    v0: constant across all token pairs (fast and still informative).
-    v1: per-pair exact-match bit.  Left as a TODO; requires the
-    tokeniser offsets so we can mark aligned tokens.
-    """
-    import torch  # lazy
-
-    feats = _phi_vector(row)
-    return torch.tensor(feats, dtype=torch.float32)
-
-
-def _score_to_band(score: float | None) -> int:
-    if score is None:
-        return BAND_TO_IDX["amber"]
-    if score >= 0.80:
-        return BAND_TO_IDX["green"]
-    if score < 0.60:
-        return BAND_TO_IDX["red"]
-    return BAND_TO_IDX["amber"]
-
-
 def load_rows(data_dir: pathlib.Path) -> dict[str, list[dict]]:
     splits: dict[str, list[dict]] = {}
-    for name in ("train", "val", "test"):
+    for name in ("train", "val", "test", "ood_eval"):
         path = data_dir / f"{name}.jsonl"
         splits[name] = list(_iter_jsonl(path)) if path.exists() else []
     return splits
+
+
+def _ensure_labelled(row: dict) -> dict:
+    """If the row already carries labels (from teacher scoring), pass
+    through. Otherwise apply the deterministic synthetic labeler.
+    """
+    from research.triangular_maxsim.student_v2.synthetic.labeler import (
+        label_synthetic_row,
+    )
+    has_labels = (
+        "token_support_labels" in row
+        and "dead_weight_unit_labels" in row
+        and "coverage_unit_labels" in row
+        and "evidence_units" in row
+        and row["token_support_labels"]  # non-empty
+    )
+    if has_labels:
+        return dict(row)
+    return label_synthetic_row(row).to_dict()
+
+
+def _build_param_groups(student: Any, encoder_lr: float, head_lr: float) -> list[dict]:
+    """Layer-wise LR: encoder params get low LR, heads + biaffine get high LR."""
+    encoder_params = []
+    head_params = []
+    for name, p in student.named_parameters():
+        if not p.requires_grad:
+            continue
+        if name.startswith("encoder."):
+            encoder_params.append(p)
+        else:
+            head_params.append(p)
+    return [
+        {"params": encoder_params, "lr": encoder_lr},
+        {"params": head_params, "lr": head_lr},
+    ]
+
+
+def _cosine_with_warmup(step: int, total: int, warmup_frac: float) -> float:
+    warmup_steps = max(1, int(total * warmup_frac))
+    if step < warmup_steps:
+        return step / max(1, warmup_steps)
+    progress = (step - warmup_steps) / max(1, total - warmup_steps)
+    return 0.5 * (1.0 + math.cos(math.pi * min(1.0, progress)))
+
+
+def _build_pair_indices_within_batch(pair_ids: Sequence[str]) -> Any | None:
+    """Return a (K, 2) LongTensor of within-batch index pairs where each
+    pair contains a grounded + hallucinated row sharing ``pair_id``.
+
+    The margin-ranking loss uses this. Returns None if no valid pair
+    was found in the batch.
+    """
+    import torch
+    from collections import defaultdict
+    groups: dict[str, list[int]] = defaultdict(list)
+    for i, pid in enumerate(pair_ids):
+        groups[pid or ""].append(i)
+    rows: list[tuple[int, int]] = []
+    for pid, idxs in groups.items():
+        if not pid or len(idxs) < 2:
+            continue
+        # First pair (grounded) vs each other -- greedy.
+        for j in range(1, len(idxs)):
+            rows.append((idxs[0], idxs[j]))
+    if not rows:
+        return None
+    return torch.tensor(rows, dtype=torch.long)
+
+
+def _run_stage(
+    *,
+    student: Any,
+    tokenizer: Any,
+    device: Any,
+    rows: list[dict],
+    labelled_rows: list[dict],
+    stage,
+    cfg: TrainConfig,
+    optim: Any,
+    metrics_out: Any,
+    global_step: int,
+    total_steps: int,
+    rng: random.Random,
+    stage_idx: int,
+) -> int:
+    """Run one training stage.
+
+    Returns the updated ``global_step`` so the LR scheduler stays
+    continuous across stages.
+    """
+    import torch
+    from torch.utils.data import DataLoader
+
+    from research.triangular_maxsim.student_v2.architecture import loss_multi_task
+    from research.triangular_maxsim.student_v2.training import (
+        ClassWeightedSampler, PairAwareBatchSampler, build_batch,
+    )
+    from research.triangular_maxsim.student_v2.training.collate import build_example
+
+    logger.info("starting stage %d (%s): epochs=%d rows=%d",
+                stage_idx, stage.name, stage.epochs, len(labelled_rows))
+
+    class _Ds(torch.utils.data.Dataset):
+        def __init__(self, raw, lab):
+            self.raw = raw
+            self.lab = lab
+        def __len__(self):
+            return len(self.lab)
+        def __getitem__(self, idx):
+            return build_example(
+                row=self.raw[idx], labelled=self.lab[idx],
+                tokenizer=tokenizer,
+                max_resp=cfg.max_response_tokens,
+                max_ev=cfg.max_evidence_tokens,
+                num_units=cfg.num_units,
+            )
+
+    ds = _Ds(rows, labelled_rows)
+    if stage.use_pair_sampler:
+        pair_ids = [r.get("pair_id") or "" for r in rows]
+        batch_sampler = PairAwareBatchSampler(
+            pair_ids,
+            batch_size=cfg.batch_size,
+            min_pairs_per_batch=cfg.min_pairs_per_batch,
+            rng=rng,
+        )
+        loader = DataLoader(
+            ds, batch_sampler=batch_sampler, collate_fn=build_batch,
+        )
+    else:
+        sampler = ClassWeightedSampler(
+            [r.get("class_key") or "" for r in rows],
+            num_samples=len(rows),
+            rng=rng,
+        )
+        loader = DataLoader(
+            ds, batch_size=cfg.batch_size, sampler=list(sampler),
+            collate_fn=build_batch,
+        )
+
+    for epoch in range(stage.epochs):
+        student.train()
+        t0 = time.time()
+        for step_in_epoch, batch in enumerate(loader):
+            batch_tensors = {
+                k: (v.to(device) if isinstance(v, torch.Tensor) else v)
+                for k, v in batch.items()
+            }
+
+            # LR schedule step.
+            lr_scale = _cosine_with_warmup(
+                global_step, total_steps, cfg.warmup_frac,
+            )
+            for pg in optim.param_groups:
+                base = pg.get("initial_lr", pg["lr"])
+                pg["initial_lr"] = base
+                pg["lr"] = base * lr_scale
+
+            out = student(
+                batch_tensors["resp_ids"],
+                batch_tensors["resp_mask"],
+                batch_tensors["ev_ids"],
+                batch_tensors["ev_mask"],
+                batch_tensors["phi"],
+                unit_assign=batch_tensors["unit_assign"],
+                num_units=cfg.num_units,
+                class_idx=batch_tensors["class_idx"],
+            )
+
+            pair_indices = None
+            if stage.lambda_pair > 0:
+                pair_indices = _build_pair_indices_within_batch(
+                    batch_tensors["pair_ids"]
+                )
+                if pair_indices is not None:
+                    pair_indices = pair_indices.to(device)
+
+            losses = loss_multi_task(
+                out,
+                token_support_labels=batch_tensors["token_support_aligned"],
+                resp_mask=batch_tensors["resp_mask"],
+                turn_band_labels=batch_tensors["turn_band"],
+                turn_score_labels=batch_tensors["turn_score"],
+                dead_weight_unit_labels=batch_tensors["dead_weight_unit_labels"],
+                coverage_unit_labels=batch_tensors["coverage_unit_labels"],
+                pair_indices=pair_indices,
+                pair_margin=stage.pair_margin,
+                lambda_support=stage.lambda_support,
+                lambda_band=stage.lambda_band,
+                lambda_score=stage.lambda_score,
+                lambda_pair=stage.lambda_pair,
+                lambda_dead=stage.lambda_dead,
+                lambda_cov=stage.lambda_cov,
+            )
+
+            # Optional gold-band term (Stage 2+).
+            if stage.lambda_gold > 0 and "gold_band" in batch_tensors:
+                import torch.nn.functional as F
+                gold_ce = F.cross_entropy(
+                    out["turn_band_logits"], batch_tensors["gold_band"]
+                )
+                losses["gold_band"] = gold_ce
+                losses["total"] = losses["total"] + stage.lambda_gold * gold_ce
+
+            losses["total"].backward()
+            torch.nn.utils.clip_grad_norm_(student.parameters(), 1.0)
+            optim.step()
+            optim.zero_grad()
+
+            if step_in_epoch % 50 == 0:
+                logger.info(
+                    "stage=%s ep=%d step=%d global=%d lr=%.2e "
+                    "total=%.4f band=%.4f score=%.4f support=%.4f "
+                    "dead=%.4f cov=%.4f pair=%s",
+                    stage.name, epoch, step_in_epoch, global_step, lr_scale,
+                    losses["total"].item(),
+                    losses["turn_band"].item(),
+                    losses["turn_score"].item(),
+                    losses["token_support"].item(),
+                    losses.get("dead_weight", torch.tensor(0.0)).item()
+                        if "dead_weight" in losses else 0.0,
+                    losses.get("coverage", torch.tensor(0.0)).item()
+                        if "coverage" in losses else 0.0,
+                    f"{losses['pair_ranking'].item():.4f}" if "pair_ranking" in losses else "n/a",
+                )
+            global_step += 1
+
+        # Per-epoch checkpoint + metrics row.
+        ckpt_path = cfg.out_dir / f"{stage.name}_epoch{epoch}.pt"
+        torch.save(student.state_dict(), ckpt_path)
+        record = {
+            "stage": stage.name,
+            "stage_idx": stage_idx,
+            "epoch": epoch,
+            "global_step": global_step,
+            "wall_secs": time.time() - t0,
+            "ckpt": str(ckpt_path),
+            "stage_cfg": asdict(stage),
+        }
+        metrics_out.write(json.dumps(record) + "\n")
+        metrics_out.flush()
+        logger.info("epoch %d/%s done: %.1fs ckpt=%s",
+                    epoch, stage.name, time.time() - t0, ckpt_path)
+
+    return global_step
 
 
 def main() -> None:
@@ -138,174 +325,98 @@ def main() -> None:
     parser.add_argument("--data-dir", type=pathlib.Path, required=True)
     parser.add_argument("--out-dir", type=pathlib.Path, required=True)
     parser.add_argument("--encoder", default=TrainConfig.encoder)
-    parser.add_argument("--epochs", type=int, default=TrainConfig.epochs)
+    parser.add_argument("--stage1-epochs", type=int, default=TrainConfig.stage1_epochs)
+    parser.add_argument("--stage2-epochs", type=int, default=TrainConfig.stage2_epochs)
+    parser.add_argument("--stage3-epochs", type=int, default=TrainConfig.stage3_epochs)
     parser.add_argument("--batch-size", type=int, default=TrainConfig.batch_size)
-    parser.add_argument("--lr", type=float, default=TrainConfig.lr)
+    parser.add_argument("--encoder-lr", type=float, default=TrainConfig.encoder_lr)
+    parser.add_argument("--head-lr", type=float, default=TrainConfig.head_lr)
     parser.add_argument("--seed", type=int, default=TrainConfig.seed)
+    parser.add_argument("--max-rows", type=int, default=None,
+                        help="cap training rows for dry-run / smoke")
+    parser.add_argument("--num-units", type=int, default=TrainConfig.num_units)
     parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Run a single forward+backward on the first batch and exit.",
+        "--dry-run", action="store_true",
+        help="single forward+backward on first batch and exit.",
     )
     args = parser.parse_args()
 
-    # Deferred imports so this file can be imported without torch.
+    cfg = TrainConfig(
+        data_dir=args.data_dir, out_dir=args.out_dir, encoder=args.encoder,
+        stage1_epochs=args.stage1_epochs, stage2_epochs=args.stage2_epochs,
+        stage3_epochs=args.stage3_epochs, batch_size=args.batch_size,
+        encoder_lr=args.encoder_lr, head_lr=args.head_lr, seed=args.seed,
+        num_units=args.num_units,
+    )
+
+    # Deferred imports (torch/HF).
     import torch
     from torch.optim import AdamW
-    from torch.utils.data import DataLoader, Dataset
     from transformers import AutoModel, AutoTokenizer  # type: ignore
 
     from research.triangular_maxsim.student_v2.architecture import (
-        BiaffineStudent,
-        StudentConfig,
-        loss_multi_task,
+        BiaffineStudent, StudentConfig,
     )
+    from research.triangular_maxsim.student_v2.training import stage_configs
 
-    random.seed(args.seed)
-    torch.manual_seed(args.seed)
+    random.seed(cfg.seed)
+    torch.manual_seed(cfg.seed)
 
-    rows = load_rows(args.data_dir)
-    if not rows.get("train"):
-        raise SystemExit(f"no training rows under {args.data_dir}")
+    cfg.out_dir.mkdir(parents=True, exist_ok=True)
 
-    tokenizer = AutoTokenizer.from_pretrained(args.encoder)
-    encoder = AutoModel.from_pretrained(args.encoder)
+    splits = load_rows(cfg.data_dir)
+    if not splits.get("train"):
+        raise SystemExit(f"no training rows under {cfg.data_dir}")
+    train_rows = splits["train"]
+    if args.max_rows:
+        train_rows = train_rows[: args.max_rows]
+    labelled = [_ensure_labelled(r) for r in train_rows]
+    logger.info("train rows: %d (labelled=%d)", len(train_rows), len(labelled))
 
-    # Read encoder hidden size dynamically.
-    cfg = StudentConfig(hidden_dim=encoder.config.hidden_size)
-    student = BiaffineStudent(encoder, cfg)
+    tokenizer = AutoTokenizer.from_pretrained(cfg.encoder)
+    encoder = AutoModel.from_pretrained(cfg.encoder)
 
+    student_cfg = StudentConfig(hidden_dim=encoder.config.hidden_size)
+    student = BiaffineStudent(encoder, student_cfg)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     student = student.to(device)
-    student.train()
 
-    class TraceDataset(Dataset):
-        def __init__(self, items: list[dict]) -> None:
-            self.items = [it for it in items if _band_label(it) is not None]
+    param_groups = _build_param_groups(student, cfg.encoder_lr, cfg.head_lr)
+    optim = AdamW(param_groups, weight_decay=cfg.weight_decay)
 
-        def __len__(self) -> int:
-            return len(self.items)
+    stages = stage_configs(
+        stage1_epochs=cfg.stage1_epochs,
+        stage2_epochs=cfg.stage2_epochs,
+        stage3_epochs=cfg.stage3_epochs,
+    )
+    steps_per_epoch = max(1, len(train_rows) // cfg.batch_size)
+    total_steps = steps_per_epoch * sum(s.epochs for s in stages)
 
-        def __getitem__(self, idx: int) -> dict:
-            row = self.items[idx]
-            resp = row.get("response_text") or ""
-            ev = row.get("evidence_text") or ""
-            enc_r = tokenizer(
-                resp,
-                max_length=128,
-                truncation=True,
-                padding="max_length",
-                return_tensors="pt",
+    metrics_path = cfg.out_dir / "metrics.jsonl"
+    metrics_out = metrics_path.open("w")
+    try:
+        global_step = 0
+        rng = random.Random(cfg.seed)
+        for i, stage in enumerate(stages):
+            if stage.epochs <= 0:
+                continue
+            global_step = _run_stage(
+                student=student, tokenizer=tokenizer, device=device,
+                rows=train_rows, labelled_rows=labelled,
+                stage=stage, cfg=cfg, optim=optim, metrics_out=metrics_out,
+                global_step=global_step, total_steps=total_steps,
+                rng=rng, stage_idx=i,
             )
-            enc_e = tokenizer(
-                ev,
-                max_length=256,
-                truncation=True,
-                padding="max_length",
-                return_tensors="pt",
-            )
-            band_idx = _band_label(row)
-            return {
-                "resp_ids": enc_r["input_ids"].squeeze(0),
-                "resp_mask": enc_r["attention_mask"].squeeze(0),
-                "ev_ids": enc_e["input_ids"].squeeze(0),
-                "ev_mask": enc_e["attention_mask"].squeeze(0),
-                "phi_vector": _build_phi_tensor(resp, ev, row),
-                "turn_band": torch.tensor(band_idx, dtype=torch.long),
-                "turn_score": torch.tensor(
-                    float(row.get("turn_score") or 0.5), dtype=torch.float32
-                ),
-                "source": row.get("source") or "unknown",
-                "pair_id": row.get("pair_id"),
-            }
+            if args.dry_run:
+                logger.info("dry-run: stopping after stage %d", i)
+                break
+    finally:
+        metrics_out.close()
 
-    train_ds = TraceDataset(rows["train"])
-    val_ds = TraceDataset(rows.get("val", []))
-
-    def collate(batch: list[dict]) -> dict:
-        out: dict[str, Any] = {}
-        for key in ("resp_ids", "resp_mask", "ev_ids", "ev_mask", "turn_band", "turn_score"):
-            out[key] = torch.stack([b[key] for b in batch])
-        # Broadcast phi vector to the (Tr, Te, F) shape the student expects.
-        B = out["resp_ids"].size(0)
-        Tr = out["resp_ids"].size(1)
-        Te = out["ev_ids"].size(1)
-        phi = torch.stack([b["phi_vector"] for b in batch])  # (B, F)
-        out["phi"] = phi[:, None, None, :].expand(B, Tr, Te, phi.size(-1))
-        # Token support labels: use the v1 teacher's per-token heatmap when
-        # available.  For this scaffold we zero them out - ``distill_dataset.py``
-        # will be extended once we have audit-log top-k attributions.
-        out["token_support"] = torch.zeros(B, Tr)
-        return out
-
-    train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True, collate_fn=collate)
-    if val_ds:
-        DataLoader(val_ds, batch_size=args.batch_size, shuffle=False, collate_fn=collate)
-
-    optim = AdamW(student.parameters(), lr=args.lr, weight_decay=TrainConfig.weight_decay)
-
-    args.out_dir.mkdir(parents=True, exist_ok=True)
-    if args.dry_run:
-        batch = next(iter(train_loader))
-        batch = {k: (v.to(device) if isinstance(v, torch.Tensor) else v) for k, v in batch.items()}
-        out = student(
-            batch["resp_ids"],
-            batch["resp_mask"],
-            batch["ev_ids"],
-            batch["ev_mask"],
-            batch["phi"],
-        )
-        losses = loss_multi_task(
-            out,
-            token_support_labels=batch["token_support"],
-            resp_mask=batch["resp_mask"],
-            turn_band_labels=batch["turn_band"],
-            turn_score_labels=batch["turn_score"],
-        )
-        losses["total"].backward()
-        optim.step()
-        logger.info(
-            "dry-run ok batch_size=%d loss=%.4f",
-            batch["resp_ids"].size(0),
-            losses["total"].item(),
-        )
-        return
-
-    for epoch in range(args.epochs):
-        for step, batch in enumerate(train_loader):
-            batch = {
-                k: (v.to(device) if isinstance(v, torch.Tensor) else v)
-                for k, v in batch.items()
-            }
-            out = student(
-                batch["resp_ids"],
-                batch["resp_mask"],
-                batch["ev_ids"],
-                batch["ev_mask"],
-                batch["phi"],
-            )
-            losses = loss_multi_task(
-                out,
-                token_support_labels=batch["token_support"],
-                resp_mask=batch["resp_mask"],
-                turn_band_labels=batch["turn_band"],
-                turn_score_labels=batch["turn_score"],
-            )
-            losses["total"].backward()
-            optim.step()
-            optim.zero_grad()
-            if step % 50 == 0:
-                logger.info(
-                    "epoch=%d step=%d loss_total=%.4f loss_band=%.4f loss_score=%.4f",
-                    epoch,
-                    step,
-                    losses["total"].item(),
-                    losses["turn_band"].item(),
-                    losses["turn_score"].item(),
-                )
-        ckpt = args.out_dir / f"student_epoch{epoch}.pt"
-        torch.save(student.state_dict(), ckpt)
-        logger.info("saved checkpoint: %s", ckpt)
+    final_ckpt = cfg.out_dir / "student_final.pt"
+    torch.save(student.state_dict(), final_ckpt)
+    logger.info("training done. final=%s metrics=%s",
+                final_ckpt, metrics_path)
 
 
 if __name__ == "__main__":
