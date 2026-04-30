@@ -16,9 +16,9 @@ from latence_trace.core.corpus_router.features import (
 
 def test_feature_names_are_locked_and_unique() -> None:
     # Schema version is bumped by any feature set change.
-    assert FEATURE_SCHEMA_VERSION == 1
-    assert len(FEATURE_NAMES) == 20
-    assert len(set(FEATURE_NAMES)) == 20
+    assert FEATURE_SCHEMA_VERSION == 2
+    assert len(FEATURE_NAMES) == 27
+    assert len(set(FEATURE_NAMES)) == 27
 
 
 def test_featurize_returns_locked_length_vector() -> None:

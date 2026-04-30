@@ -70,6 +70,8 @@ class CorpusClassificationResult:
     latency_ms: float
     source: str  # "classifier" or "unavailable"
     artefact_sha256: Optional[str]
+    probabilities: Optional[Dict[str, float]] = None
+    top_classes: Tuple[Tuple[str, float], ...] = ()
 
 
 _LOCK = threading.Lock()
@@ -154,6 +156,8 @@ def classify(
             latency_ms=(time.perf_counter() - t0) * 1000.0,
             source="unavailable",
             artefact_sha256=None,
+            probabilities=None,
+            top_classes=(),
         )
     standardised = [
         _standardise(list(vec.values), bundle.scaler_mean, bundle.scaler_scale)
@@ -171,16 +175,27 @@ def classify(
             latency_ms=(time.perf_counter() - t0) * 1000.0,
             source="classifier",
             artefact_sha256=bundle.artefact_sha256,
+            probabilities=None,
+            top_classes=((corpus_type, 1.0),),
         )
     idx = int(max(range(len(proba)), key=lambda i: proba[i]))
     corpus_type = str(bundle.classes[idx])
     confidence = float(proba[idx])
+    probabilities = {
+        str(class_key): float(prob)
+        for class_key, prob in zip(bundle.classes, proba)
+    }
+    top_classes = tuple(
+        sorted(probabilities.items(), key=lambda item: item[1], reverse=True)[:3]
+    )
     return CorpusClassificationResult(
         corpus_type=corpus_type,
         confidence=confidence,
         latency_ms=(time.perf_counter() - t0) * 1000.0,
         source="classifier",
         artefact_sha256=bundle.artefact_sha256,
+        probabilities=probabilities,
+        top_classes=top_classes,
     )
 
 

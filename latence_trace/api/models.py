@@ -853,6 +853,14 @@ class CorpusRouteDiagnostics(BaseModel):
             "decision."
         ),
     )
+    classifier_top_classes: List[Dict[str, Union[float, str]]] = Field(
+        default_factory=list,
+        description="Top classifier classes and probabilities, ordered by probability.",
+    )
+    classifier_probabilities: Dict[str, float] = Field(
+        default_factory=dict,
+        description="Full classifier probability vector when a classifier artefact was used.",
+    )
     fusion_weights_applied: Optional[Dict[str, float]] = Field(
         default=None,
         description="Fusion weights from the calibration bundle that were layered on top of the runtime profile.",
@@ -1715,6 +1723,17 @@ class GroundednessResponse(BaseModel):
     runtime_head_features: Optional[Dict[str, float]] = Field(
         default=None,
         description="Echoed runtime-head features when supplied by the caller.",
+    )
+    runtime_feature_source: Optional[str] = Field(
+        default=None,
+        description=(
+            "Source of runtime-head features used for the automatic decision: "
+            "'client', 'synthesized', 'partial', or 'missing'."
+        ),
+    )
+    runtime_feature_missing_groups: List[str] = Field(
+        default_factory=list,
+        description="Feature/evidence groups that were unavailable for server-side synthesis.",
     )
     reason: Optional[str] = Field(
         default=None,

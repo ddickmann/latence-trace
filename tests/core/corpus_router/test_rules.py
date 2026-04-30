@@ -239,10 +239,9 @@ def test_long_paragraph_with_many_sentences_routes_to_multi_claim() -> None:
     assert dec.corpus_type == "rag.prose.multi_claim"
 
 
-def test_prose_rule_defers_on_medium_length() -> None:
-    # Medium-length enterprise-ish prose: one sentence but >25 tokens -
-    # should not hit either of the length-based prose rules; defers to
-    # LR (or explicit override in production).
+def test_prose_rule_routes_medium_enterprise_policy() -> None:
+    # Medium-length enterprise-ish policy prose should not be collapsed
+    # into the short-factoid or compact multi-claim bundle.
     resp = (
         "As of the March 2026 steering review, Annex A.5 information "
         "security policies have been signed off by the CISO and "
@@ -251,7 +250,7 @@ def test_prose_rule_defers_on_medium_length() -> None:
     )
     ctx = "status report body with enough detail to avoid the short-context guard."
     dec = apply_rules(query="q", response=resp, raw_context=ctx)
-    assert dec.corpus_type is None
+    assert dec.corpus_type == "rag.prose.enterprise"
 
 
 def test_short_factoid_rule_rejects_condensed_enterprise_summary() -> None:

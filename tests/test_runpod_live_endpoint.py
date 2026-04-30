@@ -53,6 +53,12 @@ def _import_bench():
     return bench_runpod_360
 
 
+def _import_bare_user_smoke():
+    from scripts import qualitative_bare_user_smoke  # type: ignore[import-not-found]
+
+    return qualitative_bare_user_smoke
+
+
 def _good_runtime_features() -> dict[str, float]:
     return {
         "v1_score": 0.99,
@@ -302,5 +308,19 @@ def test_live_endpoint_runtime_decision_feature_maps() -> None:
                     assert decision["action"] == expected_action
                     assert decision["head_enabled"] is True
                     assert decision["head_score"] is not None
+
+    asyncio.run(run())
+
+
+@live_only
+def test_live_endpoint_bare_text_autodiscovery() -> None:
+    """Bare user text routes to all six classes without caller feature maps."""
+
+    smoke = _import_bare_user_smoke()
+    import asyncio
+
+    async def run() -> None:
+        rc = await smoke.run(_ENDPOINT, _API_KEY)
+        assert rc == 0
 
     asyncio.run(run())

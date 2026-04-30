@@ -45,6 +45,7 @@ METRICS_PATH = DATA_DIR / "classifier_metrics.json"
 CM_PATH = DATA_DIR / "confusion_matrix.json"
 
 SHIP_GATE_TOP1 = 0.95
+SHIP_GATE_MIN_CLASS_RECALL = 0.85
 SEED = 42
 
 CLASS_KEYS = (
@@ -106,6 +107,18 @@ def _accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     return float((y_true == y_pred).sum() / max(1, y_true.size))
 
 
+def _top2_margins(model: Any, X: np.ndarray) -> Dict[str, float]:
+    if not hasattr(model, "predict_proba"):
+        return {"mean": 1.0, "p05": 1.0}
+    proba = model.predict_proba(X)
+    margins: List[float] = []
+    for row in proba:
+        ordered = sorted((float(value) for value in row), reverse=True)
+        margins.append(ordered[0] - ordered[1] if len(ordered) > 1 else 1.0)
+    arr = np.asarray(margins, dtype=np.float64)
+    return {"mean": float(arr.mean()), "p05": float(np.quantile(arr, 0.05))}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--skip-gate", action="store_true", help="Persist even if the 0.95 top-1 gate is not cleared (for debugging).")
@@ -154,6 +167,12 @@ def main() -> None:
     cm_labels = list(CLASS_KEYS)
     cm = confusion_matrix(y_test, y_pred_test, labels=cm_labels).tolist()
     cls_report = classification_report(y_test, y_pred_test, labels=cm_labels, digits=4, zero_division=0, output_dict=True)
+    per_class_recall = {
+        label: float((cls_report.get(label) or {}).get("recall", 0.0))
+        for label in CLASS_KEYS
+    }
+    min_class_recall = min(per_class_recall.values()) if per_class_recall else 0.0
+    top2_margin = _top2_margins(chosen_clf, chosen_scaler.transform(X_test))
 
     ARTEFACT_DIR.mkdir(parents=True, exist_ok=True)
     DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -187,7 +206,13 @@ def main() -> None:
                 "model_kind": model_kind,
                 "per_class": {k: v for k, v in cls_report.items() if isinstance(v, dict)},
                 "ship_gate": SHIP_GATE_TOP1,
-                "passes_ship_gate": final_acc >= SHIP_GATE_TOP1,
+                "min_class_recall": min_class_recall,
+                "per_class_recall_gate": SHIP_GATE_MIN_CLASS_RECALL,
+                "top2_margin": top2_margin,
+                "passes_ship_gate": (
+                    final_acc >= SHIP_GATE_TOP1
+                    and min_class_recall >= SHIP_GATE_MIN_CLASS_RECALL
+                ),
                 "artefact_sha256": joblib_sha,
                 "feature_schema_version": FEATURE_SCHEMA_VERSION,
                 "seed": SEED,
@@ -198,10 +223,31 @@ def main() -> None:
     )
     logger.info("wrote %s (%d bytes, sha=%s)", JOBLIB_PATH, JOBLIB_PATH.stat().st_size, joblib_sha[:12])
     logger.info("wrote %s and %s", METRICS_PATH, CM_PATH)
-    if final_acc < SHIP_GATE_TOP1 and not args.skip_gate:
-        logger.error("top-1 accuracy %.4f < ship gate %.4f", final_acc, SHIP_GATE_TOP1)
+    if (
+        (final_acc < SHIP_GATE_TOP1 or min_class_recall < SHIP_GATE_MIN_CLASS_RECALL)
+        and not args.skip_gate
+    ):
+        logger.error(
+            "classifier gates failed: top1=%.4f min_class_recall=%.4f",
+            final_acc,
+            min_class_recall,
+        )
         raise SystemExit(1)
-    print(json.dumps({"top1_accuracy": final_acc, "model_kind": model_kind, "passes_gate": final_acc >= SHIP_GATE_TOP1}, indent=2))
+    print(
+        json.dumps(
+            {
+                "top1_accuracy": final_acc,
+                "min_class_recall": min_class_recall,
+                "top2_margin": top2_margin,
+                "model_kind": model_kind,
+                "passes_gate": (
+                    final_acc >= SHIP_GATE_TOP1
+                    and min_class_recall >= SHIP_GATE_MIN_CLASS_RECALL
+                ),
+            },
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":

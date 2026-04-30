@@ -150,12 +150,41 @@ _DIFF_LINE_RE = re.compile(r"^\s*[+\-]\s+\S", re.MULTILINE)
 # sentence) from the ``short_factoid`` rule, without hurting HaluEval
 # QA answers that typically cite at most 1–2 numbers per answer.
 _NUMBER_RE = re.compile(r"(?<![A-Za-z])\d+(?:[.,]\d+)*(?![A-Za-z])")
+_POLICY_CUE_RE = re.compile(
+    r"\b(?:policy|policies|manual|sop|procedure|compliance|approval|approve|requires?|"
+    r"must|shall|cannot|prohibited|exception|quarantine|qa|regulation|wire transfer)\b",
+    re.IGNORECASE,
+)
+_MULTI_CLAIM_CUE_RE = re.compile(
+    r"\b(?:and|or|also|plus|should|must|may|cannot|while|until)\b|[,;]",
+    re.IGNORECASE,
+)
+_CODE_EXT_RE = re.compile(
+    r"\.(?:py|ts|tsx|js|jsx|go|rs|java|kt|swift|rb|cpp|cc|h|hpp|cs|sh|yml|yaml|toml|json|sql)\b",
+    re.IGNORECASE,
+)
+_CODE_SYMBOL_RE = re.compile(
+    r"\b(?:def|class|function|method|pytest|test_|import|SDK|client|API|"
+    r"[A-Za-z_][A-Za-z0-9_]*\([^)]*\)|[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*)",
+)
 
 
 def _count_numbers(text: str) -> int:
     if not text:
         return 0
     return len(_NUMBER_RE.findall(text))
+
+
+def _count_policy_cues(text: str) -> int:
+    return len(_POLICY_CUE_RE.findall(text or ""))
+
+
+def _count_multi_claim_cues(text: str) -> int:
+    return len(_MULTI_CLAIM_CUE_RE.findall(text or ""))
+
+
+def _count_code_cues(text: str) -> int:
+    return len(_CODE_EXT_RE.findall(text or "")) + len(_CODE_SYMBOL_RE.findall(text or ""))
 
 
 def _has_diff_markers(response: str) -> bool:
@@ -199,6 +228,9 @@ def apply_rules(
     # contain markdown tables and JSON snippets in their prose; those
     # are not the same as a query against a structured source.
     is_code_bundle_context = file_headers >= 3
+
+    policy_cues = _count_policy_cues(f"{query}\n{ctx}\n{rsp}")
+    code_cues = _count_code_cues(f"{query}\n{ctx}\n{rsp}")
 
     # ------------------------------------------------------------------
     # Rule 1: structured source detection.
@@ -261,6 +293,16 @@ def apply_rules(
             ),
         )
 
+    # Agentic traces often arrive as prose summaries from IDE plugins,
+    # without markdown fences. A code-scoring caller plus file/test/command
+    # evidence is enough to route into the trajectory bundle.
+    if code_cues >= 4 and re.search(r"\b(?:pytest|test_|last command|verified|patch|diff)\b", f"{ctx}\n{rsp}", re.IGNORECASE):
+        return RuleDecision(
+            corpus_type="code.agentic_trace",
+            confidence=0.92,
+            reason=f"rule:agentic_trace_prose(code_cues={code_cues})",
+        )
+
     # ------------------------------------------------------------------
     # Rule 3: code in RAG context.
     # Two shapes:
@@ -285,6 +327,12 @@ def apply_rules(
                 f"fences={n_fences},max_lines={max_fence_lines})"
             ),
         )
+    if code_cues >= 3 and re.search(r"\b(?:sdk|api|function|method|client|import|class)\b", f"{query}\n{ctx}", re.IGNORECASE):
+        return RuleDecision(
+            corpus_type="rag.code_in_context",
+            confidence=0.91,
+            reason=f"rule:code_symbol_context(code_cues={code_cues})",
+        )
 
     # ------------------------------------------------------------------
     # Rule 4: prose length-based tiebreakers.
@@ -300,6 +348,28 @@ def apply_rules(
         token_count = _count_tokens(rsp)
         ctx_tokens = _count_tokens(ctx)
         rsp_numbers = _count_numbers(rsp)
+        multi_claim_cues = _count_multi_claim_cues(rsp)
+        if sentence_count >= 3 and token_count >= 60:
+            return RuleDecision(
+                corpus_type="rag.prose.multi_claim",
+                confidence=0.9,
+                reason=f"rule:multi_claim(sentences={sentence_count},tokens={token_count})",
+            )
+        if policy_cues >= 2 or (policy_cues >= 1 and token_count >= 20):
+            return RuleDecision(
+                corpus_type="rag.prose.enterprise",
+                confidence=0.93,
+                reason=f"rule:enterprise_policy_cues(cues={policy_cues})",
+            )
+        if sentence_count >= 2 or (token_count >= 14 and multi_claim_cues >= 3):
+            return RuleDecision(
+                corpus_type="rag.prose.multi_claim",
+                confidence=0.91,
+                reason=(
+                    f"rule:multi_claim_compact(sentences={sentence_count},"
+                    f"tokens={token_count},cues={multi_claim_cues})"
+                ),
+            )
         # Short factoid: one concise answer sentence, short context,
         # low numeric density. HaluEval QA answers are typically
         # single-claim one-liners (0-2 numbers). Dense enterprise
@@ -322,6 +392,9 @@ def apply_rules(
             and ctx_tokens >= 5
             and ctx_tokens <= 60
             and not ctx.lstrip().startswith("[")
+            and policy_cues == 0
+            and multi_claim_cues <= 2
+            and code_cues == 0
         ):
             return RuleDecision(
                 corpus_type="rag.prose.short_factoid",

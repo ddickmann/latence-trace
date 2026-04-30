@@ -120,6 +120,7 @@ from latence_trace.core.nli import (
 )
 from latence_trace.core.thresholds import RiskBandPolicy, load_risk_band_policy
 from latence_trace.core.runtime_decision import build_runtime_decision
+from latence_trace.core.runtime_feature_synthesizer import synthesize_runtime_features
 
 import contextvars
 
@@ -1158,6 +1159,14 @@ class GroundednessService:
             runtime_features = request.runtime_head_features or request.trajectory_features
             if runtime_features:
                 response.runtime_head_features = dict(runtime_features)
+                response.runtime_feature_source = "client"
+                response.runtime_feature_missing_groups = []
+            else:
+                synthesized = synthesize_runtime_features(request, response)
+                response.runtime_feature_source = synthesized.source
+                response.runtime_feature_missing_groups = list(synthesized.missing_groups)
+                if synthesized.features:
+                    response.runtime_head_features = dict(synthesized.features)
             decision_record = build_runtime_decision(response)
             if decision_record is not None:
                 response.runtime_decision = RuntimeDecisionRecord.model_validate(decision_record)

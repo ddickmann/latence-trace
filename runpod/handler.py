@@ -696,6 +696,10 @@ def _compact_response(response: GroundednessResponse, *, verbose: bool) -> dict[
         result["runtime_decision"] = response.runtime_decision.model_dump(mode="json")
     if response.runtime_head_features is not None:
         result["runtime_head_features"] = dict(response.runtime_head_features)
+    if response.runtime_feature_source is not None:
+        result["runtime_feature_source"] = response.runtime_feature_source
+    if response.runtime_feature_missing_groups:
+        result["runtime_feature_missing_groups"] = list(response.runtime_feature_missing_groups)
     if verbose:
         result["full"] = response.model_dump(mode="json")
     return result

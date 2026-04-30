@@ -45,12 +45,14 @@ class CorpusRouteDecision:
     """
 
     corpus_type: Optional[str]
-    source: str  # "classifier" | "explicit" | "fallback" | "disabled" | "rule"
+    source: str  # "classifier" | "classifier_ambiguous" | "explicit" | "fallback" | "disabled" | "rule"
     confidence: Optional[float]
     classifier_latency_ms: float
     artefact_sha256: Optional[str]
     bundle: Optional[_bundles.CalibrationBundle]
     rule_reason: Optional[str] = None
+    classifier_top_classes: tuple[tuple[str, float], ...] = ()
+    classifier_probabilities: Optional[dict[str, float]] = None
 
 
 def _request_field(request: Any, name: str, default: Any = None) -> Any:
@@ -135,15 +137,22 @@ def route(request: Any) -> CorpusRouteDecision:
         raw_context=raw_context,
     )
     if clf_result.corpus_type is not None:
-        bundle = _bundles.load_bundle(clf_result.corpus_type)
+        selected_class = clf_result.corpus_type
+        source = "classifier"
+        if _is_ambiguous_prose_result(clf_result):
+            selected_class = _bundles.DEFAULT_FALLBACK_CLASS
+            source = "classifier_ambiguous"
+        bundle = _bundles.load_bundle(selected_class)
         if bundle is not None:
             return CorpusRouteDecision(
-                corpus_type=clf_result.corpus_type,
-                source="classifier",
+                corpus_type=selected_class,
+                source=source,
                 confidence=clf_result.confidence,
                 classifier_latency_ms=clf_result.latency_ms,
                 artefact_sha256=clf_result.artefact_sha256,
                 bundle=bundle,
+                classifier_top_classes=clf_result.top_classes,
+                classifier_probabilities=clf_result.probabilities,
             )
         logger.warning(
             "corpus_router: classifier chose %s but no bundle is loaded; falling back",
@@ -179,9 +188,39 @@ def build_diagnostics(decision: CorpusRouteDecision) -> dict:
         "classifier_latency_ms": round(decision.classifier_latency_ms, 3),
         "artefact_sha256": decision.artefact_sha256,
         "rule_reason": decision.rule_reason,
+        "classifier_top_classes": [
+            {"corpus_type": class_key, "probability": probability}
+            for class_key, probability in decision.classifier_top_classes
+        ],
+        "classifier_probabilities": dict(decision.classifier_probabilities or {}),
         "fusion_weights_applied": dict(bundle.fusion_weights) if bundle else None,
         "thresholds_applied": dict(bundle.thresholds) if bundle else None,
         "scoring_mode_applied": bundle.scoring_mode if bundle else None,
         "bundle_metric": bundle.metric if bundle else None,
         "bundle_metric_value": bundle.metric_value if bundle else None,
     }
+
+
+def _is_ambiguous_prose_result(result: _classifier.CorpusClassificationResult) -> bool:
+    """Conservative guard for adjacent prose classes.
+
+    Structural rules catch the obvious OOD shapes. When the learned model
+    remains uncertain between prose bundles, enterprise is the safest default
+    because it uses the broadest calibrated policy and does not require a
+    feature-gated runtime head.
+    """
+
+    if not result.top_classes or not result.corpus_type:
+        return False
+    prose = {
+        "rag.prose.enterprise",
+        "rag.prose.short_factoid",
+        "rag.prose.multi_claim",
+    }
+    if result.corpus_type not in prose:
+        return False
+    top = result.top_classes[0][1]
+    if len(result.top_classes) < 2:
+        return top < 0.72
+    second_class, second = result.top_classes[1]
+    return top < 0.72 or (second_class in prose and (top - second) < 0.18)

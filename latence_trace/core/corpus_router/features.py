@@ -20,7 +20,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 # Schema version for the serialized classifier bundle. Bump if feature
 # semantics change so older joblib artefacts refuse to load.
-FEATURE_SCHEMA_VERSION = 1
+FEATURE_SCHEMA_VERSION = 2
 
 # Pre-compiled regexes - avoid per-call compilation overhead.
 _FENCE_RE = re.compile(r"```[^\n]*\n(.*?)```", re.DOTALL)
@@ -36,6 +36,17 @@ _CODE_FILE_EXT_RE = re.compile(
 _DEF_RE = re.compile(r"\b(?:def|class|function|fn|impl|interface|trait|struct|enum|pub\s+fn)\b")
 _DIFF_HEADER_RE = re.compile(r"^(?:diff --git|@@|\+\+\+|---)\s", re.MULTILINE)
 _SENTENCE_RE = re.compile(r"[.!?]+\s+|[.!?]+$")
+_POLICY_CUE_RE = re.compile(
+    r"\b(?:policy|policies|manual|sop|procedure|compliance|approval|approve|requires?|"
+    r"must|shall|cannot|prohibited|exception|quarantine|qa|regulation|wire transfer)\b",
+    re.IGNORECASE,
+)
+_LIST_MARKER_RE = re.compile(r"^\s*(?:[-*]|\d+[.)])\s+\S", re.MULTILINE)
+_CODE_SYMBOL_RE = re.compile(
+    r"\b(?:def|class|function|method|pytest|test_|import|SDK|client|API|"
+    r"[A-Za-z_][A-Za-z0-9_]*\([^)]*\)|[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*)",
+)
+_MULTI_CLAIM_CUE_RE = re.compile(r"\b(?:and|or|also|plus|should|must|may|cannot|while|until)\b|[,;]", re.IGNORECASE)
 
 # Very small English stopword set used for the ASCII / language heuristic.
 _EN_STOP = frozenset(
@@ -68,6 +79,13 @@ FEATURE_NAMES: Tuple[str, ...] = (
     "response_ascii_ratio",
     "response_en_stopword_ratio",
     "response_numeric_token_ratio",
+    "policy_cue_density",
+    "response_list_marker_count",
+    "context_list_marker_count",
+    "code_symbol_density",
+    "multi_claim_cue_density",
+    "query_policy_intent",
+    "query_code_intent",
 )
 
 
@@ -142,6 +160,14 @@ def _numeric_token_ratio(text: str) -> float:
     return float(n) / len(toks)
 
 
+def _cue_density(text: str, pattern: re.Pattern[str]) -> float:
+    if not text:
+        return 0.0
+    text = text[:20_000]
+    hits = len(pattern.findall(text))
+    return float(hits) / max(1.0, _token_count(text) / 25.0)
+
+
 def _json_hint_density(text: str) -> float:
     if not text:
         return 0.0
@@ -203,6 +229,13 @@ def featurize(
         _char_ratio(r, lambda ch: ord(ch) < 128),
         _stopword_ratio(r),
         _numeric_token_ratio(r),
+        _cue_density(f"{q}\n{c}\n{r}", _POLICY_CUE_RE),
+        float(min(len(_LIST_MARKER_RE.findall(r)), 20)),
+        float(min(len(_LIST_MARKER_RE.findall(c)), 50)),
+        _cue_density(f"{q}\n{c}\n{r}", _CODE_SYMBOL_RE),
+        _cue_density(r, _MULTI_CLAIM_CUE_RE),
+        float(1 if _POLICY_CUE_RE.search(q) else 0),
+        float(1 if re.search(r"\b(?:code|sdk|api|function|method|pytest|test|patch)\b", q, re.IGNORECASE) else 0),
     ]
     assert len(values) == len(FEATURE_NAMES), "feature vector length drift"
     return FeatureVector(names=FEATURE_NAMES, values=values)
