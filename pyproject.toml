@@ -79,6 +79,7 @@ packages = [
   "latence_trace.cli",
   "latence_trace.core",
   "latence_trace.core.code_lane",
+  "latence_trace.data",
   "latence_trace.kernels",
   "latence_trace.mcp",
   "latence_trace.middleware",
@@ -96,6 +97,7 @@ include-package-data = true
 # docs/code_lane_v3.md). The glob below keeps the artefact in the wheel
 # whenever it is present without making the build fail when it is not.
 "latence_trace.core.code_lane" = ["composite_logistic_v3.json"]
+"latence_trace.data" = ["*.json", "heads/*.json", "heads/*.md"]
 "latence_trace.auth" = ["license_pubkey.pem"]
 
 [tool.pytest.ini_options]

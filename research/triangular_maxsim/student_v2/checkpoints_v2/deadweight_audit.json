@@ -1,0 +1,483 @@
+{
+  "paths": [
+    "research/triangular_maxsim/student_v2/data_v2/train.jsonl",
+    "research/triangular_maxsim/student_v2/data_v2/val.jsonl",
+    "research/triangular_maxsim/student_v2/data_v2/test.jsonl",
+    "research/triangular_maxsim/student_v2/data_v2/ood_eval.jsonl"
+  ],
+  "buckets": {
+    "ragtruth::ragtruth::data2txt::grounded": {
+      "rows": 1623,
+      "rows_with_labels": 1623,
+      "units": 7006,
+      "positive_units": 0,
+      "negative_units": 7006,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "ragtruth::ragtruth::data2txt::hallucinated": {
+      "rows": 3437,
+      "rows_with_labels": 3437,
+      "units": 14731,
+      "positive_units": 0,
+      "negative_units": 14731,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "ragtruth::ragtruth::data2txt::partial_support": {
+      "rows": 238,
+      "rows_with_labels": 238,
+      "units": 1045,
+      "positive_units": 0,
+      "negative_units": 1045,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "ragtruth::ragtruth::qa::grounded": {
+      "rows": 3470,
+      "rows_with_labels": 3470,
+      "units": 7389,
+      "positive_units": 0,
+      "negative_units": 7389,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "ragtruth::ragtruth::qa::hallucinated": {
+      "rows": 1151,
+      "rows_with_labels": 1151,
+      "units": 2399,
+      "positive_units": 0,
+      "negative_units": 2399,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "ragtruth::ragtruth::qa::partial_support": {
+      "rows": 413,
+      "rows_with_labels": 413,
+      "units": 878,
+      "positive_units": 0,
+      "negative_units": 878,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "ragtruth::ragtruth::summary::grounded": {
+      "rows": 3276,
+      "rows_with_labels": 3276,
+      "units": 12132,
+      "positive_units": 0,
+      "negative_units": 12132,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "ragtruth::ragtruth::summary::hallucinated": {
+      "rows": 1301,
+      "rows_with_labels": 1301,
+      "units": 5231,
+      "positive_units": 0,
+      "negative_units": 5231,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "ragtruth::ragtruth::summary::partial_support": {
+      "rows": 181,
+      "rows_with_labels": 181,
+      "units": 645,
+      "positive_units": 0,
+      "negative_units": 645,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "synthetic_enterprise::rag.prose.enterprise::entity_swap": {
+      "rows": 5085,
+      "rows_with_labels": 0,
+      "units": 0,
+      "positive_units": 0,
+      "negative_units": 0,
+      "positive_rate": null,
+      "status": "missing_labels"
+    },
+    "synthetic_enterprise::rag.prose.enterprise::grounded": {
+      "rows": 7776,
+      "rows_with_labels": 0,
+      "units": 0,
+      "positive_units": 0,
+      "negative_units": 0,
+      "positive_rate": null,
+      "status": "missing_labels"
+    },
+    "synthetic_enterprise::rag.prose.enterprise::numeric_flip": {
+      "rows": 6807,
+      "rows_with_labels": 0,
+      "units": 0,
+      "positive_units": 0,
+      "negative_units": 0,
+      "positive_rate": null,
+      "status": "missing_labels"
+    },
+    "synthetic_enterprise::rag.prose.enterprise::support_drop": {
+      "rows": 4494,
+      "rows_with_labels": 0,
+      "units": 0,
+      "positive_units": 0,
+      "negative_units": 0,
+      "positive_rate": null,
+      "status": "missing_labels"
+    },
+    "veracier::rag.prose.enterprise::unknown": {
+      "rows": 1,
+      "rows_with_labels": 0,
+      "units": 0,
+      "positive_units": 0,
+      "negative_units": 0,
+      "positive_rate": null,
+      "status": "missing_labels"
+    },
+    "veracier::veracier::compliance::grounded": {
+      "rows": 7,
+      "rows_with_labels": 7,
+      "units": 182,
+      "positive_units": 0,
+      "negative_units": 182,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::compliance::hallucinated": {
+      "rows": 7,
+      "rows_with_labels": 7,
+      "units": 182,
+      "positive_units": 0,
+      "negative_units": 182,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::compliance::marketing::grounded": {
+      "rows": 2,
+      "rows_with_labels": 2,
+      "units": 2,
+      "positive_units": 0,
+      "negative_units": 2,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::compliance::marketing::hallucinated": {
+      "rows": 2,
+      "rows_with_labels": 2,
+      "units": 2,
+      "positive_units": 0,
+      "negative_units": 2,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::compliance::marketing::partial_support": {
+      "rows": 2,
+      "rows_with_labels": 2,
+      "units": 2,
+      "positive_units": 0,
+      "negative_units": 2,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::compliance::partial_support": {
+      "rows": 7,
+      "rows_with_labels": 7,
+      "units": 182,
+      "positive_units": 0,
+      "negative_units": 182,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::engineering::grounded": {
+      "rows": 5,
+      "rows_with_labels": 5,
+      "units": 119,
+      "positive_units": 0,
+      "negative_units": 119,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::engineering::hallucinated": {
+      "rows": 5,
+      "rows_with_labels": 5,
+      "units": 119,
+      "positive_units": 0,
+      "negative_units": 119,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::engineering::partial_support": {
+      "rows": 5,
+      "rows_with_labels": 5,
+      "units": 119,
+      "positive_units": 0,
+      "negative_units": 119,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::engineering::quality_audit::grounded": {
+      "rows": 1,
+      "rows_with_labels": 1,
+      "units": 27,
+      "positive_units": 0,
+      "negative_units": 27,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::engineering::quality_audit::hallucinated": {
+      "rows": 1,
+      "rows_with_labels": 1,
+      "units": 27,
+      "positive_units": 0,
+      "negative_units": 27,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::engineering::quality_audit::partial_support": {
+      "rows": 1,
+      "rows_with_labels": 1,
+      "units": 27,
+      "positive_units": 0,
+      "negative_units": 27,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::finance::grounded": {
+      "rows": 6,
+      "rows_with_labels": 6,
+      "units": 113,
+      "positive_units": 0,
+      "negative_units": 113,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::finance::hallucinated": {
+      "rows": 6,
+      "rows_with_labels": 6,
+      "units": 113,
+      "positive_units": 0,
+      "negative_units": 113,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::finance::marketing::grounded": {
+      "rows": 1,
+      "rows_with_labels": 1,
+      "units": 1,
+      "positive_units": 0,
+      "negative_units": 1,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::finance::marketing::hallucinated": {
+      "rows": 1,
+      "rows_with_labels": 1,
+      "units": 1,
+      "positive_units": 0,
+      "negative_units": 1,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::finance::marketing::partial_support": {
+      "rows": 1,
+      "rows_with_labels": 1,
+      "units": 1,
+      "positive_units": 0,
+      "negative_units": 1,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::finance::partial_support": {
+      "rows": 6,
+      "rows_with_labels": 6,
+      "units": 113,
+      "positive_units": 0,
+      "negative_units": 113,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::hr::grounded": {
+      "rows": 2,
+      "rows_with_labels": 2,
+      "units": 31,
+      "positive_units": 0,
+      "negative_units": 31,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::hr::hallucinated": {
+      "rows": 2,
+      "rows_with_labels": 2,
+      "units": 31,
+      "positive_units": 0,
+      "negative_units": 31,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::hr::partial_support": {
+      "rows": 2,
+      "rows_with_labels": 2,
+      "units": 31,
+      "positive_units": 0,
+      "negative_units": 31,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::legal::grounded": {
+      "rows": 9,
+      "rows_with_labels": 9,
+      "units": 151,
+      "positive_units": 0,
+      "negative_units": 151,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::legal::hallucinated": {
+      "rows": 9,
+      "rows_with_labels": 9,
+      "units": 151,
+      "positive_units": 0,
+      "negative_units": 151,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::legal::marketing::grounded": {
+      "rows": 1,
+      "rows_with_labels": 1,
+      "units": 1,
+      "positive_units": 0,
+      "negative_units": 1,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::legal::marketing::hallucinated": {
+      "rows": 1,
+      "rows_with_labels": 1,
+      "units": 1,
+      "positive_units": 0,
+      "negative_units": 1,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::legal::marketing::partial_support": {
+      "rows": 1,
+      "rows_with_labels": 1,
+      "units": 1,
+      "positive_units": 0,
+      "negative_units": 1,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::legal::partial_support": {
+      "rows": 9,
+      "rows_with_labels": 9,
+      "units": 151,
+      "positive_units": 0,
+      "negative_units": 151,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::procurement::grounded": {
+      "rows": 3,
+      "rows_with_labels": 3,
+      "units": 61,
+      "positive_units": 0,
+      "negative_units": 61,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::procurement::hallucinated": {
+      "rows": 3,
+      "rows_with_labels": 3,
+      "units": 61,
+      "positive_units": 0,
+      "negative_units": 61,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::procurement::partial_support": {
+      "rows": 3,
+      "rows_with_labels": 3,
+      "units": 61,
+      "positive_units": 0,
+      "negative_units": 61,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::quality_audit::grounded": {
+      "rows": 7,
+      "rows_with_labels": 7,
+      "units": 136,
+      "positive_units": 0,
+      "negative_units": 136,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::quality_audit::hallucinated": {
+      "rows": 7,
+      "rows_with_labels": 7,
+      "units": 136,
+      "positive_units": 0,
+      "negative_units": 136,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    },
+    "veracier::veracier::quality_audit::partial_support": {
+      "rows": 7,
+      "rows_with_labels": 7,
+      "units": 136,
+      "positive_units": 0,
+      "negative_units": 136,
+      "positive_rate": 0.0,
+      "status": "one_sided"
+    }
+  },
+  "weak_buckets": [
+    "ragtruth::ragtruth::data2txt::grounded",
+    "ragtruth::ragtruth::data2txt::hallucinated",
+    "ragtruth::ragtruth::data2txt::partial_support",
+    "ragtruth::ragtruth::qa::grounded",
+    "ragtruth::ragtruth::qa::hallucinated",
+    "ragtruth::ragtruth::qa::partial_support",
+    "ragtruth::ragtruth::summary::grounded",
+    "ragtruth::ragtruth::summary::hallucinated",
+    "ragtruth::ragtruth::summary::partial_support",
+    "synthetic_enterprise::rag.prose.enterprise::entity_swap",
+    "synthetic_enterprise::rag.prose.enterprise::grounded",
+    "synthetic_enterprise::rag.prose.enterprise::numeric_flip",
+    "synthetic_enterprise::rag.prose.enterprise::support_drop",
+    "veracier::rag.prose.enterprise::unknown",
+    "veracier::veracier::compliance::grounded",
+    "veracier::veracier::compliance::hallucinated",
+    "veracier::veracier::compliance::marketing::grounded",
+    "veracier::veracier::compliance::marketing::hallucinated",
+    "veracier::veracier::compliance::marketing::partial_support",
+    "veracier::veracier::compliance::partial_support",
+    "veracier::veracier::engineering::grounded",
+    "veracier::veracier::engineering::hallucinated",
+    "veracier::veracier::engineering::partial_support",
+    "veracier::veracier::engineering::quality_audit::grounded",
+    "veracier::veracier::engineering::quality_audit::hallucinated",
+    "veracier::veracier::engineering::quality_audit::partial_support",
+    "veracier::veracier::finance::grounded",
+    "veracier::veracier::finance::hallucinated",
+    "veracier::veracier::finance::marketing::grounded",
+    "veracier::veracier::finance::marketing::hallucinated",
+    "veracier::veracier::finance::marketing::partial_support",
+    "veracier::veracier::finance::partial_support",
+    "veracier::veracier::hr::grounded",
+    "veracier::veracier::hr::hallucinated",
+    "veracier::veracier::hr::partial_support",
+    "veracier::veracier::legal::grounded",
+    "veracier::veracier::legal::hallucinated",
+    "veracier::veracier::legal::marketing::grounded",
+    "veracier::veracier::legal::marketing::hallucinated",
+    "veracier::veracier::legal::marketing::partial_support",
+    "veracier::veracier::legal::partial_support",
+    "veracier::veracier::procurement::grounded",
+    "veracier::veracier::procurement::hallucinated",
+    "veracier::veracier::procurement::partial_support",
+    "veracier::veracier::quality_audit::grounded",
+    "veracier::veracier::quality_audit::hallucinated",
+    "veracier::veracier::quality_audit::partial_support"
+  ],
+  "recommendation": "Mask dead_weight_unit loss for one-sided/missing buckets; keep hallucination, token-support, and coverage losses active."
+}

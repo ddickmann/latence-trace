@@ -1,0 +1,767 @@
+{
+  "model": "research/triangular_maxsim/student_v2/calibrator_runs/reset_v1/maxsim_calibrator_logistic.json",
+  "n_rows": 1606,
+  "raw_maxsim_baseline": {
+    "n": 1606,
+    "binary_grounded_accuracy": 0.566,
+    "ungrounded_precision": 0.66,
+    "ungrounded_recall": 0.1735,
+    "ungrounded_f1": 0.2747,
+    "paired_score_accuracy": 0.3841,
+    "paired_n": 302,
+    "by_task": {
+      "ragtruth::qa": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.835,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": 1.0,
+        "paired_n": 1,
+        "by_task": {}
+      },
+      "ragtruth::summarization": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.745,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "ragtruth::data2text": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.66,
+        "ungrounded_precision": 0.66,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 0.7952,
+        "paired_score_accuracy": 0.0,
+        "paired_n": 1,
+        "by_task": {}
+      },
+      "halueval::qa": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.5,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": 0.27,
+        "paired_n": 100,
+        "by_task": {}
+      },
+      "halueval::summarization": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.5,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": 0.49,
+        "paired_n": 100,
+        "by_task": {}
+      },
+      "halueval::dialogue": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.5,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": 0.39,
+        "paired_n": 100,
+        "by_task": {}
+      },
+      "internal::test": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.455,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "internal::ood_eval": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.34,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.prose.enterprise": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.prose.short_factoid": {
+        "n": 1,
+        "binary_grounded_accuracy": 0.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.prose.multi_claim": {
+        "n": 1,
+        "binary_grounded_accuracy": 0.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.structured": {
+        "n": 1,
+        "binary_grounded_accuracy": 0.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.code_in_context": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::code.agentic_trace": {
+        "n": 1,
+        "binary_grounded_accuracy": 0.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      }
+    }
+  },
+  "learned_token_calibrator": {
+    "n": 1606,
+    "binary_grounded_accuracy": 0.5012,
+    "ungrounded_precision": 0.4602,
+    "ungrounded_recall": 0.3035,
+    "ungrounded_f1": 0.3658,
+    "paired_score_accuracy": 0.3278,
+    "paired_n": 302,
+    "by_task": {
+      "ragtruth::qa": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.645,
+        "ungrounded_precision": 0.2206,
+        "ungrounded_recall": 0.4545,
+        "ungrounded_f1": 0.297,
+        "paired_score_accuracy": 1.0,
+        "paired_n": 1,
+        "by_task": {}
+      },
+      "ragtruth::summarization": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.535,
+        "ungrounded_precision": 0.2162,
+        "ungrounded_recall": 0.3137,
+        "ungrounded_f1": 0.256,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "ragtruth::data2text": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.66,
+        "ungrounded_precision": 0.66,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 0.7952,
+        "paired_score_accuracy": 1.0,
+        "paired_n": 1,
+        "by_task": {}
+      },
+      "halueval::qa": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.5,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": 0.27,
+        "paired_n": 100,
+        "by_task": {}
+      },
+      "halueval::summarization": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.36,
+        "ungrounded_precision": 0.3627,
+        "ungrounded_recall": 0.37,
+        "ungrounded_f1": 0.3663,
+        "paired_score_accuracy": 0.31,
+        "paired_n": 100,
+        "by_task": {}
+      },
+      "halueval::dialogue": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.49,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": 0.39,
+        "paired_n": 100,
+        "by_task": {}
+      },
+      "internal::test": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.48,
+        "ungrounded_precision": 0.5455,
+        "ungrounded_recall": 0.2752,
+        "ungrounded_f1": 0.3659,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "internal::ood_eval": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.34,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.prose.enterprise": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.prose.short_factoid": {
+        "n": 1,
+        "binary_grounded_accuracy": 0.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.prose.multi_claim": {
+        "n": 1,
+        "binary_grounded_accuracy": 0.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.structured": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 1.0,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 1.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.code_in_context": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::code.agentic_trace": {
+        "n": 1,
+        "binary_grounded_accuracy": 0.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      }
+    }
+  },
+  "v1_cache": {
+    "status": "ok",
+    "path": "research/triangular_maxsim/student_v2/calibrator_runs/reset_v1/v1_cache_eval_200.jsonl",
+    "n": 1606,
+    "failed": 0,
+    "mean_latency_ms": 480.57,
+    "p95_latency_ms": 1692.38
+  },
+  "v1_router": {
+    "n": 1606,
+    "binary_grounded_accuracy": 0.6059,
+    "ungrounded_precision": 0.5548,
+    "ungrounded_recall": 0.8515,
+    "ungrounded_f1": 0.6719,
+    "paired_score_accuracy": 0.6291,
+    "paired_n": 302,
+    "by_task": {
+      "ragtruth::qa": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.345,
+        "ungrounded_precision": 0.1938,
+        "ungrounded_recall": 0.9394,
+        "ungrounded_f1": 0.3212,
+        "paired_score_accuracy": 1.0,
+        "paired_n": 1,
+        "by_task": {}
+      },
+      "ragtruth::summarization": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.405,
+        "ungrounded_precision": 0.2901,
+        "ungrounded_recall": 0.9216,
+        "ungrounded_f1": 0.4413,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "ragtruth::data2text": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.66,
+        "ungrounded_precision": 0.66,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 0.7952,
+        "paired_score_accuracy": 0.0,
+        "paired_n": 1,
+        "by_task": {}
+      },
+      "halueval::qa": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.635,
+        "ungrounded_precision": 0.6849,
+        "ungrounded_recall": 0.5,
+        "ungrounded_f1": 0.578,
+        "paired_score_accuracy": 0.59,
+        "paired_n": 100,
+        "by_task": {}
+      },
+      "halueval::summarization": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.545,
+        "ungrounded_precision": 0.5283,
+        "ungrounded_recall": 0.84,
+        "ungrounded_f1": 0.6486,
+        "paired_score_accuracy": 0.59,
+        "paired_n": 100,
+        "by_task": {}
+      },
+      "halueval::dialogue": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.63,
+        "ungrounded_precision": 0.6226,
+        "ungrounded_recall": 0.66,
+        "ungrounded_f1": 0.6408,
+        "paired_score_accuracy": 0.71,
+        "paired_n": 100,
+        "by_task": {}
+      },
+      "internal::test": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.625,
+        "ungrounded_precision": 0.6,
+        "ungrounded_recall": 0.9358,
+        "ungrounded_f1": 0.7312,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "internal::ood_eval": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.99,
+        "ungrounded_precision": 0.9851,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 0.9925,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.prose.enterprise": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.prose.short_factoid": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 1.0,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 1.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.prose.multi_claim": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 1.0,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 1.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.structured": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 1.0,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 1.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.code_in_context": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::code.agentic_trace": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 1.0,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 1.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      }
+    }
+  },
+  "v1_plus_calibrator": {
+    "n": 1606,
+    "binary_grounded_accuracy": 0.6768,
+    "ungrounded_precision": 0.7619,
+    "ungrounded_recall": 0.4625,
+    "ungrounded_f1": 0.5756,
+    "paired_score_accuracy": 0.5265,
+    "paired_n": 302,
+    "by_task": {
+      "ragtruth::qa": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.815,
+        "ungrounded_precision": 0.25,
+        "ungrounded_recall": 0.0606,
+        "ungrounded_f1": 0.0976,
+        "paired_score_accuracy": 1.0,
+        "paired_n": 1,
+        "by_task": {}
+      },
+      "ragtruth::summarization": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.745,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "ragtruth::data2text": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.66,
+        "ungrounded_precision": 0.66,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 0.7952,
+        "paired_score_accuracy": 1.0,
+        "paired_n": 1,
+        "by_task": {}
+      },
+      "halueval::qa": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.61,
+        "ungrounded_precision": 0.7292,
+        "ungrounded_recall": 0.35,
+        "ungrounded_f1": 0.473,
+        "paired_score_accuracy": 0.57,
+        "paired_n": 100,
+        "by_task": {}
+      },
+      "halueval::summarization": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.5,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": 0.35,
+        "paired_n": 100,
+        "by_task": {}
+      },
+      "halueval::dialogue": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.615,
+        "ungrounded_precision": 0.6716,
+        "ungrounded_recall": 0.45,
+        "ungrounded_f1": 0.5389,
+        "paired_score_accuracy": 0.65,
+        "paired_n": 100,
+        "by_task": {}
+      },
+      "internal::test": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.46,
+        "ungrounded_precision": 0.6667,
+        "ungrounded_recall": 0.0183,
+        "ungrounded_f1": 0.0357,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "internal::ood_eval": {
+        "n": 200,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 1.0,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 1.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.prose.enterprise": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.prose.short_factoid": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 1.0,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 1.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.prose.multi_claim": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 1.0,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 1.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.structured": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 1.0,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 1.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.code_in_context": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::code.agentic_trace": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 1.0,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 1.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      }
+    }
+  },
+  "raw_plus_calibrator": {
+    "n": 1606,
+    "binary_grounded_accuracy": 0.566,
+    "ungrounded_precision": 0.66,
+    "ungrounded_recall": 0.1735,
+    "ungrounded_f1": 0.2747,
+    "paired_score_accuracy": 0.3212,
+    "paired_n": 302,
+    "by_task": {
+      "ragtruth::qa": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.835,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": 1.0,
+        "paired_n": 1,
+        "by_task": {}
+      },
+      "ragtruth::summarization": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.745,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "ragtruth::data2text": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.66,
+        "ungrounded_precision": 0.66,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 0.7952,
+        "paired_score_accuracy": 1.0,
+        "paired_n": 1,
+        "by_task": {}
+      },
+      "halueval::qa": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.5,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": 0.27,
+        "paired_n": 100,
+        "by_task": {}
+      },
+      "halueval::summarization": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.5,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": 0.29,
+        "paired_n": 100,
+        "by_task": {}
+      },
+      "halueval::dialogue": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.5,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": 0.39,
+        "paired_n": 100,
+        "by_task": {}
+      },
+      "internal::test": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.455,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "internal::ood_eval": {
+        "n": 200,
+        "binary_grounded_accuracy": 0.34,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.prose.enterprise": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.prose.short_factoid": {
+        "n": 1,
+        "binary_grounded_accuracy": 0.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.prose.multi_claim": {
+        "n": 1,
+        "binary_grounded_accuracy": 0.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.structured": {
+        "n": 1,
+        "binary_grounded_accuracy": 0.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.code_in_context": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::code.agentic_trace": {
+        "n": 1,
+        "binary_grounded_accuracy": 0.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      }
+    }
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "enabled_allow_block_classes": {
+    "rag.prose.enterprise": {
+      "head": "optimized_feature_calibrator",
+      "mode": "allow_block_repair_opt_in",
+      "rollback": "disable LATENCE_TRACE_RUNTIME_DECISION_ENABLED or set class thresholds disabled"
+    }
+  },
+  "repair_only_classes": {
+    "code.agentic_trace": "manufactured trajectory AUROC 0.7917 is below 0.90 gate",
+    "rag.code_in_context": "no candidate has class-specific proof beyond v1 passthrough",
+    "rag.prose.multi_claim": "partial-support errors require semantic claim/evidence modelling",
+    "rag.prose.short_factoid": "partial-support errors require semantic claim/evidence modelling",
+    "rag.structured": "partial-support errors require semantic claim/evidence modelling"
+  },
+  "runtime_head_registry": {
+    "code.agentic_trace": {
+      "class_key": "code.agentic_trace",
+      "enabled": false,
+      "head_id": "trajectory_symbolic_ranker",
+      "production_mode": "auto_repair_only",
+      "reason": "manufactured trajectory AUROC 0.7917 is below 0.90 gate",
+      "rollback_switches": [
+        "already repair-only"
+      ],
+      "version": "root_cause_v1"
+    },
+    "rag.code_in_context": {
+      "class_key": "rag.code_in_context",
+      "enabled": false,
+      "head_id": "v1_passthrough",
+      "production_mode": "auto_repair_only",
+      "reason": "no candidate has class-specific proof beyond v1 passthrough",
+      "rollback_switches": [
+        "already repair-only"
+      ],
+      "version": "root_cause_v1"
+    },
+    "rag.prose.enterprise": {
+      "class_key": "rag.prose.enterprise",
+      "enabled": true,
+      "head_id": "optimized_feature_calibrator",
+      "proof": {
+        "fusion_report": "research/triangular_maxsim/student_v2/calibrator_runs/reset_v1/fusion_optimized_no_regress_200.json",
+        "fusion_report_sha256": "14f5df4bdbf2950cebc04e22766a3ade74be72ce723171dfe7ea3bbab03ebb76",
+        "root_cause_artifact": "research/triangular_maxsim/student_v2/root_cause_runs/latest/root_cause_model_selection.json",
+        "runtime_policy_sha256": "e996c33b8ec027dfaab7f6770b3bd45d11dc6aecba717aa066f2cb11747aa8dd"
+      },
+      "rollback_switches": [
+        "LATENCE_TRACE_RUNTIME_DECISION_ENABLED=0",
+        "classes.rag.prose.enterprise.allow_disabled=true",
+        "classes.rag.prose.enterprise.block_disabled=true",
+        "set learned/calibrator weight to 0.0 in the policy source artifact"
+      ],
+      "thresholds": {
+        "allow_disabled": false,
+        "allow_threshold": 0.83,
+        "block_disabled": false,
+        "block_threshold": 0.5
+      },
+      "version": "root_cause_v1"
+    },
+    "rag.prose.multi_claim": {
+      "class_key": "rag.prose.multi_claim",
+      "enabled": false,
+      "head_id": "compact_claim_evidence_encoder",
+      "production_mode": "auto_repair_only_until_bakeoff_passes",
+      "reason": "partial-support errors require semantic claim/evidence modelling",
+      "rollback_switches": [
+        "already repair-only"
+      ],
+      "version": "root_cause_v1"
+    },
+    "rag.prose.short_factoid": {
+      "class_key": "rag.prose.short_factoid",
+      "enabled": false,
+      "head_id": "compact_claim_evidence_encoder",
+      "production_mode": "auto_repair_only_until_bakeoff_passes",
+      "reason": "partial-support errors require semantic claim/evidence modelling",
+      "rollback_switches": [
+        "already repair-only"
+      ],
+      "version": "root_cause_v1"
+    },
+    "rag.structured": {
+      "class_key": "rag.structured",
+      "enabled": false,
+      "head_id": "compact_claim_evidence_encoder",
+      "production_mode": "auto_repair_only_until_bakeoff_passes",
+      "reason": "partial-support errors require semantic claim/evidence modelling",
+      "rollback_switches": [
+        "already repair-only"
+      ],
+      "version": "root_cause_v1"
+    }
+  },
+  "schema": "trace_runtime_head_registry.v1",
+  "source": "root_cause_model_selection"
+}

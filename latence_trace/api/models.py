@@ -859,6 +859,55 @@ class CorpusRouteDiagnostics(BaseModel):
     )
 
 
+class RuntimeUnsupportedSpan(BaseModel):
+    """Token-level unsupported span emitted by the runtime decision gate."""
+
+    token_index: int
+    token: str
+    heatmap_score: Optional[float] = None
+    nli_score: Optional[float] = None
+    reverse_context_calibrated: Optional[float] = None
+    char_start: Optional[int] = None
+    char_end: Optional[int] = None
+
+
+class RuntimeEvidence(BaseModel):
+    """Compact evidence record used by automatic decision clients."""
+
+    index: int
+    support_id: Optional[str] = None
+    text: str
+    coverage_score: Optional[float] = None
+    usage_state: Optional[str] = None
+
+
+class RuntimeDecisionRecord(BaseModel):
+    """Stable allow / repair / block decision record for agentic runtimes."""
+
+    policy_version: str
+    policy_sha256: Optional[str] = None
+    head_id: Optional[str] = None
+    head_version: Optional[str] = None
+    head_registry_sha256: Optional[str] = None
+    head_enabled: Optional[bool] = None
+    head_score: Optional[float] = None
+    head_features_used: List[str] = Field(default_factory=list)
+    head_reason_codes: List[str] = Field(default_factory=list)
+    class_key: str
+    score: float
+    score_channel: str
+    band: str
+    action: Literal["allow", "auto_repair", "block"]
+    evidence: List[RuntimeEvidence] = Field(default_factory=list)
+    unsupported_spans: List[RuntimeUnsupportedSpan] = Field(default_factory=list)
+    reason_codes: List[str] = Field(default_factory=list)
+    allow_disabled: Optional[bool] = None
+    block_disabled: Optional[bool] = None
+    allow_threshold: Optional[float] = None
+    block_threshold: Optional[float] = None
+    rollback_safe: bool = True
+
+
 class AmberEscalationDiagnostics(BaseModel):
     """Per-request amber auto-decide diagnostics (Phase 2)."""
 
@@ -1636,6 +1685,15 @@ class GroundednessResponse(BaseModel):
             "initial band was ``amber``. Records the pinned LLM judge's "
             "verdict, reasoning, latency, and cost so the caller can audit "
             "the zero-human-in-the-loop path."
+        ),
+    )
+    runtime_decision: Optional[RuntimeDecisionRecord] = Field(
+        default=None,
+        description=(
+            "Stable automatic decision record emitted when "
+            "LATENCE_TRACE_RUNTIME_DECISION_ENABLED is set. Contains the "
+            "allow / auto_repair / block action, policy version, evidence, "
+            "unsupported spans, and rollback-safe thresholds."
         ),
     )
     reason: Optional[str] = Field(

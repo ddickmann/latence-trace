@@ -1,0 +1,65 @@
+loaded 3306 rows from research/triangular_maxsim/student_v2/data_v2/test.jsonl
+{
+  "checkpoint": "research/triangular_maxsim/student_v2/checkpoints_reset/student_final.pt",
+  "split": "test",
+  "n_rows": 3306,
+  "by_source": {
+    "ragtruth": {
+      "n": 1548,
+      "binary_grounded_accuracy": 0.689922480620155,
+      "turn_band_3way_accuracy": 0.6647286821705426
+    },
+    "synthetic_enterprise": {
+      "n": 1752,
+      "binary_grounded_accuracy": 0.702054794520548,
+      "turn_band_3way_accuracy": 0.702054794520548
+    },
+    "veracier": {
+      "n": 6,
+      "binary_grounded_accuracy": 0.8333333333333334,
+      "turn_band_3way_accuracy": 0.8333333333333334
+    }
+  },
+  "by_source_role": {
+    "ragtruth::grounded": {
+      "n": 874,
+      "acc": 0.6899313501144165
+    },
+    "ragtruth::hallucinated": {
+      "n": 589,
+      "acc": 0.7232597623089984
+    },
+    "synthetic_enterprise::grounded": {
+      "n": 549,
+      "acc": 0.17304189435336975
+    },
+    "synthetic_enterprise::numeric_flip": {
+      "n": 471,
+      "acc": 0.9193205944798302
+    },
+    "synthetic_enterprise::entity_swap": {
+      "n": 387,
+      "acc": 0.9224806201550387
+    },
+    "synthetic_enterprise::support_drop": {
+      "n": 345,
+      "acc": 1.0
+    },
+    "ragtruth::partial_support": {
+      "n": 85,
+      "acc": 0.0
+    },
+    "veracier::grounded": {
+      "n": 2,
+      "acc": 1.0
+    },
+    "veracier::partial_support": {
+      "n": 2,
+      "acc": 0.5
+    },
+    "veracier::hallucinated": {
+      "n": 2,
+      "acc": 1.0
+    }
+  }
+}

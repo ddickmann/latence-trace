@@ -1,0 +1,119 @@
+{
+  "cell": "sentence_packed|gte_only",
+  "eval": {
+    "both": {
+      "accuracy": 0.6363636363636364,
+      "auroc": 0.6061007957559682,
+      "false_allow_rate": 0.1724137931034483,
+      "false_block_rate": 0.5769230769230769,
+      "grounded_count": 26,
+      "grounded_recall": 0.4230769230769231,
+      "rows": 55,
+      "threshold": 0.6543006306739646,
+      "ungrounded_count": 29,
+      "ungrounded_recall": 0.8275862068965517
+    },
+    "transcripts_v2": {
+      "accuracy": 0.6333333333333333,
+      "auroc": 0.6930555555555555,
+      "false_allow_rate": 0.25,
+      "false_block_rate": 0.48333333333333334,
+      "grounded_count": 60,
+      "grounded_recall": 0.5166666666666667,
+      "rows": 120,
+      "threshold": 0.6543006306739646,
+      "ungrounded_count": 60,
+      "ungrounded_recall": 0.75
+    }
+  },
+  "model": {
+    "cell": "sentence_packed|gte_only",
+    "feature_names": [
+      "reverse_context",
+      "consensus_hardened",
+      "groundedness_v2",
+      "triangular",
+      "literal_match_rate",
+      "literal_mismatch_rate",
+      "context_attribution_ratio",
+      "context_unused_ratio",
+      "context_uncertain_ratio",
+      "dead_weight_ratio",
+      "max_top_evidence_score",
+      "phantom_flagged",
+      "support_usage_rate",
+      "context_token_log"
+    ],
+    "means": {
+      "consensus_hardened": 0.9746885613157722,
+      "context_attribution_ratio": 0.6410517060030303,
+      "context_token_log": 9.412878459259344,
+      "context_uncertain_ratio": 0.8280876413789839,
+      "context_unused_ratio": 0.0,
+      "dead_weight_ratio": 0.5386616019517477,
+      "groundedness_v2": 0.8940568490232679,
+      "literal_match_rate": 0.15421817765567764,
+      "literal_mismatch_rate": 0.5332818223443223,
+      "max_top_evidence_score": 0.9975123293697834,
+      "phantom_flagged": 0.0,
+      "reverse_context": 0.9748137632888086,
+      "support_usage_rate": 0.17191235862101595,
+      "triangular": 0.9618234059458516
+    },
+    "model_type": "trajectory_symbolic_linear_ranker",
+    "scales": {
+      "consensus_hardened": 0.007609287660092307,
+      "context_attribution_ratio": 0.13951207301527166,
+      "context_token_log": 0.7041127979927024,
+      "context_uncertain_ratio": 0.0836511443163384,
+      "context_unused_ratio": 1.0,
+      "dead_weight_ratio": 0.20527542828810957,
+      "groundedness_v2": 0.07515451146796276,
+      "literal_match_rate": 0.23612034150130568,
+      "literal_mismatch_rate": 0.4173849597624412,
+      "max_top_evidence_score": 0.004942516385127079,
+      "phantom_flagged": 1.0,
+      "reverse_context": 0.007568460561521828,
+      "support_usage_rate": 0.0836511443163384,
+      "triangular": 0.005236078814514183
+    },
+    "threshold": 0.6543006306739646,
+    "train_rows": 16,
+    "weights": {
+      "consensus_hardened": 0.3265299365908526,
+      "context_attribution_ratio": -0.19703879743723862,
+      "context_token_log": 0.0,
+      "context_uncertain_ratio": -0.10879509181229717,
+      "context_unused_ratio": 0.0,
+      "dead_weight_ratio": -0.019268702795858017,
+      "groundedness_v2": 0.2599183979270048,
+      "literal_match_rate": 0.019755207016251233,
+      "literal_mismatch_rate": -0.46040136744859866,
+      "max_top_evidence_score": 0.22143564658444473,
+      "phantom_flagged": 0.0,
+      "reverse_context": 0.3325321351362145,
+      "support_usage_rate": 0.1087950918122971,
+      "triangular": 0.33886346387541905
+    }
+  },
+  "promotion_decision": "do_not_promote_keep_code_agentic_trace_repair_only",
+  "promotion_gate": {
+    "required_auroc": 0.9,
+    "required_false_allow_rate": 0.02,
+    "required_false_block_rate": 0.05
+  },
+  "schema": "trace_coding_trajectory_head.v1",
+  "train_bank": "transcripts_v1",
+  "train_metrics": {
+    "accuracy": 0.8125,
+    "auroc": 0.765625,
+    "false_allow_rate": 0.125,
+    "false_block_rate": 0.25,
+    "grounded_count": 8,
+    "grounded_recall": 0.75,
+    "rows": 16,
+    "threshold": 0.6543006306739646,
+    "ungrounded_count": 8,
+    "ungrounded_recall": 0.875
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "architecture": "entity_date_number_atom_verifier",
+  "candidate_source": "factoid_atom_verifier",
+  "candidate_status": "evaluated",
+  "class_key": "rag.prose.short_factoid",
+  "enabled": false,
+  "feature_names": [
+    "v1_score",
+    "v1_nli_aggregate",
+    "reverse_context",
+    "groundedness_v2",
+    "literal_guarded",
+    "literal_mismatch_count",
+    "context_coverage_ratio",
+    "context_unused_ratio",
+    "dead_weight_ratio",
+    "token_mean",
+    "token_bottom10",
+    "token_saturation_rate",
+    "calibrated_mean",
+    "nli_token_mean",
+    "literal_coverage",
+    "numeric_coverage",
+    "numeric_count",
+    "literal_coverage"
+  ],
+  "gates": {
+    "max_false_allow": 0.02,
+    "max_false_block": 0.08,
+    "max_p95_latency_ms": 25.0,
+    "min_n": 24
+  },
+  "head_id": "atom_verifier",
+  "metrics": {
+    "auroc": 0.8533199195171026,
+    "binary_grounded_accuracy": 0.7588652482269503,
+    "candidate": "factoid_atom_verifier",
+    "false_allow_rate": 0.11267605633802817,
+    "false_block_rate": 0.3714285714285714,
+    "feature_names": [
+      "v1_score",
+      "v1_nli_aggregate",
+      "reverse_context",
+      "groundedness_v2",
+      "literal_guarded",
+      "literal_mismatch_count",
+      "context_coverage_ratio",
+      "context_unused_ratio",
+      "dead_weight_ratio",
+      "token_mean",
+      "token_bottom10",
+      "token_saturation_rate",
+      "calibrated_mean",
+      "nli_token_mean",
+      "literal_coverage",
+      "numeric_coverage",
+      "numeric_count",
+      "literal_coverage"
+    ],
+    "latency_p50_ms": 0.19382871687412262,
+    "latency_p95_ms": 0.2060122787952423,
+    "n": 141,
+    "status": "evaluated",
+    "test_n": 141,
+    "threshold": 0.6017449057061443,
+    "train_fit_ms": 337.35980466008186,
+    "train_n": 260,
+    "ungrounded_f1": 0.7875,
+    "ungrounded_precision": 0.7078651685393258,
+    "ungrounded_recall": 0.8873239436619719
+  },
+  "next_training_target": "reduce high-overlap entity/date/number false allows without increasing grounded false blocks",
+  "rollback_mode": "disable_head_or_class_allow_block",
+  "root_cause_counts": {
+    "aggregation_error": 111,
+    "domain_morphology_identifier": 401,
+    "domain_morphology_numeric": 57,
+    "false_allow": 84,
+    "false_block": 42,
+    "short_answer_overlap": 401
+  },
+  "schema": "trace_runtime_head_artifact.v1",
+  "score_strategy": {
+    "reason_codes": [
+      "rag.prose.short_factoid_head_available_not_enabled",
+      "evaluated"
+    ],
+    "type": "descriptor_only_until_promoted"
+  },
+  "selection": {
+    "production_mode": "auto_repair_only",
+    "reason": "no candidate cleared no-regression, false-decision, and latency gates",
+    "selected_head": "v1_passthrough_repair_only"
+  },
+  "version": "root_cause_solution_v1"
+}

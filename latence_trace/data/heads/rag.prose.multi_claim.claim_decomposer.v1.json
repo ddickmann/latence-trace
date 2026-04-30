@@ -1,0 +1,92 @@
+{
+  "architecture": "claim_decomposition_plus_per_claim_support_aggregation",
+  "candidate_source": "trace_feature_logreg",
+  "candidate_status": "evaluated",
+  "class_key": "rag.prose.multi_claim",
+  "enabled": false,
+  "feature_names": [
+    "v1_score",
+    "v1_nli_aggregate",
+    "reverse_context",
+    "groundedness_v2",
+    "literal_guarded",
+    "literal_mismatch_count",
+    "context_coverage_ratio",
+    "context_unused_ratio",
+    "dead_weight_ratio",
+    "token_mean",
+    "token_bottom10",
+    "token_saturation_rate",
+    "calibrated_mean",
+    "nli_token_mean",
+    "literal_coverage"
+  ],
+  "gates": {
+    "max_false_allow": 0.02,
+    "max_false_block": 0.08,
+    "max_p95_latency_ms": 25.0,
+    "min_n": 24
+  },
+  "head_id": "claim_decomposer",
+  "metrics": {
+    "auroc": 0.6932515337423313,
+    "binary_grounded_accuracy": 0.597457627118644,
+    "candidate": "trace_feature_logreg",
+    "false_allow_rate": 0.2191780821917808,
+    "false_block_rate": 0.48466257668711654,
+    "feature_names": [
+      "v1_score",
+      "v1_nli_aggregate",
+      "reverse_context",
+      "groundedness_v2",
+      "literal_guarded",
+      "literal_mismatch_count",
+      "context_coverage_ratio",
+      "context_unused_ratio",
+      "dead_weight_ratio",
+      "token_mean",
+      "token_bottom10",
+      "token_saturation_rate",
+      "calibrated_mean",
+      "nli_token_mean",
+      "literal_coverage"
+    ],
+    "latency_p50_ms": 0.20357966423034668,
+    "latency_p95_ms": 0.3266516141593456,
+    "n": 236,
+    "status": "evaluated",
+    "test_n": 236,
+    "threshold": 0.5975833083802443,
+    "train_fit_ms": 574.7065283358097,
+    "train_n": 436,
+    "ungrounded_f1": 0.5454545454545454,
+    "ungrounded_precision": 0.41911764705882354,
+    "ungrounded_recall": 0.7808219178082192
+  },
+  "next_training_target": "replace whole-answer features with atomic claim decomposition and per-claim unsupported penalties",
+  "rollback_mode": "disable_head_or_class_allow_block",
+  "root_cause_counts": {
+    "aggregation_error": 375,
+    "domain_morphology_identifier": 672,
+    "domain_morphology_numeric": 402,
+    "false_allow": 26,
+    "false_block": 128,
+    "multi_claim_aggregation": 672,
+    "partial_support_collapse": 8,
+    "token_saturation": 22
+  },
+  "schema": "trace_runtime_head_artifact.v1",
+  "score_strategy": {
+    "reason_codes": [
+      "rag.prose.multi_claim_head_available_not_enabled",
+      "evaluated"
+    ],
+    "type": "descriptor_only_until_promoted"
+  },
+  "selection": {
+    "production_mode": "auto_repair_only",
+    "reason": "no candidate cleared no-regression, false-decision, and latency gates",
+    "selected_head": "v1_passthrough_repair_only"
+  },
+  "version": "root_cause_solution_v1"
+}

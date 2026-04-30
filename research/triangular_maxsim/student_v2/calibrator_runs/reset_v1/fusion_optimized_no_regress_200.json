@@ -1,0 +1,176 @@
+{
+  "v1_cache": {
+    "status": "ok",
+    "path": "research/triangular_maxsim/student_v2/calibrator_runs/reset_v1/v1_cache_eval_200.jsonl",
+    "n": 1606,
+    "failed": 0,
+    "mean_latency_ms": 480.57,
+    "p95_latency_ms": 1692.38
+  },
+  "rows": 1606,
+  "overall_v1": {
+    "n": 1606,
+    "binary_grounded_accuracy": 0.6059,
+    "ungrounded_precision": 0.5548,
+    "ungrounded_recall": 0.8515,
+    "ungrounded_f1": 0.6719,
+    "paired_score_accuracy": 0.6291,
+    "paired_n": 302
+  },
+  "overall_optimized_v1_plus_calibrator": {
+    "n": 1606,
+    "binary_grounded_accuracy": 0.6177,
+    "ungrounded_precision": 0.5637,
+    "ungrounded_recall": 0.8541,
+    "ungrounded_f1": 0.6792,
+    "paired_score_accuracy": 0.6325,
+    "paired_n": 302
+  },
+  "overall_no_regression_pass": true,
+  "classes": {
+    "code.agentic_trace": {
+      "mode": "v1_passthrough",
+      "learned_weight": 0.0,
+      "threshold": null,
+      "baseline_v1": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 1.0,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 1.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0
+      },
+      "selected": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 1.0,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 1.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0
+      },
+      "no_regression_pass": true
+    },
+    "rag.code_in_context": {
+      "mode": "v1_passthrough",
+      "learned_weight": 0.0,
+      "threshold": null,
+      "baseline_v1": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0
+      },
+      "selected": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0
+      },
+      "no_regression_pass": true
+    },
+    "rag.prose.enterprise": {
+      "mode": "weighted_fusion",
+      "learned_weight": 0.7,
+      "threshold": 0.83,
+      "baseline_v1": {
+        "n": 288,
+        "binary_grounded_accuracy": 0.9201,
+        "ungrounded_precision": 0.9043,
+        "ungrounded_recall": 0.9844,
+        "ungrounded_f1": 0.9426,
+        "paired_score_accuracy": null,
+        "paired_n": 0
+      },
+      "selected": {
+        "n": 288,
+        "binary_grounded_accuracy": 0.9861,
+        "ungrounded_precision": 0.9845,
+        "ungrounded_recall": 0.9948,
+        "ungrounded_f1": 0.9896,
+        "paired_score_accuracy": null,
+        "paired_n": 0
+      },
+      "no_regression_pass": true
+    },
+    "rag.prose.multi_claim": {
+      "mode": "v1_passthrough",
+      "learned_weight": 0.0,
+      "threshold": null,
+      "baseline_v1": {
+        "n": 672,
+        "binary_grounded_accuracy": 0.436,
+        "ungrounded_precision": 0.3402,
+        "ungrounded_recall": 0.875,
+        "ungrounded_f1": 0.4899,
+        "paired_score_accuracy": 0.5941,
+        "paired_n": 101
+      },
+      "selected": {
+        "n": 672,
+        "binary_grounded_accuracy": 0.436,
+        "ungrounded_precision": 0.3402,
+        "ungrounded_recall": 0.875,
+        "ungrounded_f1": 0.4899,
+        "paired_score_accuracy": 0.5941,
+        "paired_n": 101
+      },
+      "no_regression_pass": true
+    },
+    "rag.prose.short_factoid": {
+      "mode": "v1_passthrough",
+      "learned_weight": 0.0,
+      "threshold": null,
+      "baseline_v1": {
+        "n": 401,
+        "binary_grounded_accuracy": 0.6334,
+        "ungrounded_precision": 0.65,
+        "ungrounded_recall": 0.5821,
+        "ungrounded_f1": 0.6142,
+        "paired_score_accuracy": 0.65,
+        "paired_n": 200
+      },
+      "selected": {
+        "n": 401,
+        "binary_grounded_accuracy": 0.6334,
+        "ungrounded_precision": 0.65,
+        "ungrounded_recall": 0.5821,
+        "ungrounded_f1": 0.6142,
+        "paired_score_accuracy": 0.65,
+        "paired_n": 200
+      },
+      "no_regression_pass": true
+    },
+    "rag.structured": {
+      "mode": "weighted_fusion",
+      "learned_weight": 0.4,
+      "threshold": 0.83,
+      "baseline_v1": {
+        "n": 243,
+        "binary_grounded_accuracy": 0.6543,
+        "ungrounded_precision": 0.6543,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 0.791,
+        "paired_score_accuracy": 0.0,
+        "paired_n": 1
+      },
+      "selected": {
+        "n": 243,
+        "binary_grounded_accuracy": 0.6543,
+        "ungrounded_precision": 0.6543,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 0.791,
+        "paired_score_accuracy": 1.0,
+        "paired_n": 1
+      },
+      "no_regression_pass": true
+    }
+  }
+}

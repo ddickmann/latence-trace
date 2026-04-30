@@ -62,6 +62,7 @@ from latence_trace.api.models import (
     RollupResponse,
     RollupTopDeadFile,
     RollupTurnInput,
+    RuntimeDecisionRecord,
     ScoringMode,
     SessionSignals as SessionSignalsPayload,
     SessionStatePayload,
@@ -118,6 +119,7 @@ from latence_trace.core.nli import (
     resolve_default_reranker as nli_resolve_default_reranker,
 )
 from latence_trace.core.thresholds import RiskBandPolicy, load_risk_band_policy
+from latence_trace.core.runtime_decision import build_runtime_decision
 
 import contextvars
 
@@ -1152,6 +1154,12 @@ class GroundednessService:
             )
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning("corpus_router: failed to attach diagnostics: %r", exc)
+        try:
+            decision_record = build_runtime_decision(response)
+            if decision_record is not None:
+                response.runtime_decision = RuntimeDecisionRecord.model_validate(decision_record)
+        except Exception as exc:  # pragma: no cover - decision layer must not fail scoring
+            logger.warning("runtime_decision: failed to attach decision record: %r", exc)
         return response
 
     def rollup(self, request: RollupRequest) -> RollupResponse:

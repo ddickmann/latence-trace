@@ -1,0 +1,99 @@
+{
+  "architecture": "typed_cell_schema_value_alignment",
+  "candidate_source": "structured_cell_verifier",
+  "candidate_status": "evaluated",
+  "class_key": "rag.structured",
+  "enabled": false,
+  "feature_names": [
+    "v1_score",
+    "v1_nli_aggregate",
+    "reverse_context",
+    "groundedness_v2",
+    "literal_guarded",
+    "literal_mismatch_count",
+    "context_coverage_ratio",
+    "context_unused_ratio",
+    "dead_weight_ratio",
+    "token_mean",
+    "token_bottom10",
+    "token_saturation_rate",
+    "calibrated_mean",
+    "nli_token_mean",
+    "literal_coverage",
+    "numeric_coverage",
+    "numeric_count",
+    "coverage_label_mean",
+    "dead_weight_label_mean"
+  ],
+  "gates": {
+    "max_false_allow": 0.02,
+    "max_false_block": 0.08,
+    "max_p95_latency_ms": 25.0,
+    "min_n": 24
+  },
+  "head_id": "cell_schema_verifier",
+  "metrics": {
+    "auroc": 0.5458333333333333,
+    "binary_grounded_accuracy": 0.6627906976744186,
+    "candidate": "structured_cell_verifier",
+    "false_allow_rate": 0.017857142857142856,
+    "false_block_rate": 0.9333333333333333,
+    "feature_names": [
+      "v1_score",
+      "v1_nli_aggregate",
+      "reverse_context",
+      "groundedness_v2",
+      "literal_guarded",
+      "literal_mismatch_count",
+      "context_coverage_ratio",
+      "context_unused_ratio",
+      "dead_weight_ratio",
+      "token_mean",
+      "token_bottom10",
+      "token_saturation_rate",
+      "calibrated_mean",
+      "nli_token_mean",
+      "literal_coverage",
+      "numeric_coverage",
+      "numeric_count",
+      "coverage_label_mean",
+      "dead_weight_label_mean"
+    ],
+    "latency_p50_ms": 0.19312091171741486,
+    "latency_p95_ms": 0.21570781245827675,
+    "n": 86,
+    "status": "evaluated",
+    "test_n": 86,
+    "threshold": 0.7944235864783559,
+    "train_fit_ms": 52.42511071264744,
+    "train_n": 157,
+    "ungrounded_f1": 0.7913669064748201,
+    "ungrounded_precision": 0.6626506024096386,
+    "ungrounded_recall": 0.9821428571428571
+  },
+  "next_training_target": "add row/column provenance and numeric tolerance labels to reduce false blocks",
+  "rollback_mode": "disable_head_or_class_allow_block",
+  "root_cause_counts": {
+    "aggregation_error": 17,
+    "domain_morphology_identifier": 43,
+    "domain_morphology_numeric": 39,
+    "false_block": 14,
+    "nli_mismatch": 200,
+    "partial_support_collapse": 7,
+    "structured_cell_alignment": 243
+  },
+  "schema": "trace_runtime_head_artifact.v1",
+  "score_strategy": {
+    "reason_codes": [
+      "rag.structured_head_available_not_enabled",
+      "evaluated"
+    ],
+    "type": "descriptor_only_until_promoted"
+  },
+  "selection": {
+    "production_mode": "auto_repair_only",
+    "reason": "no candidate cleared no-regression, false-decision, and latency gates",
+    "selected_head": "v1_passthrough_repair_only"
+  },
+  "version": "root_cause_solution_v1"
+}

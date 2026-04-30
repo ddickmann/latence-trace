@@ -1,0 +1,82 @@
+{
+  "architecture": "optimized_feature_calibrator",
+  "candidate_source": "optimized_calibrator",
+  "candidate_status": "artifact_proven",
+  "class_key": "rag.prose.enterprise",
+  "enabled": true,
+  "feature_names": [],
+  "gates": {
+    "max_false_allow": 0.02,
+    "max_false_block": 0.08,
+    "max_p95_latency_ms": 25.0,
+    "min_n": 24
+  },
+  "head_id": "optimized_calibrator",
+  "metrics": {
+    "allow_disabled": false,
+    "binary_grounded_accuracy": 0.9861,
+    "block_disabled": false,
+    "block_threshold": 0.5,
+    "candidate": "optimized_calibrator",
+    "false_allow_rate": 0.0106,
+    "false_block_rate": 0.0,
+    "latency_p95_ms": 0.0,
+    "learned_weight": 0.7,
+    "mode": "weighted_fusion",
+    "n": 288,
+    "paired_score_accuracy": null,
+    "runtime_p95_latency_ms": 1692.38,
+    "status": "artifact_proven",
+    "threshold": 0.83,
+    "ungrounded_f1": 0.9896,
+    "ungrounded_precision": 0.9845,
+    "ungrounded_recall": 0.9948
+  },
+  "next_training_target": "preserve no-regression and reproduce on live RunPod",
+  "rollback_mode": "disable_head_or_class_allow_block",
+  "root_cause_counts": {
+    "aggregation_error": 33,
+    "domain_morphology_identifier": 288,
+    "domain_morphology_numeric": 288,
+    "false_allow": 3,
+    "false_block": 3,
+    "token_saturation": 32
+  },
+  "schema": "trace_runtime_head_artifact.v1",
+  "score_strategy": {
+    "reason_codes": [
+      "enterprise_optimized_calibrator_active"
+    ],
+    "score_channel_preference": [
+      "groundedness_v2",
+      "primary_score"
+    ],
+    "type": "response_score_passthrough"
+  },
+  "selection": {
+    "metrics": {
+      "allow_disabled": false,
+      "binary_grounded_accuracy": 0.9861,
+      "block_disabled": false,
+      "block_threshold": 0.5,
+      "candidate": "optimized_calibrator",
+      "false_allow_rate": 0.0106,
+      "false_block_rate": 0.0,
+      "latency_p95_ms": 0.0,
+      "learned_weight": 0.7,
+      "mode": "weighted_fusion",
+      "n": 288,
+      "paired_score_accuracy": null,
+      "runtime_p95_latency_ms": 1692.38,
+      "status": "artifact_proven",
+      "threshold": 0.83,
+      "ungrounded_f1": 0.9896,
+      "ungrounded_precision": 0.9845,
+      "ungrounded_recall": 0.9948
+    },
+    "production_mode": "allow_block_repair_candidate",
+    "reason": "optimized no-regression fusion artifact clears class policy gates",
+    "selected_head": "optimized_calibrator"
+  },
+  "version": "root_cause_solution_v1"
+}

@@ -1,0 +1,189 @@
+"""Runtime loader for per-router-class TRACE head artifacts.
+
+The loader is deliberately conservative: head artifacts are versioned JSON,
+checksum-validated against the registry, cached by path/mtime, and optional.
+Any missing, corrupt, disabled, or invalid head returns a non-fatal evaluation
+record so the runtime decision layer can fall back to v1/router behavior.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import threading
+from pathlib import Path
+from typing import Any, Mapping, Optional
+
+_ROOT = Path(__file__).resolve().parents[2]
+_DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+_DEFAULT_REGISTRY_PATH = _DATA_DIR / "runtime_head_registry.root_cause_solution_v1.json"
+_LOCK = threading.Lock()
+_REGISTRY_CACHE: tuple[Optional[Path], Optional[float], Optional[dict[str, Any]], Optional[str]] = (
+    None,
+    None,
+    None,
+    None,
+)
+_HEAD_CACHE: dict[Path, tuple[float, dict[str, Any], str]] = {}
+
+
+def reset_head_cache_for_tests() -> None:
+    global _REGISTRY_CACHE, _HEAD_CACHE
+    with _LOCK:
+        _REGISTRY_CACHE = (None, None, None, None)
+        _HEAD_CACHE = {}
+
+
+def registry_path() -> Path:
+    raw = os.environ.get("LATENCE_TRACE_RUNTIME_HEAD_REGISTRY_PATH", "").strip()
+    return Path(raw) if raw else _DEFAULT_REGISTRY_PATH
+
+
+def evaluate_runtime_head(response: Any, class_key: str) -> dict[str, Any]:
+    registry, registry_sha, registry_error = _load_registry()
+    if registry is None:
+        return _fallback(
+            class_key=class_key,
+            reason=f"head_registry_unavailable:{registry_error}",
+            registry_sha=registry_sha,
+        )
+
+    entry = _registry_entry(registry, class_key)
+    if not entry:
+        return _fallback(class_key=class_key, reason="head_registry_missing_class", registry_sha=registry_sha)
+
+    head, head_sha, head_error = _load_head_artifact(entry)
+    if head is None:
+        return _fallback(
+            class_key=class_key,
+            reason=f"head_artifact_unavailable:{head_error}",
+            registry_sha=registry_sha,
+            entry=entry,
+        )
+
+    enabled = bool(entry.get("enabled")) and bool(head.get("enabled"))
+    result = {
+        "head_id": str(entry.get("head_id") or head.get("head_id") or ""),
+        "head_version": str(entry.get("version") or head.get("version") or ""),
+        "head_enabled": enabled,
+        "head_registry_sha256": registry_sha,
+        "head_artifact_sha256": head_sha,
+        "head_score": None,
+        "head_features_used": list(head.get("feature_names") or []),
+        "head_reason_codes": [],
+    }
+    strategy = head.get("score_strategy") if isinstance(head.get("score_strategy"), Mapping) else {}
+    result["head_reason_codes"].extend(str(code) for code in strategy.get("reason_codes") or [])
+    if not enabled:
+        result["head_reason_codes"].append("head_disabled_repair_only")
+        return result
+
+    strategy_type = str(strategy.get("type") or "")
+    if strategy_type == "response_score_passthrough":
+        score, channel = _score_from_response(response, strategy.get("score_channel_preference") or [])
+        result["head_score"] = score
+        result["head_features_used"] = [channel]
+        result["head_reason_codes"].append(f"head_score_channel:{channel}")
+        return result
+
+    result["head_enabled"] = False
+    result["head_reason_codes"].append(f"unsupported_head_strategy:{strategy_type}")
+    return result
+
+
+def _fallback(
+    *,
+    class_key: str,
+    reason: str,
+    registry_sha: Optional[str],
+    entry: Optional[Mapping[str, Any]] = None,
+) -> dict[str, Any]:
+    entry = entry or {}
+    return {
+        "head_id": entry.get("head_id"),
+        "head_version": entry.get("version"),
+        "head_enabled": False,
+        "head_registry_sha256": registry_sha,
+        "head_artifact_sha256": None,
+        "head_score": None,
+        "head_features_used": [],
+        "head_reason_codes": [reason, f"class_key:{class_key}"],
+    }
+
+
+def _load_registry() -> tuple[Optional[dict[str, Any]], Optional[str], Optional[str]]:
+    path = registry_path()
+    return _load_json_cached(path, "registry")
+
+
+def _registry_entry(registry: Mapping[str, Any], class_key: str) -> Mapping[str, Any]:
+    entries = registry.get("runtime_head_registry")
+    if not isinstance(entries, Mapping):
+        return {}
+    entry = entries.get(class_key)
+    return entry if isinstance(entry, Mapping) else {}
+
+
+def _load_head_artifact(entry: Mapping[str, Any]) -> tuple[Optional[dict[str, Any]], Optional[str], Optional[str]]:
+    raw_path = entry.get("artifact_path")
+    if not raw_path:
+        return None, None, "missing_artifact_path"
+    path = Path(str(raw_path))
+    if not path.is_absolute():
+        path = _ROOT / path
+    artifact, sha, error = _load_json_cached(path, "head")
+    if artifact is None:
+        return None, sha, error
+    expected_sha = entry.get("artifact_sha256")
+    if expected_sha and sha != expected_sha:
+        return None, sha, "artifact_checksum_mismatch"
+    if artifact.get("class_key") != entry.get("class_key"):
+        return None, sha, "artifact_class_mismatch"
+    if artifact.get("head_id") != entry.get("head_id"):
+        return None, sha, "artifact_head_mismatch"
+    return artifact, sha, None
+
+
+def _load_json_cached(
+    path: Path,
+    cache_name: str,
+) -> tuple[Optional[dict[str, Any]], Optional[str], Optional[str]]:
+    if not path.exists():
+        return None, None, f"missing:{path}"
+    try:
+        stat = path.stat()
+    except OSError as exc:
+        return None, None, f"stat_failed:{exc}"
+    with _LOCK:
+        if cache_name == "registry":
+            global _REGISTRY_CACHE
+            cached_path, cached_mtime, cached_payload, cached_sha = _REGISTRY_CACHE
+            if cached_path == path and cached_mtime == stat.st_mtime and cached_payload is not None:
+                return cached_payload, cached_sha, None
+        else:
+            cached = _HEAD_CACHE.get(path)
+            if cached is not None and cached[0] == stat.st_mtime:
+                return cached[1], cached[2], None
+        try:
+            raw = path.read_bytes()
+            payload = json.loads(raw.decode("utf-8"))
+        except Exception as exc:
+            return None, None, f"load_failed:{exc}"
+        sha = hashlib.sha256(raw).hexdigest()
+        if cache_name == "registry":
+            _REGISTRY_CACHE = (path, stat.st_mtime, payload, sha)
+        else:
+            _HEAD_CACHE[path] = (stat.st_mtime, payload, sha)
+        return payload, sha, None
+
+
+def _score_from_response(response: Any, preferred_channels: list[Any]) -> tuple[float, str]:
+    scores = response.scores
+    for channel in preferred_channels:
+        name = str(channel)
+        if hasattr(scores, name) and getattr(scores, name) is not None:
+            return float(getattr(scores, name)), name
+    if getattr(scores, "groundedness_v2", None) is not None:
+        return float(scores.groundedness_v2), "groundedness_v2"
+    return float(scores.primary_score), str(scores.primary_name or "primary_score")

@@ -1,0 +1,103 @@
+{
+  "architecture": "trajectory_aware_symbolic_plus_learned_ranker",
+  "candidate_source": "trajectory_symbolic_ranker",
+  "candidate_status": "evaluated",
+  "class_key": "code.agentic_trace",
+  "enabled": false,
+  "feature_names": [],
+  "gates": {
+    "max_false_allow": 0.02,
+    "max_false_block": 0.08,
+    "max_p95_latency_ms": 25.0,
+    "min_n": 24
+  },
+  "head_id": "trajectory_ranker",
+  "metrics": {
+    "candidate": "trajectory_symbolic_ranker",
+    "eval": {
+      "both": {
+        "accuracy": 0.6363636363636364,
+        "auroc": 0.6061007957559682,
+        "false_allow_rate": 0.1724137931034483,
+        "false_block_rate": 0.5769230769230769,
+        "grounded_count": 26,
+        "grounded_recall": 0.4230769230769231,
+        "rows": 55,
+        "threshold": 0.6543006306739646,
+        "ungrounded_count": 29,
+        "ungrounded_recall": 0.8275862068965517
+      },
+      "transcripts_v2": {
+        "accuracy": 0.6333333333333333,
+        "auroc": 0.6930555555555555,
+        "false_allow_rate": 0.25,
+        "false_block_rate": 0.48333333333333334,
+        "grounded_count": 60,
+        "grounded_recall": 0.5166666666666667,
+        "rows": 120,
+        "threshold": 0.6543006306739646,
+        "ungrounded_count": 60,
+        "ungrounded_recall": 0.75
+      }
+    },
+    "promotion_decision": "do_not_promote_keep_code_agentic_trace_repair_only",
+    "status": "evaluated",
+    "train_metrics": {
+      "accuracy": 0.8125,
+      "auroc": 0.765625,
+      "false_allow_rate": 0.125,
+      "false_block_rate": 0.25,
+      "grounded_count": 8,
+      "grounded_recall": 0.75,
+      "rows": 16,
+      "threshold": 0.6543006306739646,
+      "ungrounded_count": 8,
+      "ungrounded_recall": 0.875
+    }
+  },
+  "next_training_target": "add turn-order, patch/test outcome, file ownership, AST/API drift, and action-result labels",
+  "rollback_mode": "disable_head_or_class_allow_block",
+  "root_cause_counts": {
+    "domain_morphology_identifier": 1
+  },
+  "schema": "trace_runtime_head_artifact.v1",
+  "score_strategy": {
+    "reason_codes": [
+      "code.agentic_trace_head_available_not_enabled",
+      "evaluated"
+    ],
+    "type": "descriptor_only_until_promoted"
+  },
+  "selection": {
+    "metrics": {
+      "both": {
+        "accuracy": 0.6363636363636364,
+        "auroc": 0.6061007957559682,
+        "false_allow_rate": 0.1724137931034483,
+        "false_block_rate": 0.5769230769230769,
+        "grounded_count": 26,
+        "grounded_recall": 0.4230769230769231,
+        "rows": 55,
+        "threshold": 0.6543006306739646,
+        "ungrounded_count": 29,
+        "ungrounded_recall": 0.8275862068965517
+      },
+      "transcripts_v2": {
+        "accuracy": 0.6333333333333333,
+        "auroc": 0.6930555555555555,
+        "false_allow_rate": 0.25,
+        "false_block_rate": 0.48333333333333334,
+        "grounded_count": 60,
+        "grounded_recall": 0.5166666666666667,
+        "rows": 120,
+        "threshold": 0.6543006306739646,
+        "ungrounded_count": 60,
+        "ungrounded_recall": 0.75
+      }
+    },
+    "production_mode": "auto_repair_only",
+    "reason": "dedicated manufactured trajectory head failed held-out promotion gates",
+    "selected_head": "trajectory_symbolic_ranker"
+  },
+  "version": "root_cause_solution_v1"
+}

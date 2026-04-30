@@ -1,0 +1,96 @@
+{
+  "classes": {
+    "code.agentic_trace": {
+      "path": "research/triangular_maxsim/student_v2/root_cause_solution_runs/latest/root_cause_slices/code.agentic_trace.jsonl",
+      "root_causes": {
+        "domain_morphology_identifier": 1
+      },
+      "rows": 1,
+      "splits": {
+        "val": 1
+      }
+    },
+    "rag.code_in_context": {
+      "path": "research/triangular_maxsim/student_v2/root_cause_solution_runs/latest/root_cause_slices/rag.code_in_context.jsonl",
+      "root_causes": {
+        "code_identifier_morphology": 1,
+        "domain_morphology_identifier": 1
+      },
+      "rows": 1,
+      "splits": {
+        "test": 1
+      }
+    },
+    "rag.prose.enterprise": {
+      "path": "research/triangular_maxsim/student_v2/root_cause_solution_runs/latest/root_cause_slices/rag.prose.enterprise.jsonl",
+      "root_causes": {
+        "aggregation_error": 33,
+        "domain_morphology_identifier": 288,
+        "domain_morphology_numeric": 288,
+        "false_allow": 3,
+        "false_block": 3,
+        "token_saturation": 32
+      },
+      "rows": 288,
+      "splits": {
+        "test": 60,
+        "train": 178,
+        "val": 50
+      }
+    },
+    "rag.prose.multi_claim": {
+      "path": "research/triangular_maxsim/student_v2/root_cause_solution_runs/latest/root_cause_slices/rag.prose.multi_claim.jsonl",
+      "root_causes": {
+        "aggregation_error": 375,
+        "domain_morphology_identifier": 672,
+        "domain_morphology_numeric": 402,
+        "false_allow": 26,
+        "false_block": 128,
+        "multi_claim_aggregation": 672,
+        "partial_support_collapse": 8,
+        "token_saturation": 22
+      },
+      "rows": 672,
+      "splits": {
+        "test": 137,
+        "train": 395,
+        "val": 140
+      }
+    },
+    "rag.prose.short_factoid": {
+      "path": "research/triangular_maxsim/student_v2/root_cause_solution_runs/latest/root_cause_slices/rag.prose.short_factoid.jsonl",
+      "root_causes": {
+        "aggregation_error": 111,
+        "domain_morphology_identifier": 401,
+        "domain_morphology_numeric": 57,
+        "false_allow": 84,
+        "false_block": 42,
+        "short_answer_overlap": 401
+      },
+      "rows": 401,
+      "splits": {
+        "test": 99,
+        "train": 230,
+        "val": 72
+      }
+    },
+    "rag.structured": {
+      "path": "research/triangular_maxsim/student_v2/root_cause_solution_runs/latest/root_cause_slices/rag.structured.jsonl",
+      "root_causes": {
+        "aggregation_error": 17,
+        "domain_morphology_identifier": 43,
+        "domain_morphology_numeric": 39,
+        "false_block": 14,
+        "nli_mismatch": 200,
+        "partial_support_collapse": 7,
+        "structured_cell_alignment": 243
+      },
+      "rows": 243,
+      "splits": {
+        "test": 37,
+        "train": 163,
+        "val": 43
+      }
+    }
+  }
+}

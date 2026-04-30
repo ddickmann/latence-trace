@@ -668,6 +668,8 @@ def _compact_response(response: GroundednessResponse, *, verbose: bool) -> dict[
         result["amber_escalation"] = response.amber_escalation.model_dump(mode="json")
     if response.corpus_route is not None:
         result["corpus_route"] = response.corpus_route.model_dump(mode="json")
+    if response.runtime_decision is not None:
+        result["runtime_decision"] = response.runtime_decision.model_dump(mode="json")
     if verbose:
         result["full"] = response.model_dump(mode="json")
     return result

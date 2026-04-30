@@ -1,0 +1,41 @@
+{
+  "architecture": "code_identifier_api_file_attribution_ranker",
+  "candidate_source": "code_identifier_ranker",
+  "candidate_status": "skipped",
+  "class_key": "rag.code_in_context",
+  "enabled": false,
+  "feature_names": [],
+  "gates": {
+    "max_false_allow": 0.02,
+    "max_false_block": 0.08,
+    "max_p95_latency_ms": 25.0,
+    "min_n": 24
+  },
+  "head_id": "identifier_ranker",
+  "metrics": {
+    "candidate": "code_identifier_ranker",
+    "n": 1,
+    "reason": "insufficient_rows",
+    "status": "skipped"
+  },
+  "next_training_target": "build a real code-in-context eval lane with positive and phantom identifier/API cases",
+  "rollback_mode": "disable_head_or_class_allow_block",
+  "root_cause_counts": {
+    "code_identifier_morphology": 1,
+    "domain_morphology_identifier": 1
+  },
+  "schema": "trace_runtime_head_artifact.v1",
+  "score_strategy": {
+    "reason_codes": [
+      "rag.code_in_context_head_available_not_enabled",
+      "insufficient_rows"
+    ],
+    "type": "descriptor_only_until_promoted"
+  },
+  "selection": {
+    "production_mode": "auto_repair_only",
+    "reason": "no candidate cleared no-regression, false-decision, and latency gates",
+    "selected_head": "v1_passthrough_repair_only"
+  },
+  "version": "root_cause_solution_v1"
+}

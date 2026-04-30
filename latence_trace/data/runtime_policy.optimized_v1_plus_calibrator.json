@@ -1,0 +1,104 @@
+{
+  "channel": "optimized_v1_plus_calibrator",
+  "metadata": {
+    "source_artifact": "research/triangular_maxsim/student_v2/calibrator_runs/reset_v1/policy_optimized_no_regress_200.json",
+    "fusion_report": "research/triangular_maxsim/student_v2/calibrator_runs/reset_v1/fusion_optimized_no_regress_200.json",
+    "rows": 1606,
+    "mean_latency_ms": 480.57,
+    "p95_latency_ms": 1692.38,
+    "overall_no_regression_pass": true,
+    "notes": "Runtime decisions are disabled by default. Enable with LATENCE_TRACE_RUNTIME_DECISION_ENABLED=1. Classes without calibrated allow/block thresholds remain auto_repair-only."
+  },
+  "default": {
+    "allow_threshold": 1.0,
+    "block_threshold": 0.0,
+    "allowed": 0,
+    "false_allow_rate": 0.0,
+    "allow_disabled": true,
+    "blocked": 0,
+    "false_block_rate": 0.0,
+    "block_disabled": true
+  },
+  "classes": {
+    "code.agentic_trace": {
+      "allow_threshold": 1.0,
+      "block_threshold": 0.0,
+      "n": 1,
+      "status": "fallback_to_default_thresholds",
+      "allowed": 0,
+      "false_allow_rate": 0.0,
+      "allow_disabled": true,
+      "blocked": 0,
+      "false_block_rate": 0.0,
+      "block_disabled": true
+    },
+    "rag.code_in_context": {
+      "allow_threshold": 1.0,
+      "block_threshold": 0.0,
+      "n": 1,
+      "status": "fallback_to_default_thresholds",
+      "allowed": 0,
+      "false_allow_rate": 0.0,
+      "allow_disabled": true,
+      "blocked": 0,
+      "false_block_rate": 0.0,
+      "block_disabled": true
+    },
+    "rag.prose.enterprise": {
+      "allow_threshold": 0.83,
+      "block_threshold": 0.5,
+      "n": 288,
+      "allowed": 94,
+      "false_allow_rate": 0.0106,
+      "allow_disabled": false,
+      "blocked": 81,
+      "false_block_rate": 0.0,
+      "block_disabled": false
+    },
+    "rag.prose.multi_claim": {
+      "allow_threshold": 1.0,
+      "block_threshold": 0.0,
+      "n": 672,
+      "allowed": 0,
+      "false_allow_rate": 0.0,
+      "allow_disabled": true,
+      "blocked": 0,
+      "false_block_rate": 0.0,
+      "block_disabled": true
+    },
+    "rag.prose.short_factoid": {
+      "allow_threshold": 1.0,
+      "block_threshold": 0.0,
+      "n": 401,
+      "allowed": 0,
+      "false_allow_rate": 0.0,
+      "allow_disabled": true,
+      "blocked": 0,
+      "false_block_rate": 0.0,
+      "block_disabled": true
+    },
+    "rag.structured": {
+      "allow_threshold": 1.0,
+      "block_threshold": 0.0,
+      "n": 243,
+      "allowed": 0,
+      "false_allow_rate": 0.0,
+      "allow_disabled": true,
+      "blocked": 0,
+      "false_block_rate": 0.0,
+      "block_disabled": true
+    }
+  },
+  "high_risk_actions": [
+    "commit",
+    "deploy",
+    "file_edit",
+    "irreversible",
+    "money",
+    "security",
+    "tool_call"
+  ],
+  "high_risk_allow_threshold": 1.0,
+  "high_risk_block_threshold": 0.55,
+  "fallback_action": "auto_repair"
+}
