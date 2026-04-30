@@ -1,8 +1,8 @@
 """Rollback-safe automatic decision policy for TRACE runtime records.
 
-The policy is intentionally small and data-driven. It does not enable the
-offline learned calibrator by default; operators must opt in with
-``LATENCE_TRACE_RUNTIME_DECISION_ENABLED=1`` and may point
+The policy is intentionally small and data-driven. The production runtime emits
+decision records by default; operators can roll back immediately with
+``LATENCE_TRACE_RUNTIME_DECISION_ENABLED=0`` and may point
 ``LATENCE_TRACE_RUNTIME_POLICY_PATH`` at a versioned JSON policy.
 """
 
@@ -21,7 +21,7 @@ from latence_trace.core import runtime_heads
 _DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 _DEFAULT_POLICY_PATH = _DATA_DIR / "runtime_policy.optimized_v1_plus_calibrator.json"
 _DEFAULT_HEAD_REGISTRY_PATH = _DATA_DIR / "runtime_head_registry.root_cause_solution_v1.json"
-_TRUE_VALUES = {"1", "true", "yes", "on"}
+_FALSE_VALUES = {"0", "false", "no", "off"}
 _LOCK = threading.Lock()
 _CACHE: tuple[Optional[Path], Optional[float], Optional[dict[str, Any]], Optional[str]] = (
     None,
@@ -40,7 +40,7 @@ _CACHE_TTL_SECONDS = 1.0
 
 
 def enabled() -> bool:
-    return os.environ.get("LATENCE_TRACE_RUNTIME_DECISION_ENABLED", "").strip().lower() in _TRUE_VALUES
+    return os.environ.get("LATENCE_TRACE_RUNTIME_DECISION_ENABLED", "1").strip().lower() not in _FALSE_VALUES
 
 
 def _policy_path() -> Path:

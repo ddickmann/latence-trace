@@ -576,9 +576,30 @@ def _compact_response(response: GroundednessResponse, *, verbose: bool) -> dict[
         "score": float(score),
         "primary_metric": primary_metric,
         "band": scores.risk_band,
+        "groundedness_v2": scores.groundedness_v2,
+        "reverse_context_calibrated": scores.reverse_context_calibrated,
+        "literal_guarded": scores.literal_guarded,
         "structured_score": scores.structured_source,
+        "structured_source_guarded": scores.structured_source_guarded,
+        "structured_source_detected": scores.structured_source_detected,
         "nli_aggregate": scores.nli_aggregate,
+        "semantic_entropy_aggregate": scores.semantic_entropy_aggregate,
+        "semantic_entropy_raw": scores.semantic_entropy_raw,
+        "semantic_entropy_sample_count": scores.semantic_entropy_sample_count,
+        "score_channels": {
+            "primary": scores.primary_score,
+            "reverse_context": scores.reverse_context,
+            "reverse_context_calibrated": scores.reverse_context_calibrated,
+            "literal_guarded": scores.literal_guarded,
+            "nli_aggregate": scores.nli_aggregate,
+            "semantic_entropy_aggregate": scores.semantic_entropy_aggregate,
+            "structured_source": scores.structured_source,
+            "structured_source_guarded": scores.structured_source_guarded,
+            "groundedness_v2": scores.groundedness_v2,
+            "consensus_hardened": scores.consensus_hardened,
+        },
         "context_coverage_ratio": scores.context_coverage_ratio,
+        "context_coverage_threshold": scores.context_coverage_threshold,
         "context_unused_ratio": scores.context_unused_ratio,
         "context_uncertain_ratio": scores.context_uncertain_ratio,
         "context_usage_ratio": scores.context_usage_ratio,
@@ -672,6 +693,8 @@ def _compact_response(response: GroundednessResponse, *, verbose: bool) -> dict[
         result["corpus_route"] = response.corpus_route.model_dump(mode="json")
     if response.runtime_decision is not None:
         result["runtime_decision"] = response.runtime_decision.model_dump(mode="json")
+    if response.runtime_head_features is not None:
+        result["runtime_head_features"] = dict(response.runtime_head_features)
     if verbose:
         result["full"] = response.model_dump(mode="json")
     return result

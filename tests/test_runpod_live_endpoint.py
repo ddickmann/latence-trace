@@ -53,6 +53,77 @@ def _import_bench():
     return bench_runpod_360
 
 
+def _good_runtime_features() -> dict[str, float]:
+    return {
+        "v1_score": 0.99,
+        "v1_nli_aggregate": 0.9,
+        "reverse_context": 0.99,
+        "groundedness_v2": 0.99,
+        "literal_guarded": 1.0,
+        "literal_mismatch_count": 0.0,
+        "context_coverage_ratio": 1.0,
+        "context_unused_ratio": 0.0,
+        "dead_weight_ratio": 0.0,
+        "token_mean": 0.99,
+        "token_bottom10": 0.99,
+        "token_saturation_rate": 0.0,
+        "calibrated_mean": 0.99,
+        "nli_token_mean": 0.9,
+        "literal_coverage": 1.0,
+        "atom_match": 1.0,
+        "claim_count": 1.0,
+        "unsupported_claim_fraction": 0.0,
+        "schema_match": 1.0,
+        "api_symbol_match": 1.0,
+        "trajectory_order_match": 1.0,
+        "test_outcome_match": 1.0,
+        "numeric_coverage": 1.0,
+        "numeric_count": 1.0,
+        "coverage_label_mean": 1.0,
+        "dead_weight_label_mean": 0.0,
+        "support_unit_label_mean": 1.0,
+        "min_claim_coverage": 1.0,
+        "row_alignment": 1.0,
+        "column_alignment": 1.0,
+        "value_alignment": 1.0,
+        "unit_alignment": 1.0,
+        "date_alignment": 1.0,
+        "numeric_tolerance_match": 1.0,
+        "schema_alias_match": 1.0,
+        "cell_provenance_match": 1.0,
+        "identifier_coverage": 1.0,
+        "identifier_count": 1.0,
+        "file_alignment": 1.0,
+        "symbol_alignment": 1.0,
+        "test_alignment": 1.0,
+        "patch_alignment": 1.0,
+        "temporal_order_alignment": 1.0,
+        "claim_atom_coverage": 1.0,
+        "unsupported_atom_rate": 0.0,
+        "missing_command_evidence": 0.0,
+        "api_call_alignment": 1.0,
+        "edit_intent_alignment": 1.0,
+    }
+
+
+def _bad_runtime_features() -> dict[str, float]:
+    features = {key: 0.0 for key in _good_runtime_features()}
+    features.update(
+        {
+            "literal_mismatch_count": 10.0,
+            "context_unused_ratio": 1.0,
+            "dead_weight_ratio": 1.0,
+            "token_saturation_rate": 1.0,
+            "unsupported_claim_fraction": 1.0,
+            "claim_count": 1.0,
+            "numeric_count": 1.0,
+            "identifier_count": 1.0,
+            "missing_command_evidence": 1.0,
+        }
+    )
+    return features
+
+
 @live_only
 def test_live_endpoint_rag_smoke() -> None:
     """RAG lane returns a COMPLETED score for the G1 handcrafted case."""
@@ -119,5 +190,53 @@ def test_live_endpoint_session_smoke() -> None:
             assert dim["errors"] == [], dim["errors"]
             assert dim["monotonic_turns"], dim["turn_records"]
             assert dim["produced_next_state"], dim["turn_records"]
+
+    asyncio.run(run())
+
+
+@live_only
+def test_live_endpoint_runtime_decision_feature_maps() -> None:
+    """Explicit v2 feature maps produce autonomous allow and block records."""
+
+    bench = _import_bench()
+    import asyncio
+
+    async def run() -> None:
+        import httpx
+
+        async with httpx.AsyncClient(timeout=httpx.Timeout(600.0, connect=15.0)) as client:
+            transport = bench.Transport(endpoint_id=_ENDPOINT, api_key=_API_KEY)
+            cases = [
+                ("rag.structured", "runtime_head_features", "rag"),
+                ("code.agentic_trace", "trajectory_features", "code"),
+            ]
+            for class_key, feature_key, mode in cases:
+                for label, expected_action, features in [
+                    ("good", "allow", _good_runtime_features()),
+                    ("bad", "block", _bad_runtime_features()),
+                ]:
+                    payload_input = {
+                        "scoring_mode": mode,
+                        "corpus_type": class_key,
+                        "query_text": "verify runtime decision",
+                        "raw_context": (
+                            "The exact supported answer is present in this evidence. "
+                            "customer_1001 amount_usd=1200 USD status approved."
+                        ),
+                        "response_text": "The exact supported answer is present in this evidence.",
+                        feature_key: features,
+                    }
+                    if mode == "code":
+                        payload_input["response_language_hint"] = "python"
+
+                    body = await transport.submit(client, {"input": payload_input})
+                    assert body.get("status") == "COMPLETED", (class_key, label, body)
+                    output = body.get("output") or {}
+                    decision = output.get("runtime_decision")
+                    assert decision is not None, (class_key, label, output)
+                    assert decision["class_key"] == class_key
+                    assert decision["action"] == expected_action
+                    assert decision["head_enabled"] is True
+                    assert decision["head_score"] is not None
 
     asyncio.run(run())

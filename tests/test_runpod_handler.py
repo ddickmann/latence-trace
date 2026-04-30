@@ -11,11 +11,13 @@ from pathlib import Path
 from latence_trace.api.models import (
     AttributionMode,
     CollectionKind,
+    CorpusRouteDiagnostics,
     GroundednessEligibility,
     GroundednessResponse,
     GroundednessScores,
     GroundednessSupportUnit,
     GroundednessUsageState,
+    RuntimeDecisionRecord,
     TraceRuntimeProfile,
 )
 
@@ -326,8 +328,20 @@ def test_compact_response_surfaces_unused_context_contract() -> None:
             primary_name="reverse_context",
             primary_score=0.82,
             reverse_context=0.82,
+            reverse_context_calibrated=0.84,
+            literal_guarded=0.81,
+            nli_aggregate=0.79,
+            groundedness_v2=0.83,
+            semantic_entropy_aggregate=0.77,
+            semantic_entropy_raw=0.23,
+            semantic_entropy_sample_count=4,
+            structured_source=0.86,
+            structured_source_guarded=0.85,
+            structured_source_detected=True,
+            consensus_hardened=0.8,
             risk_band="amber",
             context_coverage_ratio=0.5,
+            context_coverage_threshold=0.5,
             context_usage_ratio=0.5,
             context_unused_ratio=0.25,
             context_uncertain_ratio=0.25,
@@ -382,15 +396,78 @@ def test_compact_response_surfaces_unused_context_contract() -> None:
         ),
         time_ms=42.0,
         attribution_mode=AttributionMode.CLOSED_BOOK,
+        corpus_route=CorpusRouteDiagnostics(
+            corpus_type="rag.structured",
+            source="explicit",
+            fusion_weights_applied={
+                "calibrated": 0.2,
+                "literal": 0.2,
+                "nli": 0.2,
+                "semantic_entropy": 0.2,
+                "structured": 0.2,
+            },
+            thresholds_applied={"green": 0.83, "amber": 0.61},
+            scoring_mode_applied="rag",
+        ),
+        runtime_decision=RuntimeDecisionRecord(
+            policy_version="runtime_decision",
+            head_id="cell_schema_verifier",
+            head_version="root_cause_solution_v1",
+            head_enabled=True,
+            head_score=0.91,
+            class_key="rag.structured",
+            score=0.91,
+            score_channel="runtime_head",
+            band="green",
+            action="allow",
+            allow_disabled=False,
+            block_disabled=False,
+            allow_threshold=0.82,
+            block_threshold=0.41,
+        ),
+        runtime_head_features={"cell_provenance_match": 1.0},
     )
 
     compact = runpod_handler._compact_response(response, verbose=False)
 
     assert compact["success"] is True
+    assert compact["primary_metric"] == "groundedness_v2"
+    assert compact["score"] == 0.83
+    assert compact["groundedness_v2"] == 0.83
+    assert compact["reverse_context_calibrated"] == 0.84
+    assert compact["literal_guarded"] == 0.81
+    assert compact["nli_aggregate"] == 0.79
+    assert compact["semantic_entropy_aggregate"] == 0.77
+    assert compact["semantic_entropy_raw"] == 0.23
+    assert compact["semantic_entropy_sample_count"] == 4
+    assert compact["structured_score"] == 0.86
+    assert compact["structured_source_guarded"] == 0.85
+    assert compact["structured_source_detected"] is True
+    assert compact["score_channels"] == {
+        "primary": 0.82,
+        "reverse_context": 0.82,
+        "reverse_context_calibrated": 0.84,
+        "literal_guarded": 0.81,
+        "nli_aggregate": 0.79,
+        "semantic_entropy_aggregate": 0.77,
+        "structured_source": 0.86,
+        "structured_source_guarded": 0.85,
+        "groundedness_v2": 0.83,
+        "consensus_hardened": 0.8,
+    }
     assert compact["context_coverage_ratio"] == 0.5
+    assert compact["context_coverage_threshold"] == 0.5
     assert compact["context_unused_ratio"] == 0.25
     assert compact["context_uncertain_ratio"] == 0.25
     assert compact["context_usage_ratio"] == 0.5
+    assert compact["corpus_route"]["corpus_type"] == "rag.structured"
+    assert compact["corpus_route"]["thresholds_applied"] == {"green": 0.83, "amber": 0.61}
+    assert compact["corpus_route"]["fusion_weights_applied"]["nli"] == 0.2
+    assert compact["runtime_decision"]["action"] == "allow"
+    assert compact["runtime_decision"]["head_enabled"] is True
+    assert compact["runtime_decision"]["allow_threshold"] == 0.82
+    assert compact["runtime_decision"]["block_threshold"] == 0.41
+    assert compact["runtime_head_features"] == {"cell_provenance_match": 1.0}
     assert compact["support_units_usage"] == {
         "used": 2,
         "unused": 1,

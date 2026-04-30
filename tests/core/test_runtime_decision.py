@@ -111,8 +111,15 @@ def _bad_root_cause_features() -> dict[str, float]:
     return features
 
 
-def test_runtime_decision_disabled_by_default(monkeypatch) -> None:
+def test_runtime_decision_uses_production_default(monkeypatch) -> None:
     monkeypatch.delenv("LATENCE_TRACE_RUNTIME_DECISION_ENABLED", raising=False)
+    runtime_decision.reset_policy_cache_for_tests()
+
+    assert runtime_decision.build_runtime_decision(_response(0.99)) is not None
+
+
+def test_runtime_decision_can_be_disabled_by_rollback_switch(monkeypatch) -> None:
+    monkeypatch.setenv("LATENCE_TRACE_RUNTIME_DECISION_ENABLED", "0")
     runtime_decision.reset_policy_cache_for_tests()
 
     assert runtime_decision.build_runtime_decision(_response(0.99)) is None
