@@ -9,6 +9,7 @@
     "max_false_allow": 0.02,
     "max_false_block": 0.08,
     "max_p95_latency_ms": 25.0,
+    "min_decision_coverage": 0.1,
     "min_n": 24
   },
   "head_id": "optimized_calibrator",

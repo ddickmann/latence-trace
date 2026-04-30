@@ -12,10 +12,10 @@ Current registry: `latence_trace/data/runtime_head_registry.root_cause_solution_
 | class | head | production state | reason |
 |---|---|---|---|
 | `rag.prose.enterprise` | `optimized_calibrator` | enabled | no-regression fusion clears false-allow/false-block gates |
-| `rag.prose.multi_claim` | `claim_decomposer` | disabled | needs atomic claim decomposition and per-claim unsupported penalties |
-| `rag.prose.short_factoid` | `atom_verifier` | disabled | needs lower entity/date/number false decisions |
-| `rag.structured` | `cell_schema_verifier` | disabled | needs row/column provenance and numeric tolerance labels |
-| `rag.code_in_context` | `identifier_ranker` | disabled | needs a real code-in-context eval lane |
+| `rag.prose.multi_claim` | `claim_decomposer` | enabled | validation-calibrated abstain policy clears held-out false-decision gates |
+| `rag.prose.short_factoid` | `atom_verifier` | enabled | targeted atom verifier clears entity/date/number false-decision gates |
+| `rag.structured` | `cell_schema_verifier` | enabled | typed cell challenge lane clears no-regression and false-decision gates |
+| `rag.code_in_context` | `identifier_ranker` | enabled | identifier/API drift lane clears held-out false-decision gates |
 | `code.agentic_trace` | `trajectory_ranker` | disabled | manufactured trajectory gates do not pass yet |
 
 ## Runtime Contract
@@ -33,7 +33,8 @@ Run:
 python research/triangular_maxsim/student_v2/root_cause_solution_tracks.py \
   --out-dir research/triangular_maxsim/student_v2/root_cause_solution_runs/latest \
   --runtime-registry-out latence_trace/data/runtime_head_registry.root_cause_solution_v1.json \
-  --heads-dir latence_trace/data/heads
+  --heads-dir latence_trace/data/heads \
+  --targeted-data research/triangular_maxsim/student_v2/root_cause_targeted/targeted_v1.jsonl
 ```
 
 The generated report at

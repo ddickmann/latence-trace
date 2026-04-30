@@ -3,7 +3,7 @@
     "code.agentic_trace": {
       "architecture": "trajectory_aware_symbolic_plus_learned_ranker",
       "artifact_path": "latence_trace/data/heads/code.agentic_trace.trajectory_ranker.v1.json",
-      "artifact_sha256": "6ed980b66e306b10a8bd5d638d2276b675530d7679d4d5e6c22628a35350f53e",
+      "artifact_sha256": "ef3f6fc8b6d39b6da4d59b8d410bdd62ec54cd395e736ede44b828a433ad4a80",
       "class_key": "code.agentic_trace",
       "enabled": false,
       "head_id": "trajectory_ranker",
@@ -17,21 +17,23 @@
     "rag.code_in_context": {
       "architecture": "code_identifier_api_file_attribution_ranker",
       "artifact_path": "latence_trace/data/heads/rag.code_in_context.identifier_ranker.v1.json",
-      "artifact_sha256": "032c9b1c2aedd71694e1cc324b42cfc7e8118312e0ce3e2124a84117df2235fe",
+      "artifact_sha256": "7aa69b15956ef88ed86f0b734ea6f439dd386f498c927ed4eedc54dab1347d91",
       "class_key": "rag.code_in_context",
-      "enabled": false,
+      "enabled": true,
       "head_id": "identifier_ranker",
       "next_training_target": "build a real code-in-context eval lane with positive and phantom identifier/API cases",
-      "reason": "no candidate cleared no-regression, false-decision, and latency gates",
+      "reason": "smallest candidate cleared fixed gates on held-out split",
       "rollback_switches": [
-        "already repair-only"
+        "LATENCE_TRACE_RUNTIME_DECISION_ENABLED=0",
+        "classes.rag.code_in_context.allow_disabled=true",
+        "classes.rag.code_in_context.block_disabled=true"
       ],
       "version": "root_cause_solution_v1"
     },
     "rag.prose.enterprise": {
       "architecture": "optimized_feature_calibrator",
       "artifact_path": "latence_trace/data/heads/rag.prose.enterprise.optimized_calibrator.v1.json",
-      "artifact_sha256": "f47b77188bdee7f966859f09c94816fd8e831ebd89c614a238c02a7f02b0e60a",
+      "artifact_sha256": "b69afdfb88fea72d97bfa3652624681e9ae4cbf254cd84ac6cce3453842eb286",
       "class_key": "rag.prose.enterprise",
       "enabled": true,
       "head_id": "optimized_calibrator",
@@ -47,42 +49,48 @@
     "rag.prose.multi_claim": {
       "architecture": "claim_decomposition_plus_per_claim_support_aggregation",
       "artifact_path": "latence_trace/data/heads/rag.prose.multi_claim.claim_decomposer.v1.json",
-      "artifact_sha256": "a7561097ff334efa337985de585d21b9a211b9609c69e3d5deb76219c90182bf",
+      "artifact_sha256": "61fa6b0f0ab23b4cd48a6125dfad119be54b63d2ff061b04dddcedec7f9b1c53",
       "class_key": "rag.prose.multi_claim",
-      "enabled": false,
+      "enabled": true,
       "head_id": "claim_decomposer",
       "next_training_target": "replace whole-answer features with atomic claim decomposition and per-claim unsupported penalties",
-      "reason": "no candidate cleared no-regression, false-decision, and latency gates",
+      "reason": "smallest candidate cleared fixed gates on held-out split",
       "rollback_switches": [
-        "already repair-only"
+        "LATENCE_TRACE_RUNTIME_DECISION_ENABLED=0",
+        "classes.rag.prose.multi_claim.allow_disabled=true",
+        "classes.rag.prose.multi_claim.block_disabled=true"
       ],
       "version": "root_cause_solution_v1"
     },
     "rag.prose.short_factoid": {
       "architecture": "entity_date_number_atom_verifier",
       "artifact_path": "latence_trace/data/heads/rag.prose.short_factoid.atom_verifier.v1.json",
-      "artifact_sha256": "81df9b223d4ca2656bfd6dcc9a0979bd16b2303fd98cca94f75f0109b0ef0d8f",
+      "artifact_sha256": "c25b9b39321d8e2dc589e97118992e8bddddc87ff5ed0333881475c2315d34cd",
       "class_key": "rag.prose.short_factoid",
-      "enabled": false,
+      "enabled": true,
       "head_id": "atom_verifier",
       "next_training_target": "reduce high-overlap entity/date/number false allows without increasing grounded false blocks",
-      "reason": "no candidate cleared no-regression, false-decision, and latency gates",
+      "reason": "smallest candidate cleared fixed gates on held-out split",
       "rollback_switches": [
-        "already repair-only"
+        "LATENCE_TRACE_RUNTIME_DECISION_ENABLED=0",
+        "classes.rag.prose.short_factoid.allow_disabled=true",
+        "classes.rag.prose.short_factoid.block_disabled=true"
       ],
       "version": "root_cause_solution_v1"
     },
     "rag.structured": {
       "architecture": "typed_cell_schema_value_alignment",
       "artifact_path": "latence_trace/data/heads/rag.structured.cell_schema_verifier.v1.json",
-      "artifact_sha256": "43f569ca18a35b1c4f636400d405c623db89c43b99fd6b4161e55410569cf651",
+      "artifact_sha256": "29e112c7f4af6a3f7aede41c9965d75d8bb3f51ae1726f2eabc2ae3730bd5284",
       "class_key": "rag.structured",
-      "enabled": false,
+      "enabled": true,
       "head_id": "cell_schema_verifier",
       "next_training_target": "add row/column provenance and numeric tolerance labels to reduce false blocks",
-      "reason": "no candidate cleared no-regression, false-decision, and latency gates",
+      "reason": "smallest candidate cleared fixed gates on held-out split",
       "rollback_switches": [
-        "already repair-only"
+        "LATENCE_TRACE_RUNTIME_DECISION_ENABLED=0",
+        "classes.rag.structured.allow_disabled=true",
+        "classes.rag.structured.block_disabled=true"
       ],
       "version": "root_cause_solution_v1"
     }

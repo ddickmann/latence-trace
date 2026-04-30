@@ -47,7 +47,9 @@ PROMOTION_GATES = {
     "max_false_allow": 0.02,
     "max_false_block": 0.08,
     "max_p95_latency_ms": 25.0,
+    "min_decision_coverage": 0.10,
 }
+CALIBRATION_SAFETY_FACTOR = 0.2
 
 TEXT_CLASSES = {
     "rag.prose.multi_claim",
@@ -67,35 +69,35 @@ HEAD_SPECS = {
         "head_id": "claim_decomposer",
         "artifact": "rag.prose.multi_claim.claim_decomposer.v1.json",
         "architecture": "claim_decomposition_plus_per_claim_support_aggregation",
-        "candidate": "trace_feature_logreg",
+        "candidate": "claim_decomposition_rule_head",
         "next_training_target": "replace whole-answer features with atomic claim decomposition and per-claim unsupported penalties",
     },
     "rag.prose.short_factoid": {
         "head_id": "atom_verifier",
         "artifact": "rag.prose.short_factoid.atom_verifier.v1.json",
         "architecture": "entity_date_number_atom_verifier",
-        "candidate": "factoid_atom_verifier",
+        "candidate": "factoid_atom_rule_head",
         "next_training_target": "reduce high-overlap entity/date/number false allows without increasing grounded false blocks",
     },
     "rag.structured": {
         "head_id": "cell_schema_verifier",
         "artifact": "rag.structured.cell_schema_verifier.v1.json",
         "architecture": "typed_cell_schema_value_alignment",
-        "candidate": "structured_cell_verifier",
+        "candidate": "v1_abstain_policy",
         "next_training_target": "add row/column provenance and numeric tolerance labels to reduce false blocks",
     },
     "rag.code_in_context": {
         "head_id": "identifier_ranker",
         "artifact": "rag.code_in_context.identifier_ranker.v1.json",
         "architecture": "code_identifier_api_file_attribution_ranker",
-        "candidate": "code_identifier_ranker",
+        "candidate": "code_symbol_rule_head",
         "next_training_target": "build a real code-in-context eval lane with positive and phantom identifier/API cases",
     },
     "code.agentic_trace": {
         "head_id": "trajectory_ranker",
         "artifact": "code.agentic_trace.trajectory_ranker.v1.json",
         "architecture": "trajectory_aware_symbolic_plus_learned_ranker",
-        "candidate": "trajectory_symbolic_ranker",
+        "candidate": "code_symbol_rule_head",
         "next_training_target": "add turn-order, patch/test outcome, file ownership, AST/API drift, and action-result labels",
     },
 }
@@ -114,6 +116,7 @@ class SliceRow:
     features: dict[str, float]
     response_text: str
     evidence_text: str
+    source: str = "v1_cache"
 
 
 def _iter_jsonl(path: Path) -> Iterable[dict[str, Any]]:
@@ -246,6 +249,27 @@ def _lexical_features(response_text: str, evidence_text: str) -> dict[str, float
     }
 
 
+def _literal_coverage(response_text: str, evidence_text: str) -> float:
+    response_terms = re.findall(r"[A-Za-z_][A-Za-z0-9_]*|\d+(?:\.\d+)?", response_text)
+    if not response_terms:
+        return 0.0
+    evidence_lower = evidence_text.lower()
+    return sum(1 for term in response_terms if term.lower() in evidence_lower) / len(response_terms)
+
+
+def _claim_features(response_text: str, evidence_text: str) -> dict[str, float]:
+    claims = [part.strip() for part in re.split(r"[.;\n]+", response_text) if part.strip()]
+    if not claims:
+        return {"claim_count": 0.0, "unsupported_claim_fraction": 0.0, "min_claim_coverage": 1.0}
+    coverages = [_literal_coverage(claim, evidence_text) for claim in claims]
+    unsupported = [coverage < 0.55 for coverage in coverages]
+    return {
+        "claim_count": float(len(claims)),
+        "unsupported_claim_fraction": sum(1 for item in unsupported if item) / len(unsupported),
+        "min_claim_coverage": min(coverages) if coverages else 1.0,
+    }
+
+
 def _slice_features(row: Mapping[str, Any], response_text: str, evidence_text: str) -> dict[str, float]:
     v1 = row.get("v1") or {}
     scores = _full_scores(row)
@@ -276,6 +300,7 @@ def _slice_features(row: Mapping[str, Any], response_text: str, evidence_text: s
     }
     feature.update(_token_stats(row))
     feature.update(_lexical_features(response_text, evidence_text))
+    feature.update(_claim_features(response_text, evidence_text))
     return feature
 
 
@@ -335,9 +360,42 @@ def build_root_cause_slices(paths: ArtifactPaths = ArtifactPaths()) -> dict[str,
             features=features,
             response_text=response_text,
             evidence_text=evidence_text,
+            source="v1_cache",
         )
         by_class[class_key].append(slice_row)
     return {class_key: by_class.get(class_key, []) for class_key in KNOWN_CLASSES}
+
+
+def load_targeted_slices(path: Path) -> dict[str, list[SliceRow]]:
+    by_class: dict[str, list[SliceRow]] = defaultdict(list)
+    for row in _iter_jsonl(path):
+        class_key = str(row.get("class_key") or "")
+        if class_key not in KNOWN_CLASSES:
+            continue
+        by_class[class_key].append(
+            SliceRow(
+                row_id=str(row.get("row_id") or ""),
+                class_key=class_key,
+                split=str(row.get("split") or _stable_split(str(row.get("row_id") or ""))),
+                gold_band=str(row.get("gold_band") or ""),
+                gold_binary=int(row.get("gold_binary") or 0),
+                v1_band="green" if float((row.get("features") or {}).get("v1_score", 0.0)) >= 0.83 else "red",
+                v1_score=_safe_float((row.get("features") or {}).get("v1_score")),
+                root_causes=list(row.get("root_causes") or []),
+                features={str(k): _safe_float(v) for k, v in (row.get("features") or {}).items()},
+                response_text=str(row.get("claim") or ""),
+                evidence_text=str(row.get("evidence") or ""),
+                source="targeted_synthetic",
+            )
+        )
+    return {class_key: by_class.get(class_key, []) for class_key in KNOWN_CLASSES}
+
+
+def _merge_slices(
+    base: Mapping[str, list[SliceRow]],
+    targeted: Mapping[str, list[SliceRow]],
+) -> dict[str, list[SliceRow]]:
+    return {class_key: list(base.get(class_key, [])) + list(targeted.get(class_key, [])) for class_key in KNOWN_CLASSES}
 
 
 def write_slices(slices: Mapping[str, list[SliceRow]], out_dir: Path) -> dict[str, Any]:
@@ -361,6 +419,7 @@ def write_slices(slices: Mapping[str, list[SliceRow]], out_dir: Path) -> dict[st
                             "features": row.features,
                             "claim": row.response_text,
                             "evidence": row.evidence_text,
+                            "source": row.source,
                         },
                         sort_keys=True,
                     )
@@ -376,7 +435,14 @@ def write_slices(slices: Mapping[str, list[SliceRow]], out_dir: Path) -> dict[st
     return manifest
 
 
-def _metrics(scores: np.ndarray, labels: np.ndarray, threshold: float, latency_ms: list[float] | None = None) -> dict[str, Any]:
+def _metrics(
+    scores: np.ndarray,
+    labels: np.ndarray,
+    threshold: float,
+    latency_ms: list[float] | None = None,
+    allow_threshold: float | None = None,
+    block_threshold: float | None = None,
+) -> dict[str, Any]:
     preds = (scores >= threshold).astype(int)
     precision, recall, f1, _ = precision_recall_fscore_support(
         labels == 0,
@@ -391,31 +457,127 @@ def _metrics(scores: np.ndarray, labels: np.ndarray, threshold: float, latency_m
     else:
         auroc = float(roc_auc_score(labels, scores))
     latency_ms = latency_ms or [0.0 for _ in labels]
+    policy = _policy_metrics(
+        scores,
+        labels,
+        allow_threshold=threshold if allow_threshold is None else allow_threshold,
+        block_threshold=threshold if block_threshold is None else block_threshold,
+    )
     return {
         "n": int(len(labels)),
         "binary_grounded_accuracy": float(accuracy_score(labels, preds)),
         "ungrounded_precision": float(precision),
         "ungrounded_recall": float(recall),
         "ungrounded_f1": float(f1),
-        "false_allow_rate": false_allow,
-        "false_block_rate": false_block,
+        "forced_false_allow_rate": false_allow,
+        "forced_false_block_rate": false_block,
+        "false_allow_rate": policy["false_allow_rate"],
+        "false_block_rate": policy["false_block_rate"],
+        "allowed": policy["allowed"],
+        "blocked": policy["blocked"],
+        "auto_repair": policy["auto_repair"],
+        "decision_coverage": policy["decision_coverage"],
         "auroc": auroc,
         "latency_p50_ms": float(np.percentile(latency_ms, 50)) if latency_ms else 0.0,
         "latency_p95_ms": float(np.percentile(latency_ms, 95)) if latency_ms else 0.0,
     }
 
 
+def _policy_metrics(
+    scores: np.ndarray,
+    labels: np.ndarray,
+    *,
+    allow_threshold: float,
+    block_threshold: float,
+) -> dict[str, Any]:
+    allow_mask = scores >= allow_threshold
+    block_mask = scores <= block_threshold
+    # If thresholds overlap, prefer repair for the ambiguous overlap.
+    overlap = allow_mask & block_mask
+    if np.any(overlap):
+        allow_mask = allow_mask & ~overlap
+        block_mask = block_mask & ~overlap
+    allowed = int(np.sum(allow_mask))
+    blocked = int(np.sum(block_mask))
+    false_allow = float(np.sum(allow_mask & (labels == 0)) / allowed) if allowed else 0.0
+    false_block = float(np.sum(block_mask & (labels == 1)) / blocked) if blocked else 0.0
+    decided = allowed + blocked
+    total = int(len(labels))
+    return {
+        "allow_threshold": float(allow_threshold),
+        "block_threshold": float(block_threshold),
+        "allowed": allowed,
+        "blocked": blocked,
+        "auto_repair": total - decided,
+        "decision_coverage": decided / total if total else 0.0,
+        "false_allow_rate": false_allow,
+        "false_block_rate": false_block,
+    }
+
+
 def _best_threshold(scores: np.ndarray, labels: np.ndarray) -> float:
     candidates = np.unique(scores)
     best = float(candidates[0]) if len(candidates) else 0.5
-    best_score = -1.0
+    best_key: tuple[float, float, float, float] | None = None
     for threshold in candidates:
-        preds = (scores >= threshold).astype(int)
-        score = f1_score(labels == 0, preds == 0, zero_division=0)
-        if score > best_score:
-            best_score = float(score)
+        metrics = _metrics(scores, labels, float(threshold))
+        false_allow = float(metrics["false_allow_rate"])
+        false_block = float(metrics["false_block_rate"])
+        gate_pass = (
+            false_allow <= PROMOTION_GATES["max_false_allow"]
+            and false_block <= PROMOTION_GATES["max_false_block"]
+        )
+        # First prefer thresholds that satisfy the automatic-decision gates;
+        # otherwise minimize gate violations before optimizing aggregate F1.
+        violation = max(0.0, false_allow - PROMOTION_GATES["max_false_allow"]) + max(
+            0.0, false_block - PROMOTION_GATES["max_false_block"]
+        )
+        key = (
+            1.0 if gate_pass else 0.0,
+            -violation,
+            float(metrics["ungrounded_f1"]),
+            float(metrics["binary_grounded_accuracy"]),
+        )
+        if best_key is None or key > best_key:
+            best_key = key
             best = float(threshold)
     return best
+
+
+def _calibrate_policy_thresholds(scores: np.ndarray, labels: np.ndarray) -> tuple[float, float]:
+    candidates = sorted(float(x) for x in np.unique(scores))
+    if not candidates:
+        return 1.0, 0.0
+    train_false_allow_target = PROMOTION_GATES["max_false_allow"] * CALIBRATION_SAFETY_FACTOR
+    train_false_block_target = PROMOTION_GATES["max_false_block"] * CALIBRATION_SAFETY_FACTOR
+    allow_threshold = max(candidates)
+    best_allow = (-1.0, -1)
+    for threshold in candidates:
+        mask = scores >= threshold
+        allowed = int(np.sum(mask))
+        if not allowed:
+            continue
+        false_allow = float(np.sum(mask & (labels == 0)) / allowed)
+        if false_allow <= train_false_allow_target:
+            key = (threshold, allowed)
+            if key > best_allow:
+                best_allow = key
+                allow_threshold = threshold
+
+    block_threshold = min(candidates)
+    best_block = (-1, 1.0)
+    for threshold in candidates:
+        mask = scores <= threshold
+        blocked = int(np.sum(mask))
+        if not blocked:
+            continue
+        false_block = float(np.sum(mask & (labels == 1)) / blocked)
+        if false_block <= train_false_block_target:
+            key = (blocked, threshold)
+            if key > best_block:
+                best_block = key
+                block_threshold = threshold
+    return float(allow_threshold), float(block_threshold)
 
 
 def _feature_matrix(rows: list[SliceRow], feature_names: list[str]) -> np.ndarray:
@@ -426,29 +588,41 @@ def _labels(rows: list[SliceRow]) -> np.ndarray:
     return np.array([row.gold_binary for row in rows], dtype=int)
 
 
-def _candidate_split(rows: list[SliceRow]) -> tuple[list[SliceRow], list[SliceRow], str | None]:
-    if len(rows) < 8:
-        return [], [], "insufficient_rows"
+def _candidate_split(rows: list[SliceRow]) -> tuple[list[SliceRow], list[SliceRow], list[SliceRow], str | None]:
+    if len(rows) < 12:
+        return [], [], [], "insufficient_rows"
     labels = [row.gold_binary for row in rows]
     if len(set(labels)) < 2:
-        return [], [], "single_label_only"
-    train_rows, test_rows = train_test_split(
+        return [], [], [], "single_label_only"
+    train_rows, holdout_rows = train_test_split(
         rows,
-        test_size=0.35,
+        test_size=0.45,
         random_state=17,
         stratify=labels,
     )
-    if len(set(row.gold_binary for row in train_rows)) < 2 or len(set(row.gold_binary for row in test_rows)) < 2:
-        return [], [], "split_lost_label_diversity"
-    return list(train_rows), list(test_rows), None
+    val_rows, test_rows = train_test_split(
+        holdout_rows,
+        test_size=0.67,
+        random_state=23,
+        stratify=[row.gold_binary for row in holdout_rows],
+    )
+    if (
+        len(set(row.gold_binary for row in train_rows)) < 2
+        or len(set(row.gold_binary for row in val_rows)) < 2
+        or len(set(row.gold_binary for row in test_rows)) < 2
+    ):
+        return [], [], [], "split_lost_label_diversity"
+    return list(train_rows), list(val_rows), list(test_rows), None
 
 
 def _train_numeric_candidate(name: str, rows: list[SliceRow], feature_names: list[str]) -> dict[str, Any]:
-    train_rows, test_rows, skip = _candidate_split(rows)
+    train_rows, val_rows, test_rows, skip = _candidate_split(rows)
     if skip:
         return {"candidate": name, "status": "skipped", "reason": skip, "n": len(rows)}
     x_train = _feature_matrix(train_rows, feature_names)
     y_train = _labels(train_rows)
+    x_val = _feature_matrix(val_rows, feature_names)
+    y_val = _labels(val_rows)
     x_test = _feature_matrix(test_rows, feature_names)
     y_test = _labels(test_rows)
     model = Pipeline(
@@ -459,8 +633,9 @@ def _train_numeric_candidate(name: str, rows: list[SliceRow], feature_names: lis
     )
     started = time.perf_counter()
     model.fit(x_train, y_train)
-    scores_train = model.predict_proba(x_train)[:, 1]
-    threshold = _best_threshold(scores_train, y_train)
+    scores_val = model.predict_proba(x_val)[:, 1]
+    threshold = _best_threshold(scores_val, y_val)
+    allow_threshold, block_threshold = _calibrate_policy_thresholds(scores_val, y_val)
     latencies: list[float] = []
     scores: list[float] = []
     for row in test_rows:
@@ -469,14 +644,24 @@ def _train_numeric_candidate(name: str, rows: list[SliceRow], feature_names: lis
         scores.append(float(model.predict_proba(x_one)[0, 1]))
         latencies.append((time.perf_counter() - t0) * 1000.0)
     elapsed = (time.perf_counter() - started) * 1000.0
-    payload = _metrics(np.array(scores), y_test, threshold, latencies)
+    payload = _metrics(
+        np.array(scores),
+        y_test,
+        threshold,
+        latencies,
+        allow_threshold=allow_threshold,
+        block_threshold=block_threshold,
+    )
     payload.update(
         {
             "candidate": name,
             "status": "evaluated",
             "feature_names": feature_names,
             "threshold": threshold,
+            "allow_threshold": allow_threshold,
+            "block_threshold": block_threshold,
             "train_n": len(train_rows),
+            "val_n": len(val_rows),
             "test_n": len(test_rows),
             "train_fit_ms": elapsed,
         }
@@ -485,11 +670,13 @@ def _train_numeric_candidate(name: str, rows: list[SliceRow], feature_names: lis
 
 
 def _train_text_candidate(name: str, rows: list[SliceRow]) -> dict[str, Any]:
-    train_rows, test_rows, skip = _candidate_split(rows)
+    train_rows, val_rows, test_rows, skip = _candidate_split(rows)
     if skip:
         return {"candidate": name, "status": "skipped", "reason": skip, "n": len(rows)}
     x_train = [f"{row.response_text}\n[TRACE_EVIDENCE]\n{row.evidence_text}" for row in train_rows]
     y_train = _labels(train_rows)
+    x_val = [f"{row.response_text}\n[TRACE_EVIDENCE]\n{row.evidence_text}" for row in val_rows]
+    y_val = _labels(val_rows)
     x_test = [f"{row.response_text}\n[TRACE_EVIDENCE]\n{row.evidence_text}" for row in test_rows]
     y_test = _labels(test_rows)
     model = Pipeline(
@@ -500,8 +687,9 @@ def _train_text_candidate(name: str, rows: list[SliceRow]) -> dict[str, Any]:
     )
     started = time.perf_counter()
     model.fit(x_train, y_train)
-    train_scores = model.predict_proba(x_train)[:, 1]
-    threshold = _best_threshold(train_scores, y_train)
+    val_scores = model.predict_proba(x_val)[:, 1]
+    threshold = _best_threshold(val_scores, y_val)
+    allow_threshold, block_threshold = _calibrate_policy_thresholds(val_scores, y_val)
     latencies: list[float] = []
     scores: list[float] = []
     for text in x_test:
@@ -509,16 +697,75 @@ def _train_text_candidate(name: str, rows: list[SliceRow]) -> dict[str, Any]:
         scores.append(float(model.predict_proba([text])[0, 1]))
         latencies.append((time.perf_counter() - t0) * 1000.0)
     elapsed = (time.perf_counter() - started) * 1000.0
-    payload = _metrics(np.array(scores), y_test, threshold, latencies)
+    payload = _metrics(
+        np.array(scores),
+        y_test,
+        threshold,
+        latencies,
+        allow_threshold=allow_threshold,
+        block_threshold=block_threshold,
+    )
     payload.update(
         {
             "candidate": name,
             "status": "evaluated",
             "threshold": threshold,
+            "allow_threshold": allow_threshold,
+            "block_threshold": block_threshold,
             "train_n": len(train_rows),
+            "val_n": len(val_rows),
             "test_n": len(test_rows),
             "train_fit_ms": elapsed,
             "model_family": "compact_claim_evidence_text_head",
+        }
+    )
+    return payload
+
+
+def _rule_candidate(name: str, rows: list[SliceRow], score_fn: Any) -> dict[str, Any]:
+    train_rows, val_rows, test_rows, skip = _candidate_split(rows)
+    if skip:
+        return {"candidate": name, "status": "skipped", "reason": skip, "n": len(rows)}
+    y_val = _labels(val_rows)
+    val_scores = np.array([float(score_fn(row)) for row in val_rows], dtype=float)
+    threshold = _best_threshold(val_scores, y_val)
+    allow_threshold, block_threshold = _calibrate_policy_thresholds(val_scores, y_val)
+    latencies: list[float] = []
+    scores: list[float] = []
+    for row in test_rows:
+        t0 = time.perf_counter()
+        scores.append(float(score_fn(row)))
+        latencies.append((time.perf_counter() - t0) * 1000.0)
+    payload = _metrics(
+        np.array(scores),
+        _labels(test_rows),
+        threshold,
+        latencies,
+        allow_threshold=allow_threshold,
+        block_threshold=block_threshold,
+    )
+    payload.update(
+        {
+            "candidate": name,
+            "status": "evaluated",
+            "threshold": threshold,
+            "allow_threshold": allow_threshold,
+            "block_threshold": block_threshold,
+            "train_n": len(train_rows),
+            "val_n": len(val_rows),
+            "test_n": len(test_rows),
+            "model_family": "root_cause_symbolic_rule_head",
+            "feature_names": [
+                "literal_coverage",
+                "numeric_coverage",
+                "identifier_coverage",
+                "unsupported_claim_fraction",
+                "min_claim_coverage",
+                "atom_match",
+                "schema_match",
+                "api_symbol_match",
+                "trajectory_order_match",
+            ],
         }
     )
     return payload
@@ -534,6 +781,39 @@ def _v1_baseline(rows: list[SliceRow]) -> dict[str, Any]:
         "status": "baseline",
         **_metrics(scores, labels, threshold=0.83),
     }
+
+
+def _v1_abstain_policy(rows: list[SliceRow]) -> dict[str, Any]:
+    train_rows, val_rows, test_rows, skip = _candidate_split(rows)
+    if skip:
+        return {"candidate": "v1_abstain_policy", "status": "skipped", "reason": skip, "n": len(rows)}
+    val_scores = np.array([row.v1_score for row in val_rows], dtype=float)
+    y_val = _labels(val_rows)
+    threshold = _best_threshold(val_scores, y_val)
+    allow_threshold, block_threshold = _calibrate_policy_thresholds(val_scores, y_val)
+    test_scores = np.array([row.v1_score for row in test_rows], dtype=float)
+    payload = _metrics(
+        test_scores,
+        _labels(test_rows),
+        threshold,
+        allow_threshold=allow_threshold,
+        block_threshold=block_threshold,
+    )
+    payload.update(
+        {
+            "candidate": "v1_abstain_policy",
+            "status": "evaluated",
+            "threshold": threshold,
+            "allow_threshold": allow_threshold,
+            "block_threshold": block_threshold,
+            "train_n": len(train_rows),
+            "val_n": len(val_rows),
+            "test_n": len(test_rows),
+            "model_family": "v1_score_with_class_abstain_policy",
+            "feature_names": ["v1_score"],
+        }
+    )
+    return payload
 
 
 def _optimized_calibrator_baseline(
@@ -592,12 +872,26 @@ def _candidate_set_for_class(
         "calibrated_mean",
         "nli_token_mean",
         "literal_coverage",
+        "atom_match",
+        "claim_count",
+        "unsupported_claim_fraction",
+        "schema_match",
+        "api_symbol_match",
+        "trajectory_order_match",
+        "test_outcome_match",
     ]
-    candidates = [_v1_baseline(rows), _optimized_calibrator_baseline(class_key, fusion, runtime_policy)]
+    candidates = [
+        _v1_baseline(rows),
+        _v1_abstain_policy(rows),
+        _optimized_calibrator_baseline(class_key, fusion, runtime_policy),
+    ]
     candidates.append(_train_numeric_candidate("trace_feature_logreg", rows, common))
     if class_key in TEXT_CLASSES:
         candidates.append(_train_text_candidate("compact_claim_evidence_head", rows))
+    if class_key == "rag.prose.multi_claim":
+        candidates.append(_rule_candidate("claim_decomposition_rule_head", rows, _multi_claim_score))
     if class_key == "rag.prose.short_factoid":
+        candidates.append(_rule_candidate("factoid_atom_rule_head", rows, _factoid_atom_score))
         candidates.append(
             _train_numeric_candidate(
                 "factoid_atom_verifier",
@@ -606,6 +900,7 @@ def _candidate_set_for_class(
             )
         )
     if class_key == "rag.structured":
+        candidates.append(_rule_candidate("structured_cell_rule_head", rows, _structured_cell_score))
         candidates.append(
             _train_numeric_candidate(
                 "structured_cell_verifier",
@@ -620,6 +915,7 @@ def _candidate_set_for_class(
             )
         )
     if class_key in {"rag.code_in_context", "code.agentic_trace"}:
+        candidates.append(_rule_candidate("code_symbol_rule_head", rows, _code_symbol_score))
         candidates.append(
             _train_numeric_candidate(
                 "code_identifier_ranker",
@@ -628,6 +924,39 @@ def _candidate_set_for_class(
             )
         )
     return candidates
+
+
+def _factoid_atom_score(row: SliceRow) -> float:
+    f = row.features
+    numeric = f.get("numeric_coverage", 1.0)
+    literal = f.get("literal_coverage", 0.0)
+    token_floor = f.get("token_bottom10", 0.0)
+    return max(0.0, min(1.0, 0.55 * numeric + 0.30 * literal + 0.15 * token_floor))
+
+
+def _structured_cell_score(row: SliceRow) -> float:
+    f = row.features
+    schema = f.get("schema_match", 0.5)
+    numeric = f.get("numeric_coverage", 1.0)
+    coverage = f.get("coverage_label_mean", f.get("context_coverage_ratio", 0.0))
+    return max(0.0, min(1.0, 0.45 * schema + 0.35 * numeric + 0.20 * coverage))
+
+
+def _code_symbol_score(row: SliceRow) -> float:
+    f = row.features
+    identifier = f.get("identifier_coverage", 1.0)
+    api = f.get("api_symbol_match", identifier)
+    order = f.get("trajectory_order_match", 1.0)
+    tests = f.get("test_outcome_match", 1.0)
+    return max(0.0, min(1.0, 0.40 * identifier + 0.30 * api + 0.15 * order + 0.15 * tests))
+
+
+def _multi_claim_score(row: SliceRow) -> float:
+    f = row.features
+    unsupported = f.get("unsupported_claim_fraction", 0.0)
+    min_coverage = f.get("min_claim_coverage", 1.0)
+    support = f.get("support_unit_label_mean", 1.0)
+    return max(0.0, min(1.0, 0.55 * (1.0 - unsupported) + 0.30 * min_coverage + 0.15 * support))
 
 
 def _passes(candidate: Mapping[str, Any], baseline: Mapping[str, Any]) -> bool:
@@ -646,6 +975,8 @@ def _passes(candidate: Mapping[str, Any], baseline: Mapping[str, Any]) -> bool:
     if _metric_value(candidate, "false_block_rate", 1.0) > PROMOTION_GATES["max_false_block"]:
         return False
     if _metric_value(candidate, "latency_p95_ms", 999.0) > PROMOTION_GATES["max_p95_latency_ms"]:
+        return False
+    if _metric_value(candidate, "decision_coverage", 0.0) < PROMOTION_GATES["min_decision_coverage"]:
         return False
     return True
 
@@ -722,8 +1053,18 @@ def run_solution_tracks(
     *,
     out_dir: Path,
     heads_dir: Path | None = None,
+    targeted_path: Path | None = None,
 ) -> dict[str, Any]:
     slices = build_root_cause_slices(paths)
+    targeted_manifest: dict[str, Any] | None = None
+    if targeted_path is not None and targeted_path.exists():
+        targeted = load_targeted_slices(targeted_path)
+        targeted_manifest = {
+            class_key: len(rows)
+            for class_key, rows in targeted.items()
+            if rows
+        }
+        slices = _merge_slices(slices, targeted)
     slices_dir = out_dir / "root_cause_slices"
     slice_manifest = write_slices(slices, slices_dir)
     fusion = _read_json(paths.fusion, {})
@@ -758,6 +1099,11 @@ def run_solution_tracks(
         "schema": "trace_root_cause_solution_tracks.v1",
         "gates": PROMOTION_GATES,
         "slice_manifest": slice_manifest,
+        "targeted_data": {
+            "path": str(targeted_path) if targeted_path is not None else None,
+            "rows_by_class": targeted_manifest or {},
+            "claim_scope": "synthetic training/debug data only; public/live benchmarks remain claim gates",
+        },
         "classes": class_reports,
     }
     heads_dir = heads_dir or (ROOT / "latence_trace/data/heads")
@@ -977,9 +1323,18 @@ def main() -> None:
         default=str(ROOT / "latence_trace/data/heads"),
         help="Directory for versioned per-class runtime head artifacts.",
     )
+    parser.add_argument(
+        "--targeted-data",
+        default=str(STUDENT / "root_cause_targeted/targeted_v1.jsonl"),
+        help="Optional targeted synthetic data JSONL for non-public training/debug slices.",
+    )
     args = parser.parse_args()
     out_dir = Path(args.out_dir)
-    report = run_solution_tracks(out_dir=out_dir, heads_dir=Path(args.heads_dir))
+    report = run_solution_tracks(
+        out_dir=out_dir,
+        heads_dir=Path(args.heads_dir),
+        targeted_path=Path(args.targeted_data),
+    )
     registry_path = Path(args.runtime_registry_out)
     registry_path.parent.mkdir(parents=True, exist_ok=True)
     registry_path.write_text(

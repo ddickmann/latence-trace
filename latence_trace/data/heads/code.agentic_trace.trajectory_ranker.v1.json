@@ -9,6 +9,7 @@
     "max_false_allow": 0.02,
     "max_false_block": 0.08,
     "max_p95_latency_ms": 25.0,
+    "min_decision_coverage": 0.1,
     "min_n": 24
   },
   "head_id": "trajectory_ranker",
@@ -58,7 +59,9 @@
   "next_training_target": "add turn-order, patch/test outcome, file ownership, AST/API drift, and action-result labels",
   "rollback_mode": "disable_head_or_class_allow_block",
   "root_cause_counts": {
-    "domain_morphology_identifier": 1
+    "code_identifier_morphology": 240,
+    "domain_morphology_identifier": 1,
+    "trajectory_ranker_failure": 240
   },
   "schema": "trace_runtime_head_artifact.v1",
   "score_strategy": {
