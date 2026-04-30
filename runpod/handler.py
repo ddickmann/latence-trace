@@ -544,6 +544,7 @@ def _build_request(input_data: dict[str, Any]) -> tuple[GroundednessRequest, boo
         "verification_samples",
         "profile",
         "content_type",
+        "structured_verification",
         "risk_band_stratum",
         # Code-lane fields (ignored by the RAG path).
         "scoring_mode",

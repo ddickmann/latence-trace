@@ -261,6 +261,23 @@ def test_build_startup_warmup_requests_exercises_three_triangular_probes() -> No
     assert code_req.session_id == "warmup-code-lane"
 
 
+def test_runpod_request_builder_preserves_structured_verification() -> None:
+    request, verbose = runpod_handler._build_request(
+        {
+            "query_text": "What amount was approved?",
+            "raw_context": "customer_1001 amount_usd=1200 status=approved",
+            "response_text": "customer_1001 was approved for 1200 USD.",
+            "content_type": "application/json+schema",
+            "structured_verification": "on",
+            "verbose": True,
+        }
+    )
+
+    assert verbose is True
+    assert request.content_type == "application/json+schema"
+    assert request.structured_verification == "on"
+
+
 def test_prime_service_runtime_issues_all_startup_requests() -> None:
     service = _SlowService(sleep_ms=0)
     runpod_handler._prime_service_runtime(service)
