@@ -56,6 +56,8 @@ supplied.
 | `verification_samples`           | `string[]`       | `null`              | Alternate responses for the semantic-entropy peer (temperature > 0 siblings).                                                                             |
 | `content_type`                   | `string`         | `null`              | Structured-source hint (`application/json`, `text/markdown`, `application/json+schema`). Auto-detected when omitted.                                      |
 | `risk_band_stratum`              | `string`         | `null`              | Optional failure-mode hint for the calibrated risk-band classifier (e.g. `entity_swap`, `negation`).                                                      |
+| `runtime_head_features`          | `object`         | `null`              | Explicit feature map for promoted runtime heads. Required for feature-gated root-cause heads to emit autonomous decisions.                                 |
+| `trajectory_features`            | `object`         | `null`              | Alias for `runtime_head_features` used by agentic coding clients that emit file/symbol/test/patch/order features.                                         |
 
 ### `SupportUnit`
 
@@ -90,11 +92,28 @@ Structured premise unit (the recommended lane for production).
   "literal_diagnostics":   { ... },
   "semantic_entropy_diagnostics": { ... },
   "structured_diagnostics":       { ... },
+  "runtime_decision": { "action": "allow", "head_id": "trajectory_ranker", "...": "..." },
   "warnings":         [ ... ],
   "debug":            { ... },
   "time_ms":          4.2
 }
 ```
+
+### `runtime_decision`
+
+When `LATENCE_TRACE_RUNTIME_DECISION_ENABLED=1`, responses include a stable
+runtime decision record:
+
+| Field | Type | Description |
+|---|---|---|
+| `action` | `"allow" | "auto_repair" | "block"` | Autonomous policy action. Missing required head features force `auto_repair`. |
+| `score` | `float` | Decision score after any enabled head override. |
+| `score_channel` | `string` | Source of `score`, e.g. `head:trajectory_ranker` or `groundedness_v2`. |
+| `head_id` | `string?` | Runtime head selected for the routed class. |
+| `head_enabled` | `bool?` | Whether the head was enabled and executable for this request. |
+| `head_score` | `float?` | Score emitted by the head. `null` when disabled, missing, corrupt, or feature-gated. |
+| `head_features_used` | `string[]` | Feature names or channels consumed by the head. |
+| `head_reason_codes` | `string[]` | Machine-readable head status and fallback reasons. |
 
 ### `scores: GroundednessScores`
 

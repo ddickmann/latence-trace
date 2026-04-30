@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 import threading
+import time
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
@@ -34,6 +35,8 @@ _HEAD_REGISTRY_CACHE: tuple[
     Optional[dict[str, Any]],
     Optional[str],
 ] = (None, None, None, None)
+_CACHE_LAST_CHECK: dict[str, float] = {"policy": 0.0, "head_registry": 0.0}
+_CACHE_TTL_SECONDS = 1.0
 
 
 def enabled() -> bool:
@@ -54,6 +57,17 @@ def _load_json_cached(
     path: Path,
     cache_name: str,
 ) -> tuple[Optional[dict[str, Any]], Optional[str], Optional[str]]:
+    now = time.monotonic()
+    global _CACHE, _HEAD_REGISTRY_CACHE
+    with _LOCK:
+        cache = _CACHE if cache_name == "policy" else _HEAD_REGISTRY_CACHE
+        cached_path, _cached_mtime, cached_payload, cached_sha = cache
+        if (
+            cached_path == path
+            and cached_payload is not None
+            and now - _CACHE_LAST_CHECK.get(cache_name, 0.0) < _CACHE_TTL_SECONDS
+        ):
+            return cached_payload, cached_sha, None
     if not path.exists():
         return None, None, f"missing_json:{path}"
     try:
@@ -61,7 +75,6 @@ def _load_json_cached(
     except OSError as exc:
         return None, None, f"stat_failed:{exc}"
 
-    global _CACHE, _HEAD_REGISTRY_CACHE
     with _LOCK:
         cache = _CACHE if cache_name == "policy" else _HEAD_REGISTRY_CACHE
         cached_path, cached_mtime, cached_payload, cached_sha = cache
@@ -77,6 +90,7 @@ def _load_json_cached(
             _CACHE = (path, stat.st_mtime, payload, sha)
         else:
             _HEAD_REGISTRY_CACHE = (path, stat.st_mtime, payload, sha)
+        _CACHE_LAST_CHECK[cache_name] = now
         return payload, sha, None
 
 
@@ -99,6 +113,8 @@ def reset_policy_cache_for_tests() -> None:
     with _LOCK:
         _CACHE = (None, None, None, None)
         _HEAD_REGISTRY_CACHE = (None, None, None, None)
+        _CACHE_LAST_CHECK["policy"] = 0.0
+        _CACHE_LAST_CHECK["head_registry"] = 0.0
     runtime_heads.reset_head_cache_for_tests()
 
 
@@ -242,7 +258,15 @@ def build_runtime_decision(response: Any) -> Optional[dict[str, Any]]:
     head_registry, head_registry_sha = _load_head_registry()
     head_entry = _head_registry_entry(head_registry, class_key)
     head_eval = runtime_heads.evaluate_runtime_head(response, class_key)
-    action = decide_action(score, class_policy)
+    decision_score = score
+    decision_channel = score_channel
+    if head_eval.get("head_enabled") and head_eval.get("head_score") is not None:
+        decision_score = float(head_eval["head_score"])
+        decision_channel = f"head:{head_eval.get('head_id') or 'runtime_head'}"
+    if bool(class_policy.get("requires_head_score")) and not head_eval.get("head_enabled"):
+        action = "auto_repair"
+    else:
+        action = decide_action(decision_score, class_policy)
     return {
         "policy_version": str(policy.get("channel") or "runtime_decision"),
         "policy_sha256": policy_sha,
@@ -254,8 +278,8 @@ def build_runtime_decision(response: Any) -> Optional[dict[str, Any]]:
         "head_features_used": head_eval.get("head_features_used", []),
         "head_reason_codes": head_eval.get("head_reason_codes", []),
         "class_key": class_key,
-        "score": score,
-        "score_channel": score_channel,
+        "score": decision_score,
+        "score_channel": decision_channel,
         "band": str(response.scores.risk_band or "unknown"),
         "action": action,
         "evidence": _support_evidence(response),

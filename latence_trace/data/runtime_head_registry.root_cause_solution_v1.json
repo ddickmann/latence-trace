@@ -3,21 +3,23 @@
     "code.agentic_trace": {
       "architecture": "trajectory_aware_symbolic_plus_learned_ranker",
       "artifact_path": "latence_trace/data/heads/code.agentic_trace.trajectory_ranker.v1.json",
-      "artifact_sha256": "ef3f6fc8b6d39b6da4d59b8d410bdd62ec54cd395e736ede44b828a433ad4a80",
+      "artifact_sha256": "e47e61cff31d532b62a955e345609e73b7d2d4e211d55f08dab706002ac094be",
       "class_key": "code.agentic_trace",
-      "enabled": false,
+      "enabled": true,
       "head_id": "trajectory_ranker",
       "next_training_target": "add turn-order, patch/test outcome, file ownership, AST/API drift, and action-result labels",
-      "reason": "dedicated manufactured trajectory head failed held-out promotion gates",
+      "reason": "trajectory-native head clears held-out trajectory gates",
       "rollback_switches": [
-        "already repair-only"
+        "LATENCE_TRACE_RUNTIME_DECISION_ENABLED=0",
+        "classes.code.agentic_trace.allow_disabled=true",
+        "classes.code.agentic_trace.block_disabled=true"
       ],
       "version": "root_cause_solution_v1"
     },
     "rag.code_in_context": {
       "architecture": "code_identifier_api_file_attribution_ranker",
       "artifact_path": "latence_trace/data/heads/rag.code_in_context.identifier_ranker.v1.json",
-      "artifact_sha256": "7aa69b15956ef88ed86f0b734ea6f439dd386f498c927ed4eedc54dab1347d91",
+      "artifact_sha256": "e6e708b8d3bec5e28b5f9113526d21f7ada1755a165c954d08f6ff1b738ac79f",
       "class_key": "rag.code_in_context",
       "enabled": true,
       "head_id": "identifier_ranker",
@@ -33,7 +35,7 @@
     "rag.prose.enterprise": {
       "architecture": "optimized_feature_calibrator",
       "artifact_path": "latence_trace/data/heads/rag.prose.enterprise.optimized_calibrator.v1.json",
-      "artifact_sha256": "b69afdfb88fea72d97bfa3652624681e9ae4cbf254cd84ac6cce3453842eb286",
+      "artifact_sha256": "2c4fb7406a8e553c9be2ef970f93773d29e02dd6e230a35f798f2ec5a6680148",
       "class_key": "rag.prose.enterprise",
       "enabled": true,
       "head_id": "optimized_calibrator",
@@ -49,7 +51,7 @@
     "rag.prose.multi_claim": {
       "architecture": "claim_decomposition_plus_per_claim_support_aggregation",
       "artifact_path": "latence_trace/data/heads/rag.prose.multi_claim.claim_decomposer.v1.json",
-      "artifact_sha256": "61fa6b0f0ab23b4cd48a6125dfad119be54b63d2ff061b04dddcedec7f9b1c53",
+      "artifact_sha256": "52748ca61b96113d5421b9508e38946ed381794c961467364487f494d0f9ee6b",
       "class_key": "rag.prose.multi_claim",
       "enabled": true,
       "head_id": "claim_decomposer",
@@ -65,7 +67,7 @@
     "rag.prose.short_factoid": {
       "architecture": "entity_date_number_atom_verifier",
       "artifact_path": "latence_trace/data/heads/rag.prose.short_factoid.atom_verifier.v1.json",
-      "artifact_sha256": "c25b9b39321d8e2dc589e97118992e8bddddc87ff5ed0333881475c2315d34cd",
+      "artifact_sha256": "2ce5f325352989c40f9dd82b73c9d26a64815f06720d0ad0f611d0d74a86148c",
       "class_key": "rag.prose.short_factoid",
       "enabled": true,
       "head_id": "atom_verifier",
@@ -81,7 +83,7 @@
     "rag.structured": {
       "architecture": "typed_cell_schema_value_alignment",
       "artifact_path": "latence_trace/data/heads/rag.structured.cell_schema_verifier.v1.json",
-      "artifact_sha256": "29e112c7f4af6a3f7aede41c9965d75d8bb3f51ae1726f2eabc2ae3730bd5284",
+      "artifact_sha256": "1b9f4316881ec030c1669e8545502658f588f9cdf4fea9f578ec7512a596a2ff",
       "class_key": "rag.structured",
       "enabled": true,
       "head_id": "cell_schema_verifier",

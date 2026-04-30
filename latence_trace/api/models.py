@@ -352,6 +352,22 @@ class GroundednessRequest(BaseModel):
             "hardest calibrated threshold so the green band stays honest."
         ),
     )
+    runtime_head_features: Optional[Dict[str, float]] = Field(
+        default=None,
+        description=(
+            "Optional explicit feature map for promoted runtime heads. Use this "
+            "for agentic trace or root-cause heads when the caller already has "
+            "file, symbol, test, patch, order, or claim-atom features. Missing "
+            "required features keep the affected head rollback-safe repair-only."
+        ),
+    )
+    trajectory_features: Optional[Dict[str, float]] = Field(
+        default=None,
+        description=(
+            "Alias for runtime_head_features used by agentic coding clients that "
+            "emit trajectory-native feature maps."
+        ),
+    )
     scoring_mode: ScoringMode = Field(
         default=ScoringMode.RAG,
         description=(
@@ -1695,6 +1711,10 @@ class GroundednessResponse(BaseModel):
             "allow / auto_repair / block action, policy version, evidence, "
             "unsupported spans, and rollback-safe thresholds."
         ),
+    )
+    runtime_head_features: Optional[Dict[str, float]] = Field(
+        default=None,
+        description="Echoed runtime-head features when supplied by the caller.",
     )
     reason: Optional[str] = Field(
         default=None,

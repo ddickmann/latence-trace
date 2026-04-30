@@ -126,6 +126,9 @@ def test_solution_tracks_build_slices_and_registry(tmp_path: Path) -> None:
                     "false_block_rate": 0.0,
                     "allow_threshold": 0.8,
                     "block_threshold": 0.3,
+                    "n": 20,
+                    "allowed": 10,
+                    "blocked": 10,
                 }
             }
         },

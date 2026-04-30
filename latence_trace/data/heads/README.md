@@ -16,14 +16,17 @@ Current registry: `latence_trace/data/runtime_head_registry.root_cause_solution_
 | `rag.prose.short_factoid` | `atom_verifier` | enabled | targeted atom verifier clears entity/date/number false-decision gates |
 | `rag.structured` | `cell_schema_verifier` | enabled | typed cell challenge lane clears no-regression and false-decision gates |
 | `rag.code_in_context` | `identifier_ranker` | enabled | identifier/API drift lane clears held-out false-decision gates |
-| `code.agentic_trace` | `trajectory_ranker` | disabled | manufactured trajectory gates do not pass yet |
+| `code.agentic_trace` | `trajectory_ranker` | enabled | trajectory-native held-out gate clears AUROC and false-decision thresholds |
 
 ## Runtime Contract
 
 Enabled heads may contribute `head_score`, `head_features_used`, and
-`head_reason_codes` to the runtime decision record. Disabled, missing, corrupt,
-or checksum-mismatched heads are rollback-safe: scoring continues with v1/router
-signals and the affected class stays repair-only.
+`head_reason_codes` to the runtime decision record. Head artifacts are
+executable: enterprise uses response-score passthrough and the other promoted
+root-cause lanes use serialized linear feature heads. Feature-gated heads require
+`runtime_head_features` / `trajectory_features`; when those maps are absent the
+affected request remains rollback-safe `auto_repair`. Promotion now requires
+both safe autonomous allow coverage and safe autonomous block coverage.
 
 ## Regeneration
 

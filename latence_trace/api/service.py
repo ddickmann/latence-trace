@@ -1155,6 +1155,9 @@ class GroundednessService:
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning("corpus_router: failed to attach diagnostics: %r", exc)
         try:
+            runtime_features = request.runtime_head_features or request.trajectory_features
+            if runtime_features:
+                response.runtime_head_features = dict(runtime_features)
             decision_record = build_runtime_decision(response)
             if decision_record is not None:
                 response.runtime_decision = RuntimeDecisionRecord.model_validate(decision_record)

@@ -28,6 +28,7 @@ from latence_trace_client.models import (
     GroundednessResponse,
     NLIVerdict,
     RiskBand,
+    RuntimeDecision,
     SupportUnit,
     TokenScore,
 )
@@ -48,6 +49,7 @@ __all__ = [
     "LatenceTraceValidationError",
     "NLIVerdict",
     "RiskBand",
+    "RuntimeDecision",
     "SupportUnit",
     "TokenScore",
     "__version__",

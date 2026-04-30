@@ -1,0 +1,19 @@
+name: trace-v2-readiness
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package
+        run: python -m pip install -e ".[dev]"
+      - name: Verify TRACE v2 readiness
+        run: python scripts/verify_trace_v2_readiness.py

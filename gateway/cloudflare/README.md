@@ -21,6 +21,11 @@ Implements:
 - **C6** — `/mcp/*` paths are proxied to the remote MCP origin with
   tenant context attached.
 
+The gateway is payload-transparent for TRACE v2 runtime-head fields. Requests
+may include `runtime_head_features` or `trajectory_features`, and responses may
+include `runtime_decision`; the worker forwards those fields unchanged while it
+continues to meter by the returned band.
+
 ## Deployment
 
 ```bash
@@ -92,6 +97,6 @@ month via `wrangler cron`.
 wrangler dev
 curl -H 'authorization: Bearer ltk_test_key' \
      -H 'content-type: application/json' \
-     -d '{"question":"q","response":"r","context":[]}' \
+     -d '{"question":"q","response":"r","context":[],"runtime_head_features":{"v1_score":0.99}}' \
      http://localhost:8787/v1/groundedness/score
 ```

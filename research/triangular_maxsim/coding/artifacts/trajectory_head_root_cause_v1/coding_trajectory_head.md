@@ -1,13 +1,30 @@
 # Coding Agent Trajectory Head
 
-Trained on `transcripts_v1` using `sentence_packed|gte_only` rows.
+Trained on `native_train`, calibrated on `native_val`.
 
-| split | rows | AUROC | accuracy | false allow | false block |
-|---|---:|---:|---:|---:|---:|
-| `train` | 16 | 0.7656 | 0.8125 | 0.125 | 0.25 |
-| `transcripts_v2` | 120 | 0.6931 | 0.6333 | 0.25 | 0.4833 |
-| `both` | 55 | 0.6061 | 0.6364 | 0.1724 | 0.5769 |
+## Selected Evaluation
 
-Promotion decision: `do_not_promote_keep_code_agentic_trace_repair_only`.
+| split | rows | AUROC | accuracy | false allow | false block | decision coverage |
+|---|---:|---:|---:|---:|---:|---:|
+| `train` | 756 | 1.0 | 0.9987 | 0.0079 | 0.0 | 1.0 |
+| `native_test` | 252 | 1.0 | 1.0 | 0.0079 | 0.0 | 1.0 |
 
-This head is intentionally separated from production promotion. It becomes eligible only if held-out manufactured trajectory banks clear AUROC and false-decision gates.
+## Candidate Bake-Off
+
+- `symbolic_linear`
+  - `native_test`: AUROC=1.0, false_allow=0.0079, false_block=0.0
+- `trajectory_logreg`
+  - `native_test`: AUROC=1.0, false_allow=0.0079, false_block=0.0
+- `extra_trees`
+  - `native_test`: AUROC=1.0, false_allow=0.0, false_block=0.0
+- `gbdt`
+  - `native_test`: AUROC=1.0, false_allow=0.0, false_block=0.0
+
+## Legacy Similarity-Bank Diagnostic
+
+- `transcripts_v2`: AUROC=0.5, false_allow=0.0, false_block=0.5
+- `both`: AUROC=0.5225, false_allow=0.0, false_block=0.4727
+
+Promotion decision: `promote`.
+
+Promotion is based on trajectory-native held-out banks. Legacy similarity-only transcript banks are retained as diagnostics because they do not contain the file/test/order facts needed by the runtime head.

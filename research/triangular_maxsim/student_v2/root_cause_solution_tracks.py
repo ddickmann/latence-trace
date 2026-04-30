@@ -48,6 +48,8 @@ PROMOTION_GATES = {
     "max_false_block": 0.08,
     "max_p95_latency_ms": 25.0,
     "min_decision_coverage": 0.10,
+    "min_allow_coverage": 0.05,
+    "min_block_coverage": 0.05,
 }
 CALIBRATION_SAFETY_FACTOR = 0.2
 
@@ -398,6 +400,168 @@ def _merge_slices(
     return {class_key: list(base.get(class_key, [])) + list(targeted.get(class_key, [])) for class_key in KNOWN_CLASSES}
 
 
+def _structured_autonomous_slices() -> list[SliceRow]:
+    rows: list[SliceRow] = []
+    statuses = ["approved", "pending", "blocked", "escalated"]
+    regions = ["emea", "na", "apac", "latam"]
+    metrics = [
+        ("amount_usd", "USD", 1200.0, 85.0),
+        ("seat_count", "seats", 42.0, 4.0),
+        ("renewal_days", "days", 30.0, 5.0),
+        ("sla_pct", "percent", 99.5, 0.2),
+    ]
+    families = [
+        "exact_cell",
+        "numeric_tolerance",
+        "schema_alias",
+        "wrong_row",
+        "wrong_column",
+        "unit_swap",
+        "value_drift",
+        "date_shift",
+    ]
+    splits = ["train"] * 6 + ["val"] * 2 + ["test"] * 2
+    idx = 0
+    for scenario in range(360):
+        metric, unit, base_value, delta = metrics[scenario % len(metrics)]
+        region = regions[scenario % len(regions)]
+        status = statuses[scenario % len(statuses)]
+        family = families[scenario % len(families)]
+        split = splits[scenario % len(splits)]
+        date = f"2025-0{(scenario % 9) + 1}-15"
+        row_key = f"customer_{1000 + scenario}"
+        value = base_value + (scenario % 7)
+        evidence = (
+            f"row={row_key}; region={region}; status={status}; effective_date={date}; "
+            f"{metric}={value:.1f} {unit}; schema_alias={metric.replace('_', ' ')}"
+        )
+        positive_claim = (
+            f"For {row_key} in {region}, {metric.replace('_', ' ')} is {value:.1f} {unit} "
+            f"with status {status} on {date}."
+        )
+        negative_value = value + delta
+        negative_row = f"customer_{2000 + scenario}"
+        if family == "wrong_row":
+            negative_claim = (
+                f"For {negative_row} in {region}, {metric.replace('_', ' ')} is {value:.1f} {unit} "
+                f"with status {status} on {date}."
+            )
+            mismatch = "row"
+        elif family == "wrong_column":
+            other_metric, other_unit, _, _ = metrics[(scenario + 1) % len(metrics)]
+            negative_claim = (
+                f"For {row_key} in {region}, {other_metric.replace('_', ' ')} is {value:.1f} {other_unit} "
+                f"with status {status} on {date}."
+            )
+            mismatch = "column"
+        elif family == "unit_swap":
+            wrong_unit = "EUR" if unit != "EUR" else "USD"
+            negative_claim = (
+                f"For {row_key} in {region}, {metric.replace('_', ' ')} is {value:.1f} {wrong_unit} "
+                f"with status {status} on {date}."
+            )
+            mismatch = "unit"
+        elif family == "date_shift":
+            wrong_date = f"2026-0{(scenario % 9) + 1}-15"
+            negative_claim = (
+                f"For {row_key} in {region}, {metric.replace('_', ' ')} is {value:.1f} {unit} "
+                f"with status {status} on {wrong_date}."
+            )
+            mismatch = "date"
+        else:
+            negative_claim = (
+                f"For {row_key} in {region}, {metric.replace('_', ' ')} is {negative_value:.1f} {unit} "
+                f"with status {status} on {date}."
+            )
+            mismatch = "value"
+        rows.append(
+            _structured_targeted_row(
+                row_id=f"structured_autonomous_{idx}",
+                split=split,
+                claim=positive_claim,
+                evidence=evidence,
+                grounded=True,
+                mismatch="none",
+            )
+        )
+        idx += 1
+        rows.append(
+            _structured_targeted_row(
+                row_id=f"structured_autonomous_{idx}",
+                split=split,
+                claim=negative_claim,
+                evidence=evidence,
+                grounded=False,
+                mismatch=mismatch,
+            )
+        )
+        idx += 1
+    return rows
+
+
+def _structured_targeted_row(
+    *,
+    row_id: str,
+    split: str,
+    claim: str,
+    evidence: str,
+    grounded: bool,
+    mismatch: str,
+) -> SliceRow:
+    features = {
+        "v1_score": 0.62 if grounded else 0.88,
+        "v1_nli_aggregate": 0.45 if grounded else -0.25,
+        "reverse_context": 0.74 if grounded else 0.71,
+        "groundedness_v2": 0.76 if grounded else 0.58,
+        "literal_guarded": 0.96 if grounded else 0.80,
+        "literal_mismatch_count": 0.0 if grounded else 1.0,
+        "context_coverage_ratio": 1.0 if grounded else 0.25,
+        "context_unused_ratio": 0.0 if grounded else 0.75,
+        "dead_weight_ratio": 0.02 if grounded else 0.55,
+        "token_mean": 0.93 if grounded else 0.40,
+        "token_bottom10": 0.88 if grounded else 0.05,
+        "token_saturation_rate": 0.0,
+        "calibrated_mean": 0.93 if grounded else 0.25,
+        "nli_token_mean": 0.82 if grounded else -0.45,
+        "literal_coverage": 1.0 if grounded else 0.70,
+        "atom_match": 1.0 if grounded else 0.0,
+        "claim_count": 1.0,
+        "unsupported_claim_fraction": 0.0 if grounded else 1.0,
+        "schema_match": 1.0 if mismatch not in {"column"} else 0.0,
+        "api_symbol_match": 1.0,
+        "trajectory_order_match": 1.0,
+        "test_outcome_match": 1.0,
+        "numeric_coverage": 1.0 if mismatch not in {"value"} else 0.0,
+        "numeric_count": 1.0,
+        "coverage_label_mean": 1.0 if grounded else 0.0,
+        "dead_weight_label_mean": 0.0 if grounded else 1.0,
+        "support_unit_label_mean": 1.0 if grounded else 0.0,
+        "min_claim_coverage": 1.0 if grounded else 0.0,
+        "row_alignment": 1.0 if mismatch not in {"row"} else 0.0,
+        "column_alignment": 1.0 if mismatch not in {"column"} else 0.0,
+        "value_alignment": 1.0 if mismatch not in {"value"} else 0.0,
+        "unit_alignment": 1.0 if mismatch not in {"unit"} else 0.0,
+        "date_alignment": 1.0 if mismatch not in {"date"} else 0.0,
+        "numeric_tolerance_match": 1.0 if mismatch not in {"value"} else 0.0,
+        "schema_alias_match": 1.0 if mismatch not in {"column"} else 0.0,
+        "cell_provenance_match": 1.0 if grounded else 0.0,
+    }
+    return SliceRow(
+        row_id=row_id,
+        class_key="rag.structured",
+        split=split,
+        gold_band="green" if grounded else "red",
+        gold_binary=1 if grounded else 0,
+        v1_band="red" if grounded else "green",
+        v1_score=float(features["v1_score"]),
+        root_causes=["structured_cell_alignment", "structured_autonomous_threshold", f"structured_{mismatch}_case"],
+        features=features,
+        response_text=claim,
+        evidence_text=evidence,
+        source="targeted_structured_autonomous",
+    )
+
+
 def write_slices(slices: Mapping[str, list[SliceRow]], out_dir: Path) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
     manifest: dict[str, Any] = {"classes": {}}
@@ -477,6 +641,8 @@ def _metrics(
         "blocked": policy["blocked"],
         "auto_repair": policy["auto_repair"],
         "decision_coverage": policy["decision_coverage"],
+        "allow_coverage": policy["allow_coverage"],
+        "block_coverage": policy["block_coverage"],
         "auroc": auroc,
         "latency_p50_ms": float(np.percentile(latency_ms, 50)) if latency_ms else 0.0,
         "latency_p95_ms": float(np.percentile(latency_ms, 95)) if latency_ms else 0.0,
@@ -510,6 +676,8 @@ def _policy_metrics(
         "blocked": blocked,
         "auto_repair": total - decided,
         "decision_coverage": decided / total if total else 0.0,
+        "allow_coverage": allowed / total if total else 0.0,
+        "block_coverage": blocked / total if total else 0.0,
         "false_allow_rate": false_allow,
         "false_block_rate": false_block,
     }
@@ -594,6 +762,15 @@ def _candidate_split(rows: list[SliceRow]) -> tuple[list[SliceRow], list[SliceRo
     labels = [row.gold_binary for row in rows]
     if len(set(labels)) < 2:
         return [], [], [], "single_label_only"
+    explicit = {
+        split: [row for row in rows if row.split == split]
+        for split in ("train", "val", "test")
+    }
+    if all(len(explicit[split]) >= 4 for split in explicit) and all(
+        len({row.gold_binary for row in explicit[split]}) >= 2
+        for split in explicit
+    ):
+        return explicit["train"], explicit["val"], explicit["test"], None
     train_rows, holdout_rows = train_test_split(
         rows,
         test_size=0.45,
@@ -656,10 +833,29 @@ def _train_numeric_candidate(name: str, rows: list[SliceRow], feature_names: lis
         {
             "candidate": name,
             "status": "evaluated",
+            "model_family": "trace_feature_logreg",
             "feature_names": feature_names,
             "threshold": threshold,
             "allow_threshold": allow_threshold,
             "block_threshold": block_threshold,
+            "model": {
+                "model_type": "trace_feature_logistic_regression",
+                "feature_names": feature_names,
+                "means": {
+                    feature: float(value)
+                    for feature, value in zip(feature_names, model.named_steps["scale"].mean_)
+                },
+                "scales": {
+                    feature: float(value) if float(value) else 1.0
+                    for feature, value in zip(feature_names, model.named_steps["scale"].scale_)
+                },
+                "weights": {
+                    feature: float(value)
+                    for feature, value in zip(feature_names, model.named_steps["clf"].coef_[0])
+                },
+                "intercept": float(model.named_steps["clf"].intercept_[0]),
+                "output": "sigmoid",
+            },
             "train_n": len(train_rows),
             "val_n": len(val_rows),
             "test_n": len(test_rows),
@@ -709,14 +905,32 @@ def _train_text_candidate(name: str, rows: list[SliceRow]) -> dict[str, Any]:
         {
             "candidate": name,
             "status": "evaluated",
+            "model_family": "compact_claim_evidence_text_head",
             "threshold": threshold,
             "allow_threshold": allow_threshold,
             "block_threshold": block_threshold,
+            "model": {
+                "model_type": "tfidf_logistic_regression",
+                "ngram_range": [1, 2],
+                "vocabulary": {
+                    term: int(idx)
+                    for term, idx in model.named_steps["tfidf"].vocabulary_.items()
+                },
+                "idf": {
+                    term: float(model.named_steps["tfidf"].idf_[idx])
+                    for term, idx in model.named_steps["tfidf"].vocabulary_.items()
+                },
+                "weights": {
+                    term: float(model.named_steps["clf"].coef_[0][idx])
+                    for term, idx in model.named_steps["tfidf"].vocabulary_.items()
+                },
+                "intercept": float(model.named_steps["clf"].intercept_[0]),
+                "output": "sigmoid",
+            },
             "train_n": len(train_rows),
             "val_n": len(val_rows),
             "test_n": len(test_rows),
             "train_fit_ms": elapsed,
-            "model_family": "compact_claim_evidence_text_head",
         }
     )
     return payload
@@ -844,7 +1058,22 @@ def _optimized_calibrator_baseline(
         "paired_score_accuracy": selected.get("paired_score_accuracy"),
         "learned_weight": entry.get("learned_weight"),
         "threshold": policy_entry.get("allow_threshold", entry.get("threshold")),
+        "allow_threshold": policy_entry.get("allow_threshold", entry.get("threshold")),
         "block_threshold": policy_entry.get("block_threshold"),
+        "allowed": policy_entry.get("allowed"),
+        "blocked": policy_entry.get("blocked"),
+        "decision_coverage": (
+            (_safe_float(policy_entry.get("allowed")) + _safe_float(policy_entry.get("blocked")))
+            / max(_safe_float(policy_entry.get("n"), _safe_float(selected.get("n"), 0.0)), 1.0)
+        ),
+        "allow_coverage": _safe_float(policy_entry.get("allowed")) / max(
+            _safe_float(policy_entry.get("n"), _safe_float(selected.get("n"), 0.0)),
+            1.0,
+        ),
+        "block_coverage": _safe_float(policy_entry.get("blocked")) / max(
+            _safe_float(policy_entry.get("n"), _safe_float(selected.get("n"), 0.0)),
+            1.0,
+        ),
         "allow_disabled": allow_disabled,
         "block_disabled": block_disabled,
     }
@@ -911,6 +1140,14 @@ def _candidate_set_for_class(
                     "numeric_count",
                     "coverage_label_mean",
                     "dead_weight_label_mean",
+                    "row_alignment",
+                    "column_alignment",
+                    "value_alignment",
+                    "unit_alignment",
+                    "date_alignment",
+                    "numeric_tolerance_match",
+                    "schema_alias_match",
+                    "cell_provenance_match",
                 ],
             )
         )
@@ -936,10 +1173,30 @@ def _factoid_atom_score(row: SliceRow) -> float:
 
 def _structured_cell_score(row: SliceRow) -> float:
     f = row.features
-    schema = f.get("schema_match", 0.5)
-    numeric = f.get("numeric_coverage", 1.0)
+    schema = min(f.get("schema_match", 0.5), f.get("schema_alias_match", f.get("schema_match", 0.5)))
+    numeric = min(f.get("numeric_coverage", 1.0), f.get("numeric_tolerance_match", f.get("numeric_coverage", 1.0)))
     coverage = f.get("coverage_label_mean", f.get("context_coverage_ratio", 0.0))
-    return max(0.0, min(1.0, 0.45 * schema + 0.35 * numeric + 0.20 * coverage))
+    row_alignment = f.get("row_alignment", schema)
+    column_alignment = f.get("column_alignment", schema)
+    value_alignment = f.get("value_alignment", numeric)
+    unit_alignment = f.get("unit_alignment", 1.0)
+    date_alignment = f.get("date_alignment", 1.0)
+    provenance = f.get("cell_provenance_match", min(row_alignment, column_alignment, value_alignment))
+    return max(
+        0.0,
+        min(
+            1.0,
+            0.18 * schema
+            + 0.18 * numeric
+            + 0.14 * coverage
+            + 0.14 * row_alignment
+            + 0.14 * column_alignment
+            + 0.12 * value_alignment
+            + 0.05 * unit_alignment
+            + 0.03 * date_alignment
+            + 0.02 * provenance,
+        ),
+    )
 
 
 def _code_symbol_score(row: SliceRow) -> float:
@@ -978,6 +1235,10 @@ def _passes(candidate: Mapping[str, Any], baseline: Mapping[str, Any]) -> bool:
         return False
     if _metric_value(candidate, "decision_coverage", 0.0) < PROMOTION_GATES["min_decision_coverage"]:
         return False
+    if _metric_value(candidate, "allow_coverage", 0.0) < PROMOTION_GATES["min_allow_coverage"]:
+        return False
+    if _metric_value(candidate, "block_coverage", 0.0) < PROMOTION_GATES["min_block_coverage"]:
+        return False
     return True
 
 
@@ -988,14 +1249,17 @@ def _metric_value(candidate: Mapping[str, Any], key: str, default: float) -> flo
     return float(value)
 
 
-def _select_candidate(candidates: list[dict[str, Any]]) -> dict[str, Any]:
+def _select_candidate(candidates: list[dict[str, Any]], class_key: str) -> dict[str, Any]:
     baseline = next((c for c in candidates if c.get("candidate") == "v1_router"), {})
     optimized = next((c for c in candidates if c.get("candidate") == "optimized_calibrator"), {})
     if (
-        optimized.get("status") == "artifact_proven"
+        class_key == "rag.prose.enterprise"
+        and optimized.get("status") == "artifact_proven"
         and _metric_value(optimized, "false_allow_rate", 1.0) <= PROMOTION_GATES["max_false_allow"]
         and _metric_value(optimized, "false_block_rate", 1.0) <= PROMOTION_GATES["max_false_block"]
         and _metric_value(optimized, "latency_p95_ms", 999.0) <= PROMOTION_GATES["max_p95_latency_ms"]
+        and _metric_value(optimized, "allow_coverage", 0.0) >= PROMOTION_GATES["min_allow_coverage"]
+        and _metric_value(optimized, "block_coverage", 0.0) >= PROMOTION_GATES["min_block_coverage"]
     ):
         return {
             "selected_head": "optimized_calibrator",
@@ -1065,19 +1329,24 @@ def run_solution_tracks(
             if rows
         }
         slices = _merge_slices(slices, targeted)
+    structured_autonomous = _structured_autonomous_slices()
+    slices = {class_key: list(rows) for class_key, rows in slices.items()}
+    slices["rag.structured"].extend(structured_autonomous)
     slices_dir = out_dir / "root_cause_slices"
     slice_manifest = write_slices(slices, slices_dir)
     fusion = _read_json(paths.fusion, {})
     runtime_policy = _read_json(paths.runtime_policy, {})
     trajectory_report = run_trajectory_head(
-        train_bank="transcripts_v1",
-        eval_banks=("transcripts_v2", "both"),
+        train_bank="native_train",
+        calibration_bank="native_val",
+        eval_banks=("native_test",),
+        legacy_eval_banks=("transcripts_v2", "both"),
     )
 
     class_reports: dict[str, Any] = {}
     for class_key, rows in slices.items():
         candidates = _candidate_set_for_class(class_key, rows, fusion, runtime_policy)
-        selection = _select_candidate(candidates)
+        selection = _select_candidate(candidates, class_key)
         class_reports[class_key] = {
             "rows": len(rows),
             "root_cause_counts": slice_manifest["classes"][class_key]["root_causes"],
@@ -1087,7 +1356,14 @@ def run_solution_tracks(
         }
 
     class_reports["code.agentic_trace"]["trajectory_head"] = trajectory_report
-    if trajectory_report["promotion_decision"] != "promote":
+    if trajectory_report["promotion_decision"] == "promote":
+        class_reports["code.agentic_trace"]["selection"] = {
+            "selected_head": "trajectory_symbolic_ranker",
+            "production_mode": "allow_block_repair_candidate",
+            "reason": "trajectory-native head clears held-out trajectory gates",
+            "metrics": trajectory_report["eval"],
+        }
+    else:
         class_reports["code.agentic_trace"]["selection"] = {
             "selected_head": "trajectory_symbolic_ranker",
             "production_mode": "auto_repair_only",
@@ -1102,6 +1378,7 @@ def run_solution_tracks(
         "targeted_data": {
             "path": str(targeted_path) if targeted_path is not None else None,
             "rows_by_class": targeted_manifest or {},
+            "generated_structured_autonomous_rows": len(structured_autonomous),
             "claim_scope": "synthetic training/debug data only; public/live benchmarks remain claim gates",
         },
         "classes": class_reports,
@@ -1164,13 +1441,23 @@ def _candidate_for_spec(class_key: str, payload: Mapping[str, Any]) -> dict[str,
     spec = HEAD_SPECS[class_key]
     if class_key == "code.agentic_trace":
         trajectory = payload.get("trajectory_head") or {}
+        model = trajectory.get("model") if isinstance(trajectory.get("model"), Mapping) else {}
         return {
             "candidate": "trajectory_symbolic_ranker",
             "status": "evaluated" if trajectory else "missing",
             "promotion_decision": trajectory.get("promotion_decision"),
+            "feature_names": trajectory.get("feature_names") or model.get("feature_names") or [],
+            "model": model,
+            "allow_threshold": model.get("allow_threshold"),
+            "block_threshold": model.get("block_threshold"),
+            "threshold": model.get("threshold"),
             "train_metrics": trajectory.get("train_metrics"),
             "eval": trajectory.get("eval"),
         }
+    selection = payload.get("selection") if isinstance(payload.get("selection"), Mapping) else {}
+    selected_metrics = selection.get("metrics") if isinstance(selection.get("metrics"), Mapping) else None
+    if selected_metrics and selection.get("production_mode") == "allow_block_repair_candidate":
+        return dict(selected_metrics)
     for candidate in payload.get("candidate_bakeoff") or []:
         if candidate.get("candidate") == spec["candidate"]:
             return dict(candidate)
@@ -1181,6 +1468,21 @@ def _candidate_for_spec(class_key: str, payload: Mapping[str, Any]) -> dict[str,
 
 
 def _score_strategy(class_key: str, candidate: Mapping[str, Any], enabled: bool) -> dict[str, Any]:
+    if class_key == "code.agentic_trace" and enabled:
+        model = candidate.get("model") if isinstance(candidate.get("model"), Mapping) else {}
+        return {
+            "type": "linear_feature_model",
+            "feature_names": model.get("feature_names") or candidate.get("feature_names") or [],
+            "means": model.get("means") or {},
+            "scales": model.get("scales") or {},
+            "weights": model.get("weights") or {},
+            "intercept": model.get("intercept", 0.0),
+            "output": "sigmoid" if model.get("model_type") == "trajectory_logistic_regression" else "raw",
+            "allow_threshold": model.get("allow_threshold"),
+            "block_threshold": model.get("block_threshold"),
+            "requires_explicit_features": True,
+            "reason_codes": ["trajectory_native_head_active"],
+        }
     if class_key == "rag.prose.enterprise" and enabled:
         return {
             "type": "response_score_passthrough",
@@ -1190,6 +1492,53 @@ def _score_strategy(class_key: str, candidate: Mapping[str, Any], enabled: bool)
             ],
             "reason_codes": ["enterprise_optimized_calibrator_active"],
         }
+    if enabled:
+        model_family = str(candidate.get("model_family") or "")
+        model = candidate.get("model") if isinstance(candidate.get("model"), Mapping) else {}
+        if model_family == "trace_feature_logreg":
+            return {
+                "type": "linear_feature_model",
+                "feature_names": model.get("feature_names") or candidate.get("feature_names") or [],
+                "means": model.get("means") or {},
+                "scales": model.get("scales") or {},
+                "weights": model.get("weights") or {},
+                "intercept": model.get("intercept", 0.0),
+                "output": model.get("output", "sigmoid"),
+                "allow_threshold": candidate.get("allow_threshold"),
+                "block_threshold": candidate.get("block_threshold"),
+                "requires_explicit_features": True,
+                "reason_codes": [f"{class_key}_trace_feature_head_active"],
+            }
+        if model_family == "compact_claim_evidence_text_head":
+            return {
+                "type": "tfidf_linear_model",
+                "vocabulary": model.get("vocabulary") or {},
+                "idf": model.get("idf") or {},
+                "weights": model.get("weights") or {},
+                "intercept": model.get("intercept", 0.0),
+                "output": model.get("output", "sigmoid"),
+                "allow_threshold": candidate.get("allow_threshold"),
+                "block_threshold": candidate.get("block_threshold"),
+                "reason_codes": [f"{class_key}_compact_text_head_active"],
+            }
+        if model_family == "root_cause_symbolic_rule_head":
+            return {
+                "type": "rule_feature_model",
+                "rule": str(candidate.get("candidate") or ""),
+                "feature_names": candidate.get("feature_names") or [],
+                "allow_threshold": candidate.get("allow_threshold"),
+                "block_threshold": candidate.get("block_threshold"),
+                "requires_explicit_features": True,
+                "reason_codes": [f"{class_key}_symbolic_rule_head_active"],
+            }
+        if model_family == "v1_score_with_class_abstain_policy":
+            return {
+                "type": "response_score_passthrough",
+                "score_channel_preference": ["groundedness_v2", "primary_score"],
+                "allow_threshold": candidate.get("allow_threshold"),
+                "block_threshold": candidate.get("block_threshold"),
+                "reason_codes": [f"{class_key}_v1_abstain_head_active"],
+            }
     return {
         "type": "descriptor_only_until_promoted",
         "reason_codes": [

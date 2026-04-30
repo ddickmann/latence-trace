@@ -92,6 +92,21 @@ class GroundednessRequest(BaseModel):
     chunk_token_budget: Optional[int] = None
     chunk_token_overlap: Optional[int] = None
     locale: Optional[str] = None
+    runtime_head_features: Optional[Mapping[str, float]] = None
+    trajectory_features: Optional[Mapping[str, float]] = None
+
+
+class RuntimeDecision(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    action: str
+    score: float
+    score_channel: str
+    class_key: str
+    head_id: Optional[str] = None
+    head_enabled: Optional[bool] = None
+    head_score: Optional[float] = None
+    head_features_used: Sequence[str] = Field(default_factory=list)
+    head_reason_codes: Sequence[str] = Field(default_factory=list)
 
 
 class GroundednessResponse(BaseModel):
@@ -104,5 +119,7 @@ class GroundednessResponse(BaseModel):
     response_tokens: Sequence[TokenScore] = Field(default_factory=list)
     nli: Sequence[NLIVerdict] = Field(default_factory=list)
     support_units: Sequence[Mapping[str, Any]] = Field(default_factory=list)
+    runtime_decision: Optional[RuntimeDecision] = None
+    runtime_head_features: Optional[Mapping[str, float]] = None
     request_id: Optional[str] = None
     raw: Optional[Mapping[str, Any]] = None

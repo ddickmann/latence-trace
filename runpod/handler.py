@@ -553,6 +553,8 @@ def _build_request(input_data: dict[str, Any]) -> tuple[GroundednessRequest, boo
         "session_state",
         "heatmap_format",
         "auto_decide",
+        "runtime_head_features",
+        "trajectory_features",
         # Corpus router: tenant-declared override for the per-class
         # calibration bundle. Ignored when absent (classifier infers).
         "corpus_type",

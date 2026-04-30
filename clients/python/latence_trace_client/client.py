@@ -100,6 +100,8 @@ class LatenceTraceClient:
         chunk_token_budget: Optional[int] = None,
         chunk_token_overlap: Optional[int] = None,
         locale: Optional[str] = None,
+        runtime_head_features: Optional[Mapping[str, float]] = None,
+        trajectory_features: Optional[Mapping[str, float]] = None,
         extra: Optional[Mapping[str, Any]] = None,
     ) -> GroundednessResponse:
         """Score a response for groundedness against the supplied evidence.
@@ -123,6 +125,8 @@ class LatenceTraceClient:
             chunk_token_budget=chunk_token_budget,
             chunk_token_overlap=chunk_token_overlap,
             locale=locale,
+            runtime_head_features=runtime_head_features,
+            trajectory_features=trajectory_features,
             extra=extra,
         )
         return self._request(
@@ -148,6 +152,8 @@ class LatenceTraceClient:
         chunk_token_budget: Optional[int],
         chunk_token_overlap: Optional[int],
         locale: Optional[str],
+        runtime_head_features: Optional[Mapping[str, float]],
+        trajectory_features: Optional[Mapping[str, float]],
         extra: Optional[Mapping[str, Any]],
     ) -> dict:
         normalised_units: Optional[List[dict]] = None
@@ -169,6 +175,8 @@ class LatenceTraceClient:
                 chunk_token_budget=chunk_token_budget,
                 chunk_token_overlap=chunk_token_overlap,
                 locale=locale,
+                runtime_head_features=runtime_head_features,
+                trajectory_features=trajectory_features,
             )
         except ValidationError as exc:
             raise LatenceTraceValidationError(

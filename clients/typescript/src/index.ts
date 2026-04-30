@@ -6,6 +6,8 @@ export interface ScoreRequest {
   responseText: string;
   rawContext: string;
   profile?: Profile;
+  runtimeHeadFeatures?: Record<string, number>;
+  trajectoryFeatures?: Record<string, number>;
   tenantId?: string;
   requestId?: string;
 }
@@ -29,6 +31,18 @@ export interface ScoreResponse {
   band: Band;
   groundedness: number;
   profile: Profile;
+  runtime_decision?: {
+    action: "allow" | "auto_repair" | "block";
+    score: number;
+    score_channel: string;
+    class_key: string;
+    head_id?: string;
+    head_enabled?: boolean;
+    head_score?: number;
+    head_features_used?: string[];
+    head_reason_codes?: string[];
+    [key: string]: unknown;
+  };
   teacher_channels?: TeacherChannels;
   top_k_attributions?: Attribution[];
   request_id?: string;
@@ -118,6 +132,8 @@ export class LatenceTrace {
         response_text: req.responseText,
         raw_context: req.rawContext,
         profile: req.profile ?? "standard",
+        runtime_head_features: req.runtimeHeadFeatures,
+        trajectory_features: req.trajectoryFeatures,
       };
       const headers: Record<string, string> = {
         "content-type": "application/json",

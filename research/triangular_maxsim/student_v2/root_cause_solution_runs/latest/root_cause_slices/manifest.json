@@ -89,13 +89,20 @@
         "false_block": 14,
         "nli_mismatch": 200,
         "partial_support_collapse": 7,
-        "structured_cell_alignment": 483
+        "structured_autonomous_threshold": 720,
+        "structured_cell_alignment": 1203,
+        "structured_column_case": 45,
+        "structured_date_case": 45,
+        "structured_none_case": 360,
+        "structured_row_case": 45,
+        "structured_unit_case": 45,
+        "structured_value_case": 180
       },
-      "rows": 483,
+      "rows": 1203,
       "splits": {
-        "test": 85,
-        "train": 307,
-        "val": 91
+        "test": 229,
+        "train": 739,
+        "val": 235
       }
     }
   }
