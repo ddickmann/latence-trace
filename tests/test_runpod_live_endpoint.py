@@ -59,7 +59,7 @@ def _good_runtime_features() -> dict[str, float]:
         "v1_nli_aggregate": 0.9,
         "reverse_context": 0.99,
         "groundedness_v2": 0.99,
-        "literal_guarded": 1.0,
+        "literal_guarded": 0.99,
         "literal_mismatch_count": 0.0,
         "context_coverage_ratio": 1.0,
         "context_unused_ratio": 0.0,
@@ -121,6 +121,58 @@ def _bad_runtime_features() -> dict[str, float]:
             "missing_command_evidence": 1.0,
         }
     )
+    return features
+
+
+def _structured_allow_features() -> dict[str, float]:
+    features = _good_runtime_features()
+    features.update(
+        {
+            "v1_score": 0.0,
+            "reverse_context": 0.0,
+            "groundedness_v2": 0.0,
+            "literal_guarded": 0.0,
+            "claim_count": 3.0,
+        }
+    )
+    return features
+
+
+def _trajectory_allow_features() -> dict[str, float]:
+    return {
+        "file_alignment": 1.0,
+        "symbol_alignment": 1.0,
+        "test_outcome_alignment": 1.0,
+        "patch_alignment": 1.0,
+        "temporal_order_alignment": 1.0,
+        "claim_atom_coverage": 1.0,
+        "unsupported_atom_rate": 0.0,
+        "phantom_symbol_rate": 0.0,
+        "missing_command_evidence": 0.0,
+        "literal_match_rate": 1.0,
+        "literal_mismatch_rate": 0.0,
+        "identifier_query_overlap": 1.0,
+        "identifier_query_absent_rate": 0.0,
+        "warning_identifier_rate": 0.0,
+        "reverse_context": 0.95,
+        "consensus_hardened": 0.95,
+        "groundedness_v2": 0.95,
+        "triangular": 0.95,
+        "context_attribution_ratio": 1.0,
+        "context_uncertain_ratio": 0.0,
+        "dead_weight_ratio": 0.0,
+        "support_usage_rate": 1.0,
+        "context_token_log": 5.0,
+        "multi_cell_reverse_min": 0.95,
+        "multi_cell_reverse_max": 0.95,
+        "multi_cell_reverse_std": 0.0,
+    }
+
+
+def _trajectory_block_features() -> dict[str, float]:
+    features = {key: 1.0 - value for key, value in _trajectory_allow_features().items()}
+    features["context_token_log"] = 5.0
+    features["missing_command_evidence"] = 0.0
     return features
 
 
@@ -207,13 +259,25 @@ def test_live_endpoint_runtime_decision_feature_maps() -> None:
         async with httpx.AsyncClient(timeout=httpx.Timeout(600.0, connect=15.0)) as client:
             transport = bench.Transport(endpoint_id=_ENDPOINT, api_key=_API_KEY)
             cases = [
-                ("rag.structured", "runtime_head_features", "rag"),
-                ("code.agentic_trace", "trajectory_features", "code"),
+                (
+                    "rag.structured",
+                    "runtime_head_features",
+                    "rag",
+                    _structured_allow_features(),
+                    _bad_runtime_features(),
+                ),
+                (
+                    "code.agentic_trace",
+                    "trajectory_features",
+                    "code",
+                    _trajectory_allow_features(),
+                    _trajectory_block_features(),
+                ),
             ]
-            for class_key, feature_key, mode in cases:
+            for class_key, feature_key, mode, allow_features, block_features in cases:
                 for label, expected_action, features in [
-                    ("good", "allow", _good_runtime_features()),
-                    ("bad", "block", _bad_runtime_features()),
+                    ("good", "allow", allow_features),
+                    ("bad", "block", block_features),
                 ]:
                     payload_input = {
                         "scoring_mode": mode,
