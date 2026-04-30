@@ -16,9 +16,11 @@ from latence_trace.core.groundedness import (
     _build_response_chunks,
     _compute_redundancy_matrix,
     _usage_redundancy_similarity,
+    apply_support_unit_usage_classification,
     encode_texts,
     partition_support_units,
     score_groundedness_response_chunked,
+    tokenize_text,
 )
 from tests.test_context_coverage import (
     _OrthoStubProvider,
@@ -253,6 +255,60 @@ def test_nli_can_rescue_low_overlap_unit_and_keeps_support_mapping() -> None:
     assert result["nli_diagnostics"]["claims"]
     assert result["nli_diagnostics"]["claims"][0]["support_unit_indices"] == [0]
     assert result["nli_diagnostics"]["claims"][0]["support_ids"] == ["unit-0"]
+
+
+def test_task_detached_high_coverage_unit_is_unused_not_used() -> None:
+    provider = _OrthoStubProvider()
+    response_text = (
+        "Saturn has rings made of ice. The main rings are dominated by "
+        "water-ice particles and trace rocky debris."
+    )
+    query_text = "What are Saturn's rings made of?"
+    support_texts = [
+        response_text,
+        (
+            "Bamboo is a fast-growing woody grass used in erosion control, "
+            "landscape design, flooring, scaffolding, paper pulp, textile "
+            "fibres, and tropical garden screens."
+        ),
+    ]
+    support_units = _make_support_units_from_texts(provider, support_texts)
+    distractor_token_count = len(support_units[1].tokens)
+    payload = [
+        {
+            "index": 0,
+            "support_id": "unit-0",
+            "text": support_texts[0],
+            "token_count": len(support_units[0].tokens),
+            "tokens": support_units[0].tokens,
+            "token_scores": [0.9] * len(support_units[0].tokens),
+            "coverage_score": 0.96,
+            "score": 0.91,
+            "matched_response_tokens": 18,
+        },
+        {
+            "index": 1,
+            "support_id": "unit-1",
+            "text": support_texts[1],
+            "token_count": distractor_token_count,
+            "tokens": support_units[1].tokens,
+            "token_scores": [0.48] + [0.0] * max(0, distractor_token_count - 1),
+            "coverage_score": 0.91,
+            "score": 0.03,
+            "matched_response_tokens": 1,
+        },
+    ]
+
+    apply_support_unit_usage_classification(
+        support_units_payload=payload,
+        support_inputs=support_units,
+        coverage_threshold=0.5,
+        response_tokens=tokenize_text(provider, response_text),
+        query_tokens=tokenize_text(provider, query_text),
+    )
+
+    assert payload[0]["usage_state"] == "used"
+    assert payload[1]["usage_state"] == "unused"
 
 
 def test_service_marks_mixed_raw_context_window_uncertain() -> None:

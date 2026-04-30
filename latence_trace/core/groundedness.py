@@ -1534,6 +1534,12 @@ class UsageClassifierThresholds:
     redundancy_jaccard_min: float = 0.55
     redundancy_centroid_cosine_min: float = 0.92
     redundancy_centroid_overlap_floor: float = 0.4
+    response_overlap_used_min: float = 0.12
+    response_overlap_unused_max: float = 0.04
+    query_overlap_unused_max: float = 0.04
+    response_owner_share_used_min: float = 0.08
+    response_owner_share_noise_max: float = 0.06
+    support_response_share_used_min: float = 0.55
 
 
 _DEFAULT_USAGE_THRESHOLDS = UsageClassifierThresholds()
@@ -1572,6 +1578,18 @@ def _usage_content_token_set(unit_or_tokens: Any) -> set[str]:
             pass
         return computed
     return _usage_content_token_set_raw(unit_or_tokens)
+
+
+def _usage_token_overlap(
+    left_tokens: set[str],
+    right_tokens: set[str],
+) -> float:
+    if not left_tokens or not right_tokens:
+        return 0.0
+    return _clamp01(
+        float(len(left_tokens & right_tokens))
+        / float(max(1, min(len(left_tokens), len(right_tokens))))
+    )
 
 
 def _usage_unit_centroid(unit: SupportUnitInput) -> Optional[torch.Tensor]:
@@ -1833,6 +1851,8 @@ def apply_support_unit_usage_classification(
     support_inputs: Sequence[SupportUnitInput],
     coverage_threshold: float,
     claim_records: Optional[Sequence[Dict[str, Any]]] = None,
+    response_tokens: Optional[Sequence[str]] = None,
+    query_tokens: Optional[Sequence[str]] = None,
     thresholds: UsageClassifierThresholds = _DEFAULT_USAGE_THRESHOLDS,
 ) -> Dict[str, float | int]:
     """Classify support units into precision-first used/unused/uncertain."""
@@ -1861,6 +1881,12 @@ def apply_support_unit_usage_classification(
     signatures = [support_unit_signature(unit) for unit in support_inputs]
     token_sets = [_usage_content_token_set(unit) for unit in support_inputs]
     centroids = [_usage_unit_centroid(unit) for unit in support_inputs]
+    response_token_list = list(response_tokens or [])
+    query_token_list = list(query_tokens or [])
+    response_token_set = _usage_content_token_set(response_token_list)
+    query_token_set = _usage_content_token_set(query_token_list)
+    has_response_task_tokens = bool(response_token_set)
+    response_owner_denom = max(1, len(response_token_list))
 
     strong_coverage_min = max(
         thresholds.strong_coverage_min,
@@ -1893,6 +1919,16 @@ def apply_support_unit_usage_classification(
         coverage_score = float(payload.get("coverage_score") or 0.0)
         attribution_score = float(payload.get("score") or 0.0)
         matched_response_tokens = int(payload.get("matched_response_tokens") or 0)
+        response_owner_share = _clamp01(
+            float(matched_response_tokens) / float(response_owner_denom)
+        )
+        response_overlap = _usage_token_overlap(token_sets[idx], response_token_set)
+        support_response_share = (
+            _clamp01(float(len(token_sets[idx] & response_token_set)) / float(len(token_sets[idx])))
+            if token_sets[idx] and response_token_set
+            else 0.0
+        )
+        query_overlap = _usage_token_overlap(token_sets[idx], query_token_set)
         nli_stat = nli_stats[idx] if idx < len(nli_stats) else {
             "evidence_count": 0,
             "positive_count": 0,
@@ -1902,10 +1938,23 @@ def apply_support_unit_usage_classification(
         nli_positive = int(nli_stat["positive_count"]) > 0
         strong_coverage = coverage_score >= strong_coverage_min
         dense_local_use = support_token_ratio >= thresholds.support_token_ratio_min
-        direct_attribution = matched_response_tokens > 0 and dense_local_use
+        mixed_window_overlap = (
+            response_overlap >= thresholds.response_overlap_used_min
+            and support_response_share < thresholds.support_response_share_used_min
+        )
+        direct_attribution = (
+            matched_response_tokens > 0
+            and dense_local_use
+            and not mixed_window_overlap
+            and (
+                response_owner_share >= thresholds.response_owner_share_used_min
+                or response_overlap >= thresholds.response_overlap_used_min
+            )
+        )
         coverage_only_positive = (
             strong_coverage
             and matched_response_tokens == 0
+            and response_overlap >= thresholds.response_overlap_used_min
             and not nli_positive
         )
         provisional = bool(
@@ -1938,6 +1987,11 @@ def apply_support_unit_usage_classification(
                 "coverage_only_positive": coverage_only_positive,
                 "dense_local_use": dense_local_use,
                 "support_token_ratio": support_token_ratio,
+                "response_overlap": response_overlap,
+                "support_response_share": support_response_share,
+                "query_overlap": query_overlap,
+                "response_owner_share": response_owner_share,
+                "mixed_window_overlap": mixed_window_overlap,
                 "nli_positive": nli_positive,
                 "nli_positive_count": int(nli_stat["positive_count"]),
                 "nli_entailment_max": float(nli_stat["entailment_max"]),
@@ -1973,6 +2027,10 @@ def apply_support_unit_usage_classification(
         matched_response_tokens = int(signals["matched_response_tokens"])
         attribution_score = float(signals["attribution_score"])
         support_token_ratio = float(signals["support_token_ratio"])
+        response_overlap = float(signals["response_overlap"])
+        query_overlap = float(signals["query_overlap"])
+        response_owner_share = float(signals["response_owner_share"])
+        mixed_window_overlap = bool(signals["mixed_window_overlap"])
         nli_positive = bool(signals["nli_positive"])
         coverage_only_positive = bool(signals["coverage_only_positive"])
 
@@ -2006,7 +2064,9 @@ def apply_support_unit_usage_classification(
         ) / 4.0
 
         if provisional_used[idx]:
-            if coverage_only_positive and redundancy_similarity > 1e-6:
+            if mixed_window_overlap or (
+                coverage_only_positive and redundancy_similarity > 1e-6
+            ):
                 usage_state = "uncertain"
                 usage_confidence = 0.5 * max(
                     used_confidences[idx],
@@ -2018,11 +2078,34 @@ def apply_support_unit_usage_classification(
                 usage_confidence = used_confidences[idx]
                 usage_used_count += 1
         else:
-            is_unused = (
+            task_detached = (
+                has_response_task_tokens
+                and response_overlap <= thresholds.response_overlap_unused_max
+                and (
+                    not query_token_set
+                    or query_overlap <= thresholds.query_overlap_unused_max
+                )
+            )
+            weak_owner = (
+                matched_response_tokens == 0
+                or response_owner_share <= thresholds.response_owner_share_noise_max
+            )
+            weak_attribution = (
+                attribution_score <= thresholds.attribution_score_min
+                and support_token_ratio < thresholds.support_token_ratio_min
+            )
+            low_coverage_unused = (
                 coverage_score <= unused_coverage_max
-                and matched_response_tokens == 0
                 and attribution_score <= 1e-6
                 and support_token_ratio <= 1e-6
+            )
+            task_detached_unused = (
+                task_detached
+                and weak_owner
+                and weak_attribution
+            )
+            is_unused = (
+                (low_coverage_unused or task_detached_unused)
                 and not nli_positive
                 and redundancy_similarity <= 1e-6
             )
@@ -3127,6 +3210,8 @@ def score_groundedness(
         claim_records=(
             nli_payload.get("claim_records") if nli_payload is not None else None
         ),
+        response_tokens=response_tokens_aligned,
+        query_tokens=query_tokens_aligned,
     )
 
     groundedness_v2 = fuse_groundedness_v2(
@@ -4090,6 +4175,8 @@ def score_groundedness_chunked(
         claim_records=(
             nli_payload.get("claim_records") if nli_payload is not None else None
         ),
+        response_tokens=response_tokens_aligned,
+        query_tokens=query_tokens,
     )
 
     semantic_entropy_payload = _maybe_run_semantic_entropy(
@@ -4933,6 +5020,8 @@ def score_groundedness_response_chunked(
             if isinstance(nli_diag, dict)
             else None
         ),
+        response_tokens=flat_response_tokens,
+        query_tokens=query_tokens,
     )
 
     evidence_candidates.sort(key=lambda item: item["_rank"], reverse=True)

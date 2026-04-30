@@ -775,11 +775,16 @@ async def _dim_unused(
         "unused_gold_coverage_p95": _percentile(unused_gold_coverage, 0.95),
         "unused_gold_coverage_mean": _mean(unused_gold_coverage),
         "contract_ok": contract_ok,
-        # Gate: feature is wired (every unit carries the full tri-state
-        # contract). Whether the real encoder emits enough ``unused`` votes
-        # on short passages is a separate, deploy-time calibration finding
-        # surfaced in the coverage_score p50/p95 diagnostic.
-        "passed": contract_ok,
+        # Gate: feature is wired AND the live classifier emits meaningful
+        # high-precision ``unused`` labels. This prevents a deployment from
+        # passing with a purely conservative ``unused_recall == 0`` result.
+        "passed": bool(
+            contract_ok
+            and unused_p is not None
+            and unused_p >= 0.90
+            and unused_pred > 0
+            and (_recall("unused") or 0.0) >= 0.50
+        ),
     }
 
 
