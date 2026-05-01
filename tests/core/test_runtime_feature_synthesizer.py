@@ -152,3 +152,69 @@ def test_agentic_trace_synthesis_penalizes_test_and_deploy_contradictions(monkey
 
     assert decision is not None
     assert decision["action"] == "block"
+
+
+def test_agentic_trace_synthesizes_supported_performance_benchmark(monkeypatch) -> None:
+    monkeypatch.setenv("LATENCE_TRACE_RUNTIME_DECISION_ENABLED", "1")
+    runtime_decision.reset_policy_cache_for_tests()
+    result = synthesize_runtime_features(
+        _request(
+            "Fix the slow search endpoint and report the benchmark.",
+            (
+                "File search/service.py patched SearchService.rank. "
+                "tests/test_search_perf.py includes test_p95_latency_budget. "
+                "Benchmark: p95_ms before=840 after=310. "
+                "The latency improved after the patch."
+            ),
+            (
+                "Updated search/service.py and verified the benchmark: p95 latency "
+                "improved from 840 ms to 310 ms."
+            ),
+        ),
+        _response("code.agentic_trace", score=0.66, reverse=0.95),
+    )
+
+    assert result.source == "synthesized"
+    assert result.features is not None
+    assert result.features["test_outcome_alignment"] == 1.0
+    assert result.features["missing_command_evidence"] == 0.0
+
+    response = _response("code.agentic_trace", score=0.66, reverse=0.95)
+    response.runtime_head_features = result.features
+    decision = runtime_decision.build_runtime_decision(response)
+
+    assert decision is not None
+    assert decision["action"] == "allow"
+
+
+def test_agentic_trace_blocks_false_performance_improvement(monkeypatch) -> None:
+    monkeypatch.setenv("LATENCE_TRACE_RUNTIME_DECISION_ENABLED", "1")
+    runtime_decision.reset_policy_cache_for_tests()
+    result = synthesize_runtime_features(
+        _request(
+            "Fix the slow search endpoint and report the benchmark.",
+            (
+                "File search/service.py patched SearchService.rank. "
+                "tests/test_search_perf.py includes test_p95_latency_budget. "
+                "Benchmark: p95_ms before=840 after=920. "
+                "The latency regressed after the patch."
+            ),
+            (
+                "Updated search/service.py and verified the benchmark: p95 latency "
+                "improved from 840 ms to 310 ms."
+            ),
+        ),
+        _response("code.agentic_trace", score=0.66, reverse=0.95),
+    )
+
+    assert result.source == "synthesized"
+    assert result.features is not None
+    assert result.features["test_outcome_alignment"] == 0.0
+    assert result.features["temporal_order_alignment"] == 0.0
+
+    response = _response("code.agentic_trace", score=0.66, reverse=0.95)
+    response.runtime_head_features = result.features
+    decision = runtime_decision.build_runtime_decision(response)
+
+    assert decision is not None
+    assert decision["action"] == "block"

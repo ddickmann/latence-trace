@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from scripts.customer_breaker_smoke import CASES, evaluate_output
+from scripts.customer_breaker_smoke import CASES, SUITES, VERTICAL_PILOT_CASES, evaluate_output
 
 
 def _case(case_id: str):
@@ -79,3 +79,14 @@ def test_customer_breaker_gate_rejects_missing_agentic_features() -> None:
 
     assert row["passed"] is False
     assert row["checks"]["features_not_missing"] is False
+
+
+def test_vertical_pilot_suite_keeps_customer_breaker_default_separate() -> None:
+    assert SUITES["customer_breaker"] == CASES
+    assert SUITES["vertical_pilot"] == VERTICAL_PILOT_CASES
+    assert len(SUITES["all"]) == len(CASES) + len(VERTICAL_PILOT_CASES)
+    assert {case.case_id for case in VERTICAL_PILOT_CASES} >= {
+        "pilot_legal_supported_only_clause",
+        "pilot_finance_structured_amount_swap",
+        "pilot_coding_performance_false_improvement",
+    }

@@ -240,6 +240,20 @@ def _reason_codes(response: Any) -> list[str]:
     return sorted(codes)
 
 
+def _structured_literal_guard_reason(response: Any, class_key: str) -> Optional[str]:
+    if class_key != "rag.structured":
+        return None
+    for warning in list(getattr(response, "warnings", []) or []):
+        text = str(warning).strip().lower()
+        if not text.startswith("literal_mismatch:"):
+            continue
+        if "measurement=" in text or "unit=" in text:
+            return "structured_measurement_literal_mismatch_repair_only"
+        if "number=" in text:
+            return "structured_numeric_literal_mismatch_repair_only"
+    return None
+
+
 def build_runtime_decision(response: Any) -> Optional[dict[str, Any]]:
     if not enabled():
         return None
@@ -275,6 +289,11 @@ def build_runtime_decision(response: Any) -> Optional[dict[str, Any]]:
         action = "auto_repair"
     else:
         action = decide_action(decision_score, class_policy)
+    reason_codes = _reason_codes(response)
+    structured_guard_reason = _structured_literal_guard_reason(response, class_key)
+    if action == "allow" and structured_guard_reason is not None:
+        action = "auto_repair"
+        reason_codes.append(structured_guard_reason)
     decision_band = _band_for_action(action)
     return {
         "policy_version": str(policy.get("channel") or "runtime_decision"),
@@ -293,7 +312,7 @@ def build_runtime_decision(response: Any) -> Optional[dict[str, Any]]:
         "action": action,
         "evidence": _support_evidence(response),
         "unsupported_spans": _unsupported_spans(response),
-        "reason_codes": _reason_codes(response),
+        "reason_codes": sorted(set(reason_codes)),
         "allow_disabled": bool(class_policy.get("allow_disabled", False)),
         "block_disabled": bool(class_policy.get("block_disabled", False)),
         "allow_threshold": float(class_policy.get("allow_threshold", 1.0)),

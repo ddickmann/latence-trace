@@ -25,10 +25,36 @@ _SENTENCE_RE = re.compile(r"[.!?]+\s+|[.!?]+$")
 _IDENT_RE = re.compile(r"\b[A-Za-z_][A-Za-z0-9_]*\b")
 _CODE_CUE_RE = re.compile(
     r"\b(?:def|class|function|method|pytest|test_|import|sdk|api|client|patch|"
-    r"diff|timeout|retry)\b|[A-Za-z_][A-Za-z0-9_]*\([^)]*\)",
+    r"diff|timeout|retry|benchmark|p95|latency|before|after|improved|"
+    r"regressed|slower|faster|performance)\b|[A-Za-z_][A-Za-z0-9_]*\([^)]*\)",
     re.IGNORECASE,
 )
-_COMMAND_CUE_RE = re.compile(r"\b(?:pytest|npm test|go test|cargo test|last command|verified)\b", re.IGNORECASE)
+_COMMAND_CUE_RE = re.compile(
+    r"\b(?:pytest|npm test|go test|cargo test|last command|verified|benchmark)\b",
+    re.IGNORECASE,
+)
+_PERFORMANCE_CUE_RE = re.compile(
+    r"\b(?:benchmark|p95(?:_ms)?|latency|before\s*[=:]|after\s*[=:]|ms|"
+    r"improved|regressed|slower|faster|performance)\b",
+    re.IGNORECASE,
+)
+_PERFORMANCE_VALUE_RE = re.compile(
+    r"\b(?P<label>before|after|p95(?:_ms)?|latency)\s*[=:]\s*"
+    r"(?P<value>\d+(?:\.\d+)?)\s*(?:ms|milliseconds?)?\b",
+    re.IGNORECASE,
+)
+_PERFORMANCE_TO_VALUE_RE = re.compile(
+    r"\b(?:to|at|down\s+to|up\s+to)\s+(?P<value>\d+(?:\.\d+)?)\s*(?:ms|milliseconds?)\b",
+    re.IGNORECASE,
+)
+_IMPROVEMENT_CUE_RE = re.compile(
+    r"\b(?:improved|improvement|faster|reduced|lower(?:ed)?|down\s+to)\b",
+    re.IGNORECASE,
+)
+_REGRESSION_CUE_RE = re.compile(
+    r"\b(?:regressed|regression|slower|increased|higher|worse|up\s+to)\b",
+    re.IGNORECASE,
+)
 _PASS_CUE_RE = re.compile(
     r"\b(?:passed|pass(?:es|ed)?|succeeded|success(?:ful|fully)?|0\s+failed|all\s+tests\s+passed|verified)\b",
     re.IGNORECASE,
@@ -170,6 +196,72 @@ def _numeric_overlap(context: str, response: str) -> float:
     return hits / max(1, len(numbers))
 
 
+def _normalise_metric_number(value: str) -> str:
+    number = value.replace(",", "")
+    if "." not in number:
+        return number
+    return number.rstrip("0").rstrip(".")
+
+
+def _performance_label_values(text: str) -> dict[str, list[str]]:
+    values: dict[str, list[str]] = {}
+    for match in _PERFORMANCE_VALUE_RE.finditer(text or ""):
+        label = match.group("label").lower()
+        if label == "p95":
+            label = "p95_ms"
+        values.setdefault(label, []).append(_normalise_metric_number(match.group("value")))
+    return values
+
+
+def _context_performance_values(text: str) -> set[str]:
+    values = set()
+    for items in _performance_label_values(text).values():
+        values.update(items)
+    return values
+
+
+def _response_performance_target_values(text: str) -> set[str]:
+    values = set()
+    labelled = _performance_label_values(text)
+    for label in ("after", "p95_ms", "latency"):
+        values.update(labelled.get(label, []))
+    for match in _PERFORMANCE_TO_VALUE_RE.finditer(text or ""):
+        values.add(_normalise_metric_number(match.group("value")))
+    return values
+
+
+def _performance_outcome_alignment(context: str, response: str) -> Optional[float]:
+    if not (_PERFORMANCE_CUE_RE.search(context or "") or _PERFORMANCE_CUE_RE.search(response or "")):
+        return None
+    context_values = _performance_label_values(context)
+    before_values = context_values.get("before", [])
+    after_values = context_values.get("after", []) or context_values.get("p95_ms", [])
+    response_text = response or ""
+    response_claims_improvement = bool(_IMPROVEMENT_CUE_RE.search(response_text))
+    response_claims_regression = bool(_REGRESSION_CUE_RE.search(response_text))
+
+    if before_values and after_values:
+        try:
+            before = float(before_values[-1])
+            after = float(after_values[-1])
+            actually_improved = after < before
+            actually_regressed = after > before
+        except ValueError:
+            actually_improved = False
+            actually_regressed = False
+        if response_claims_improvement and not actually_improved:
+            return 0.0
+        if response_claims_regression and not actually_regressed:
+            return 0.0
+
+    context_numeric_values = _context_performance_values(context)
+    response_targets = _response_performance_target_values(response)
+    if context_numeric_values and response_targets:
+        if not response_targets <= context_numeric_values:
+            return 0.0
+    return 1.0
+
+
 def _agentic_outcome_alignment(context: str, response: str) -> float:
     """Return 0 when the response contradicts explicit trace outcomes."""
 
@@ -185,6 +277,9 @@ def _agentic_outcome_alignment(context: str, response: str) -> float:
         return 0.0
     if _DEPLOY_SKIPPED_CUE_RE.search(context or "") and _DEPLOYED_CUE_RE.search(response or ""):
         return 0.0
+    performance_alignment = _performance_outcome_alignment(context, response)
+    if performance_alignment is not None:
+        return performance_alignment
     return 1.0
 
 
@@ -242,9 +337,10 @@ def _synthesize_code_context(query: str, context: str, response: str, scored: An
 
 def _synthesize_trajectory(query: str, context: str, response: str, scored: Any) -> SynthesizedRuntimeFeatures:
     joined = f"{query}\n{context}\n{response}"
+    performance_evidence = bool(_PERFORMANCE_CUE_RE.search(joined))
     if len(_CODE_CUE_RE.findall(joined)) < 3:
         return SynthesizedRuntimeFeatures(None, "missing", ["trajectory_code_evidence_missing"])
-    command_match = 1.0 if _COMMAND_CUE_RE.search(joined) else 0.0
+    command_match = 1.0 if (_COMMAND_CUE_RE.search(joined) or performance_evidence) else 0.0
     outcome_alignment = _agentic_outcome_alignment(context, response)
     identifier = _identifier_overlap(context, response)
     grounded = _bounded(_score(scored, "groundedness_v2", _score(scored, "primary_score", 0.0)))

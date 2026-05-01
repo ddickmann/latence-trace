@@ -58,6 +58,26 @@ def _head_feature_response(class_key: str, features: dict[str, float]) -> Simple
     return response
 
 
+def _structured_response_with_warning(warning: str | None = None) -> SimpleNamespace:
+    response = _head_feature_response("rag.structured", _structured_allow_features())
+    response.warnings = [] if warning is None else [warning]
+    return response
+
+
+def _structured_allow_features() -> dict[str, float]:
+    features = _good_root_cause_features()
+    features.update(
+        {
+            "v1_score": 0.0,
+            "reverse_context": 0.0,
+            "groundedness_v2": 0.0,
+            "literal_guarded": 0.0,
+            "claim_count": 3.0,
+        }
+    )
+    return features
+
+
 def _good_root_cause_features() -> dict[str, float]:
     return {
         "v1_score": 0.99,
@@ -249,6 +269,48 @@ def test_all_promoted_heads_are_executable_or_feature_gated(monkeypatch) -> None
         assert missing["action"] == "auto_repair"
         assert missing["head_enabled"] is False
         assert "head_features_missing_repair_only" in missing["head_reason_codes"]
+
+
+def test_structured_measurement_literal_mismatch_forces_repair_without_blocking_clean_allow(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("LATENCE_TRACE_RUNTIME_DECISION_ENABLED", "1")
+    runtime_decision.reset_policy_cache_for_tests()
+
+    clean = runtime_decision.build_runtime_decision(_structured_response_with_warning())
+    mismatch = runtime_decision.build_runtime_decision(
+        _structured_response_with_warning(
+            "literal_mismatch: 2 response literal(s) not present in support: "
+            "identifier=p95, measurement=120 seconds"
+        )
+    )
+    number_mismatch = runtime_decision.build_runtime_decision(
+        _structured_response_with_warning(
+            "literal_mismatch: 1 response literal(s) not present in support: number=8420"
+        )
+    )
+    identifier_only = runtime_decision.build_runtime_decision(
+        _structured_response_with_warning(
+            "literal_mismatch: 1 response literal(s) not present in support: identifier=p95"
+        )
+    )
+
+    assert clean is not None
+    assert clean["action"] == "allow"
+    assert clean["band"] == "green"
+
+    assert mismatch is not None
+    assert mismatch["action"] == "auto_repair"
+    assert mismatch["band"] == "amber"
+    assert "structured_measurement_literal_mismatch_repair_only" in mismatch["reason_codes"]
+
+    assert number_mismatch is not None
+    assert number_mismatch["action"] == "auto_repair"
+    assert number_mismatch["band"] == "amber"
+    assert "structured_numeric_literal_mismatch_repair_only" in number_mismatch["reason_codes"]
+
+    assert identifier_only is not None
+    assert identifier_only["action"] == "allow"
 
 
 def test_missing_head_artifact_falls_back(monkeypatch, tmp_path) -> None:

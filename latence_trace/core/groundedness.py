@@ -1164,6 +1164,15 @@ _NEGATION_TOKENS = {
     # German
     "nicht", "kein", "keine", "keinen", "keiner", "keines", "nie", "ohne",
 }
+_EXCLUSIVE_RESTRICTION_TOKENS = {"only", "solely", "exclusively"}
+_NUMERIC_LITERAL_KINDS = {"number", "currency", "percent", "measurement"}
+_THRESHOLD_POLICY_RE = re.compile(
+    r"\b(?P<cmp>above|over|more\s+than|greater\s+than|exceeding|at\s+least|"
+    r"within|up\s+to|under|below|less\s+than|no\s+more\s+than)\s+"
+    r"(?P<value>(?:\$|\u20ac|\u00a3|EUR|CHF)?\s?\d[\d\s\u00a0,\.]*"
+    r"(?:\s?(?:EUR|CHF|\u20ac|days?|hours?|minutes?|seconds?))?)",
+    re.IGNORECASE,
+)
 
 
 def _lexical_token_set(text: str) -> set[str]:
@@ -1180,6 +1189,71 @@ def _negation_count(text: str) -> int:
     if not normalized:
         return 0
     return sum(1 for tok in _LEXICAL_TOKEN_RE.findall(normalized) if tok in _NEGATION_TOKENS)
+
+
+def _support_exclusive_restriction_supports_negation(
+    response_text: str,
+    support_text: str,
+) -> bool:
+    """Allow policy-style ``only`` clauses to support a negated paraphrase.
+
+    Example: ``Supplier may terminate only for material breach`` supports
+    ``Supplier cannot terminate for convenience``. The check is intentionally
+    narrow: it requires the same actor + verb in an exclusive support sentence
+    and refuses the rescue when the response negates the allowed reason itself.
+    """
+
+    normalized_response = _normalize_text_for_verbatim_support(response_text)
+    normalized_support = _normalize_text_for_verbatim_support(support_text)
+    if not normalized_response or not normalized_support:
+        return False
+    if not any(token in normalized_support.split() for token in _EXCLUSIVE_RESTRICTION_TOKENS):
+        return False
+
+    match = re.search(
+        r"\b(?P<actor>[a-z][\w-]{1,40})\s+"
+        r"(?:cannot|can not|may not|must not|does not|is not)\s+"
+        r"(?P<verb>[a-z][\w-]{2,})\b(?P<trail>[^.!?]{0,160})",
+        normalized_response,
+    )
+    if not match:
+        return False
+    actor = match.group("actor")
+    verb = match.group("verb")
+    trail = match.group("trail") or ""
+    reason_match = re.search(r"\b(?:for|because of|due to)\s+(?P<reason>[^.!?;,]{2,120})", trail)
+    if reason_match is None:
+        return False
+    response_reason_tokens = _lexical_token_set(reason_match.group("reason"))
+    if not response_reason_tokens:
+        return False
+
+    support_sentences = [
+        sentence.strip()
+        for sentence in re.split(r"(?<=[.!?;])\s+", normalized_support)
+        if sentence.strip()
+    ]
+    for sentence in support_sentences:
+        sentence_tokens = set(_LEXICAL_TOKEN_RE.findall(sentence))
+        if actor not in sentence_tokens or verb not in sentence_tokens:
+            continue
+        if not sentence_tokens & _EXCLUSIVE_RESTRICTION_TOKENS:
+            continue
+        exclusive_tail = re.split(r"\b(?:only|solely|exclusively)\b", sentence, maxsplit=1)[-1]
+        allowed_reason_match = re.search(
+            r"\b(?:for|because of|due to)\s+(?P<reason>[^.!?;,]{2,120})",
+            exclusive_tail,
+        )
+        if allowed_reason_match is None:
+            continue
+        allowed_reason_tokens = _lexical_token_set(allowed_reason_match.group("reason"))
+        if not allowed_reason_tokens:
+            continue
+        overlap = len(response_reason_tokens & allowed_reason_tokens)
+        if overlap / float(len(response_reason_tokens)) >= 0.50:
+            return False
+        return True
+    return False
 
 
 def _verbatim_support_floor(
@@ -1317,6 +1391,14 @@ def _lexical_rescue_floor(
         # If either side has zero negations and the other has >=1, the
         # response changed polarity — refuse the rescue.
         if min(response_negations, support_negations) == 0:
+            if (
+                response_negations > support_negations
+                and _support_exclusive_restriction_supports_negation(
+                    response_text or "",
+                    support_joined,
+                )
+            ):
+                return 0.85
             return None
         # Otherwise allow up to a one-token drift (natural paraphrase).
         if abs(response_negations - support_negations) > 1:
@@ -2466,10 +2548,10 @@ _LITERAL_PATTERNS: Tuple[Tuple[str, "re.Pattern[str]"], ...] = (
     ),
     # Bare 4-digit year (filtered later if also captured by another pattern).
     ("year", re.compile(r"\b(?:1[5-9]\d{2}|20\d{2}|21\d{2})\b")),
-    # Currency amounts with $/\u20ac/\u00a3 prefix and optional decimals/commas.
-    ("currency", re.compile(r"(?:\$|\u20ac|\u00a3)\s?\d{1,3}(?:[,\s\.]\d{3})*(?:[\.,]\d+)?")),
-    # German-style trailing currency: "5,99 \u20ac" / "1.234,50 EUR".
-    ("currency", re.compile(r"\b\d{1,3}(?:\.\d{3})*(?:,\d+)?\s?(?:\u20ac|EUR|CHF)\b")),
+    # Currency amounts with symbol/code prefix and optional grouped thousands.
+    ("currency", re.compile(r"(?:\$|\u20ac|\u00a3|EUR|CHF)\s?\d+(?:[,\s\u00a0\.]\d{3})*(?:[\.,]\d+)?", re.IGNORECASE)),
+    # German-style trailing currency: "5,99 \u20ac" / "1.234,50 EUR" / "120 000 EUR".
+    ("currency", re.compile(r"\b\d+(?:[\.\s\u00a0]\d{3})*(?:,\d+)?\s?(?:\u20ac|EUR|CHF)\b", re.IGNORECASE)),
     # English percent ("20%", "5.5%") and German percent ("20,5%").
     ("percent", re.compile(r"\b\d{1,3}(?:[\.,]\d+)?\s?%")),
     # Numeric measurements with common English units.
@@ -2503,6 +2585,13 @@ _LITERAL_PATTERNS: Tuple[Tuple[str, "re.Pattern[str]"], ...] = (
         re.compile(
             r"\b\d{1,3}(?:\.\d{3})+(?:,\d+)?\b|\b\d{1,3}(?:\.\d{3})+\b"
         ),
+    ),
+    # Space-separated thousands, common in enterprise PDFs and finance exports:
+    # "120 000" / "120 000,50". Registered before bare numbers so the whole
+    # literal is compared as one value instead of two partial numbers.
+    (
+        "number",
+        re.compile(r"\b\d{1,3}(?:[\s\u00a0]\d{3})+(?:[\.,]\d+)?\b"),
     ),
     # Standalone English numbers (integers / decimals / thousands separators).
     ("number", re.compile(r"\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b|\b\d+(?:\.\d+)?\b")),
@@ -2540,6 +2629,7 @@ def _canonicalize_decimal(text: str) -> str:
 
     if not text:
         return text
+    text = re.sub(r"(?<=\d)[\s\u00a0](?=\d{3}(?:\D|$))", "", text)
     has_dot = "." in text
     has_comma = "," in text
 
@@ -2592,6 +2682,11 @@ def _normalize_literal_value(kind: str, value: str) -> str:
             if body.startswith(sym):
                 prefix = sym
                 body = body[len(sym):]
+                break
+        for code in ("eur", "chf"):
+            if body.startswith(code):
+                prefix = "\u20ac"
+                body = body[len(code):]
                 break
         body = _canonicalize_decimal(body)
         text = prefix + body
@@ -2685,9 +2780,137 @@ def collect_support_literal_set(support_units: Sequence[Any]) -> Dict[str, set]:
     return bucket
 
 
+def _numeric_scalar(normalized: str) -> Optional[str]:
+    match = re.search(r"\d+(?:\.\d+)?", normalized)
+    if match is None:
+        return None
+    value = match.group(0)
+    if "." not in value:
+        return value
+    return value.rstrip("0").rstrip(".")
+
+
+def _numeric_scalar_float(normalized: str) -> Optional[float]:
+    scalar = _numeric_scalar(normalized)
+    if scalar is None:
+        return None
+    try:
+        return float(scalar)
+    except ValueError:
+        return None
+
+
+def _query_scoped_literal_match(literal: Dict[str, Any], query_text: Optional[str]) -> bool:
+    if not query_text or literal.get("kind") not in _NUMERIC_LITERAL_KINDS:
+        return False
+    kind = str(literal.get("kind") or "")
+    norm = str(literal.get("normalized") or "")
+    for query_literal in extract_literals(query_text):
+        query_kind = str(query_literal.get("kind") or "")
+        query_norm = str(query_literal.get("normalized") or "")
+        if query_kind not in _NUMERIC_LITERAL_KINDS:
+            continue
+        if kind == query_kind and norm == query_norm:
+            return True
+        # Cross-kind matching is safe only for dimensionless values. Never let
+        # "120 ms" excuse "120 s" or similar unit swaps.
+        dimensionless = {"number", "currency", "percent"}
+        if kind in dimensionless and query_kind in dimensionless:
+            scalar = _numeric_scalar(norm)
+            query_scalar = _numeric_scalar(query_norm)
+            if scalar is not None and scalar == query_scalar:
+                return True
+    return False
+
+
+def _business_policy_rescue_floor(
+    response_text: Optional[str],
+    support_units: Sequence[Any],
+    *,
+    query_text: Optional[str],
+    literal_mismatches: Sequence[Dict[str, Any]],
+) -> Optional[float]:
+    if not query_text or literal_mismatches:
+        return None
+    support_parts: list[str] = []
+    for unit in support_units:
+        text = unit.get("text", "") if isinstance(unit, dict) else getattr(unit, "text", "")
+        if text:
+            support_parts.append(str(text))
+    support_joined = " ".join(support_parts)
+    response = response_text or ""
+    if not response or not support_joined:
+        return None
+
+    response_tokens = _lexical_token_set(response)
+    support_tokens = _lexical_token_set(support_joined)
+    if len(response_tokens) < 4 or not support_tokens:
+        return None
+    precision = len(response_tokens & support_tokens) / float(len(response_tokens))
+    if precision < 0.55:
+        return None
+
+    if _support_exclusive_restriction_supports_negation(response, support_joined):
+        return 0.85
+    if _threshold_policy_supports_query_value(
+        query_text=query_text,
+        response_text=response,
+        support_text=support_joined,
+    ):
+        return 0.85
+    return None
+
+
+def _threshold_policy_supports_query_value(
+    *,
+    query_text: str,
+    response_text: str,
+    support_text: str,
+) -> bool:
+    query_values = [
+        _numeric_scalar_float(str(literal.get("normalized") or ""))
+        for literal in extract_literals(query_text)
+        if literal.get("kind") in _NUMERIC_LITERAL_KINDS
+    ]
+    response_values = [
+        _numeric_scalar_float(str(literal.get("normalized") or ""))
+        for literal in extract_literals(response_text)
+        if literal.get("kind") in _NUMERIC_LITERAL_KINDS
+    ]
+    shared_values = {
+        value
+        for value in query_values
+        if value is not None and any(other == value for other in response_values)
+    }
+    if not shared_values:
+        return False
+
+    for match in _THRESHOLD_POLICY_RE.finditer(support_text or ""):
+        threshold_literals = extract_literals(match.group("value"))
+        if not threshold_literals:
+            continue
+        threshold = _numeric_scalar_float(str(threshold_literals[0].get("normalized") or ""))
+        if threshold is None:
+            continue
+        comparator = re.sub(r"\s+", " ", match.group("cmp").lower())
+        for value in shared_values:
+            if comparator in {"above", "over", "more than", "greater than", "exceeding"}:
+                if value > threshold:
+                    return True
+            elif comparator == "at least":
+                if value >= threshold:
+                    return True
+            elif comparator in {"within", "up to", "under", "below", "less than", "no more than"}:
+                if value <= threshold:
+                    return True
+    return False
+
+
 def diff_literals(
     response_text: str,
     support_units: Sequence[Any],
+    *,
+    query_text: Optional[str] = None,
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
     """Compare response literals against the support union.
 
@@ -2696,7 +2919,9 @@ def diff_literals(
     the support set, OR (for ``year`` literals) when any support ``date``
     literal contains the same year. The fall-through helps avoid double-counting
     when the support carries the full long-form date but the response only
-    surfaces the year.
+    surfaces the year. ``query_text`` is a narrow enterprise-RAG escape hatch:
+    numeric literals copied from the user's question are treated as inputs to
+    a policy answer rather than unsupported facts.
     """
 
     response_literals = extract_literals(response_text or "")
@@ -2717,6 +2942,8 @@ def diff_literals(
                 if measurement.startswith(norm + " ") or measurement == norm:
                     is_match = True
                     break
+        if not is_match and _query_scoped_literal_match(literal, query_text):
+            is_match = True
         if is_match:
             matches.append(literal)
         else:
@@ -2802,6 +3029,7 @@ def score_groundedness(
     debug_dense_matrices: bool = False,
     null_bank_embeddings: Optional[Sequence[torch.Tensor] | _NullBankPack] = None,
     response_text: Optional[str] = None,
+    query_text: Optional[str] = None,
     nli_provider: Optional[NLIProvider] = None,
     nli_max_claims: Optional[int] = None,
     nli_top_k_premises: Optional[int] = None,
@@ -3110,7 +3338,9 @@ def score_groundedness(
             debug_payload = None
 
     response_literals, literal_mismatches, literal_matches = diff_literals(
-        response_text or "", support_units
+        response_text or "",
+        support_units,
+        query_text=query_text,
     )
     base_for_guard = (
         reverse_context_calibrated_score if null_bank_size > 0 else reverse_context_score
@@ -3148,6 +3378,15 @@ def score_groundedness(
     verbatim_floor = _verbatim_support_floor(response_text, support_units_payload)
     if verbatim_floor is not None:
         nli_aggregate = max(float(nli_aggregate or 0.0), verbatim_floor)
+    business_policy_rescue = _business_policy_rescue_floor(
+        response_text,
+        support_units_payload,
+        query_text=query_text,
+        literal_mismatches=literal_mismatches,
+    )
+    if business_policy_rescue is not None:
+        nli_aggregate = max(float(nli_aggregate or 0.0), business_policy_rescue)
+        warnings.append("business_policy_rescue_applied")
     lexical_rescue = _lexical_rescue_floor(
         response_text,
         support_units_payload,
@@ -3228,6 +3467,8 @@ def score_groundedness(
         weights=fusion_weights,
         substitute_missing_channels_threshold=fusion_substitute_missing_channels_threshold,
     )
+    if business_policy_rescue is not None:
+        groundedness_v2 = max(float(groundedness_v2), float(business_policy_rescue))
     for token_idx, row in enumerate(response_token_rows):
         row["nli_score"] = nli_per_token[token_idx] if token_idx < len(nli_per_token) else None
 
@@ -3273,6 +3514,9 @@ def score_groundedness(
         "nli_aggregate": float(nli_aggregate) if nli_aggregate is not None else None,
         "verbatim_support_floor": (
             float(verbatim_floor) if verbatim_floor is not None else None
+        ),
+        "business_policy_rescue_floor": (
+            float(business_policy_rescue) if business_policy_rescue is not None else None
         ),
         "lexical_rescue_floor": (
             float(lexical_rescue) if lexical_rescue is not None else None
@@ -3689,6 +3933,7 @@ def score_groundedness_chunked(
     debug_dense_matrices: bool = False,
     null_bank_embeddings: Optional[Sequence[torch.Tensor] | _NullBankPack] = None,
     response_text: Optional[str] = None,
+    query_text: Optional[str] = None,
     nli_provider: Optional[NLIProvider] = None,
     nli_max_claims: Optional[int] = None,
     nli_top_k_premises: Optional[int] = None,
@@ -3732,6 +3977,7 @@ def score_groundedness_chunked(
             debug_dense_matrices=debug_dense_matrices,
             null_bank_embeddings=null_bank_embeddings,
             response_text=response_text,
+            query_text=query_text,
             nli_provider=nli_provider,
             nli_max_claims=nli_max_claims,
             nli_top_k_premises=nli_top_k_premises,
@@ -3809,6 +4055,7 @@ def score_groundedness_chunked(
             debug_dense_matrices=debug_dense_matrices,
             null_bank_embeddings=null_bank_embeddings if batch_idx == 0 else None,
             response_text=None,
+            query_text=None,
             _emit_dedup_warning=False,
         )
         batch_results.append(batch_result)
@@ -4117,7 +4364,9 @@ def score_groundedness_chunked(
             debug_payload = None
 
     response_literals, literal_mismatches, literal_matches = diff_literals(
-        response_text or "", flat_support_units
+        response_text or "",
+        flat_support_units,
+        query_text=query_text,
     )
     base_for_guard = (
         reverse_context_calibrated_score if null_bank_size > 0 else reverse_context_score
@@ -4154,6 +4403,15 @@ def score_groundedness_chunked(
     verbatim_floor = _verbatim_support_floor(response_text, support_units_payload)
     if verbatim_floor is not None:
         nli_aggregate = max(float(nli_aggregate or 0.0), verbatim_floor)
+    business_policy_rescue = _business_policy_rescue_floor(
+        response_text,
+        support_units_payload,
+        query_text=query_text,
+        literal_mismatches=literal_mismatches,
+    )
+    if business_policy_rescue is not None:
+        nli_aggregate = max(float(nli_aggregate or 0.0), business_policy_rescue)
+        warnings.append("business_policy_rescue_applied")
     lexical_rescue = _lexical_rescue_floor(
         response_text,
         support_units_payload,
@@ -4235,6 +4493,8 @@ def score_groundedness_chunked(
         weights=fusion_weights,
         substitute_missing_channels_threshold=fusion_substitute_missing_channels_threshold,
     )
+    if business_policy_rescue is not None:
+        groundedness_v2 = max(float(groundedness_v2), float(business_policy_rescue))
     for token_idx, row in enumerate(response_token_rows):
         row["nli_score"] = (
             nli_per_token_chunked[token_idx]
@@ -4286,6 +4546,9 @@ def score_groundedness_chunked(
         "nli_aggregate": float(nli_aggregate) if nli_aggregate is not None else None,
         "verbatim_support_floor": (
             float(verbatim_floor) if verbatim_floor is not None else None
+        ),
+        "business_policy_rescue_floor": (
+            float(business_policy_rescue) if business_policy_rescue is not None else None
         ),
         "lexical_rescue_floor": (
             float(lexical_rescue) if lexical_rescue is not None else None
@@ -4515,6 +4778,7 @@ def score_groundedness_response_chunked(
     response_chunks: Sequence[ResponseChunkInput],
     support_batches: Sequence[Sequence[SupportUnitInput]],
     response_text: str,
+    query_text: Optional[str] = None,
     query_embeddings: Optional[torch.Tensor] = None,
     query_tokens: Optional[Sequence[str]] = None,
     evidence_limit: int = 8,
@@ -4595,6 +4859,7 @@ def score_groundedness_response_chunked(
             debug_dense_matrices=debug_dense_matrices,
             null_bank_embeddings=null_bank_embeddings,
             response_text=response_text,
+            query_text=query_text,
             nli_provider=nli_provider,
             nli_max_claims=nli_max_claims,
             nli_top_k_premises=nli_top_k_premises,
@@ -4648,6 +4913,7 @@ def score_groundedness_response_chunked(
             # the first chunk so the global response_text is scored exactly
             # once and not re-scored per chunk.
             response_text=response_text if is_first else None,
+            query_text=query_text if is_first else None,
             nli_provider=nli_provider if is_first else None,
             nli_max_claims=nli_max_claims if is_first else None,
             nli_top_k_premises=nli_top_k_premises if is_first else None,

@@ -1573,10 +1573,18 @@ class GroundednessService:
                 support_units,
                 batch_size=_env_int("VOYAGER_GROUNDEDNESS_SCORE_BATCH_UNITS", 64),
             )
+        route_decision = _ACTIVE_ROUTE_DECISION.get()
+        enterprise_query_text = (
+            request.query_text
+            if route_decision is not None
+            and route_decision.corpus_type == "rag.prose.enterprise"
+            else None
+        )
         scored = score_groundedness_response_chunked(
             response_chunks=response_chunks,
             support_batches=support_batches,
             response_text=request.response_text,
+            query_text=enterprise_query_text,
             query_embeddings=query_embeddings,
             query_tokens=query_tokens,
             evidence_limit=request.evidence_limit,

@@ -216,6 +216,164 @@ CASES: tuple[BreakerCase, ...] = (
     ),
 )
 
+VERTICAL_PILOT_CASES: tuple[BreakerCase, ...] = (
+    BreakerCase(
+        case_id="pilot_legal_supported_only_clause",
+        customer_attempt="Legal policy answer supported by an exclusive termination clause",
+        expected_actions=("allow",),
+        expected_class="rag.prose.enterprise",
+        require_value_signal=False,
+        payload={
+            "action": "score",
+            "scoring_mode": "rag",
+            "corpus_type": "rag.prose.enterprise",
+            "profile": "quality",
+            "primary_metric": "reverse_context",
+            "include_triangular_diagnostics": False,
+            "auto_decide": True,
+            "query_text": "Can the supplier terminate for convenience?",
+            "raw_context": (
+                "Master Services Agreement section 14: The supplier may terminate "
+                "only for material breach after written notice and a 30 day cure "
+                "period. The customer may terminate for convenience with 30 days "
+                "written notice."
+            ),
+            "response_text": "The supplier cannot terminate for convenience.",
+        },
+    ),
+    BreakerCase(
+        case_id="pilot_finance_supported_threshold",
+        customer_attempt="Finance threshold policy with query-scoped transaction amount",
+        expected_actions=("allow",),
+        expected_class="rag.prose.enterprise",
+        require_value_signal=False,
+        payload={
+            "action": "score",
+            "scoring_mode": "rag",
+            "corpus_type": "rag.prose.enterprise",
+            "profile": "quality",
+            "primary_metric": "reverse_context",
+            "include_triangular_diagnostics": False,
+            "auto_decide": True,
+            "query_text": "Who must approve a 120000 EUR vendor payment?",
+            "raw_context": (
+                "Corporate treasury policy: vendor payments above 100000 EUR "
+                "require approval from the finance director and treasury operations. "
+                "Payments up to 100000 EUR require only cost-center owner approval."
+            ),
+            "response_text": (
+                "A 120000 EUR vendor payment requires approval from the finance "
+                "director and treasury operations."
+            ),
+        },
+    ),
+    BreakerCase(
+        case_id="pilot_support_refund_supported",
+        customer_attempt="Support refund answer where the customer-specific day count comes from the query",
+        expected_actions=("allow", "auto_repair"),
+        expected_class="rag.prose.enterprise",
+        require_value_signal=False,
+        payload={
+            "action": "score",
+            "scoring_mode": "rag",
+            "corpus_type": "rag.prose.enterprise",
+            "profile": "quality",
+            "primary_metric": "reverse_context",
+            "include_triangular_diagnostics": False,
+            "auto_decide": True,
+            "query_text": "The customer bought an unopened headset 21 days ago. Is a refund allowed?",
+            "raw_context": (
+                "Support refund policy: unopened hardware can be refunded within "
+                "30 days of purchase. Opened accessories are exchange-only unless "
+                "a manager approves an exception."
+            ),
+            "response_text": (
+                "The unopened headset is eligible for a refund because the purchase "
+                "was 21 days ago, within the 30 day refund window."
+            ),
+        },
+    ),
+    BreakerCase(
+        case_id="pilot_finance_structured_amount_swap",
+        customer_attempt="Structured finance approval amount swap 8240 -> 8420",
+        expected_actions=("auto_repair", "block"),
+        expected_class="rag.structured",
+        payload={
+            "action": "score",
+            "scoring_mode": "rag",
+            "corpus_type": "rag.structured",
+            "profile": "quality",
+            "primary_metric": "reverse_context",
+            "include_triangular_diagnostics": False,
+            "auto_decide": True,
+            "query_text": "Summarize the approved invoice amount.",
+            "raw_context": '{"invoice_id":"INV-8240","vendor":"Atlas","approved_amount":8240,"currency":"EUR"}',
+            "response_text": "Invoice INV-8240 for Atlas was approved for 8420 EUR.",
+        },
+    ),
+    BreakerCase(
+        case_id="pilot_coding_performance_supported",
+        customer_attempt="Agentic coding performance trace with supported benchmark improvement",
+        expected_actions=("allow",),
+        expected_class="code.agentic_trace",
+        require_value_signal=False,
+        forbid_missing_features=True,
+        payload={
+            "action": "score",
+            "scoring_mode": "code",
+            "corpus_type": "code.agentic_trace",
+            "profile": "quality",
+            "primary_metric": "reverse_context",
+            "include_triangular_diagnostics": False,
+            "auto_decide": True,
+            "response_language_hint": "python",
+            "query_text": "Fix the slow search endpoint and report the benchmark.",
+            "raw_context": (
+                "File search/service.py patched SearchService.rank. "
+                "tests/test_search_perf.py includes test_p95_latency_budget. "
+                "Benchmark: p95_ms before=840 after=310. The latency improved after the patch."
+            ),
+            "response_text": (
+                "Updated search/service.py and verified the benchmark: p95 latency "
+                "improved from 840 ms to 310 ms."
+            ),
+        },
+    ),
+    BreakerCase(
+        case_id="pilot_coding_performance_false_improvement",
+        customer_attempt="Agentic coding trace falsely claims a benchmark improvement",
+        expected_actions=("auto_repair", "block"),
+        expected_class="code.agentic_trace",
+        forbid_missing_features=True,
+        payload={
+            "action": "score",
+            "scoring_mode": "code",
+            "corpus_type": "code.agentic_trace",
+            "profile": "quality",
+            "primary_metric": "reverse_context",
+            "include_triangular_diagnostics": False,
+            "auto_decide": True,
+            "response_language_hint": "python",
+            "query_text": "Fix the slow search endpoint and report the benchmark.",
+            "raw_context": (
+                "File search/service.py patched SearchService.rank. "
+                "tests/test_search_perf.py includes test_p95_latency_budget. "
+                "Benchmark: p95_ms before=840 after=920. The latency regressed after the patch."
+            ),
+            "response_text": (
+                "Updated search/service.py and verified the benchmark: p95 latency "
+                "improved from 840 ms to 310 ms."
+            ),
+        },
+    ),
+)
+
+SUITES: dict[str, tuple[BreakerCase, ...]] = {
+    "customer_breaker": CASES,
+    "vertical_pilot": VERTICAL_PILOT_CASES,
+    "all": CASES + VERTICAL_PILOT_CASES,
+}
+
 
 def _mapping(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
@@ -292,12 +450,18 @@ def evaluate_output(case: BreakerCase, body: Mapping[str, Any]) -> dict[str, Any
     }
 
 
-async def run(endpoint_id: str, api_key: str, *, dump: Optional[Path] = None) -> int:
+async def run(
+    endpoint_id: str,
+    api_key: str,
+    *,
+    dump: Optional[Path] = None,
+    cases: tuple[BreakerCase, ...] = CASES,
+) -> int:
     transport = Transport(endpoint_id=endpoint_id, api_key=api_key)
     rows: list[dict[str, Any]] = []
     failures: list[dict[str, Any]] = []
     async with httpx.AsyncClient(timeout=httpx.Timeout(600.0, connect=15.0)) as client:
-        for case in CASES:
+        for case in cases:
             body = await transport.submit(client, {"input": dict(case.payload)})
             row = evaluate_output(case, body)
             rows.append(row)
@@ -327,10 +491,11 @@ def main() -> int:
     parser.add_argument("--endpoint-id", default=os.environ.get("RUNPOD_ENDPOINT_ID"))
     parser.add_argument("--api-key", default=os.environ.get("RUNPOD_API_KEY"))
     parser.add_argument("--dump", type=Path, default=None)
+    parser.add_argument("--suite", choices=sorted(SUITES), default="customer_breaker")
     args = parser.parse_args()
     if not args.endpoint_id or not args.api_key:
         raise SystemExit("set RUNPOD_ENDPOINT_ID/RUNPOD_API_KEY or pass --endpoint-id/--api-key")
-    return asyncio.run(run(args.endpoint_id, args.api_key, dump=args.dump))
+    return asyncio.run(run(args.endpoint_id, args.api_key, dump=args.dump, cases=SUITES[args.suite]))
 
 
 if __name__ == "__main__":
