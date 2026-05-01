@@ -289,6 +289,11 @@ def test_structured_measurement_literal_mismatch_forces_repair_without_blocking_
             "literal_mismatch: 1 response literal(s) not present in support: number=8420"
         )
     )
+    currency_mismatch = runtime_decision.build_runtime_decision(
+        _structured_response_with_warning(
+            "literal_mismatch: 1 response literal(s) not present in support: currency=8420 EUR"
+        )
+    )
     identifier_only = runtime_decision.build_runtime_decision(
         _structured_response_with_warning(
             "literal_mismatch: 1 response literal(s) not present in support: identifier=p95"
@@ -308,6 +313,11 @@ def test_structured_measurement_literal_mismatch_forces_repair_without_blocking_
     assert number_mismatch["action"] == "auto_repair"
     assert number_mismatch["band"] == "amber"
     assert "structured_numeric_literal_mismatch_repair_only" in number_mismatch["reason_codes"]
+
+    assert currency_mismatch is not None
+    assert currency_mismatch["action"] == "auto_repair"
+    assert currency_mismatch["band"] == "amber"
+    assert "structured_currency_literal_mismatch_repair_only" in currency_mismatch["reason_codes"]
 
     assert identifier_only is not None
     assert identifier_only["action"] == "allow"

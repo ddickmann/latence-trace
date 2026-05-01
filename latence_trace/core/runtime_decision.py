@@ -249,6 +249,8 @@ def _structured_literal_guard_reason(response: Any, class_key: str) -> Optional[
             continue
         if "measurement=" in text or "unit=" in text:
             return "structured_measurement_literal_mismatch_repair_only"
+        if "currency=" in text:
+            return "structured_currency_literal_mismatch_repair_only"
         if "number=" in text:
             return "structured_numeric_literal_mismatch_repair_only"
     return None
