@@ -1221,7 +1221,10 @@ def _support_exclusive_restriction_supports_negation(
     actor = match.group("actor")
     verb = match.group("verb")
     trail = match.group("trail") or ""
-    reason_match = re.search(r"\b(?:for|because of|due to)\s+(?P<reason>[^.!?;,]{2,120})", trail)
+    reason_match = re.search(
+        r"\b(?:for|because of|due to|without)\s+(?P<reason>[^.!?;,]{2,120})",
+        trail,
+    )
     if reason_match is None:
         return False
     response_reason_tokens = _lexical_token_set(reason_match.group("reason"))

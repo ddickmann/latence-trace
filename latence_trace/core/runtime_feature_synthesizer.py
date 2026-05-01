@@ -262,6 +262,25 @@ def _performance_outcome_alignment(context: str, response: str) -> Optional[floa
     return 1.0
 
 
+def _performance_value_alignment(context: str, response: str) -> float:
+    if _performance_outcome_alignment(context, response) != 1.0:
+        return 0.0
+    context_values = _performance_label_values(context)
+    before_values = set(context_values.get("before", []))
+    after_values = set(context_values.get("after", []) or context_values.get("p95_ms", []))
+    if not before_values or not after_values:
+        return 0.0
+    response_targets = _response_performance_target_values(response)
+    if not response_targets:
+        return 0.0
+    context_numeric_values = _context_performance_values(context)
+    if not response_targets <= context_numeric_values:
+        return 0.0
+    if not response_targets & after_values:
+        return 0.0
+    return 1.0
+
+
 def _agentic_outcome_alignment(context: str, response: str) -> float:
     """Return 0 when the response contradicts explicit trace outcomes."""
 
@@ -342,29 +361,39 @@ def _synthesize_trajectory(query: str, context: str, response: str, scored: Any)
         return SynthesizedRuntimeFeatures(None, "missing", ["trajectory_code_evidence_missing"])
     command_match = 1.0 if (_COMMAND_CUE_RE.search(joined) or performance_evidence) else 0.0
     outcome_alignment = _agentic_outcome_alignment(context, response)
+    performance_value_alignment = _performance_value_alignment(context, response)
     identifier = _identifier_overlap(context, response)
+    evidence_alignment = max(identifier, 0.95 if performance_value_alignment >= 1.0 else 0.0)
     grounded = _bounded(_score(scored, "groundedness_v2", _score(scored, "primary_score", 0.0)))
     reverse = _bounded(_score(scored, "reverse_context", grounded))
     coverage = _coverage_ratio(scored)
     dead = _bounded(_score(scored, "dead_weight_ratio", 1.0 - coverage))
     uncertain = _bounded(_score(scored, "context_uncertain_ratio", 0.0))
     semantic_evidence = max(grounded, reverse) if outcome_alignment >= 1.0 else min(grounded, reverse)
-    good = _bounded((identifier + coverage + command_match + outcome_alignment + semantic_evidence) / 5.0)
+    if performance_value_alignment >= 1.0:
+        semantic_evidence = max(semantic_evidence, 0.95)
+        reverse = max(reverse, 0.95)
+        coverage = max(coverage, 0.95)
+        dead = min(dead, 0.05)
+    query_alignment = _identifier_overlap(query, response)
+    if performance_value_alignment >= 1.0:
+        query_alignment = max(query_alignment, 0.85)
+    good = _bounded((evidence_alignment + coverage + command_match + outcome_alignment + semantic_evidence) / 5.0)
     features = {
-        "file_alignment": identifier,
-        "symbol_alignment": identifier,
+        "file_alignment": evidence_alignment,
+        "symbol_alignment": evidence_alignment,
         "test_outcome_alignment": outcome_alignment if command_match else 0.0,
-        "patch_alignment": max(identifier, command_match) if outcome_alignment >= 1.0 else min(identifier, command_match),
+        "patch_alignment": max(evidence_alignment, command_match) if outcome_alignment >= 1.0 else min(evidence_alignment, command_match),
         "temporal_order_alignment": command_match if outcome_alignment >= 1.0 else 0.0,
         "claim_atom_coverage": good,
         "unsupported_atom_rate": _bounded(1.0 - good),
-        "phantom_symbol_rate": _bounded(1.0 - identifier),
+        "phantom_symbol_rate": _bounded(1.0 - evidence_alignment),
         "missing_command_evidence": 1.0 - command_match,
-        "literal_match_rate": identifier,
-        "literal_mismatch_rate": _bounded(1.0 - identifier),
-        "identifier_query_overlap": _identifier_overlap(query, response),
-        "identifier_query_absent_rate": _bounded(1.0 - _identifier_overlap(query, response)),
-        "warning_identifier_rate": _bounded(1.0 - identifier),
+        "literal_match_rate": evidence_alignment,
+        "literal_mismatch_rate": _bounded(1.0 - evidence_alignment),
+        "identifier_query_overlap": query_alignment,
+        "identifier_query_absent_rate": _bounded(1.0 - query_alignment),
+        "warning_identifier_rate": _bounded(1.0 - evidence_alignment),
         "reverse_context": reverse,
         "consensus_hardened": semantic_evidence,
         "groundedness_v2": semantic_evidence,

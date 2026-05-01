@@ -111,6 +111,25 @@ def test_business_policy_rescue_sets_floor_for_exclusive_clause() -> None:
     assert floor == 0.85
 
 
+def test_business_policy_rescue_supports_without_cause_from_only_clause() -> None:
+    floor = _business_policy_rescue_floor(
+        "The reseller cannot terminate without cause.",
+        [
+            SimpleNamespace(
+                text=(
+                    "The reseller may terminate only for uncured material breach "
+                    "after written notice and a 15 day cure period. The vendor may "
+                    "terminate without cause on 60 days notice."
+                )
+            )
+        ],
+        query_text="Can the reseller terminate without cause?",
+        literal_mismatches=[],
+    )
+
+    assert floor == 0.85
+
+
 def test_lexical_rescue_refuses_negating_allowed_only_clause_reason() -> None:
     floor = _lexical_rescue_floor(
         "The supplier cannot terminate for material breach.",
@@ -118,6 +137,24 @@ def test_lexical_rescue_refuses_negating_allowed_only_clause_reason() -> None:
         reverse_context_calibrated=0.94,
         literal_guarded=0.94,
         nli_aggregate=0.52,
+    )
+
+    assert floor is None
+
+
+def test_business_policy_rescue_refuses_negating_allowed_without_reason() -> None:
+    floor = _business_policy_rescue_floor(
+        "The reseller cannot terminate without uncured material breach.",
+        [
+            SimpleNamespace(
+                text=(
+                    "The reseller may terminate only for uncured material breach "
+                    "after written notice and a 15 day cure period."
+                )
+            )
+        ],
+        query_text="Can the reseller terminate for uncured material breach?",
+        literal_mismatches=[],
     )
 
     assert floor is None

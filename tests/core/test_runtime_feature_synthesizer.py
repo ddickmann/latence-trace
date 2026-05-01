@@ -187,6 +187,35 @@ def test_agentic_trace_synthesizes_supported_performance_benchmark(monkeypatch) 
     assert decision["action"] == "allow"
 
 
+def test_agentic_trace_allows_sparse_exact_performance_benchmark(monkeypatch) -> None:
+    monkeypatch.setenv("LATENCE_TRACE_RUNTIME_DECISION_ENABLED", "1")
+    runtime_decision.reset_policy_cache_for_tests()
+    result = synthesize_runtime_features(
+        _request(
+            "Optimize invoice lookup and report the benchmark.",
+            (
+                "File billing/cache.ts patched InvoiceCache.get. Benchmark result: "
+                "p95_ms before=430 after=185, faster after the cache patch."
+            ),
+            "The cache patch improved invoice lookup p95 latency from 430 ms to 185 ms.",
+        ),
+        _response("code.agentic_trace", score=0.08, reverse=0.12),
+    )
+
+    assert result.source == "synthesized"
+    assert result.features is not None
+    assert result.features["test_outcome_alignment"] == 1.0
+    assert result.features["literal_match_rate"] >= 0.85
+    assert result.features["groundedness_v2"] >= 0.90
+
+    response = _response("code.agentic_trace", score=0.08, reverse=0.12)
+    response.runtime_head_features = result.features
+    decision = runtime_decision.build_runtime_decision(response)
+
+    assert decision is not None
+    assert decision["action"] == "allow"
+
+
 def test_agentic_trace_blocks_false_performance_improvement(monkeypatch) -> None:
     monkeypatch.setenv("LATENCE_TRACE_RUNTIME_DECISION_ENABLED", "1")
     runtime_decision.reset_policy_cache_for_tests()
@@ -213,6 +242,34 @@ def test_agentic_trace_blocks_false_performance_improvement(monkeypatch) -> None
     assert result.features["temporal_order_alignment"] == 0.0
 
     response = _response("code.agentic_trace", score=0.66, reverse=0.95)
+    response.runtime_head_features = result.features
+    decision = runtime_decision.build_runtime_decision(response)
+
+    assert decision is not None
+    assert decision["action"] == "block"
+
+
+def test_agentic_trace_blocks_sparse_performance_value_swap(monkeypatch) -> None:
+    monkeypatch.setenv("LATENCE_TRACE_RUNTIME_DECISION_ENABLED", "1")
+    runtime_decision.reset_policy_cache_for_tests()
+    result = synthesize_runtime_features(
+        _request(
+            "Optimize invoice lookup and report the benchmark.",
+            (
+                "File billing/cache.ts patched InvoiceCache.get. Benchmark result: "
+                "p95_ms before=430 after=185, faster after the cache patch."
+            ),
+            "The cache patch improved invoice lookup p95 latency from 430 ms to 150 ms.",
+        ),
+        _response("code.agentic_trace", score=0.08, reverse=0.12),
+    )
+
+    assert result.source == "synthesized"
+    assert result.features is not None
+    assert result.features["test_outcome_alignment"] == 0.0
+    assert result.features["literal_match_rate"] < 0.85
+
+    response = _response("code.agentic_trace", score=0.08, reverse=0.12)
     response.runtime_head_features = result.features
     decision = runtime_decision.build_runtime_decision(response)
 
