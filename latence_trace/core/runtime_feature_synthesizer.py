@@ -29,6 +29,23 @@ _CODE_CUE_RE = re.compile(
     re.IGNORECASE,
 )
 _COMMAND_CUE_RE = re.compile(r"\b(?:pytest|npm test|go test|cargo test|last command|verified)\b", re.IGNORECASE)
+_PASS_CUE_RE = re.compile(
+    r"\b(?:passed|pass(?:es|ed)?|succeeded|success(?:ful|fully)?|0\s+failed|all\s+tests\s+passed|verified)\b",
+    re.IGNORECASE,
+)
+_FAIL_CUE_RE = re.compile(
+    r"\b(?:failed|failing|failure|errored|error|timed\s*out|non[-\s]?zero|[1-9]\d*\s+failed)\b",
+    re.IGNORECASE,
+)
+_BENIGN_FAILURE_CUE_RE = re.compile(
+    r"\b(?:0\s+failed|0\s+failures?|no\s+failures?|no\s+errors?|without\s+errors?)\b",
+    re.IGNORECASE,
+)
+_DEPLOYED_CUE_RE = re.compile(r"\b(?:deployed|released|rolled\s*out|shipped)\b", re.IGNORECASE)
+_DEPLOY_SKIPPED_CUE_RE = re.compile(
+    r"\b(?:deployment\s+(?:skipped|not\s+attempted)|deploy(?:ment)?\s+skipped|not\s+deployed|no\s+deployment)\b",
+    re.IGNORECASE,
+)
 
 
 def synthesize_runtime_features(request: Any, response: Any) -> SynthesizedRuntimeFeatures:
@@ -153,6 +170,24 @@ def _numeric_overlap(context: str, response: str) -> float:
     return hits / max(1, len(numbers))
 
 
+def _agentic_outcome_alignment(context: str, response: str) -> float:
+    """Return 0 when the response contradicts explicit trace outcomes."""
+
+    context_text = _BENIGN_FAILURE_CUE_RE.sub("", context or "")
+    response_text = _BENIGN_FAILURE_CUE_RE.sub("", response or "")
+    context_failed = bool(_FAIL_CUE_RE.search(context_text))
+    context_passed = bool(_PASS_CUE_RE.search(context or "")) and not context_failed
+    response_claims_passed = bool(_PASS_CUE_RE.search(response or ""))
+    response_claims_failed = bool(_FAIL_CUE_RE.search(response_text))
+    if context_failed and response_claims_passed:
+        return 0.0
+    if context_passed and response_claims_failed:
+        return 0.0
+    if _DEPLOY_SKIPPED_CUE_RE.search(context or "") and _DEPLOYED_CUE_RE.search(response or ""):
+        return 0.0
+    return 1.0
+
+
 def _synthesize_structured(query: str, context: str, response: str, scored: Any) -> SynthesizedRuntimeFeatures:
     if not _looks_structured(context):
         return SynthesizedRuntimeFeatures(None, "missing", ["structured_source_missing"])
@@ -210,19 +245,21 @@ def _synthesize_trajectory(query: str, context: str, response: str, scored: Any)
     if len(_CODE_CUE_RE.findall(joined)) < 3:
         return SynthesizedRuntimeFeatures(None, "missing", ["trajectory_code_evidence_missing"])
     command_match = 1.0 if _COMMAND_CUE_RE.search(joined) else 0.0
+    outcome_alignment = _agentic_outcome_alignment(context, response)
     identifier = _identifier_overlap(context, response)
     grounded = _bounded(_score(scored, "groundedness_v2", _score(scored, "primary_score", 0.0)))
     reverse = _bounded(_score(scored, "reverse_context", grounded))
     coverage = _coverage_ratio(scored)
     dead = _bounded(_score(scored, "dead_weight_ratio", 1.0 - coverage))
     uncertain = _bounded(_score(scored, "context_uncertain_ratio", 0.0))
-    good = _bounded((identifier + coverage + command_match + max(grounded, reverse)) / 4.0)
+    semantic_evidence = max(grounded, reverse) if outcome_alignment >= 1.0 else min(grounded, reverse)
+    good = _bounded((identifier + coverage + command_match + outcome_alignment + semantic_evidence) / 5.0)
     features = {
         "file_alignment": identifier,
         "symbol_alignment": identifier,
-        "test_outcome_alignment": command_match,
-        "patch_alignment": max(identifier, command_match),
-        "temporal_order_alignment": command_match,
+        "test_outcome_alignment": outcome_alignment if command_match else 0.0,
+        "patch_alignment": max(identifier, command_match) if outcome_alignment >= 1.0 else min(identifier, command_match),
+        "temporal_order_alignment": command_match if outcome_alignment >= 1.0 else 0.0,
         "claim_atom_coverage": good,
         "unsupported_atom_rate": _bounded(1.0 - good),
         "phantom_symbol_rate": _bounded(1.0 - identifier),
@@ -233,17 +270,17 @@ def _synthesize_trajectory(query: str, context: str, response: str, scored: Any)
         "identifier_query_absent_rate": _bounded(1.0 - _identifier_overlap(query, response)),
         "warning_identifier_rate": _bounded(1.0 - identifier),
         "reverse_context": reverse,
-        "consensus_hardened": grounded,
-        "groundedness_v2": grounded,
-        "triangular": grounded,
+        "consensus_hardened": semantic_evidence,
+        "groundedness_v2": semantic_evidence,
+        "triangular": semantic_evidence,
         "context_attribution_ratio": coverage,
         "context_uncertain_ratio": uncertain,
         "dead_weight_ratio": dead,
         "support_usage_rate": coverage,
         "context_token_log": math.log1p(max(0, len((context or "").split()))),
-        "multi_cell_reverse_min": min(reverse, grounded),
-        "multi_cell_reverse_max": max(reverse, grounded),
-        "multi_cell_reverse_std": abs(reverse - grounded),
+        "multi_cell_reverse_min": semantic_evidence,
+        "multi_cell_reverse_max": semantic_evidence,
+        "multi_cell_reverse_std": 0.0 if outcome_alignment >= 1.0 else abs(reverse - grounded),
     }
     missing = [] if command_match else ["trajectory_command_or_test_evidence_missing"]
     source = "synthesized" if not missing else "partial"

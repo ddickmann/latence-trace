@@ -166,6 +166,14 @@ def decide_action(score: float, class_policy: Mapping[str, Any]) -> str:
     return "auto_repair"
 
 
+def _band_for_action(action: str) -> str:
+    if action == "allow":
+        return "green"
+    if action == "block":
+        return "red"
+    return "amber"
+
+
 def _support_evidence(response: Any, *, limit: int = 3) -> list[dict[str, Any]]:
     units = list(getattr(response, "support_units", []) or [])
     units.sort(
@@ -267,6 +275,7 @@ def build_runtime_decision(response: Any) -> Optional[dict[str, Any]]:
         action = "auto_repair"
     else:
         action = decide_action(decision_score, class_policy)
+    decision_band = _band_for_action(action)
     return {
         "policy_version": str(policy.get("channel") or "runtime_decision"),
         "policy_sha256": policy_sha,
@@ -280,7 +289,7 @@ def build_runtime_decision(response: Any) -> Optional[dict[str, Any]]:
         "class_key": class_key,
         "score": decision_score,
         "score_channel": decision_channel,
-        "band": str(response.scores.risk_band or "unknown"),
+        "band": decision_band,
         "action": action,
         "evidence": _support_evidence(response),
         "unsupported_spans": _unsupported_spans(response),

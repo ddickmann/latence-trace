@@ -192,6 +192,7 @@ def test_agentic_trace_policy_uses_promoted_head(monkeypatch) -> None:
 
     assert allowed is not None
     assert allowed["action"] == "allow"
+    assert allowed["band"] == "green"
     assert allowed["head_id"] == "trajectory_ranker"
     assert allowed["head_enabled"] is True
     assert allowed["head_score"] is not None
@@ -202,10 +203,12 @@ def test_agentic_trace_policy_uses_promoted_head(monkeypatch) -> None:
 
     assert blocked is not None
     assert blocked["action"] == "block"
+    assert blocked["band"] == "red"
     assert blocked["head_enabled"] is True
 
     assert missing_features is not None
     assert missing_features["action"] == "auto_repair"
+    assert missing_features["band"] == "amber"
     assert missing_features["head_enabled"] is False
     assert "trajectory_features_missing_repair_only" in missing_features["head_reason_codes"]
 

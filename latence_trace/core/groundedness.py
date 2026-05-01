@@ -1260,7 +1260,7 @@ def _lexical_rescue_floor(
 
     1. Two independent lexical channels agree the response is grounded
        (``reverse_context_calibrated >= 0.80`` AND ``literal_guarded >= 0.80``).
-    2. NLI is below 0.80 but not strongly contradicting (``>= 0.50``).
+    2. NLI is below 0.80 but not strongly contradicting (``>= 0.45``).
        A very low NLI score is treated as a real semantic mismatch signal
        that must NOT be overridden by lexical overlap alone — this blocks
        the classic "response is a copy of support with a negation
@@ -1286,7 +1286,7 @@ def _lexical_rescue_floor(
             return None
         # Strong NLI contradiction: likely a real semantic mismatch. Do
         # NOT override with lexical overlap.
-        if nli_value < 0.50:
+        if nli_value < 0.45:
             return None
     response_tokens = _lexical_token_set(response_text or "")
     if len(response_tokens) < 6:
