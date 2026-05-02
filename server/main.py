@@ -32,6 +32,9 @@ from fastapi.responses import JSONResponse
 
 from latence_trace.api.compliance_routes import create_compliance_router
 from latence_trace.api.compliance_service import ComplianceRedactionService
+from latence_trace.api.compression_routes import create_compression_router
+from latence_trace.api.compression_service import CompressionService
+from latence_trace.api.memory_routes import create_memory_router
 from latence_trace.api.routes import create_router
 from latence_trace.api.service import (
     DEFAULT_PROFILE,
@@ -96,6 +99,8 @@ _service: GroundednessService | None = None
 _service_lock = threading.Lock()
 _compliance_service: ComplianceRedactionService | None = None
 _compliance_service_lock = threading.Lock()
+_compression_service: CompressionService | None = None
+_compression_service_lock = threading.Lock()
 
 
 def _get_service() -> GroundednessService:
@@ -111,6 +116,7 @@ def _get_service() -> GroundednessService:
         with _service_lock:
             if _service is None:
                 _service = GroundednessService(
+                    compression_service=_get_compression_service(),
                     device=os.environ.get("LATENCE_TRACE_DEVICE", "cpu"),
                     collection_label=os.environ.get(
                         "LATENCE_TRACE_COLLECTION_LABEL", "latence-trace"
@@ -128,6 +134,17 @@ def _get_compliance_service() -> ComplianceRedactionService:
             if _compliance_service is None:
                 _compliance_service = ComplianceRedactionService.from_env()
     return _compliance_service
+
+
+def _get_compression_service() -> CompressionService:
+    """Lazily build the singleton compression service."""
+
+    global _compression_service
+    if _compression_service is None:
+        with _compression_service_lock:
+            if _compression_service is None:
+                _compression_service = CompressionService.from_env()
+    return _compression_service
 
 
 def _resolve_profile_from_env() -> str | None:
@@ -272,6 +289,8 @@ def create_app(profile: str | None = None) -> FastAPI:
             operation_id_prefix="v1_compliance",
         )
     )
+    app.include_router(create_compression_router(_get_compression_service))
+    app.include_router(create_memory_router())
 
     if os.environ.get("LATENCE_TRACE_ENABLE_MCP_HTTP", "0") in {"1", "true", "yes"}:
         try:

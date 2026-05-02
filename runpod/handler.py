@@ -59,6 +59,8 @@ from latence_trace.api.compliance_service import (
     ComplianceRedactionService,
     ComplianceServiceError,
 )
+from latence_trace.api.compression_models import CompressionRequest, CompressionResponse
+from latence_trace.api.compression_service import CompressionService
 from latence_trace.api.models import (
     GroundednessRequest,
     GroundednessResponse,
@@ -73,6 +75,9 @@ from latence_trace.api.service import (
     apply_profile,
 )
 from latence_trace.kernels.warmup import warm_all, warm_code_lane
+from latence_trace.memory.models import MemoryUpdateRequest
+from latence_trace.memory.service import update_memory
+from latence_trace.memory.signature import extract_exact_critical_terms
 from latence_trace.observability.metrics import (
     BUDGET_EXCEEDED_COUNT,
     CASCADE_FIRE_COUNT,
@@ -157,6 +162,17 @@ class WorkerConfig:
     compliance_threshold: float
     compliance_dataset_path: str
     compliance_request_timeout_s: float
+    compression_model: str = "doubledsbv/compression-llmlingua2"
+    compression_port: int = 8004
+    compression_gpu_mem: float = 0.12
+    compression_max_model_len: int = 4096
+    compression_max_num_seqs: int = 128
+    compression_max_batched_tokens: int = 8192
+    compression_request_timeout_s: float = 30.0
+    compression_default_chunk_size: int = 4096
+    compression_default_compression_rate: float = 0.5
+    compression_force_preserve_digit: bool = True
+    compression_fallback_mode: bool = True
 
 
 def create_config() -> WorkerConfig:
@@ -180,6 +196,10 @@ def create_config() -> WorkerConfig:
     compliance_model = os.environ.get(
         "LATENCE_TRACE_COMPLIANCE_GLINER_MODEL",
         "knowledgator/gliner-pii-large-v1.0",
+    )
+    compression_model = os.environ.get(
+        "LATENCE_TRACE_COMPRESSION_MODEL",
+        "doubledsbv/compression-llmlingua2",
     )
     return WorkerConfig(
         profile=profile,
@@ -219,6 +239,27 @@ def create_config() -> WorkerConfig:
             "doubledsbv/pii-replacement-dataset",
         ),
         compliance_request_timeout_s=_env_float("LATENCE_TRACE_COMPLIANCE_REQUEST_TIMEOUT_S", 30.0),
+        compression_model=compression_model,
+        compression_port=_env_int("LATENCE_TRACE_COMPRESSION_PORT", 8004),
+        compression_gpu_mem=_env_float("LATENCE_TRACE_COMPRESSION_GPU_MEM", 0.12),
+        compression_max_model_len=_env_int("LATENCE_TRACE_COMPRESSION_MAX_MODEL_LEN", 4096),
+        compression_max_num_seqs=_env_int("LATENCE_TRACE_COMPRESSION_MAX_NUM_SEQS", 128),
+        compression_max_batched_tokens=_env_int(
+            "LATENCE_TRACE_COMPRESSION_MAX_BATCHED_TOKENS", 8192
+        ),
+        compression_request_timeout_s=_env_float(
+            "LATENCE_TRACE_COMPRESSION_REQUEST_TIMEOUT_S", 30.0
+        ),
+        compression_default_chunk_size=_env_int("LATENCE_TRACE_COMPRESSION_DEFAULT_CHUNK_SIZE", 4096),
+        compression_default_compression_rate=_env_float(
+            "LATENCE_TRACE_COMPRESSION_DEFAULT_COMPRESSION_RATE", 0.5
+        ),
+        compression_force_preserve_digit=os.environ.get(
+            "LATENCE_TRACE_COMPRESSION_FORCE_PRESERVE_DIGIT", "1"
+        ).lower()
+        not in {"0", "false", "no"},
+        compression_fallback_mode=os.environ.get("LATENCE_TRACE_COMPRESSION_FALLBACK_MODE", "1").lower()
+        not in {"0", "false", "no"},
     )
 
 
@@ -227,6 +268,7 @@ _config: WorkerConfig | None = None
 _servers: dict[str, ManagedVllmServer] = {}
 _service: GroundednessService | None = None
 _compliance_service: ComplianceRedactionService | None = None
+_compression_service: CompressionService | None = None
 _initialize_lock = threading.Lock()
 _request_executor: ThreadPoolExecutor | None = None
 _request_executor_lock = threading.Lock()
@@ -366,11 +408,8 @@ def _ensure_kernel_warmup(profile: str) -> None:
     result = warm_all(profile)
     if not result.ok:
         raise RuntimeError(
-            "Triton kernel warmup failed for profile '{profile}' on {device}: {error}".format(
-                profile=result.profile,
-                device=result.device,
-                error=result.error or "unknown error",
-            )
+            f"Triton kernel warmup failed for profile '{result.profile}' "
+            f"on {result.device}: {result.error or 'unknown error'}"
         )
     # Code lane warmup is now a hard gate: tree-sitter grammars are a
     # first-class production dependency and a missing grammar would
@@ -477,11 +516,22 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
             plugins=["deberta_gliner", "deberta_gliner_io"],
             enforce_eager=False,
         ),
+        "compression": ManagedVllmServer(
+            name="compression",
+            model=config.compression_model,
+            port=config.compression_port,
+            gpu_memory_utilization=config.compression_gpu_mem,
+            max_model_len=config.compression_max_model_len,
+            max_num_seqs=config.compression_max_num_seqs,
+            max_num_batched_tokens=config.compression_max_batched_tokens,
+            plugins=["qwen3_compression"],
+            enforce_eager=False,
+        ),
     }
 
 
 def initialize() -> None:
-    global _initialized, _config, _servers, _service, _compliance_service
+    global _initialized, _config, _servers, _service, _compliance_service, _compression_service
     if _initialized:
         return
 
@@ -518,6 +568,23 @@ def initialize() -> None:
                 config.compliance_max_model_len
             )
             os.environ["LATENCE_TRACE_COMPLIANCE_DATASET_PATH"] = config.compliance_dataset_path
+            compression_server = servers.get("compression")
+            if compression_server is not None:
+                os.environ["LATENCE_TRACE_COMPRESSION_ENDPOINT"] = compression_server.base_url
+                os.environ["LATENCE_TRACE_COMPRESSION_MODEL"] = config.compression_model
+                os.environ["LATENCE_TRACE_COMPRESSION_CONCURRENCY"] = str(config.max_concurrency)
+                os.environ["LATENCE_TRACE_COMPRESSION_DEFAULT_CHUNK_SIZE"] = str(
+                    config.compression_default_chunk_size
+                )
+                os.environ["LATENCE_TRACE_COMPRESSION_DEFAULT_COMPRESSION_RATE"] = str(
+                    config.compression_default_compression_rate
+                )
+                os.environ["LATENCE_TRACE_COMPRESSION_FORCE_PRESERVE_DIGIT"] = str(
+                    int(config.compression_force_preserve_digit)
+                )
+                os.environ["LATENCE_TRACE_COMPRESSION_FALLBACK_MODE"] = str(
+                    int(config.compression_fallback_mode)
+                )
             os.environ.setdefault("VOYAGER_GROUNDEDNESS_NLI_ENABLED", "1")
             os.environ.setdefault(
                 "VOYAGER_GROUNDEDNESS_NLI_PREMISE_RERANKER_MODEL",
@@ -529,6 +596,8 @@ def initialize() -> None:
                 collection_label=config.collection_label,
             )
             compliance_service = ComplianceRedactionService.from_env()
+            compression_service = CompressionService.from_env()
+            service._compression_service = compression_service
             _ensure_kernel_warmup(config.profile)
             _prime_service_runtime(service)
             _get_request_executor(config)
@@ -536,13 +605,15 @@ def initialize() -> None:
             _servers = servers
             _service = service
             _compliance_service = compliance_service
+            _compression_service = compression_service
             _initialized = True
             logger.info(
-                "latence-trace RunPod worker ready: profile=%s colbert=%s nli=%s compliance=%s",
+                "latence-trace RunPod worker ready: profile=%s colbert=%s nli=%s compliance=%s compression=%s",
                 config.profile,
                 servers["colbert"].base_url,
                 servers["nli"].base_url,
                 compliance_server.base_url,
+                compression_server.base_url if compression_server is not None else "fallback",
             )
         except Exception:
             for server in servers.values():
@@ -551,7 +622,8 @@ def initialize() -> None:
 
 
 def shutdown() -> None:
-    global _initialized, _servers, _service, _compliance_service, _request_executor
+    global _initialized, _servers, _service, _compliance_service, _compression_service
+    global _request_executor
     global _lane_semaphores, _lane_semaphores_loop
     global _compliance_semaphore, _compliance_semaphore_loop
     for server in _servers.values():
@@ -567,6 +639,7 @@ def shutdown() -> None:
         except Exception:
             logger.exception("failed to close compliance provider")
     _compliance_service = None
+    _compression_service = None
     _initialized = False
     with _request_executor_lock:
         if _request_executor is not None:
@@ -673,6 +746,10 @@ def _build_request(input_data: dict[str, Any]) -> tuple[GroundednessRequest, boo
         "auto_decide",
         "runtime_head_features",
         "trajectory_features",
+        "memory_state",
+        "memory_policy",
+        "enable_memory_shadow",
+        "apply_memory_context",
         # Corpus router: tenant-declared override for the per-class
         # calibration bundle. Ignored when absent (classifier infers).
         "corpus_type",
@@ -1127,6 +1204,152 @@ async def _handle_compliance_redaction(input_data: dict[str, Any]) -> dict[str, 
     }
 
 
+async def _handle_compression(input_data: dict[str, Any]) -> dict[str, Any]:
+    initialize()
+    service = _compression_service
+    config = _config
+    if service is None or config is None:
+        return _service_error_payload(
+            "Compression service is not initialized",
+            error_code="service_unavailable",
+            hint="Retry after worker startup completes.",
+            status_code=503,
+        )
+    try:
+        payload = dict(input_data)
+        payload.pop("action", None)
+        payload.pop("endpoint_id", None)
+        request = CompressionRequest.model_validate(payload)
+    except PydanticValidationError as exc:
+        return _service_error_payload(
+            str(exc),
+            error_code="validation_error",
+            hint="Send action='compress' with text or messages.",
+            status_code=400,
+        )
+    try:
+        response: CompressionResponse = await asyncio.wait_for(
+            service.compress(request),
+            timeout=config.compression_request_timeout_s,
+        )
+    except asyncio.TimeoutError:
+        return _service_error_payload(
+            f"Compression exceeded {config.compression_request_timeout_s:.2f}s execution timeout",
+            error_code="job_timeout",
+            hint="Retry with a smaller payload or raise LATENCE_TRACE_COMPRESSION_REQUEST_TIMEOUT_S.",
+            status_code=504,
+        )
+    except Exception as exc:  # pragma: no cover - runtime safeguard
+        logger.exception("compression_failed")
+        return _service_error_payload(
+            str(exc),
+            error_code="service_error",
+            status_code=500,
+        )
+    return {
+        "success": True,
+        "action": "compress",
+        "result": response.model_dump(mode="json"),
+        "version": config.version,
+    }
+
+
+async def _handle_memory_update(input_data: dict[str, Any]) -> dict[str, Any]:
+    try:
+        payload = dict(input_data)
+        payload.pop("action", None)
+        payload.pop("endpoint_id", None)
+        payload = await _maybe_compress_memory_payload(payload)
+        request = MemoryUpdateRequest.model_validate(payload)
+        response = update_memory(request)
+    except PydanticValidationError as exc:
+        return _service_error_payload(
+            str(exc),
+            error_code="validation_error",
+            hint="Send action='memory.update' with turn_text and optional prior_memory_state.",
+            status_code=400,
+        )
+    except Exception as exc:  # pragma: no cover - runtime safeguard
+        logger.exception("memory_update_failed")
+        return _service_error_payload(
+            str(exc),
+            error_code="service_error",
+            status_code=500,
+        )
+    return {
+        "success": True,
+        "action": "memory.update",
+        "result": response.model_dump(mode="json"),
+        "version": _config.version if _config else __version__,
+    }
+
+
+async def _maybe_compress_memory_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    if not payload.get("enable_ingress_compression"):
+        return payload
+    raw_context = str(payload.get("raw_context") or "")
+    min_tokens = int(payload.get("ingress_compression_min_tokens") or 512)
+    if not raw_context.strip() or len(raw_context.split()) < min_tokens:
+        return payload
+    service = _compression_service
+    config = _config
+    if service is None or config is None:
+        return payload
+    domain = str(payload.get("memory_domain") or "rag")
+    force_tokens = extract_exact_critical_terms(
+        "\n".join(
+            item
+            for item in [
+                str(payload.get("query_text") or ""),
+                str(payload.get("response_text") or ""),
+                raw_context,
+            ]
+            if item
+        ),
+        domain=domain,
+    )[:160]
+    compression_rate = payload.get("ingress_compression_rate")
+    if compression_rate is None:
+        compression_rate = _memory_ingress_compression_rate(domain)
+    request = CompressionRequest(
+        text=raw_context,
+        compression_rate=float(compression_rate),
+        chunk_size=config.compression_default_chunk_size,
+        force_tokens=force_tokens,
+        preserve_exact=force_tokens,
+        force_preserve_digit=config.compression_force_preserve_digit,
+        fallback_mode=config.compression_fallback_mode,
+        apply_toon=bool(payload.get("ingress_apply_toon", domain == "tool")),
+    )
+    compressed = await service.compress(request)
+    if not compressed.compressed_text.strip():
+        return payload
+    sidecar = _memory_ingress_sidecar(domain, force_tokens)
+    payload["raw_context"] = "\n".join(part for part in [sidecar, compressed.compressed_text] if part)
+    payload.setdefault("trace_signals", {})
+    if isinstance(payload["trace_signals"], dict):
+        payload["trace_signals"]["ingress_compression"] = compressed.model_dump(mode="json")
+    return payload
+
+
+def _memory_ingress_compression_rate(domain: str) -> float:
+    return {
+        "rag": 0.75,
+        "search": 0.75,
+        "grounding": 0.65,
+        "tool": 0.60,
+        "code": 0.45,
+        "chat": 0.50,
+    }.get(domain, 0.60)
+
+
+def _memory_ingress_sidecar(domain: str, terms: list[str], *, max_terms: int = 40) -> str:
+    chunks = []
+    for start in range(0, len(terms), max_terms):
+        chunks.append(f"{domain}_exact_index " + " ".join(terms[start : start + max_terms]))
+    return "\n".join(chunks)
+
+
 async def handler(job: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(job, dict):
         return _service_error_payload(
@@ -1162,11 +1385,15 @@ async def handler(job: dict[str, Any]) -> dict[str, Any]:
         "redaction",
     }:
         return await _handle_compliance_redaction(input_data)
+    if action in {"compress", "compression"} or endpoint_id == "compression":
+        return await _handle_compression(input_data)
+    if action in {"memory.update", "memory_update"} or endpoint_id == "memory":
+        return await _handle_memory_update(input_data)
     if action not in {"score", ""}:
         return _service_error_payload(
             f"Unknown action: {action}",
             error_code="invalid_action",
-            hint="Set action to 'score' (default), 'rollup', or 'redact'.",
+            hint="Set action to 'score' (default), 'rollup', 'redact', 'compress', or 'memory.update'.",
             status_code=400,
         )
 

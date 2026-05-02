@@ -82,6 +82,7 @@ packages = [
   "latence_trace.core.code_lane",
   "latence_trace.data",
   "latence_trace.kernels",
+  "latence_trace.memory",
   "latence_trace.mcp",
   "latence_trace.middleware",
   "latence_trace.observability",

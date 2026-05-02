@@ -26,6 +26,9 @@ variable always wins (the loader never overwrites an explicit override).
 
 from __future__ import annotations
 
+import asyncio
+import contextvars
+import json
 import logging
 import os
 import threading
@@ -36,6 +39,8 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import torch
 
+from latence_trace.api.compression_models import CompressionRequest
+from latence_trace.api.compression_service import CompressionService
 from latence_trace.api.models import (
     AmberEscalationDiagnostics,
     AttributionMode,
@@ -121,9 +126,9 @@ from latence_trace.core.nli import (
 from latence_trace.core.thresholds import RiskBandPolicy, load_risk_band_policy
 from latence_trace.core.runtime_decision import build_runtime_decision
 from latence_trace.core.runtime_feature_synthesizer import synthesize_runtime_features
-
-import contextvars
-
+from latence_trace.memory.models import MemoryPolicy, MemoryUpdateRequest
+from latence_trace.memory.service import update_memory
+from latence_trace.memory.signature import extract_exact_critical_terms
 from latence_trace.middleware import corpus_router as _corpus_router_middleware
 
 logger = logging.getLogger(__name__)
@@ -199,6 +204,60 @@ def _env_int(name: str, default: int) -> int:
         return int(raw)
     except ValueError:
         return default
+
+
+def _memory_compression_rate(domain: str) -> float:
+    defaults = {
+        "rag": 0.75,
+        "search": 0.75,
+        "grounding": 0.65,
+        "tool": 0.60,
+        "code": 0.45,
+        "chat": 0.50,
+    }
+    env_name = f"LATENCE_TRACE_MEMORY_{domain.upper()}_COMPRESSION_RATE"
+    raw = os.environ.get(env_name)
+    if raw:
+        try:
+            return max(0.0, min(1.0, float(raw)))
+        except ValueError:
+            pass
+    return defaults.get(domain, 0.60)
+
+
+def _memory_force_tokens(text: str, domain: str) -> list[str]:
+    max_terms = _env_int("LATENCE_TRACE_MEMORY_FORCE_TOKEN_LIMIT", 160)
+    return extract_exact_critical_terms(text, domain=domain)[:max_terms]
+
+
+def _memory_exact_sidecar(domain: str, terms: list[str], *, max_terms: int = 40) -> str:
+    if not terms:
+        return ""
+    prefix = f"{domain}_exact_index"
+    chunks = []
+    for start in range(0, len(terms), max_terms):
+        chunks.append(prefix + " " + " ".join(terms[start : start + max_terms]))
+    return "\n".join(chunks)
+
+
+def _memory_ranker_weights_from_env() -> dict[str, float] | None:
+    raw = os.environ.get("LATENCE_TRACE_MEMORY_RANKER_WEIGHTS_JSON", "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        logger.warning("trace_memory: invalid LATENCE_TRACE_MEMORY_RANKER_WEIGHTS_JSON")
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    weights: dict[str, float] = {}
+    for key, value in parsed.items():
+        try:
+            weights[str(key)] = float(value)
+        except (TypeError, ValueError):
+            continue
+    return weights or None
 
 
 def _env_float(name: str, default: float) -> float:
@@ -785,6 +844,7 @@ class GroundednessService:
         *,
         encoder_factory: Optional[Callable[[Optional[str]], Any]] = None,
         chunk_resolver: Optional[ChunkResolver] = None,
+        compression_service: CompressionService | None = None,
         device: str = "cpu",
         collection_label: str = "latence-trace",
     ) -> None:
@@ -792,6 +852,7 @@ class GroundednessService:
         self._chunk_resolver = chunk_resolver
         self.device = device
         self._collection_label = collection_label
+        self._compression_service = compression_service
         self._cached_groundedness_providers: Dict[str, Any] = {}
         self._cached_groundedness_null_banks: Dict[str, List[torch.Tensor]] = {}
         # PA3 hot-path optimization: cache the pre-normalized, pre-stacked
@@ -1172,7 +1233,109 @@ class GroundednessService:
                 response.runtime_decision = RuntimeDecisionRecord.model_validate(decision_record)
         except Exception as exc:  # pragma: no cover - decision layer must not fail scoring
             logger.warning("runtime_decision: failed to attach decision record: %r", exc)
+        self._maybe_attach_memory_shadow(request, response)
         return response
+
+    def _maybe_attach_memory_shadow(
+        self,
+        request: GroundednessRequest,
+        response: GroundednessResponse,
+    ) -> None:
+        if not (
+            request.enable_memory_shadow
+            or request.memory_state is not None
+            or request.memory_policy is not None
+        ):
+            return
+        try:
+            trace_response = response.model_dump(
+                mode="json",
+                include={
+                    "scores",
+                    "runtime_head_features",
+                    "runtime_decision",
+                    "session_signals",
+                    "code_lane_diagnostics",
+                    "file_attribution",
+                    "corpus_route",
+                },
+            )
+            memory_domain = self._memory_domain_for_request(request)
+            raw_context = self._memory_raw_context(request, memory_domain)
+            result = update_memory(
+                MemoryUpdateRequest(
+                    turn_text="\n".join(
+                        item
+                        for item in [
+                            request.query_text or "",
+                            request.response_text or "",
+                        ]
+                        if item
+                    ),
+                    query_text=request.query_text,
+                    response_text=request.response_text,
+                    raw_context=raw_context,
+                    prior_memory_state=request.memory_state,
+                    trace_response=trace_response,
+                    memory_policy=request.memory_policy or MemoryPolicy(),
+                    memory_domain=memory_domain,
+                    memory_ranker_weights=_memory_ranker_weights_from_env(),
+                )
+            )
+            response.next_memory_state = result.next_memory_state
+            response.hot_context_preview = result.hot_context
+            response.memory_diagnostics = result.diagnostics
+        except Exception as exc:  # pragma: no cover - memory must not fail scoring
+            logger.warning("trace_memory: failed to attach memory shadow: %r", exc)
+
+
+    @staticmethod
+    def _memory_domain_for_request(request: GroundednessRequest) -> str:
+        scoring_mode = str(getattr(request.scoring_mode, "value", request.scoring_mode) or "").lower()
+        if scoring_mode == "code":
+            return "code"
+        corpus_type = str(request.corpus_type or "").lower()
+        if corpus_type in {"chat", "tool", "grounding", "rag"}:
+            return corpus_type
+        if "tool" in corpus_type or "workflow" in corpus_type:
+            return "tool"
+        if "ground" in corpus_type or "truth" in corpus_type:
+            return "grounding"
+        return "rag"
+
+    def _memory_raw_context(self, request: GroundednessRequest, memory_domain: str) -> str | None:
+        raw_context = request.raw_context
+        if not raw_context:
+            return raw_context
+        compression_service = getattr(self, "_compression_service", None)
+        if compression_service is None:
+            return raw_context
+        min_tokens = _env_int("LATENCE_TRACE_MEMORY_INGRESS_COMPRESSION_MIN_TOKENS", 512)
+        if len(raw_context.split()) < min_tokens:
+            return raw_context
+        exact_terms = _memory_force_tokens(
+            "\n".join(
+                item
+                for item in [request.query_text or "", request.response_text or "", raw_context]
+                if item
+            ),
+            memory_domain,
+        )
+        compression_request = CompressionRequest(
+            text=raw_context,
+            compression_rate=_memory_compression_rate(memory_domain),
+            chunk_size=_env_int("LATENCE_TRACE_MEMORY_INGRESS_COMPRESSION_CHUNK_SIZE", 4096),
+            force_tokens=exact_terms,
+            preserve_exact=exact_terms,
+            force_preserve_digit=True,
+            fallback_mode=True,
+            apply_toon=memory_domain == "tool",
+        )
+        response = asyncio.run(compression_service.compress(compression_request))
+        if not response.compressed_text.strip():
+            return raw_context
+        sidecar = _memory_exact_sidecar(memory_domain, exact_terms)
+        return "\n".join(part for part in [sidecar, response.compressed_text] if part)
 
     def rollup(self, request: RollupRequest) -> RollupResponse:
         """Aggregate a sequence of per-turn records into session metrics.

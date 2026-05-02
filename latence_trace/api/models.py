@@ -11,6 +11,8 @@ from typing import Dict, List, Literal, Optional, Tuple, Union
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
+from latence_trace.memory.models import MemoryDiagnostics, MemoryPolicy, MemoryState
+
 
 class CollectionKind(str, Enum):
     """Collection kind tag retained on the response for compatibility.
@@ -470,6 +472,32 @@ class GroundednessRequest(BaseModel):
             "``next_session_state`` from the previous response on each "
             "subsequent turn. Omit on the first turn to initialise. "
             "Ignored by the RAG lane. See ``docs/session_semantics.md``."
+        ),
+    )
+    memory_state: Optional[MemoryState] = Field(
+        default=None,
+        description=(
+            "Optional caller-portable InfiniMem span state. Echo the previous "
+            "response's next_memory_state here to update memory in shadow mode."
+        ),
+    )
+    memory_policy: Optional[MemoryPolicy] = Field(
+        default=None,
+        description="Optional hot/warm/cold memory budgets and survival policy.",
+    )
+    enable_memory_shadow: bool = Field(
+        default=False,
+        description=(
+            "When true, update InfiniMem in shadow mode and return "
+            "next_memory_state, hot_context_preview, and diagnostics. "
+            "Default scoring inputs remain unchanged."
+        ),
+    )
+    apply_memory_context: bool = Field(
+        default=False,
+        description=(
+            "Reserved opt-in for future production coupling. V1 does not rewrite "
+            "raw_context during scoring even when this is true."
         ),
     )
 
@@ -1762,6 +1790,18 @@ class GroundednessResponse(BaseModel):
             "advisory — every per-turn metric remains available in "
             "``scores`` and ``code_lane_diagnostics``."
         ),
+    )
+    next_memory_state: Optional[MemoryState] = Field(
+        default=None,
+        description="Updated caller-carried InfiniMem state when memory shadow mode is enabled.",
+    )
+    hot_context_preview: Optional[str] = Field(
+        default=None,
+        description="Budgeted hot memory context preview. Never applied to scoring by default.",
+    )
+    memory_diagnostics: Optional[MemoryDiagnostics] = Field(
+        default=None,
+        description="Explainable span survival, dedup, demotion, and budget diagnostics.",
     )
 
 
