@@ -161,10 +161,14 @@ class WorkerConfig:
 
 def create_config() -> WorkerConfig:
     profile = (
-        os.environ.get("LATENCE_TRACE_PROFILE")
-        or os.environ.get("LATENCE_TRACE_ACTIVE_PROFILE")
-        or "quality"
-    ).strip().lower()
+        (
+            os.environ.get("LATENCE_TRACE_PROFILE")
+            or os.environ.get("LATENCE_TRACE_ACTIVE_PROFILE")
+            or "quality"
+        )
+        .strip()
+        .lower()
+    )
     colbert_model = os.environ.get("LATENCE_TRACE_COLBERT_MODEL", "lightonai/LateOn")
     nli_model = os.environ.get(
         "LATENCE_TRACE_NLI_MODEL",
@@ -183,14 +187,10 @@ def create_config() -> WorkerConfig:
         request_timeout_s=_env_int("LATENCE_TRACE_RUNPOD_REQUEST_TIMEOUT", 120),
         # Per-lane timeout: code lane ships a tight 150ms p95 SLO; a 2s
         # ceiling protects the tail while still catching hung requests.
-        code_request_timeout_s=_env_float(
-            "LATENCE_TRACE_CODE_REQUEST_TIMEOUT_S", 2.0
-        ),
+        code_request_timeout_s=_env_float("LATENCE_TRACE_CODE_REQUEST_TIMEOUT_S", 2.0),
         # CPU-only stateless aggregation; sub-ms typical, 250ms
         # ceiling is plenty for 1000+ turn sessions.
-        rollup_request_timeout_s=_env_float(
-            "LATENCE_TRACE_ROLLUP_REQUEST_TIMEOUT_S", 0.25
-        ),
+        rollup_request_timeout_s=_env_float("LATENCE_TRACE_ROLLUP_REQUEST_TIMEOUT_S", 0.25),
         max_concurrency=64,
         collection_label=os.environ.get("LATENCE_TRACE_COLLECTION_LABEL", "latence-trace"),
         service_device=os.environ.get("LATENCE_TRACE_SERVICE_DEVICE", _detect_device()),
@@ -212,17 +212,13 @@ def create_config() -> WorkerConfig:
         compliance_gpu_mem=_env_float("LATENCE_TRACE_COMPLIANCE_GLINER_GPU_MEM", 0.18),
         compliance_max_model_len=_env_int("LATENCE_TRACE_COMPLIANCE_MAX_MODEL_LEN", 768),
         compliance_max_num_seqs=_env_int("LATENCE_TRACE_COMPLIANCE_MAX_NUM_SEQS", 128),
-        compliance_max_batched_tokens=_env_int(
-            "LATENCE_TRACE_COMPLIANCE_MAX_BATCHED_TOKENS", 8192
-        ),
+        compliance_max_batched_tokens=_env_int("LATENCE_TRACE_COMPLIANCE_MAX_BATCHED_TOKENS", 8192),
         compliance_threshold=_env_float("LATENCE_TRACE_COMPLIANCE_THRESHOLD", 0.5),
         compliance_dataset_path=os.environ.get(
             "LATENCE_TRACE_COMPLIANCE_DATASET_PATH",
             "doubledsbv/pii-replacement-dataset",
         ),
-        compliance_request_timeout_s=_env_float(
-            "LATENCE_TRACE_COMPLIANCE_REQUEST_TIMEOUT_S", 30.0
-        ),
+        compliance_request_timeout_s=_env_float("LATENCE_TRACE_COMPLIANCE_REQUEST_TIMEOUT_S", 30.0),
     )
 
 
@@ -334,8 +330,12 @@ def _build_startup_warmup_requests() -> list[GroundednessRequest]:
     )
     requests: list[GroundednessRequest] = []
     for prefix, context_count, response_count in shapes:
-        context_sentences = [_make_startup_sentence(prefix, idx) for idx in range(1, context_count + 1)]
-        response_sentences = [_make_startup_sentence(prefix, idx) for idx in range(1, response_count + 1)]
+        context_sentences = [
+            _make_startup_sentence(prefix, idx) for idx in range(1, context_count + 1)
+        ]
+        response_sentences = [
+            _make_startup_sentence(prefix, idx) for idx in range(1, response_count + 1)
+        ]
         requests.append(
             GroundednessRequest(
                 query_text=query_text,
@@ -379,11 +379,8 @@ def _ensure_kernel_warmup(profile: str) -> None:
     code_result = warm_code_lane()
     if not code_result.ok:
         raise RuntimeError(
-            "Code-lane warmup failed on {device}: {error} (details={details})".format(
-                device=code_result.device,
-                error=code_result.error,
-                details=code_result.details,
-            )
+            f"Code-lane warmup failed on {code_result.device}: "
+            f"{code_result.error} (details={code_result.details})"
         )
 
 
@@ -477,6 +474,7 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
             max_model_len=config.compliance_max_model_len,
             max_num_seqs=config.compliance_max_num_seqs,
             max_num_batched_tokens=config.compliance_max_batched_tokens,
+            plugins=["deberta_gliner", "deberta_gliner_io"],
             enforce_eager=False,
         ),
     }
@@ -598,15 +596,13 @@ def _code_lane_health() -> dict[str, Any]:
     }
     try:
         from latence_trace.core.code_lane.ast_grounding import (
-            AstSymbolExtractor,
             SUPPORTED_LANGUAGES,
+            AstSymbolExtractor,
         )
         from latence_trace.kernels.warmup import warmup_state
 
         payload["required_grammars"] = sorted(SUPPORTED_LANGUAGES)
-        payload["parser_backend"] = AstSymbolExtractor(
-            enabled=True
-        ).parser_backend
+        payload["parser_backend"] = AstSymbolExtractor(enabled=True).parser_backend
         payload["loaded_grammars"] = AstSymbolExtractor.available_languages()
         code_result = warmup_state().get("code_lane")
         if code_result is not None:
@@ -691,7 +687,9 @@ def _build_request(input_data: dict[str, Any]) -> tuple[GroundednessRequest, boo
 
 def _compact_response(response: GroundednessResponse, *, verbose: bool) -> dict[str, Any]:
     scores = response.scores
-    primary_metric = "groundedness_v2" if scores.groundedness_v2 is not None else scores.primary_name
+    primary_metric = (
+        "groundedness_v2" if scores.groundedness_v2 is not None else scores.primary_name
+    )
     score = scores.groundedness_v2 if scores.groundedness_v2 is not None else scores.primary_score
     result: dict[str, Any] = {
         "success": True,
@@ -780,22 +778,16 @@ def _compact_response(response: GroundednessResponse, *, verbose: bool) -> dict[
                 "literal_novelty": (
                     diag.literal_novelty.model_dump() if diag.literal_novelty else None
                 ),
-                "nli_cascade": (
-                    diag.nli_cascade.model_dump() if diag.nli_cascade else None
-                ),
+                "nli_cascade": (diag.nli_cascade.model_dump() if diag.nli_cascade else None),
                 "composite": diag.composite.model_dump() if diag.composite else None,
             }
         # Opt-in caller-portable session blob + derived signals. The
         # client is expected to round-trip ``next_session_state`` verbatim
         # on the next turn; ``session_signals`` is advisory.
         if response.next_session_state is not None:
-            result["next_session_state"] = response.next_session_state.model_dump(
-                mode="json"
-            )
+            result["next_session_state"] = response.next_session_state.model_dump(mode="json")
         if response.session_signals is not None:
-            result["session_signals"] = response.session_signals.model_dump(
-                mode="json"
-            )
+            result["session_signals"] = response.session_signals.model_dump(mode="json")
     # Lane-neutral file attribution — populated for both RAG and code
     # lanes so downstream dashboards have one canonical field to read
     # from regardless of ``scoring_mode``.
@@ -888,6 +880,7 @@ def _log_turn_event(
     turn events client-side; callers must supply a hashed token rather
     than a raw user identifier (documented on the request model).
     """
+    _ = request
     diag = response.code_lane_diagnostics
     scores = response.scores
     component = dict((diag.component_latency_ms if diag else {}) or {})
@@ -925,28 +918,18 @@ def _log_turn_event(
             "risk_band": scores.risk_band,
             "session_total_turns": (signals.total_turns if signals else None),
             "session_drift_z": (signals.drift_z_score if signals else None),
-            "session_ema_groundedness": (
-                signals.ema_groundedness if signals else None
-            ),
-            "session_cascade_density": (
-                signals.cascade_density if signals else None
-            ),
+            "session_ema_groundedness": (signals.ema_groundedness if signals else None),
+            "session_cascade_density": (signals.cascade_density if signals else None),
             "session_phantom_rate": (signals.phantom_rate if signals else None),
             "session_red_streak": (signals.red_streak if signals else None),
-            "session_recommendation": (
-                signals.recommendation if signals else None
-            ),
+            "session_recommendation": (signals.recommendation if signals else None),
         },
     )
     # Loud WARNING when a code-lane request landed on the regex
     # fallback for a language tree-sitter was supposed to cover. This
     # must never fire in production — if it does, grammars are not
     # installed and the AST drift signal has degraded in quality.
-    if (
-        lane == "code"
-        and ast_parser_backend is not None
-        and ast_parser_backend != "tree_sitter"
-    ):
+    if lane == "code" and ast_parser_backend is not None and ast_parser_backend != "tree_sitter":
         logger.warning(
             "ast_regex_fallback_on_supported_lang",
             extra={
@@ -963,9 +946,7 @@ def _log_turn_event(
         if cascade_fired:
             CASCADE_FIRE_COUNT.labels(lane=lane).inc()
         if phantom_verdict is not None:
-            PHANTOM_VERDICT_COUNT.labels(
-                verdict="true" if phantom_verdict else "false"
-            ).inc()
+            PHANTOM_VERDICT_COUNT.labels(verdict="true" if phantom_verdict else "false").inc()
     except Exception:  # pragma: no cover - metrics must never fail a turn
         logger.exception("groundedness_turn_metrics_failed")
 
@@ -1044,13 +1025,12 @@ async def _handle_rollup(input_data: dict[str, Any]) -> dict[str, Any]:
             error_code="service_error",
             status_code=500,
         )
-    result = {
+    return {
         "success": True,
         "action": "rollup",
         "rollup": response.model_dump(mode="json"),
         "version": config.version if config else __version__,
     }
-    return result
 
 
 def _build_compliance_request(input_data: dict[str, Any]) -> ComplianceRedactionRequest:
@@ -1230,9 +1210,7 @@ async def handler(job: dict[str, Any]) -> dict[str, Any]:
         # RAG stays on the long-running timeout so document-heavy
         # requests still fit.
         effective_timeout = (
-            config.code_request_timeout_s
-            if lane == ScoringMode.CODE
-            else config.request_timeout_s
+            config.code_request_timeout_s if lane == ScoringMode.CODE else config.request_timeout_s
         )
         async with semaphore:
             loop = asyncio.get_running_loop()
@@ -1242,32 +1220,22 @@ async def handler(job: dict[str, Any]) -> dict[str, Any]:
             )
             duration_ms = (time.perf_counter() - started) * 1000.0
             try:
-                _log_turn_event(
-                    request=request, response=response, duration_ms=duration_ms
-                )
+                _log_turn_event(request=request, response=response, duration_ms=duration_ms)
             except Exception:  # pragma: no cover - logging must never fail a turn
                 logger.exception("groundedness_turn_log_failed")
             compact = _compact_response(response, verbose=verbose)
             try:
-                _emit_audit_record(
-                    input_data=input_data, response=compact, request=request
-                )
+                _emit_audit_record(input_data=input_data, response=compact, request=request)
             except Exception:  # pragma: no cover - audit log must never fail a turn
                 logger.exception("audit_log_emit_failed")
             return compact
     except asyncio.TimeoutError:
         if lane == ScoringMode.CODE:
             timeout_value = _config.code_request_timeout_s if _config else 2.0
-            hint = (
-                "Retry with a smaller request or increase "
-                "LATENCE_TRACE_CODE_REQUEST_TIMEOUT_S."
-            )
+            hint = "Retry with a smaller request or increase LATENCE_TRACE_CODE_REQUEST_TIMEOUT_S."
         else:
             timeout_value = _config.request_timeout_s if _config else 120
-            hint = (
-                "Retry with a smaller request or increase "
-                "LATENCE_TRACE_RUNPOD_REQUEST_TIMEOUT."
-            )
+            hint = "Retry with a smaller request or increase LATENCE_TRACE_RUNPOD_REQUEST_TIMEOUT."
         return _service_error_payload(
             f"Job exceeded {timeout_value}s execution timeout",
             error_code="job_timeout",

@@ -29,6 +29,11 @@ RUN python -m pip install --upgrade pip setuptools wheel
 # Runtime helpers that latence-trace's pyproject does not pull in.
 RUN python -m pip install "runpod>=1.7.0" "hf_transfer>=0.1.4"
 
+# Compliance redaction runtime deps. vllm-factory exposes GLiNER support as
+# an optional extra and is installed below with --no-deps, so these must be
+# present explicitly in the RunPod image.
+RUN python -m pip install "gliner>=0.2.26" "datasets>=2.14"
+
 # Overlay a wheel install so pip does not try to uninstall Debian's cryptography.
 RUN python -m pip install --ignore-installed "cryptography>=42.0"
 
@@ -84,10 +89,13 @@ else:
     import vllm._C  # noqa: F401
 
 io_plugins = {ep.name for ep in entry_points(group="vllm.io_processor_plugins")}
-required = {"moderncolbert_batched_io", "nli_mdeberta"}
+required = {"moderncolbert_batched_io", "nli_mdeberta", "deberta_gliner_io"}
 missing = required - io_plugins
 if missing:
     raise SystemExit(f"missing vllm io_processor_plugins entry points: {sorted(missing)}")
+
+from gliner import GLiNER  # noqa: F401
+from gliner.data_processing.collator import TokenDataCollator  # noqa: F401
 
 # Tree-sitter parity check. The code lane MUST ship with every grammar
 # preinstalled so there is no silent regex fallback in production.

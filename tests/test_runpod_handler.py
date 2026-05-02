@@ -6,6 +6,7 @@ import os
 import sys
 import threading
 import time
+from contextlib import suppress
 from pathlib import Path
 
 from latence_trace.api.compliance_models import (
@@ -40,9 +41,7 @@ if str(_RUNPOD_DIR) not in sys.path:
 
 _REAL_SERVER_MODULE = sys.modules.pop("server", None)
 _RUNPOD_SERVER_BACKUP_KEYS = {
-    name
-    for name in list(sys.modules.keys())
-    if name == "server" or name.startswith("server.")
+    name for name in list(sys.modules.keys()) if name == "server" or name.startswith("server.")
 }
 
 _SPEC = importlib.util.spec_from_file_location(
@@ -63,15 +62,15 @@ _runpod_server_module = sys.modules.pop("server", None)
 if _runpod_server_module is not None:
     sys.modules["latence_trace_runpod_vllm_server"] = _runpod_server_module
 for _name in list(sys.modules.keys()):
-    if (_name == "server" or _name.startswith("server.")) and _name not in _RUNPOD_SERVER_BACKUP_KEYS:
+    if (
+        _name == "server" or _name.startswith("server.")
+    ) and _name not in _RUNPOD_SERVER_BACKUP_KEYS:
         del sys.modules[_name]
 if _REAL_SERVER_MODULE is not None:
     sys.modules["server"] = _REAL_SERVER_MODULE
 if _RUNPOD_PATH_INSERTED:
-    try:
+    with suppress(ValueError):
         sys.path.remove(str(_RUNPOD_DIR))
-    except ValueError:
-        pass
 
 
 class _SlowService:
@@ -263,7 +262,7 @@ def test_build_servers_pin_requested_vllm_settings() -> None:
     assert servers["nli"].enforce_eager is False
     assert servers["compliance_gliner"].model == "knowledgator/gliner-pii-large-v1.0"
     assert servers["compliance_gliner"].io_processor_plugin == "deberta_gliner_io"
-    assert servers["compliance_gliner"].plugins == []
+    assert servers["compliance_gliner"].plugins == ["deberta_gliner", "deberta_gliner_io"]
     assert servers["compliance_gliner"].max_model_len == 768
 
 
@@ -297,9 +296,7 @@ def test_initialize_exports_handler_concurrency_to_internal_vllm_clients(monkeyp
         lambda _config: {
             "colbert": _FakeServer("colbert", "http://127.0.0.1:18001"),
             "nli": _FakeServer("nli", "http://127.0.0.1:18002"),
-            "compliance_gliner": _FakeServer(
-                "compliance_gliner", "http://127.0.0.1:18003"
-            ),
+            "compliance_gliner": _FakeServer("compliance_gliner", "http://127.0.0.1:18003"),
         },
     )
     monkeypatch.setattr(runpod_handler, "GroundednessService", _FakeGroundednessService)
@@ -722,9 +719,7 @@ async def _mixed_lane_burst(total: int) -> list[dict]:
             lane_payload["scoring_mode"] = "rag"
             lane_payload["session_id"] = f"sess-{idx}"
         payloads.append({"input": lane_payload})
-    return await asyncio.gather(
-        *(runpod_handler.handler(payload) for payload in payloads)
-    )
+    return await asyncio.gather(*(runpod_handler.handler(payload) for payload in payloads))
 
 
 def test_runpod_handler_stress_32_mixed_lanes(monkeypatch) -> None:
@@ -756,9 +751,13 @@ def test_runpod_handler_stress_32_mixed_lanes(monkeypatch) -> None:
         # Each lane's budget is ceil(16/2) = 8, so the absolute ceiling
         # a single lane can reach is 8 — guards against the regression
         # where a shared semaphore lets one lane starve the other.
-        assert service.peak_inflight <= max(
-            runpod_handler._lane_budget(config, runpod_handler.ScoringMode.RAG),
-            runpod_handler._lane_budget(config, runpod_handler.ScoringMode.CODE),
-        ) * 2
+        assert (
+            service.peak_inflight
+            <= max(
+                runpod_handler._lane_budget(config, runpod_handler.ScoringMode.RAG),
+                runpod_handler._lane_budget(config, runpod_handler.ScoringMode.CODE),
+            )
+            * 2
+        )
     finally:
         runpod_handler.shutdown()
