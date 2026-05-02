@@ -11,13 +11,18 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from latence_trace.api.compliance_models import ComplianceRedactionRequest
+from latence_trace.api.compliance_models import (
+    ComplianceRedactionRequest,
+    compliance_schema_metadata,
+)
 from latence_trace.api.compliance_routes import create_compliance_router
 from latence_trace.api.compliance_service import ComplianceRedactionService
 from latence_trace.compliance.labels import (
     GDPR_CATEGORIES,
     all_gdpr_labels,
+    model_label_alias,
     resolve_label_set,
+    to_model_label_set,
 )
 from server.main import create_app
 
@@ -44,6 +49,7 @@ class _RegexProvider:
     def __init__(self, *, sleep_ms: int = 0) -> None:
         self.sleep_ms = sleep_ms
         self.calls = 0
+        self.seen_labels: list[list[str]] = []
         self.inflight = 0
         self.peak_inflight = 0
         self._lock = threading.Lock()
@@ -51,6 +57,7 @@ class _RegexProvider:
     def detect(self, *, text: str, labels, threshold=0.5, flat_ner=True, multi_label=False):
         with self._lock:
             self.calls += 1
+            self.seen_labels.append(list(labels))
             self.inflight += 1
             self.peak_inflight = max(self.peak_inflight, self.inflight)
         try:
@@ -58,6 +65,7 @@ class _RegexProvider:
                 time.sleep(self.sleep_ms / 1000.0)
             entities = []
             for label, pattern in {
+                "name": r"\b(?:Jane Doe|Maria Schmidt|Alice Johnson)\b",
                 "email": r"\b\S+@\S+\.\S+\b",
                 "employee_id": r"\bEMP-\d+\b",
                 "phone_number": r"\b555-\d{4}\b",
@@ -114,14 +122,55 @@ def test_gdpr_label_catalog_is_ordered_and_category_resolution_is_stable():
     assert labels[:3] == ["person", "date_of_birth", "age"]
     assert len(labels) == len(set(labels))
     assert resolve_label_set(mode="open") == labels
-    assert resolve_label_set(mode="category", categories=["financial"]) == GDPR_CATEGORIES[
-        "financial"
-    ]
+    assert (
+        resolve_label_set(mode="category", categories=["financial"]) == GDPR_CATEGORIES["financial"]
+    )
     assert resolve_label_set(
         mode="category",
         categories=["financial"],
         labels=["email", "employee_id"],
     ) == ["email", "employee_id"]
+    assert model_label_alias("person") == "name"
+    assert model_label_alias("social_security_number") == "ssn"
+    assert model_label_alias("unknown") == "unknown"
+    model_labels, reverse = to_model_label_set(["person", "email"])
+    assert model_labels == ["name", "email"]
+    assert reverse == {"name": "person", "email": "email"}
+
+
+def test_compliance_schema_surfaces_model_alias_metadata():
+    schema = compliance_schema_metadata()
+
+    assert schema["labels"] == all_gdpr_labels()
+    assert schema["model_label_aliases"]["person"]["model_label"] == "name"
+    assert schema["model_label_aliases"]["person"]["single_label_benchmark_f1"] == 1.0
+
+
+def test_compliance_service_uses_model_aliases_but_returns_canonical_labels():
+    provider = _RegexProvider()
+    service = _service(provider)
+
+    response = service.redact(
+        ComplianceRedactionRequest(
+            text="Patient Maria Schmidt uses email maria@example.de.",
+            mode="category",
+            labels=["person", "email"],
+            redact=True,
+            redaction_mode="mask",
+            include_original_text=False,
+        )
+    )
+
+    assert provider.seen_labels == [["name", "email"]]
+    assert response.labels_used == ["person", "email"]
+    assert response.unique_labels == ["email", "person"]
+    assert response.original_text is None
+    assert response.redacted_text == "Patient [PERSON] uses email [EMAIL]."
+    assert [(entity.text, entity.label) for entity in response.entities] == [
+        ("Maria Schmidt", "person"),
+        ("maria@example.de", "email"),
+    ]
+    assert response.entities[0].metadata == {"model_label": "name"}
 
 
 def test_compliance_service_redacts_and_applies_sanity_checks():
@@ -148,9 +197,7 @@ def test_custom_regex_override_wins_overlap_dedupe():
         ComplianceRedactionRequest(
             text="Employee EMP-123 joined.",
             labels=["employee_id"],
-            custom_labels=[
-                {"label_name": "custom.employee_number", "extractor": r"EMP-\d+"}
-            ],
+            custom_labels=[{"label_name": "custom.employee_number", "extractor": r"EMP-\d+"}],
         )
     )
 
@@ -308,10 +355,7 @@ def test_vllm_endpoint_parallel_requests_match_native_gliner():
                 },
             }
             responses = await asyncio.gather(
-                *[
-                    client.post(f"{endpoint}/pooling", json=payload)
-                    for _ in range(8)
-                ]
+                *[client.post(f"{endpoint}/pooling", json=payload) for _ in range(8)]
             )
         triples = []
         for response in responses:

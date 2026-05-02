@@ -18,7 +18,11 @@ from latence_trace.compliance.custom_regex import (
     extract_custom_entities,
     validate_custom_configs,
 )
-from latence_trace.compliance.labels import resolve_label_set
+from latence_trace.compliance.labels import (
+    canonicalize_model_label,
+    resolve_label_set,
+    to_model_label_set,
+)
 from latence_trace.compliance.redaction import ComplianceRedactionEngine
 from latence_trace.compliance.validators import apply_sanity_checks
 from latence_trace.providers.gliner import VllmFactoryDebertaGlinerProvider
@@ -106,6 +110,7 @@ class ComplianceRedactionService:
         text: str,
         chunk: TextChunk,
         entities: list[dict[str, Any]],
+        alias_to_canonical: dict[str, str] | None = None,
     ) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
         for entity in entities:
@@ -118,6 +123,14 @@ class ComplianceRedactionService:
             updated["start"] = start
             updated["end"] = end
             updated["text"] = text[start:end]
+            if alias_to_canonical:
+                model_label = str(updated.get("label", ""))
+                canonical_label = canonicalize_model_label(model_label, alias_to_canonical)
+                updated["label"] = canonical_label
+                if canonical_label != model_label:
+                    metadata = dict(updated.get("metadata") or {})
+                    metadata["model_label"] = model_label
+                    updated["metadata"] = metadata
             updated["source"] = updated.get("source") or "model"
             updated["score"] = float(updated.get("score", 0.0))
             out.append(updated)
@@ -183,13 +196,14 @@ class ComplianceRedactionService:
 
         labels_started = time.perf_counter()
         try:
-            labels = resolve_label_set(
+            canonical_labels = resolve_label_set(
                 mode=request.mode,
                 categories=request.categories,
                 labels=request.labels,
             )
         except ValueError as exc:
             raise ComplianceValidationError(str(exc)) from exc
+        model_labels, alias_to_canonical = to_model_label_set(canonical_labels)
         timings["label_resolution_ms"] = (time.perf_counter() - labels_started) * 1000.0
 
         chunk_started = time.perf_counter()
@@ -206,13 +220,20 @@ class ComplianceRedactionService:
             thread_name_prefix="latence-compliance-chunk",
         ) as pool:
             futures = [
-                pool.submit(self._detect_chunk, chunk, labels=labels, request=request)
+                pool.submit(self._detect_chunk, chunk, labels=model_labels, request=request)
                 for chunk in chunks
             ]
             for future in futures:
                 chunk, entities, elapsed_ms = future.result()
                 chunk_latencies.append(elapsed_ms)
-                model_entities.extend(self._offset_entities(request.text, chunk, entities))
+                model_entities.extend(
+                    self._offset_entities(
+                        request.text,
+                        chunk,
+                        entities,
+                        alias_to_canonical,
+                    )
+                )
         timings["vllm_request_ms"] = (time.perf_counter() - infer_started) * 1000.0
         timings["max_chunk_vllm_ms"] = max(chunk_latencies) if chunk_latencies else 0.0
 
@@ -258,14 +279,14 @@ class ComplianceRedactionService:
             unique_labels=unique_labels,
             redacted_text=redacted_text,
             chunks_processed=len(chunks),
-            labels_used=labels,
+            labels_used=canonical_labels,
             label_mode=request.mode,
             selected_categories=request.categories,
             processing_time_ms=round(processing_time_ms, 2),
             timings_ms={key: round(value, 2) for key, value in timings.items()},
             usage=ComplianceUsage(
                 chunks_processed=len(chunks),
-                labels_used=len(labels),
+                labels_used=len(canonical_labels),
                 entity_count=len(response_entities),
                 unique_labels=unique_labels,
                 redaction_mode=request.redaction_mode if request.redact else None,

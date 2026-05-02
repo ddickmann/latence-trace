@@ -27,6 +27,12 @@ regex overrides, and mask/replacement redaction. Portal insights store only
 privacy-safe aggregate metadata: entity counts, label counts, chunk counts,
 redaction mode, latency, and error rates.
 
+Compliance requests and responses use stable canonical GDPR labels. The runtime
+translates those labels to benchmarked GLiNER-facing aliases only at inference
+time, then maps predictions back before redaction and analytics. This keeps the
+public API stable while improving recall for labels such as `person`, which is
+sent to GLiNER as `name`.
+
 The RAG lane remains untouched — same models, same thresholds, bitwise
 parity guaranteed by
 [`tests/api/test_rag_lane_parity.py`](tests/api/test_rag_lane_parity.py).

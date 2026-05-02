@@ -168,6 +168,13 @@ def _extract_response(target: CanaryTarget, raw: dict[str, Any]) -> dict[str, An
     if target.name == "runpod":
         output = raw.get("output")
         if isinstance(output, dict):
+            result = output.get("result")
+            if isinstance(result, dict):
+                return {
+                    **result,
+                    "_runpod_status": raw.get("status"),
+                    "_runpod_error": raw.get("error"),
+                }
             return {
                 **output,
                 "_runpod_status": raw.get("status"),

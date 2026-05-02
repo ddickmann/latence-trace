@@ -6,7 +6,11 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from latence_trace.compliance.labels import GDPR_CATEGORIES, all_gdpr_labels
+from latence_trace.compliance.labels import (
+    GDPR_CATEGORIES,
+    all_gdpr_labels,
+    model_alias_metadata,
+)
 
 
 class CustomLabelInput(BaseModel):
@@ -96,5 +100,6 @@ def compliance_schema_metadata() -> dict[str, Any]:
     return {
         "categories": GDPR_CATEGORIES,
         "labels": all_gdpr_labels(),
+        "model_label_aliases": model_alias_metadata(),
         "modes": ["open", "category"],
     }

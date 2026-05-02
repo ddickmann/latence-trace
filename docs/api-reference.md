@@ -53,8 +53,16 @@ only aggregate usage metadata such as entity count, label count, chunk count,
 redaction mode, and latency.
 
 `GET /v1/compliance/schema` returns the supported GDPR categories, full label
-catalog, and modes (`open` or `category`). Use `open` for broad PII sweeps and
-`category`/`labels` when the user wants a tighter allowlist.
+catalog, optimized model-label aliases, and modes (`open` or `category`). Use
+`open` for broad PII sweeps and `category`/`labels` when the user wants a
+tighter allowlist.
+
+Public requests and responses always use canonical GDPR labels such as
+`person`, `email`, `phone_number`, and `credit_card_number`. Internally, TRACE
+translates those labels to GLiNER-facing aliases discovered by native-model
+benchmarking, for example `person -> name`, `social_security_number -> ssn`,
+and `drivers_license -> driver's license number`. Predictions are mapped back
+to canonical labels before validation, redaction, billing, and insights.
 
 ---
 

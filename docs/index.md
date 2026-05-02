@@ -31,7 +31,7 @@ A running `latence-trace` server self-describes for AI agents and devs:
 |-----------------------------------|-------------------------------------------------------------------------------------------------------|
 | `GET /agent-help`                 | Canonical request shape, active/default/available profiles, full endpoint map                         |
 | `POST /v1/compliance/redact`      | PII detection, mask/replacement redaction, custom regex labels, and usage/timing metadata             |
-| `GET /v1/compliance/schema`       | Compliance label catalog, GDPR categories, and supported modes                                        |
+| `GET /v1/compliance/schema`       | Compliance label catalog, GDPR categories, optimized GLiNER aliases, and supported modes              |
 | `GET /.well-known/ai-plugin.json` | ChatGPT-style plugin descriptor for AI tool registries                                                |
 | `GET /openapi.json`               | OpenAPI 3.1 schema (with `operation_id: score_groundedness`)                                          |
 | `GET /docs`                       | Human-readable Swagger UI                                                                             |
