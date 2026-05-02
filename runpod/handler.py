@@ -477,7 +477,6 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
             max_model_len=config.compliance_max_model_len,
             max_num_seqs=config.compliance_max_num_seqs,
             max_num_batched_tokens=config.compliance_max_batched_tokens,
-            plugins=["deberta_gliner"],
             enforce_eager=False,
         ),
     }

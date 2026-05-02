@@ -263,7 +263,7 @@ def test_build_servers_pin_requested_vllm_settings() -> None:
     assert servers["nli"].enforce_eager is False
     assert servers["compliance_gliner"].model == "knowledgator/gliner-pii-large-v1.0"
     assert servers["compliance_gliner"].io_processor_plugin == "deberta_gliner_io"
-    assert servers["compliance_gliner"].plugins == ["deberta_gliner"]
+    assert servers["compliance_gliner"].plugins == []
     assert servers["compliance_gliner"].max_model_len == 768
 
 
