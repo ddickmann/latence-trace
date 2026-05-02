@@ -11,9 +11,10 @@ Implements:
   gateway forwards it base64-encoded in the
   `x-latence-tenant-thresholds` header; the Python scorer consumes
   it via `get_risk_band_policy_for_tenant`.
-- **B3** — Usage metering.  Every successful score writes a
+- **B3** — Usage metering.  Every successful score or compliance redaction writes a
   data-point to Analytics Engine and bumps a `usage` row per
-  `(tenant_id, month, band)`.  Monthly billing export is driven by
+  `(tenant_id, month, band)`. Compliance is metered under the `trace`
+  service with lane `compliance`. Monthly billing export is driven by
   the `billing_exports` table and the `scripts/export_usage.ts`
   Stripe exporter (see below).
 - **Rate limiting** — Durable Object token bucket keyed by
@@ -25,6 +26,17 @@ The gateway is payload-transparent for TRACE v2 runtime-head fields. Requests
 may include `runtime_head_features` or `trajectory_features`, and responses may
 include `runtime_decision`; the worker forwards those fields unchanged while it
 continues to meter by the returned band.
+
+Compliance routes are forwarded to the same TRACE origin:
+
+- `POST /v1/compliance/redact` — authenticated PII detection/redaction.
+- `GET /v1/compliance/schema` — authenticated label/category discovery.
+- `GET /v1/compliance/healthz` — authenticated readiness check.
+
+Gateway analytics for compliance must remain privacy-safe. Meter aggregate
+values only; never write request text, entity text, replacement values, or
+redacted output into logs, D1 rows, Analytics Engine blobs, or portal
+`usage_details`.
 
 ## Deployment
 
@@ -99,4 +111,9 @@ curl -H 'authorization: Bearer ltk_test_key' \
      -H 'content-type: application/json' \
      -d '{"question":"q","response":"r","context":[],"runtime_head_features":{"v1_score":0.99}}' \
      http://localhost:8787/v1/groundedness/score
+
+curl -H 'authorization: Bearer ltk_test_key' \
+     -H 'content-type: application/json' \
+     -d '{"text":"Contact jane@example.com","labels":["email"],"redact":true,"redaction_mode":"mask"}' \
+     http://localhost:8787/v1/compliance/redact
 ```

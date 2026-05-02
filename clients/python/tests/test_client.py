@@ -7,10 +7,10 @@ from typing import Any
 
 import httpx
 import pytest
-
 from latence_trace_client import (
     AsyncLatenceTraceClient,
     AttributionMode,
+    ComplianceRedactionMode,
     LatenceTraceAuthError,
     LatenceTraceClient,
     LatenceTraceRateLimited,
@@ -18,7 +18,6 @@ from latence_trace_client import (
     SupportUnit,
 )
 from latence_trace_client._transport import RetryPolicy
-
 
 SAMPLE_RESPONSE = {
     "risk_band": "green",
@@ -33,6 +32,38 @@ SAMPLE_RESPONSE = {
     ],
     "nli": [],
     "support_units": [],
+}
+
+SAMPLE_COMPLIANCE_RESPONSE = {
+    "success": True,
+    "original_text": None,
+    "entities": [
+        {
+            "start": 8,
+            "end": 24,
+            "text": "jane@example.com",
+            "label": "email",
+            "score": 0.99,
+            "source": "model",
+            "redacted_value": "[EMAIL]",
+            "redaction_mode": "mask",
+        }
+    ],
+    "entity_count": 1,
+    "unique_labels": ["email"],
+    "redacted_text": "Contact [EMAIL]",
+    "chunks_processed": 1,
+    "labels_used": ["email"],
+    "label_mode": "category",
+    "selected_categories": [],
+    "processing_time_ms": 12.3,
+    "timings_ms": {"vllm_request_ms": 10.1},
+    "usage": {
+        "chunks_processed": 1,
+        "labels_used": 1,
+        "mode": "category",
+        "categories": [],
+    },
 }
 
 
@@ -96,9 +127,8 @@ def test_client_429_with_retry_after_then_raises_after_max() -> None:
     with LatenceTraceClient(
         transport=_mock_transport(handler),
         retry_policy=RetryPolicy(max_retries=1, base_seconds=0.0, cap_seconds=0.01),
-    ) as client:
-        with pytest.raises(LatenceTraceRateLimited) as excinfo:
-            client.score_groundedness(response_text="x", raw_context=["y"])
+    ) as client, pytest.raises(LatenceTraceRateLimited) as excinfo:
+        client.score_groundedness(response_text="x", raw_context=["y"])
     assert excinfo.value.code == "rate_limited"
     assert excinfo.value.retry_after == 0.0
 
@@ -151,6 +181,28 @@ def test_client_supports_support_units_with_attribution() -> None:
         )
 
 
+def test_client_redact_compliance_round_trip() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/v1/compliance/redact"
+        body = json.loads(request.content)
+        assert body["text"] == "Contact jane@example.com"
+        assert body["labels"] == ["email"]
+        assert body["redaction_mode"] == "mask"
+        assert body["include_original_text"] is False
+        return httpx.Response(200, json=SAMPLE_COMPLIANCE_RESPONSE)
+
+    with LatenceTraceClient(transport=_mock_transport(handler)) as client:
+        result = client.redact_compliance(
+            text="Contact jane@example.com",
+            labels=["email"],
+            redaction_mode=ComplianceRedactionMode.MASK,
+        )
+
+    assert result.entity_count == 1
+    assert result.redacted_text == "Contact [EMAIL]"
+    assert result.entities[0].label == "email"
+
+
 def test_client_validation_error_is_caught_locally() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise AssertionError("server should never be called for client-side validation")
@@ -170,6 +222,21 @@ async def test_async_client_round_trip() -> None:
         result = await client.score_groundedness(response_text="x", raw_context=["y"])
     assert result.risk_band.value == "green"
     assert result.request_id == "rid"
+
+
+@pytest.mark.asyncio
+async def test_async_client_redact_compliance_round_trip() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/v1/compliance/redact"
+        return httpx.Response(200, json=SAMPLE_COMPLIANCE_RESPONSE)
+
+    async with AsyncLatenceTraceClient(transport=httpx.MockTransport(handler)) as client:
+        result = await client.redact_compliance(
+            text="Contact jane@example.com",
+            labels=["email"],
+        )
+
+    assert result.entity_count == 1
 
 
 @pytest.mark.asyncio

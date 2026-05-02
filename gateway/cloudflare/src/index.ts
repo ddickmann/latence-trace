@@ -4,7 +4,7 @@
  * Implements:
  *   B1: Tenant API key verification, rotation, revocation (KV + D1).
  *   B2: Per-tenant threshold routing header forwarding.
- *   B3: Usage metering per tenant+band via Analytics Engine + D1.
+ *   B3: Usage metering per tenant+band/lane via Analytics Engine + D1.
  *   C6: Remote MCP endpoint dispatch (SSE + streamable-HTTP).
  *   Rate limiting: Durable Object token bucket per tenant.
  *
@@ -32,6 +32,8 @@ interface TenantRow {
   monthly_quota: number;
   rotated_at?: string;
 }
+
+type TraceLane = "rag" | "code" | "rollup" | "compliance" | "other";
 
 async function sha256(text: string): Promise<string> {
   const buf = await crypto.subtle.digest(
@@ -105,12 +107,14 @@ async function enforceQuota(
 async function logUsage(
   tenant: TenantRow,
   env: Env,
-  band: string
+  band: string,
+  lane: TraceLane = "other",
+  statusCode = 200
 ): Promise<void> {
   const yearMonth = new Date().toISOString().slice(0, 7);
   env.ANALYTICS.writeDataPoint({
-    blobs: [tenant.tenant_id, tenant.plan, band],
-    doubles: [1],
+    blobs: [tenant.tenant_id, tenant.plan, band, "trace", lane],
+    doubles: [1, statusCode],
     indexes: [tenant.tenant_id],
   });
   await env.USAGE_DB.prepare(
@@ -123,40 +127,71 @@ async function logUsage(
     .run();
 }
 
-async function handleScore(req: Request, env: Env): Promise<Response> {
+function buildTraceHeaders(req: Request, env: Env, tenant: TenantRow): Headers {
+  const upstreamHeaders = new Headers(req.headers);
+  upstreamHeaders.set("authorization", `Bearer ${env.TRACE_ORIGIN_KEY}`);
+  upstreamHeaders.set("x-latence-tenant-id", tenant.tenant_id);
+  return upstreamHeaders;
+}
+
+function extractScoreBand(body: string): string {
+  try {
+    const parsed = JSON.parse(body);
+    return parsed?.trace?.band ?? parsed?.band ?? "unknown";
+  } catch (_) {
+    return "unknown";
+  }
+}
+
+function extractComplianceUsageBand(body: string): string {
+  try {
+    const parsed = JSON.parse(body);
+    if (parsed?.success === true) return "compliance";
+    return parsed?.detail?.code ?? parsed?.error?.code ?? "compliance_error";
+  } catch (_) {
+    return "compliance_unknown";
+  }
+}
+
+async function handleTraceRequest(
+  req: Request,
+  env: Env,
+  lane: TraceLane,
+  metered = true
+): Promise<Response> {
   const auth = await authenticate(req, env);
   if (auth instanceof Response) return auth;
   const { tenant } = auth;
   const rl = await enforceRateLimit(tenant, env);
   if (rl) return rl;
-  const qt = await enforceQuota(tenant, env);
-  if (qt) return qt;
-
-  // Per-tenant threshold header forwarding (B2).
-  const thresholdKey = await env.THRESHOLDS.get(`thresholds.${tenant.tenant_id}`);
-  const upstreamHeaders = new Headers(req.headers);
-  upstreamHeaders.set("authorization", `Bearer ${env.TRACE_ORIGIN_KEY}`);
-  upstreamHeaders.set("x-latence-tenant-id", tenant.tenant_id);
-  if (thresholdKey) {
-    upstreamHeaders.set(
-      "x-latence-tenant-thresholds",
-      btoa(thresholdKey)
-    );
+  if (metered) {
+    const qt = await enforceQuota(tenant, env);
+    if (qt) return qt;
   }
+
+  const upstreamHeaders = buildTraceHeaders(req, env, tenant);
+  if (lane === "rag" || lane === "code" || lane === "rollup") {
+    // Per-tenant threshold header forwarding (B2).
+    const thresholdKey = await env.THRESHOLDS.get(`thresholds.${tenant.tenant_id}`);
+    if (thresholdKey) {
+      upstreamHeaders.set(
+        "x-latence-tenant-thresholds",
+        btoa(thresholdKey)
+      );
+    }
+  }
+
   const upstream = await fetch(env.TRACE_ORIGIN + new URL(req.url).pathname, {
     method: req.method,
     headers: upstreamHeaders,
     body: req.body,
   });
   const body = await upstream.text();
-  let band: string = "unknown";
-  try {
-    const parsed = JSON.parse(body);
-    band = parsed?.trace?.band ?? parsed?.band ?? "unknown";
-  } catch (_) {
-    // non-JSON upstream response - don't break the gateway
+  const band =
+    lane === "compliance" ? extractComplianceUsageBand(body) : extractScoreBand(body);
+  if (metered) {
+    await logUsage(tenant, env, band, lane, upstream.status);
   }
-  await logUsage(tenant, env, band);
   return new Response(body, {
     status: upstream.status,
     headers: upstream.headers,
@@ -228,10 +263,23 @@ export default {
       return new Response("ok");
     }
     if (url.pathname === "/v1/groundedness/score" && req.method === "POST") {
-      return handleScore(req, env);
+      return handleTraceRequest(req, env, "rag");
     }
     if (url.pathname === "/v1/code/score" && req.method === "POST") {
-      return handleScore(req, env);
+      return handleTraceRequest(req, env, "code");
+    }
+    if (
+      url.pathname === "/v1/compliance/redact" &&
+      req.method === "POST"
+    ) {
+      return handleTraceRequest(req, env, "compliance");
+    }
+    if (
+      (url.pathname === "/v1/compliance/schema" ||
+        url.pathname === "/v1/compliance/healthz") &&
+      req.method === "GET"
+    ) {
+      return handleTraceRequest(req, env, "compliance", false);
     }
     if (url.pathname === "/v1/keys/rotate" && req.method === "POST") {
       return handleKeyRotate(req, env);

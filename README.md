@@ -1,16 +1,16 @@
 # latence-trace
 
-> Calibrated, auditable groundedness scoring for **enterprise RAG** and
-> **coding agents**. Two lanes, one sidecar, ~100 ms p95.
+> Enterprise AI compliance runtime for **real-time PII redaction** and
+> calibrated groundedness verification across **RAG** and **coding agents**.
 > **Multilingual: English + German out of the box.** Part of the
 > latence.ai product family.
 
-`latence-trace` is the standalone Groundedness Tracker extracted from
-the `voyager-index` retrieval engine. It scores how well an LLM response is
-grounded in its supplied context, returns auditable per-claim evidence, and
-classifies every output into a calibrated `green` / `amber` / `red` risk band.
+`latence-trace` is the Latence TRACE runtime. It scores how well an LLM
+response is grounded in supplied context, returns auditable per-claim evidence,
+classifies outputs into calibrated `green` / `amber` / `red` risk bands, and
+redacts PII in real time before prompts or responses leave a trust boundary.
 
-## Two lanes, one service
+## Verification + Compliance, One Service
 
 Pick the lane per request via `scoring_mode` in the `/groundedness` body.
 Shared encoder, shared kernels, shared observability — the domain-specific
@@ -20,6 +20,12 @@ signals fan out on the scoring path:
 | --- | --- | --- | --- |
 | **RAG** | `"rag"` (default) | Enterprises running retrieval-augmented LLM apps | *"Is this answer anchored in the retrieved context? Which chunks are dead weight?"* |
 | **Code** | `"code"` | Teams shipping coding agents (Claude Code, Cursor, Codex, OpenCode …) | *"Is the generated code grounded in the opened files? Did the agent drift? Which files in the context window are genuinely unused?"* |
+
+The compliance lane is exposed at `POST /v1/compliance/redact`. It uses
+GLiNER PII detection, token-aware chunking, deterministic validators, custom
+regex overrides, and mask/replacement redaction. Portal insights store only
+privacy-safe aggregate metadata: entity counts, label counts, chunk counts,
+redaction mode, latency, and error rates.
 
 The RAG lane remains untouched — same models, same thresholds, bitwise
 parity guaranteed by

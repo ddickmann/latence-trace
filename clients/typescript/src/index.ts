@@ -49,6 +49,69 @@ export interface ScoreResponse {
   [key: string]: unknown;
 }
 
+export type ComplianceLabelMode = "open" | "category";
+export type ComplianceRedactionMode = "mask" | "replace";
+
+export interface ComplianceCustomLabel {
+  label_name: string;
+  extractor: string;
+}
+
+export interface ComplianceRedactionRequest {
+  text: string;
+  mode?: ComplianceLabelMode;
+  categories?: string[];
+  labels?: string[];
+  threshold?: number;
+  redact?: boolean;
+  redactionMode?: ComplianceRedactionMode;
+  customLabels?: ComplianceCustomLabel[];
+  country?: string;
+  flatNer?: boolean;
+  multiLabel?: boolean;
+  includeOriginalText?: boolean;
+  tenantId?: string;
+  requestId?: string;
+}
+
+export interface ComplianceEntity {
+  start: number;
+  end: number;
+  text: string;
+  label: string;
+  score: number;
+  source: "model" | "custom_regex" | string;
+  redacted_value?: string | null;
+  redaction_mode?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface ComplianceRedactionResponse {
+  success: boolean;
+  original_text?: string | null;
+  entities: ComplianceEntity[];
+  entity_count: number;
+  unique_labels: string[];
+  redacted_text?: string | null;
+  chunks_processed: number;
+  labels_used: string[];
+  label_mode: ComplianceLabelMode;
+  selected_categories: string[];
+  processing_time_ms: number;
+  timings_ms: Record<string, number>;
+  usage: {
+    chunks_processed: number;
+    labels_used: number;
+    entity_count?: number;
+    unique_labels?: string[];
+    redaction_mode?: ComplianceRedactionMode | null;
+    redacted?: boolean;
+    mode: ComplianceLabelMode;
+    categories: string[];
+  };
+  [key: string]: unknown;
+}
+
 export interface ClientOptions {
   apiKey: string;
   baseUrl?: string;
@@ -161,11 +224,60 @@ export class LatenceTrace {
     }
   }
 
-  private async requestWithRetry(
+  async redactCompliance(
+    req: ComplianceRedactionRequest,
+  ): Promise<ComplianceRedactionResponse> {
+    const span = this.tracer?.startSpan("latence_trace.redact_compliance", {
+      "latence.compliance.mode": req.mode ?? "open",
+      "latence.tenant_id": req.tenantId ?? "",
+    });
+
+    try {
+      const body = {
+        text: req.text,
+        mode: req.mode ?? "open",
+        categories: req.categories,
+        labels: req.labels,
+        threshold: req.threshold,
+        redact: req.redact ?? true,
+        redaction_mode: req.redactionMode ?? "mask",
+        custom_labels: req.customLabels,
+        country: req.country,
+        flat_ner: req.flatNer,
+        multi_label: req.multiLabel,
+        include_original_text: req.includeOriginalText ?? false,
+      };
+      const headers: Record<string, string> = {
+        "content-type": "application/json",
+        accept: "application/json",
+        authorization: `Bearer ${this.apiKey}`,
+      };
+      if (req.tenantId) headers["x-latence-tenant-id"] = req.tenantId;
+      if (req.requestId) headers["x-request-id"] = req.requestId;
+
+      const response = await this.requestWithRetry<ComplianceRedactionResponse>(
+        `${this.baseUrl}/v1/compliance/redact`,
+        headers,
+        body,
+      );
+      span?.setAttribute("latence.compliance.entity_count", response.entity_count);
+      span?.setAttribute("latence.compliance.chunks", response.chunks_processed);
+      span?.setStatus({ code: "ok" });
+      return response;
+    } catch (err) {
+      span?.recordException(err);
+      span?.setStatus({ code: "error", message: (err as Error).message });
+      throw err;
+    } finally {
+      span?.end();
+    }
+  }
+
+  private async requestWithRetry<TResponse = ScoreResponse>(
     url: string,
     headers: Record<string, string>,
     body: unknown,
-  ): Promise<ScoreResponse> {
+  ): Promise<TResponse> {
     let attempt = 0;
     let lastErr: unknown;
     while (attempt <= this.maxRetries) {
@@ -184,7 +296,7 @@ export class LatenceTrace {
           clearTimeout(timer);
         }
         if (response.ok) {
-          return (await response.json()) as ScoreResponse;
+          return (await response.json()) as TResponse;
         }
 
         const retryAfter = Number(response.headers.get("retry-after") ?? "0");

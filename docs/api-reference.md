@@ -1,8 +1,8 @@
 # API Reference
 
-`POST /groundedness` is the single scoring endpoint. The full schema is
-auto-published at `GET /openapi.json` (Swagger at `GET /docs`); this
-page is the human-readable companion.
+Latence TRACE exposes groundedness verification and compliance redaction
+through one runtime. The full schema is auto-published at `GET /openapi.json`
+(Swagger at `GET /docs`); this page is the human-readable companion.
 
 For the end-to-end walkthrough (boot → request → response → tuning),
 read [`guides/tutorial.md`](guides/tutorial.md) first.
@@ -14,12 +14,47 @@ read [`guides/tutorial.md`](guides/tutorial.md) first.
 | Method | Path                       | operation_id            |
 |--------|----------------------------|-------------------------|
 | POST   | `/groundedness`            | `score_groundedness`    |
+| POST   | `/v1/compliance/redact`    | `v1_compliance_redact`  |
+| GET    | `/v1/compliance/schema`    | `v1_compliance_schema`  |
+| GET    | `/v1/compliance/healthz`   | `v1_compliance_healthz` |
 | GET    | `/agent-help`              | `agent_help`            |
 | GET    | `/.well-known/ai-plugin.json` | `ai_plugin_descriptor` |
 | GET    | `/openapi.json`            | OpenAPI 3.1 schema      |
 | GET    | `/docs`                    | Swagger UI              |
 | GET    | `/healthz`                 | Liveness                |
 | GET    | `/readyz`                  | Readiness + warmup state|
+
+---
+
+## Compliance Redaction
+
+`POST /v1/compliance/redact` detects GDPR/enterprise PII with
+`knowledgator/gliner-pii-large-v1.0`, token-aware chunking, deterministic
+sanity checks, optional custom regex overrides, and mask or replacement
+redaction. The internal `/compliance/redact` route remains available for
+self-hosted deployments, but hosted customers should use the `/v1` alias.
+
+```json
+{
+  "text": "Jane Doe uses jane@example.com.",
+  "mode": "category",
+  "labels": ["person", "email"],
+  "redact": true,
+  "redaction_mode": "mask",
+  "include_original_text": false
+}
+```
+
+The response returns `entities`, `entity_count`, `unique_labels`,
+`redacted_text`, `chunks_processed`, `labels_used`, `timings_ms`, and a
+privacy-safe `usage` object. Do not log `text`, `entities[*].text`, or
+`redacted_text` in customer-facing analytics; the portal insights lane uses
+only aggregate usage metadata such as entity count, label count, chunk count,
+redaction mode, and latency.
+
+`GET /v1/compliance/schema` returns the supported GDPR categories, full label
+catalog, and modes (`open` or `category`). Use `open` for broad PII sweeps and
+`category`/`labels` when the user wants a tighter allowlist.
 
 ---
 

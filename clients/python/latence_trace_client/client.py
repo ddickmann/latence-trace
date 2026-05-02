@@ -8,7 +8,8 @@ instance per process whenever possible (httpx pools connections).
 from __future__ import annotations
 
 import time
-from typing import Any, List, Mapping, Optional, Sequence, Union
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 import httpx
 from pydantic import ValidationError
@@ -32,12 +33,18 @@ from latence_trace_client.errors import (
 )
 from latence_trace_client.models import (
     AttributionMode,
+    ComplianceCustomLabel,
+    ComplianceLabelMode,
+    ComplianceRedactionMode,
+    ComplianceRedactionRequest,
+    ComplianceRedactionResponse,
     GroundednessRequest,
     GroundednessResponse,
     SupportUnit,
 )
 
-PremiseSupportUnits = Sequence[Union[SupportUnit, Mapping[str, Any]]]
+PremiseSupportUnits = Sequence[SupportUnit | Mapping[str, Any]]
+ComplianceCustomLabels = Sequence[ComplianceCustomLabel | Mapping[str, Any]]
 
 
 class LatenceTraceClient:
@@ -45,13 +52,13 @@ class LatenceTraceClient:
 
     def __init__(
         self,
-        base_url: Optional[str] = None,
+        base_url: str | None = None,
         *,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
-        retry_policy: Optional[RetryPolicy] = None,
-        transport: Optional[httpx.BaseTransport] = None,
-        headers: Optional[Mapping[str, str]] = None,
+        retry_policy: RetryPolicy | None = None,
+        transport: httpx.BaseTransport | None = None,
+        headers: Mapping[str, str] | None = None,
     ) -> None:
         self._base_url = coerce_base_url(base_url)
         self._api_key = coerce_api_key(api_key)
@@ -66,7 +73,7 @@ class LatenceTraceClient:
 
     # context manager support ---------------------------------------------
 
-    def __enter__(self) -> "LatenceTraceClient":
+    def __enter__(self) -> LatenceTraceClient:
         return self
 
     def __exit__(self, *exc) -> None:
@@ -90,19 +97,19 @@ class LatenceTraceClient:
         self,
         *,
         response_text: str,
-        query: Optional[str] = None,
-        chunk_ids: Optional[Sequence[str]] = None,
-        raw_context: Optional[Sequence[str]] = None,
-        support_units: Optional[PremiseSupportUnits] = None,
+        query: str | None = None,
+        chunk_ids: Sequence[str] | None = None,
+        raw_context: Sequence[str] | None = None,
+        support_units: PremiseSupportUnits | None = None,
         attribution_mode: AttributionMode = AttributionMode.CLOSED_BOOK,
-        primary_metric: Optional[str] = None,
-        coverage_threshold: Optional[float] = None,
-        chunk_token_budget: Optional[int] = None,
-        chunk_token_overlap: Optional[int] = None,
-        locale: Optional[str] = None,
-        runtime_head_features: Optional[Mapping[str, float]] = None,
-        trajectory_features: Optional[Mapping[str, float]] = None,
-        extra: Optional[Mapping[str, Any]] = None,
+        primary_metric: str | None = None,
+        coverage_threshold: float | None = None,
+        chunk_token_budget: int | None = None,
+        chunk_token_overlap: int | None = None,
+        locale: str | None = None,
+        runtime_head_features: Mapping[str, float] | None = None,
+        trajectory_features: Mapping[str, float] | None = None,
+        extra: Mapping[str, Any] | None = None,
     ) -> GroundednessResponse:
         """Score a response for groundedness against the supplied evidence.
 
@@ -136,27 +143,80 @@ class LatenceTraceClient:
             expected_model=GroundednessResponse,
         )
 
+    def redact_compliance(
+        self,
+        *,
+        text: str,
+        mode: ComplianceLabelMode = ComplianceLabelMode.OPEN,
+        categories: Sequence[str] | None = None,
+        labels: Sequence[str] | None = None,
+        threshold: float = 0.5,
+        redact: bool = True,
+        redaction_mode: ComplianceRedactionMode = ComplianceRedactionMode.MASK,
+        custom_labels: ComplianceCustomLabels | None = None,
+        country: str | None = None,
+        flat_ner: bool = True,
+        multi_label: bool = False,
+        include_original_text: bool = False,
+        extra: Mapping[str, Any] | None = None,
+    ) -> ComplianceRedactionResponse:
+        """Detect and redact PII through the TRACE compliance runtime."""
+
+        normalised_custom = [
+            c.model_dump(exclude_none=True) if isinstance(c, ComplianceCustomLabel) else dict(c)
+            for c in (custom_labels or [])
+        ]
+        try:
+            req = ComplianceRedactionRequest(
+                text=text,
+                mode=mode,
+                categories=list(categories or []),
+                labels=list(labels) if labels else None,
+                threshold=threshold,
+                redact=redact,
+                redaction_mode=redaction_mode,
+                custom_labels=[ComplianceCustomLabel(**c) for c in normalised_custom],
+                country=country,
+                flat_ner=flat_ner,
+                multi_label=multi_label,
+                include_original_text=include_original_text,
+            )
+        except ValidationError as exc:
+            raise LatenceTraceValidationError(
+                f"client-side compliance request validation failed: {exc.errors()[:3]}",
+                status=422,
+            ) from exc
+        body = req.model_dump(mode="json", exclude_none=True)
+        if extra:
+            body.update(dict(extra))
+        return self._request(
+            "POST",
+            "/v1/compliance/redact",
+            json=body,
+            expected_model=ComplianceRedactionResponse,
+        )
+
     # --- internal --------------------------------------------------------
 
     def _build_payload(
         self,
         *,
         response_text: str,
-        query: Optional[str],
-        chunk_ids: Optional[Sequence[str]],
-        raw_context: Optional[Sequence[str]],
-        support_units: Optional[PremiseSupportUnits],
+        query: str | None,
+        chunk_ids: Sequence[str] | None,
+        raw_context: Sequence[str] | None,
+        support_units: PremiseSupportUnits | None,
         attribution_mode: AttributionMode,
-        primary_metric: Optional[str],
-        coverage_threshold: Optional[float],
-        chunk_token_budget: Optional[int],
-        chunk_token_overlap: Optional[int],
-        locale: Optional[str],
-        runtime_head_features: Optional[Mapping[str, float]],
-        trajectory_features: Optional[Mapping[str, float]],
-        extra: Optional[Mapping[str, Any]],
+        primary_metric: str | None,
+        coverage_threshold: float | None,
+        chunk_token_budget: int | None,
+        chunk_token_overlap: int | None,
+        locale: str | None,
+        runtime_head_features: Mapping[str, float] | None,
+        trajectory_features: Mapping[str, float] | None,
+        extra: Mapping[str, Any] | None,
     ) -> dict:
-        normalised_units: Optional[List[dict]] = None
+        normalised_units: list[dict] | None = None
         if support_units:
             normalised_units = [
                 u.model_dump(exclude_none=True) if isinstance(u, SupportUnit) else dict(u)
@@ -193,18 +253,18 @@ class LatenceTraceClient:
         method: str,
         path: str,
         *,
-        json: Optional[dict] = None,
-        expected_model: Optional[type] = None,
+        json: dict | None = None,
+        expected_model: type | None = None,
     ) -> Any:
         attempt = 0
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         while True:
             try:
                 response = self._client.request(method, path, json=json)
             except httpx.TimeoutException as exc:
                 last_error = LatenceTraceTimeout(str(exc))
                 if attempt >= self._retry.max_retries:
-                    raise last_error
+                    raise last_error from exc
                 time.sleep(self._retry.sleep_for(attempt, None))
                 attempt += 1
                 continue
@@ -223,7 +283,7 @@ class LatenceTraceClient:
             raise self._error_from_response(response)
 
     @staticmethod
-    def _parse_success(response: httpx.Response, expected_model: Optional[type]) -> Any:
+    def _parse_success(response: httpx.Response, expected_model: type | None) -> Any:
         request_id = response.headers.get("x-request-id")
         body = response.json()
         if expected_model is None:

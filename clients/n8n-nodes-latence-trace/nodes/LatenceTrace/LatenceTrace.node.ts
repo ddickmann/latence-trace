@@ -3,7 +3,6 @@ import {
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
-	NodeConnectionType,
 	NodeOperationError,
 } from 'n8n-workflow';
 
@@ -15,12 +14,12 @@ export class LatenceTrace implements INodeType {
 		group: ['transform'],
 		version: 1,
 		subtitle: '={{$parameter["operation"]}}',
-		description: 'Score groundedness and route RAG answers by risk band.',
+		description: 'Score groundedness and redact PII through the TRACE compliance runtime.',
 		defaults: {
 			name: 'Latence TRACE',
 		},
-		inputs: [NodeConnectionType.Main],
-		outputs: [NodeConnectionType.Main, NodeConnectionType.Main, NodeConnectionType.Main],
+		inputs: ['main'],
+		outputs: ['main', 'main', 'main'],
 		outputNames: ['green', 'amber', 'red'],
 		credentials: [
 			{
@@ -49,6 +48,13 @@ export class LatenceTrace implements INodeType {
 							'Score and route the item to the green / amber / red output branch.',
 						action: 'Route by band',
 					},
+					{
+						name: 'Redact Compliance PII',
+						value: 'redactCompliance',
+						description:
+							'Detect and mask or replace PII with the TRACE compliance runtime.',
+						action: 'Redact compliance PII',
+					},
 				],
 				default: 'score',
 			},
@@ -59,6 +65,11 @@ export class LatenceTrace implements INodeType {
 				default: '',
 				required: true,
 				description: 'The user question that produced the response.',
+				displayOptions: {
+					show: {
+						operation: ['score', 'route'],
+					},
+				},
 			},
 			{
 				displayName: 'Response Text',
@@ -68,6 +79,11 @@ export class LatenceTrace implements INodeType {
 				default: '',
 				required: true,
 				description: 'The generated answer to evaluate.',
+				displayOptions: {
+					show: {
+						operation: ['score', 'route'],
+					},
+				},
 			},
 			{
 				displayName: 'Raw Context',
@@ -78,6 +94,11 @@ export class LatenceTrace implements INodeType {
 				required: true,
 				description:
 					'Retrieved evidence the answer must be grounded in. Concatenate chunks with blank lines.',
+				displayOptions: {
+					show: {
+						operation: ['score', 'route'],
+					},
+				},
 			},
 			{
 				displayName: 'Profile',
@@ -91,6 +112,54 @@ export class LatenceTrace implements INodeType {
 				],
 				description:
 					'Scoring profile. Quality applies NLI aggregation; Code uses AST-aware pooling.',
+				displayOptions: {
+					show: {
+						operation: ['score', 'route'],
+					},
+				},
+			},
+			{
+				displayName: 'Text to Redact',
+				name: 'complianceText',
+				type: 'string',
+				typeOptions: { rows: 6 },
+				default: '',
+				required: true,
+				description: 'Text that may contain PII. Raw text is sent only to the compliance endpoint.',
+				displayOptions: {
+					show: {
+						operation: ['redactCompliance'],
+					},
+				},
+			},
+			{
+				displayName: 'Labels',
+				name: 'complianceLabels',
+				type: 'string',
+				default: 'person,email,phone_number,date_of_birth,employee_id',
+				description:
+					'Optional comma-separated PII labels. Leave blank to use open mode with the full catalog.',
+				displayOptions: {
+					show: {
+						operation: ['redactCompliance'],
+					},
+				},
+			},
+			{
+				displayName: 'Redaction Mode',
+				name: 'complianceRedactionMode',
+				type: 'options',
+				default: 'mask',
+				options: [
+					{ name: 'Mask', value: 'mask' },
+					{ name: 'Replace', value: 'replace' },
+				],
+				description: 'Mask entities with label tokens or replace them with synthetic values.',
+				displayOptions: {
+					show: {
+						operation: ['redactCompliance'],
+					},
+				},
 			},
 			{
 				displayName: 'Tenant ID',
@@ -145,6 +214,40 @@ export class LatenceTrace implements INodeType {
 
 			let response;
 			try {
+				if (operation === 'redactCompliance') {
+					const text = this.getNodeParameter('complianceText', i) as string;
+					const rawLabels = this.getNodeParameter('complianceLabels', i) as string;
+					const redactionMode = this.getNodeParameter('complianceRedactionMode', i) as string;
+					const labels = rawLabels
+						.split(',')
+						.map((label) => label.trim())
+						.filter(Boolean);
+					response = await this.helpers.httpRequestWithAuthentication.call(this, 'latenceTraceApi', {
+						method: 'POST',
+						url: `${baseUrl}/v1/compliance/redact`,
+						headers,
+						json: true,
+						body: {
+							text,
+							mode: labels.length ? 'category' : 'open',
+							labels: labels.length ? labels : undefined,
+							redact: true,
+							redaction_mode: redactionMode,
+							include_original_text: false,
+						},
+						timeout: timeoutMs,
+					});
+					greenOut.push({
+						json: {
+							...items[i].json,
+							latence_compliance: response,
+							redacted_text: response?.redacted_text,
+							entity_count: response?.entity_count,
+						},
+						pairedItem: { item: i },
+					});
+					continue;
+				}
 				response = await this.helpers.httpRequestWithAuthentication.call(this, 'latenceTraceApi', {
 					method: 'POST',
 					url: `${baseUrl}/v1/score/groundedness`,

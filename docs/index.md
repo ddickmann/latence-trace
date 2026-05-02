@@ -1,10 +1,10 @@
 # latence-trace Documentation
 
-`latence-trace` ships the **Groundedness Tracker** as a standalone
-sidecar in the latence.ai product family. It scores how well an LLM response
-is grounded in its supporting context, returns auditable per-claim evidence,
-and classifies every output into a calibrated `green` / `amber` / `red`
-risk band. It is **multilingual: English + German** out of the box.
+`latence-trace` ships **Latence TRACE** as an enterprise AI compliance
+runtime. It scores how well an LLM response is grounded in supporting context,
+returns auditable per-claim evidence, redacts PII in real time, and exposes
+privacy-safe observability across verification and compliance lanes. It is
+**multilingual: English + German** out of the box for groundedness.
 
 - **End-to-end tutorial (recommended starting point):**
   [`guides/tutorial.md`](guides/tutorial.md)
@@ -30,6 +30,8 @@ A running `latence-trace` server self-describes for AI agents and devs:
 | Endpoint                          | What it returns                                                                                       |
 |-----------------------------------|-------------------------------------------------------------------------------------------------------|
 | `GET /agent-help`                 | Canonical request shape, active/default/available profiles, full endpoint map                         |
+| `POST /v1/compliance/redact`      | PII detection, mask/replacement redaction, custom regex labels, and usage/timing metadata             |
+| `GET /v1/compliance/schema`       | Compliance label catalog, GDPR categories, and supported modes                                        |
 | `GET /.well-known/ai-plugin.json` | ChatGPT-style plugin descriptor for AI tool registries                                                |
 | `GET /openapi.json`               | OpenAPI 3.1 schema (with `operation_id: score_groundedness`)                                          |
 | `GET /docs`                       | Human-readable Swagger UI                                                                             |

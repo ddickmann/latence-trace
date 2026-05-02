@@ -261,6 +261,16 @@ def create_router(service_provider: Callable[[], GroundednessService]) -> APIRou
                         "path": "/groundedness",
                         "operation_id": "score_groundedness",
                     },
+                    "compliance_redact": {
+                        "method": "POST",
+                        "path": "/v1/compliance/redact",
+                        "operation_id": "v1_compliance_redact",
+                    },
+                    "compliance_schema": {
+                        "method": "GET",
+                        "path": "/v1/compliance/schema",
+                        "operation_id": "v1_compliance_schema",
+                    },
                     "agent_help": {"method": "GET", "path": "/agent-help"},
                     "ai_plugin": {
                         "method": "GET",

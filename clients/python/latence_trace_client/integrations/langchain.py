@@ -34,9 +34,55 @@ except ImportError as exc:  # pragma: no cover - extras-only import
 
 from latence_trace_client.client import LatenceTraceClient
 from latence_trace_client.errors import LatenceTraceAPIError
-from latence_trace_client.models import AttributionMode
+from latence_trace_client.models import AttributionMode, ComplianceRedactionMode
 
 logger = logging.getLogger(__name__)
+
+
+class LatenceComplianceRedactor:
+    """Small LangChain-friendly callable for pre-prompt PII redaction.
+
+    Use it in a RunnableLambda or directly before prompt formatting:
+
+        redactor = LatenceComplianceRedactor(client, labels=["email", "person"])
+        safe_input = redactor({"question": user_question})
+    """
+
+    def __init__(
+        self,
+        client: LatenceTraceClient,
+        *,
+        text_key: str = "question",
+        output_key: str = "redacted_question",
+        labels: list[str] | None = None,
+        categories: list[str] | None = None,
+        redaction_mode: ComplianceRedactionMode = ComplianceRedactionMode.MASK,
+    ) -> None:
+        self._client = client
+        self._text_key = text_key
+        self._output_key = output_key
+        self._labels = labels
+        self._categories = categories
+        self._redaction_mode = redaction_mode
+
+    def __call__(self, inputs: dict[str, Any]) -> dict[str, Any]:
+        text = inputs.get(self._text_key)
+        if not isinstance(text, str) or not text:
+            return inputs
+        result = self._client.redact_compliance(
+            text=text,
+            labels=self._labels,
+            categories=self._categories,
+            mode="category" if self._labels or self._categories else "open",
+            redact=True,
+            redaction_mode=self._redaction_mode,
+            include_original_text=False,
+        )
+        return {
+            **inputs,
+            self._output_key: result.redacted_text or text,
+            "latence_compliance": result.model_dump(mode="json", exclude_none=True),
+        }
 
 
 class LatenceTraceCallback(BaseCallbackHandler):
@@ -66,11 +112,11 @@ class LatenceTraceCallback(BaseCallbackHandler):
 
     def on_chain_start(
         self,
-        serialized: dict[str, Any],
+        _serialized: dict[str, Any],
         inputs: dict[str, Any],
         *,
         run_id: Any,
-        **kwargs: Any,
+        **_kwargs: Any,
     ) -> None:
         self._chain_inputs[run_id] = dict(inputs)
 
@@ -79,8 +125,8 @@ class LatenceTraceCallback(BaseCallbackHandler):
         outputs: dict[str, Any],
         *,
         run_id: Any,
-        parent_run_id: Any | None = None,
-        **kwargs: Any,
+        _parent_run_id: Any | None = None,
+        **_kwargs: Any,
     ) -> None:
         inputs = self._chain_inputs.pop(run_id, {})
         self._score_outputs(inputs, outputs)
@@ -91,7 +137,7 @@ class LatenceTraceCallback(BaseCallbackHandler):
         *,
         run_id: Any,
         parent_run_id: Any | None = None,
-        **kwargs: Any,
+        **_kwargs: Any,
     ) -> None:
         inputs = self._chain_inputs.get(parent_run_id) or self._chain_inputs.get(run_id) or {}
         text = ""

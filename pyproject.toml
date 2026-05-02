@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "latence-trace"
 version = "0.1.0"
-description = "Groundedness Tracker - calibrated, auditable hallucination detection for RAG and evidence-bearing LLM outputs."
+description = "Latence TRACE - enterprise AI compliance runtime for PII redaction and groundedness verification."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
@@ -77,6 +77,7 @@ packages = [
   "latence_trace.api",
   "latence_trace.auth",
   "latence_trace.cli",
+  "latence_trace.compliance",
   "latence_trace.core",
   "latence_trace.core.code_lane",
   "latence_trace.data",

@@ -26,7 +26,7 @@
   },
   "main": "dist/nodes/LatenceTrace/LatenceTrace.node.js",
   "scripts": {
-    "build": "tsc && gulp build:icons",
+    "build": "tsc && cp nodes/LatenceTrace/latence.svg dist/nodes/LatenceTrace/latence.svg",
     "dev": "tsc --watch",
     "lint": "eslint . --ext .ts",
     "format": "prettier --write '**/*.{ts,json,md}'",

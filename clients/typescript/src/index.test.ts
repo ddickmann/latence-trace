@@ -84,4 +84,56 @@ describe("LatenceTrace", () => {
     });
     expect(captured["x-latence-tenant-id"]).toBe("acme");
   });
+
+  it("redacts compliance PII through the public route", async () => {
+    let capturedUrl = "";
+    let capturedBody: any = {};
+    const fetchImpl = vi.fn(async (url, init) => {
+      capturedUrl = String(url);
+      capturedBody = JSON.parse(String(init?.body));
+      return new Response(
+        JSON.stringify({
+          success: true,
+          original_text: null,
+          entities: [
+            {
+              start: 8,
+              end: 24,
+              text: "jane@example.com",
+              label: "email",
+              score: 1,
+              source: "model",
+            },
+          ],
+          entity_count: 1,
+          unique_labels: ["email"],
+          redacted_text: "Contact [EMAIL]",
+          chunks_processed: 1,
+          labels_used: ["email"],
+          label_mode: "category",
+          selected_categories: [],
+          processing_time_ms: 12,
+          timings_ms: { vllm_request_ms: 10 },
+          usage: {
+            chunks_processed: 1,
+            labels_used: 1,
+            mode: "category",
+            categories: [],
+          },
+        }),
+        { status: 200 },
+      );
+    }) as unknown as typeof globalThis.fetch;
+    const client = new LatenceTrace({ apiKey: "k", fetchImpl, maxRetries: 0 });
+    const res = await client.redactCompliance({
+      text: "Contact jane@example.com",
+      labels: ["email"],
+      redactionMode: "mask",
+    });
+    expect(capturedUrl).toBe("https://api.latence.ai/v1/compliance/redact");
+    expect(capturedBody.redaction_mode).toBe("mask");
+    expect(capturedBody.include_original_text).toBe(false);
+    expect(res.entity_count).toBe(1);
+    expect(res.redacted_text).toBe("Contact [EMAIL]");
+  });
 });

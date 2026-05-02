@@ -1,6 +1,7 @@
 # @latence/trace
 
-Official TypeScript / JavaScript SDK for [Latence TRACE](https://latence.ai).
+Official TypeScript / JavaScript SDK for [Latence TRACE](https://latence.ai):
+groundedness verification plus real-time PII compliance redaction.
 
 Runs in Node 18+, Deno, Bun, and the Cloudflare Workers runtime.
 Zero required runtime dependencies; OTel tracing integration is
@@ -31,6 +32,15 @@ const result = await trace.scoreGroundedness({
 if (result.band === "red") {
   throw new Error("ungrounded answer; retry with more evidence");
 }
+
+const compliance = await trace.redactCompliance({
+  text: "Send Jane Doe at jane@example.com into the model prompt.",
+  labels: ["person", "email"],
+  redact: true,
+  redactionMode: "mask",
+});
+
+console.log(compliance.redacted_text, compliance.entity_count);
 ```
 
 ## Features
@@ -42,8 +52,10 @@ if (result.band === "red") {
   tenant-specific threshold policy.
 - **OpenTelemetry integration**. Pass a `Tracer` instance (e.g.
   `trace.getTracer("app")` from `@opentelemetry/api`) and every score
-  call becomes a span with `latence.band`, `latence.profile`, and
-  `latence.groundedness` attributes.
+  or redaction call becomes a span with useful runtime attributes.
+- **Compliance redaction**. `redactCompliance()` calls
+  `/v1/compliance/redact` and returns typed entities, label usage, chunk
+  counts, redacted text, and timings.
 - **Custom fetch**. Pass `fetchImpl` to integrate with Workers, Edge
   runtimes, or mocked tests.
 

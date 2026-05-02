@@ -8,6 +8,11 @@ import threading
 import time
 from pathlib import Path
 
+from latence_trace.api.compliance_models import (
+    ComplianceEntity,
+    ComplianceRedactionResponse,
+    ComplianceUsage,
+)
 from latence_trace.api.models import (
     AttributionMode,
     CollectionKind,
@@ -129,6 +134,53 @@ class _SlowService:
                 self.inflight -= 1
 
 
+class _ComplianceService:
+    def __init__(self, sleep_ms: int = 40) -> None:
+        self.sleep_ms = sleep_ms
+        self.calls = 0
+        self.inflight = 0
+        self.peak_inflight = 0
+        self._lock = threading.Lock()
+
+    def redact(self, request) -> ComplianceRedactionResponse:
+        with self._lock:
+            self.calls += 1
+            self.inflight += 1
+            self.peak_inflight = max(self.peak_inflight, self.inflight)
+        try:
+            time.sleep(self.sleep_ms / 1000.0)
+            return ComplianceRedactionResponse(
+                original_text=request.text,
+                entities=[
+                    ComplianceEntity(
+                        start=0,
+                        end=4,
+                        text=request.text[:4],
+                        label="person",
+                        score=0.9,
+                    )
+                ],
+                entity_count=1,
+                unique_labels=["person"],
+                redacted_text=None,
+                chunks_processed=1,
+                labels_used=["person"],
+                label_mode=request.mode,
+                selected_categories=request.categories,
+                processing_time_ms=float(self.sleep_ms),
+                timings_ms={"total_ms": float(self.sleep_ms)},
+                usage=ComplianceUsage(
+                    chunks_processed=1,
+                    labels_used=1,
+                    mode=request.mode,
+                    categories=request.categories,
+                ),
+            )
+        finally:
+            with self._lock:
+                self.inflight -= 1
+
+
 def _config(*, profile: str = "quality", max_concurrency: int = 2):
     return runpod_handler.WorkerConfig(
         profile=profile,
@@ -152,6 +204,15 @@ def _config(*, profile: str = "quality", max_concurrency: int = 2):
         nli_max_model_len=512,
         nli_max_num_seqs=128,
         nli_max_batched_tokens=8192,
+        compliance_model="knowledgator/gliner-pii-large-v1.0",
+        compliance_port=18003,
+        compliance_gpu_mem=0.18,
+        compliance_max_model_len=768,
+        compliance_max_num_seqs=128,
+        compliance_max_batched_tokens=8192,
+        compliance_threshold=0.5,
+        compliance_dataset_path="doubledsbv/pii-replacement-dataset",
+        compliance_request_timeout_s=30.0,
     )
 
 
@@ -185,6 +246,10 @@ def test_create_config_pins_vllm_runtime_defaults(monkeypatch) -> None:
     assert config.colbert_max_batched_tokens == 8192
     assert config.nli_max_num_seqs == 128
     assert config.nli_max_batched_tokens == 8192
+    assert config.compliance_model == "knowledgator/gliner-pii-large-v1.0"
+    assert config.compliance_max_model_len == 768
+    assert config.compliance_max_num_seqs == 128
+    assert config.compliance_max_batched_tokens == 8192
 
 
 def test_build_servers_pin_requested_vllm_settings() -> None:
@@ -196,6 +261,10 @@ def test_build_servers_pin_requested_vllm_settings() -> None:
     assert servers["nli"].max_num_seqs == 128
     assert servers["nli"].max_num_batched_tokens == 8192
     assert servers["nli"].enforce_eager is False
+    assert servers["compliance_gliner"].model == "knowledgator/gliner-pii-large-v1.0"
+    assert servers["compliance_gliner"].io_processor_plugin == "deberta_gliner_io"
+    assert servers["compliance_gliner"].plugins == ["deberta_gliner"]
+    assert servers["compliance_gliner"].max_model_len == 768
 
 
 def test_initialize_exports_handler_concurrency_to_internal_vllm_clients(monkeypatch) -> None:
@@ -228,11 +297,24 @@ def test_initialize_exports_handler_concurrency_to_internal_vllm_clients(monkeyp
         lambda _config: {
             "colbert": _FakeServer("colbert", "http://127.0.0.1:18001"),
             "nli": _FakeServer("nli", "http://127.0.0.1:18002"),
+            "compliance_gliner": _FakeServer(
+                "compliance_gliner", "http://127.0.0.1:18003"
+            ),
         },
     )
     monkeypatch.setattr(runpod_handler, "GroundednessService", _FakeGroundednessService)
+    monkeypatch.setattr(
+        runpod_handler.ComplianceRedactionService,
+        "from_env",
+        classmethod(lambda cls: object()),
+    )
     monkeypatch.setattr(runpod_handler, "_ensure_kernel_warmup", lambda _profile: None)
     monkeypatch.setattr(runpod_handler, "_prime_service_runtime", lambda _service: None)
+    monkeypatch.setattr(
+        runpod_handler,
+        "_prepare_compliance_model_for_vllm",
+        lambda config: config,
+    )
 
     runpod_handler.shutdown()
     runpod_handler.initialize()
@@ -240,6 +322,8 @@ def test_initialize_exports_handler_concurrency_to_internal_vllm_clients(monkeyp
     try:
         assert os.environ["VOYAGER_GROUNDEDNESS_VLLM_MAX_CONCURRENCY"] == "64"
         assert os.environ["LATENCE_TRACE_NLI_VLLM_MAX_CONCURRENCY"] == "64"
+        assert os.environ["LATENCE_TRACE_COMPLIANCE_GLINER_ENDPOINT"] == "http://127.0.0.1:18003"
+        assert os.environ["LATENCE_TRACE_COMPLIANCE_MAX_CONCURRENCY"] == "64"
     finally:
         runpod_handler.shutdown()
 
@@ -306,6 +390,72 @@ def test_runpod_handler_bounds_inflight_requests(monkeypatch) -> None:
         runpod_handler.shutdown()
 
 
+def test_runpod_handler_dispatches_compliance_redaction(monkeypatch) -> None:
+    compliance = _ComplianceService(sleep_ms=1)
+    config = _config(max_concurrency=2)
+
+    monkeypatch.setattr(runpod_handler, "initialize", lambda: None)
+    runpod_handler._initialized = True
+    runpod_handler._config = config
+    runpod_handler._service = _SlowService(sleep_ms=1)
+    runpod_handler._compliance_service = compliance
+    runpod_handler._servers = {}
+    runpod_handler._request_executor = None
+    runpod_handler._compliance_semaphore = None
+    runpod_handler._compliance_semaphore_loop = None
+
+    try:
+        result = asyncio.run(
+            runpod_handler.handler(
+                {
+                    "input": {
+                        "action": "redact",
+                        "text": "Jane Doe",
+                        "labels": ["person"],
+                    }
+                }
+            )
+        )
+    finally:
+        runpod_handler.shutdown()
+
+    assert result["success"] is True
+    assert result["action"] == "redact"
+    assert result["result"]["entity_count"] == 1
+    assert compliance.calls == 1
+
+
+def test_runpod_compliance_redaction_uses_own_concurrency_budget(monkeypatch) -> None:
+    compliance = _ComplianceService(sleep_ms=80)
+    config = _config(max_concurrency=4)
+
+    monkeypatch.setattr(runpod_handler, "initialize", lambda: None)
+    runpod_handler._initialized = True
+    runpod_handler._config = config
+    runpod_handler._service = _SlowService(sleep_ms=1)
+    runpod_handler._compliance_service = compliance
+    runpod_handler._servers = {}
+    runpod_handler._request_executor = None
+    runpod_handler._compliance_semaphore = None
+    runpod_handler._compliance_semaphore_loop = None
+
+    async def _burst() -> list[dict]:
+        payload = {"input": {"action": "redact", "text": "Jane Doe", "labels": ["person"]}}
+        return await asyncio.gather(*(runpod_handler.handler(payload) for _ in range(8)))
+
+    started = time.perf_counter()
+    try:
+        results = asyncio.run(_burst())
+    finally:
+        runpod_handler.shutdown()
+    elapsed = time.perf_counter() - started
+
+    assert all(item["success"] for item in results), results
+    assert compliance.peak_inflight > 1
+    assert compliance.peak_inflight <= config.max_concurrency
+    assert elapsed < 0.5
+
+
 def test_compact_response_surfaces_unused_context_contract() -> None:
     """Regression guard: the RunPod serverless envelope must expose the
     precision-first tri-state unused-context signals without requiring
@@ -335,6 +485,15 @@ def test_compact_response_surfaces_unused_context_contract() -> None:
         nli_max_model_len=512,
         nli_max_num_seqs=128,
         nli_max_batched_tokens=8192,
+        compliance_model="knowledgator/gliner-pii-large-v1.0",
+        compliance_port=18003,
+        compliance_gpu_mem=0.18,
+        compliance_max_model_len=768,
+        compliance_max_num_seqs=128,
+        compliance_max_batched_tokens=8192,
+        compliance_threshold=0.5,
+        compliance_dataset_path="doubledsbv/pii-replacement-dataset",
+        compliance_request_timeout_s=30.0,
     )
 
     response = GroundednessResponse(

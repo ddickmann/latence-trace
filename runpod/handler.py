@@ -45,12 +45,20 @@ import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from pydantic import ValidationError as PydanticValidationError
 
 from latence_trace import __version__
+from latence_trace.api.compliance_models import (
+    ComplianceRedactionRequest,
+    ComplianceRedactionResponse,
+)
+from latence_trace.api.compliance_service import (
+    ComplianceRedactionService,
+    ComplianceServiceError,
+)
 from latence_trace.api.models import (
     GroundednessRequest,
     GroundednessResponse,
@@ -140,6 +148,15 @@ class WorkerConfig:
     nli_max_model_len: int
     nli_max_num_seqs: int
     nli_max_batched_tokens: int
+    compliance_model: str
+    compliance_port: int
+    compliance_gpu_mem: float
+    compliance_max_model_len: int
+    compliance_max_num_seqs: int
+    compliance_max_batched_tokens: int
+    compliance_threshold: float
+    compliance_dataset_path: str
+    compliance_request_timeout_s: float
 
 
 def create_config() -> WorkerConfig:
@@ -155,6 +172,10 @@ def create_config() -> WorkerConfig:
             "VOYAGER_GROUNDEDNESS_NLI_MODEL",
             "MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7",
         ),
+    )
+    compliance_model = os.environ.get(
+        "LATENCE_TRACE_COMPLIANCE_GLINER_MODEL",
+        "knowledgator/gliner-pii-large-v1.0",
     )
     return WorkerConfig(
         profile=profile,
@@ -186,6 +207,22 @@ def create_config() -> WorkerConfig:
         nli_max_model_len=_env_int("LATENCE_TRACE_NLI_MAX_MODEL_LEN", 512),
         nli_max_num_seqs=_env_int("LATENCE_TRACE_NLI_MAX_NUM_SEQS", 128),
         nli_max_batched_tokens=_env_int("LATENCE_TRACE_NLI_MAX_BATCHED_TOKENS", 8192),
+        compliance_model=compliance_model,
+        compliance_port=_env_int("LATENCE_TRACE_COMPLIANCE_GLINER_PORT", 8003),
+        compliance_gpu_mem=_env_float("LATENCE_TRACE_COMPLIANCE_GLINER_GPU_MEM", 0.18),
+        compliance_max_model_len=_env_int("LATENCE_TRACE_COMPLIANCE_MAX_MODEL_LEN", 768),
+        compliance_max_num_seqs=_env_int("LATENCE_TRACE_COMPLIANCE_MAX_NUM_SEQS", 128),
+        compliance_max_batched_tokens=_env_int(
+            "LATENCE_TRACE_COMPLIANCE_MAX_BATCHED_TOKENS", 8192
+        ),
+        compliance_threshold=_env_float("LATENCE_TRACE_COMPLIANCE_THRESHOLD", 0.5),
+        compliance_dataset_path=os.environ.get(
+            "LATENCE_TRACE_COMPLIANCE_DATASET_PATH",
+            "doubledsbv/pii-replacement-dataset",
+        ),
+        compliance_request_timeout_s=_env_float(
+            "LATENCE_TRACE_COMPLIANCE_REQUEST_TIMEOUT_S", 30.0
+        ),
     )
 
 
@@ -193,11 +230,14 @@ _initialized = False
 _config: WorkerConfig | None = None
 _servers: dict[str, ManagedVllmServer] = {}
 _service: GroundednessService | None = None
+_compliance_service: ComplianceRedactionService | None = None
 _initialize_lock = threading.Lock()
 _request_executor: ThreadPoolExecutor | None = None
 _request_executor_lock = threading.Lock()
 _lane_semaphores: dict[ScoringMode, asyncio.Semaphore] = {}
 _lane_semaphores_loop: asyncio.AbstractEventLoop | None = None
+_compliance_semaphore: asyncio.Semaphore | None = None
+_compliance_semaphore_loop: asyncio.AbstractEventLoop | None = None
 
 
 def _get_request_executor(config: WorkerConfig) -> ThreadPoolExecutor:
@@ -249,6 +289,15 @@ def _get_lane_semaphore(config: WorkerConfig, lane: ScoringMode) -> asyncio.Sema
         }
         _lane_semaphores_loop = loop
     return _lane_semaphores[lane]
+
+
+def _get_compliance_semaphore(config: WorkerConfig) -> asyncio.Semaphore:
+    global _compliance_semaphore, _compliance_semaphore_loop
+    loop = asyncio.get_running_loop()
+    if _compliance_semaphore_loop is not loop or _compliance_semaphore is None:
+        _compliance_semaphore = asyncio.Semaphore(max(1, config.max_concurrency))
+        _compliance_semaphore_loop = loop
+    return _compliance_semaphore
 
 
 def _make_startup_sentence(prefix: str, index: int) -> str:
@@ -352,6 +401,47 @@ def _prime_service_runtime(service: GroundednessService) -> None:
         )
 
 
+def _prepare_compliance_model_for_vllm(config: WorkerConfig) -> WorkerConfig:
+    """Resolve GLiNER repos with only gliner_config.json into vLLM-ready dirs."""
+    if os.environ.get("LATENCE_TRACE_COMPLIANCE_PREPARE_MODEL", "1").lower() in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }:
+        return config
+
+    model_ref = config.compliance_model
+    if os.path.isdir(model_ref) and os.path.exists(os.path.join(model_ref, "config.json")):
+        return config
+    if "/" not in model_ref:
+        return config
+
+    output_dir = os.environ.get("LATENCE_TRACE_COMPLIANCE_PREPARED_MODEL_DIR")
+    if not output_dir:
+        slug = model_ref.replace("/", "--").replace(".", "-")
+        output_dir = f"/tmp/{slug}-vllm"
+
+    try:
+        from forge.model_prep import prepare_gliner_model
+
+        prepared_model = prepare_gliner_model(
+            model_ref,
+            plugin="deberta_gliner",
+            output_dir=output_dir,
+            force=os.environ.get("LATENCE_TRACE_COMPLIANCE_FORCE_PREPARE", "0").lower()
+            in {"1", "true", "yes", "on"},
+        )
+    except Exception:
+        logger.exception("Failed to prepare compliance GLiNER model %s for vLLM", model_ref)
+        raise
+
+    if prepared_model == model_ref:
+        return config
+    logger.info("Prepared compliance GLiNER model for vLLM: %s -> %s", model_ref, prepared_model)
+    return replace(config, compliance_model=prepared_model)
+
+
 def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
     return {
         "colbert": ManagedVllmServer(
@@ -378,11 +468,23 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
             plugins=["nli_mdeberta"],
             enforce_eager=False,
         ),
+        "compliance_gliner": ManagedVllmServer(
+            name="compliance_gliner",
+            model=config.compliance_model,
+            port=config.compliance_port,
+            io_processor_plugin="deberta_gliner_io",
+            gpu_memory_utilization=config.compliance_gpu_mem,
+            max_model_len=config.compliance_max_model_len,
+            max_num_seqs=config.compliance_max_num_seqs,
+            max_num_batched_tokens=config.compliance_max_batched_tokens,
+            plugins=["deberta_gliner"],
+            enforce_eager=False,
+        ),
     }
 
 
 def initialize() -> None:
-    global _initialized, _config, _servers, _service
+    global _initialized, _config, _servers, _service, _compliance_service
     if _initialized:
         return
 
@@ -390,7 +492,7 @@ def initialize() -> None:
         if _initialized:
             return
 
-        config = create_config()
+        config = _prepare_compliance_model_for_vllm(create_config())
         _config = config
 
         os.environ.setdefault("LATENCE_TRACE_PROFILE", config.profile)
@@ -411,6 +513,14 @@ def initialize() -> None:
             os.environ["LATENCE_TRACE_NLI_VLLM_MODEL"] = config.nli_model
             os.environ["LATENCE_TRACE_NLI_VLLM_MAX_CONCURRENCY"] = str(config.max_concurrency)
             os.environ["VOYAGER_GROUNDEDNESS_NLI_MODEL"] = config.nli_model
+            compliance_server = servers["compliance_gliner"]
+            os.environ["LATENCE_TRACE_COMPLIANCE_GLINER_ENDPOINT"] = compliance_server.base_url
+            os.environ["LATENCE_TRACE_COMPLIANCE_GLINER_MODEL"] = config.compliance_model
+            os.environ["LATENCE_TRACE_COMPLIANCE_MAX_CONCURRENCY"] = str(config.max_concurrency)
+            os.environ["LATENCE_TRACE_COMPLIANCE_MAX_MODEL_LEN"] = str(
+                config.compliance_max_model_len
+            )
+            os.environ["LATENCE_TRACE_COMPLIANCE_DATASET_PATH"] = config.compliance_dataset_path
             os.environ.setdefault("VOYAGER_GROUNDEDNESS_NLI_ENABLED", "1")
             os.environ.setdefault(
                 "VOYAGER_GROUNDEDNESS_NLI_PREMISE_RERANKER_MODEL",
@@ -421,18 +531,21 @@ def initialize() -> None:
                 device=config.service_device,
                 collection_label=config.collection_label,
             )
+            compliance_service = ComplianceRedactionService.from_env()
             _ensure_kernel_warmup(config.profile)
             _prime_service_runtime(service)
             _get_request_executor(config)
 
             _servers = servers
             _service = service
+            _compliance_service = compliance_service
             _initialized = True
             logger.info(
-                "latence-trace RunPod worker ready: profile=%s colbert=%s nli=%s",
+                "latence-trace RunPod worker ready: profile=%s colbert=%s nli=%s compliance=%s",
                 config.profile,
                 servers["colbert"].base_url,
                 servers["nli"].base_url,
+                compliance_server.base_url,
             )
         except Exception:
             for server in servers.values():
@@ -441,8 +554,9 @@ def initialize() -> None:
 
 
 def shutdown() -> None:
-    global _initialized, _servers, _service, _request_executor
+    global _initialized, _servers, _service, _compliance_service, _request_executor
     global _lane_semaphores, _lane_semaphores_loop
+    global _compliance_semaphore, _compliance_semaphore_loop
     for server in _servers.values():
         try:
             server.stop()
@@ -450,6 +564,12 @@ def shutdown() -> None:
             logger.exception("failed to stop server %s", server.name)
     _servers = {}
     _service = None
+    if _compliance_service is not None:
+        try:
+            _compliance_service.provider.close()
+        except Exception:
+            logger.exception("failed to close compliance provider")
+    _compliance_service = None
     _initialized = False
     with _request_executor_lock:
         if _request_executor is not None:
@@ -457,6 +577,8 @@ def shutdown() -> None:
             _request_executor = None
     _lane_semaphores = {}
     _lane_semaphores_loop = None
+    _compliance_semaphore = None
+    _compliance_semaphore_loop = None
 
 
 def _code_lane_health() -> dict[str, Any]:
@@ -932,6 +1054,100 @@ async def _handle_rollup(input_data: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _build_compliance_request(input_data: dict[str, Any]) -> ComplianceRedactionRequest:
+    payload = dict(input_data)
+    payload.pop("action", None)
+    payload.pop("endpoint_id", None)
+    config = payload.pop("config", None)
+    if isinstance(config, dict):
+        for key, value in config.items():
+            payload.setdefault(key, value)
+    if "mode" not in payload and "label_mode" in payload:
+        payload["mode"] = payload.pop("label_mode")
+    return ComplianceRedactionRequest.model_validate(payload)
+
+
+async def _handle_compliance_redaction(input_data: dict[str, Any]) -> dict[str, Any]:
+    initialize()
+    service = _compliance_service
+    config = _config
+    if service is None or config is None:
+        return _service_error_payload(
+            "RunPod worker was not initialized",
+            error_code="service_error",
+            status_code=500,
+        )
+    try:
+        request = _build_compliance_request(input_data)
+    except PydanticValidationError as exc:
+        return _service_error_payload(
+            str(exc),
+            error_code="validation_error",
+            hint=ComplianceServiceError.hint,
+            status_code=400,
+        )
+    except Exception as exc:
+        return _service_error_payload(
+            str(exc),
+            error_code="validation_error",
+            hint=ComplianceServiceError.hint,
+            status_code=400,
+        )
+
+    executor = _get_request_executor(config)
+    semaphore = _get_compliance_semaphore(config)
+    started = time.perf_counter()
+    try:
+        async with semaphore:
+            loop = asyncio.get_running_loop()
+            response: ComplianceRedactionResponse = await asyncio.wait_for(
+                loop.run_in_executor(executor, service.redact, request),
+                timeout=config.compliance_request_timeout_s,
+            )
+    except asyncio.TimeoutError:
+        return _service_error_payload(
+            f"Compliance redaction exceeded {config.compliance_request_timeout_s:.2f}s execution timeout",
+            error_code="job_timeout",
+            hint="Retry with a smaller input or raise LATENCE_TRACE_COMPLIANCE_REQUEST_TIMEOUT_S.",
+            status_code=504,
+        )
+    except ComplianceServiceError as exc:
+        return _service_error_payload(
+            str(exc),
+            error_code=exc.error_code,
+            hint=getattr(exc, "hint", None),
+            status_code=getattr(exc, "status_code", None),
+        )
+    except Exception as exc:
+        logger.exception("compliance_redaction_failed")
+        return _service_error_payload(
+            str(exc),
+            error_code="service_error",
+            hint="Inspect compliance GLiNER endpoint health and worker logs.",
+            status_code=500,
+        )
+
+    duration_ms = (time.perf_counter() - started) * 1000.0
+    logger.info(
+        "compliance_redaction_turn",
+        extra={
+            "duration_ms": round(duration_ms, 2),
+            "chunks_processed": response.chunks_processed,
+            "entity_count": response.entity_count,
+            "label_mode": response.label_mode,
+            "selected_categories": response.selected_categories,
+            "redacted": request.redact,
+            "redaction_mode": request.redaction_mode if request.redact else "none",
+        },
+    )
+    return {
+        "success": True,
+        "action": "redact",
+        "result": response.model_dump(mode="json"),
+        "version": config.version,
+    }
+
+
 async def handler(job: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(job, dict):
         return _service_error_payload(
@@ -955,16 +1171,23 @@ async def handler(job: dict[str, Any]) -> dict[str, Any]:
     if input_data.get("endpoint_id") == "_health" or bool(input_data.get("health")):
         return _health_payload()
 
-    # Optional action dispatch — defaults to "score". The only other
-    # supported action today is "rollup" (stateless session aggregation).
+    # Optional action dispatch — defaults to "score". Compliance redaction
+    # is intentionally a separate runtime branch so it cannot perturb
+    # groundedness latency or response shape.
     action = str(input_data.get("action") or "score").strip().lower()
+    endpoint_id = str(input_data.get("endpoint_id") or "").strip().lower()
     if action == "rollup":
         return await _handle_rollup(input_data)
+    if action in {"redact", "compliance_redaction"} or endpoint_id in {
+        "compliance_redaction",
+        "redaction",
+    }:
+        return await _handle_compliance_redaction(input_data)
     if action not in {"score", ""}:
         return _service_error_payload(
             f"Unknown action: {action}",
             error_code="invalid_action",
-            hint="Set action to 'score' (default) or 'rollup'.",
+            hint="Set action to 'score' (default), 'rollup', or 'redact'.",
             status_code=400,
         )
 

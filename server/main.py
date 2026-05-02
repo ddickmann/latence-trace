@@ -25,17 +25,18 @@ import argparse
 import logging
 import os
 import threading
-from typing import Optional
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from latence_trace.api.compliance_routes import create_compliance_router
+from latence_trace.api.compliance_service import ComplianceRedactionService
 from latence_trace.api.routes import create_router
 from latence_trace.api.service import (
     DEFAULT_PROFILE,
-    GroundednessService,
     PROFILE_NAMES,
+    GroundednessService,
     apply_profile,
 )
 from latence_trace.auth import LicenseMiddleware
@@ -58,7 +59,7 @@ def _warmup_disabled() -> bool:
     return raw in {"1", "true", "yes", "on"}
 
 
-def _kick_off_warmup(profile: Optional[str]) -> None:
+def _kick_off_warmup(profile: str | None) -> None:
     """Run Triton kernel warmup off the main thread.
 
     The warmup is a few hundred ms on CUDA and effectively free on CPU
@@ -91,8 +92,10 @@ def _kick_off_warmup(profile: Optional[str]) -> None:
     thread = threading.Thread(target=_worker, name="latence-trace-warmup", daemon=True)
     thread.start()
 
-_service: Optional[GroundednessService] = None
+_service: GroundednessService | None = None
 _service_lock = threading.Lock()
+_compliance_service: ComplianceRedactionService | None = None
+_compliance_service_lock = threading.Lock()
 
 
 def _get_service() -> GroundednessService:
@@ -116,7 +119,18 @@ def _get_service() -> GroundednessService:
     return _service
 
 
-def _resolve_profile_from_env() -> Optional[str]:
+def _get_compliance_service() -> ComplianceRedactionService:
+    """Lazily build the singleton compliance redaction service."""
+
+    global _compliance_service
+    if _compliance_service is None:
+        with _compliance_service_lock:
+            if _compliance_service is None:
+                _compliance_service = ComplianceRedactionService.from_env()
+    return _compliance_service
+
+
+def _resolve_profile_from_env() -> str | None:
     raw = os.environ.get("LATENCE_TRACE_PROFILE")
     if raw is None:
         return DEFAULT_PROFILE
@@ -126,7 +140,7 @@ def _resolve_profile_from_env() -> Optional[str]:
     return label
 
 
-def create_app(profile: Optional[str] = None) -> FastAPI:
+def create_app(profile: str | None = None) -> FastAPI:
     """Build the FastAPI app, applying the requested default profile.
 
     The profile env overlay is installed *before* the
@@ -137,7 +151,7 @@ def create_app(profile: Optional[str] = None) -> FastAPI:
     """
 
     selected = profile if profile is not None else _resolve_profile_from_env()
-    applied_profile_name: Optional[str] = None
+    applied_profile_name: str | None = None
     if selected:
         try:
             applied = apply_profile(selected)
@@ -151,7 +165,7 @@ def create_app(profile: Optional[str] = None) -> FastAPI:
                 },
             )
         except ValueError as exc:
-            raise SystemExit(str(exc))
+            raise SystemExit(str(exc)) from exc
 
     app = FastAPI(
         title="latence-trace Groundedness Tracker",
@@ -250,6 +264,14 @@ def create_app(profile: Optional[str] = None) -> FastAPI:
 
     app.include_router(create_metrics_router())
     app.include_router(create_router(_get_service))
+    app.include_router(create_compliance_router(_get_compliance_service))
+    app.include_router(
+        create_compliance_router(
+            _get_compliance_service,
+            prefix="/v1/compliance",
+            operation_id_prefix="v1_compliance",
+        )
+    )
 
     if os.environ.get("LATENCE_TRACE_ENABLE_MCP_HTTP", "0") in {"1", "true", "yes"}:
         try:

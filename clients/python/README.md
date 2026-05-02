@@ -1,8 +1,7 @@
 # latence-trace-client
 
-Official Python SDK for the **latence-trace** Groundedness Tracker --
-calibrated, auditable hallucination detection for RAG and
-evidence-bearing LLM outputs.
+Official Python SDK for **Latence TRACE**: calibrated groundedness
+verification plus real-time PII compliance redaction for enterprise AI apps.
 
 ## Install
 
@@ -36,6 +35,28 @@ result = client.score_groundedness(
 print(result.scores.groundedness_v2, result.risk_band, result.scores.coverage_score_u)
 ```
 
+## Compliance redaction
+
+```python
+from latence_trace_client import LatenceTraceClient
+
+with LatenceTraceClient(base_url="https://api.latence.ai", api_key="lt_live_...") as client:
+    out = client.redact_compliance(
+        text="Contact Jane Doe at jane@example.com before sending the prompt.",
+        labels=["person", "email"],
+        redact=True,
+        include_original_text=False,
+    )
+
+print(out.redacted_text)
+print(out.entity_count, out.unique_labels)
+```
+
+Use `mode="open"` for the full PII catalog or pass `labels` / `categories`
+for a tighter allowlist. The SDK returns typed `ComplianceEntity`,
+`ComplianceUsage`, and timing metadata; do not persist `entities[*].text` in
+analytics.
+
 ## Async + retry-on-5xx + OTel
 
 ```python
@@ -58,7 +79,7 @@ when `[otel]` extras are installed.
 
 | Framework | Module | What it does |
 |---|---|---|
-| LangChain | `latence_trace_client.integrations.langchain` | `LatenceTraceCallback` -- score after every chain output |
+| LangChain | `latence_trace_client.integrations.langchain` | `LatenceTraceCallback` scores outputs; `LatenceComplianceRedactor` redacts prompt inputs |
 | LlamaIndex | `latence_trace_client.integrations.llama_index` | `LatenceTracePostProcessor` -- attach groundedness to nodes |
 | OpenAI | `latence_trace_client.integrations.openai` | `wrap_openai_chat()` -- score the assistant turn against prompt context |
 
