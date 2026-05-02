@@ -13,6 +13,10 @@ GDPR_TO_REPLACEMENT_LABEL: dict[str, str] = {
     "gender": "demographics.gender",
     "nationality": "demographics.nationality",
     "address": "address.full_address",
+    "street_address": "address.street",
+    "postal_code": "address.postal_code",
+    "city": "address.city",
+    "country": "address.country",
     "phone_number": "contact.phone_number",
     "email": "contact.email",
     "maiden_name": "family.mothers_maiden_name",
@@ -88,9 +92,7 @@ class ReplacementDataset:
         rows = self._rows
         if country:
             filtered = [
-                row
-                for row in self._rows
-                if str(row.get("country", "")).lower() == country.lower()
+                row for row in self._rows if str(row.get("country", "")).lower() == country.lower()
             ]
             if filtered:
                 rows = filtered

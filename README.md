@@ -33,6 +33,10 @@ time, then maps predictions back before redaction and analytics. This keeps the
 public API stable while improving recall for labels such as `person`, which is
 sent to GLiNER as `name`.
 
+Address handling supports both full-address redaction (`address`) and focused
+components (`street_address`, `postal_code`, `city`, `country`) so customers can
+choose broad removal or more precise masking.
+
 The RAG lane remains untouched — same models, same thresholds, bitwise
 parity guaranteed by
 [`tests/api/test_rag_lane_parity.py`](tests/api/test_rag_lane_parity.py).

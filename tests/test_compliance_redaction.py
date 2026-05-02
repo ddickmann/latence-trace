@@ -66,6 +66,11 @@ class _RegexProvider:
             entities = []
             for label, pattern in {
                 "name": r"\b(?:Jane Doe|Maria Schmidt|Alice Johnson)\b",
+                "address": r"\b742 Evergreen Terrace, Springfield, IL 62704, United States\b",
+                "street": r"\b742 Evergreen Terrace\b",
+                "zip code": r"\b62704\b",
+                "city name": r"\bSpringfield\b",
+                "country": r"\bUnited States\b",
                 "email": r"\b\S+@\S+\.\S+\b",
                 "employee_id": r"\bEMP-\d+\b",
                 "phone_number": r"\b555-\d{4}\b",
@@ -120,6 +125,13 @@ def _service(provider: _RegexProvider | None = None, *, max_text_tokens: int = 5
 def test_gdpr_label_catalog_is_ordered_and_category_resolution_is_stable():
     labels = all_gdpr_labels()
     assert labels[:3] == ["person", "date_of_birth", "age"]
+    assert GDPR_CATEGORIES["identity_and_contact"][5:10] == [
+        "address",
+        "street_address",
+        "postal_code",
+        "city",
+        "country",
+    ]
     assert len(labels) == len(set(labels))
     assert resolve_label_set(mode="open") == labels
     assert (
@@ -131,6 +143,10 @@ def test_gdpr_label_catalog_is_ordered_and_category_resolution_is_stable():
         labels=["email", "employee_id"],
     ) == ["email", "employee_id"]
     assert model_label_alias("person") == "name"
+    assert model_label_alias("address") == "address"
+    assert model_label_alias("postal_code") == "zip code"
+    assert model_label_alias("city") == "city name"
+    assert model_label_alias("country") == "country"
     assert model_label_alias("social_security_number") == "ssn"
     assert model_label_alias("unknown") == "unknown"
     model_labels, reverse = to_model_label_set(["person", "email"])
@@ -144,6 +160,37 @@ def test_compliance_schema_surfaces_model_alias_metadata():
     assert schema["labels"] == all_gdpr_labels()
     assert schema["model_label_aliases"]["person"]["model_label"] == "name"
     assert schema["model_label_aliases"]["person"]["single_label_benchmark_f1"] == 1.0
+    assert schema["model_label_aliases"]["postal_code"]["model_label"] == "zip code"
+
+
+def test_address_component_aliases_are_canonicalized_and_redacted():
+    provider = _RegexProvider()
+    service = _service(provider)
+
+    response = service.redact(
+        ComplianceRedactionRequest(
+            text="Ship to 742 Evergreen Terrace, Springfield, IL 62704, United States.",
+            mode="category",
+            labels=["street_address", "postal_code", "city", "country"],
+            redact=True,
+            redaction_mode="mask",
+            include_original_text=False,
+        )
+    )
+
+    assert provider.seen_labels == [["street", "zip code", "city name", "country"]]
+    assert response.labels_used == ["street_address", "postal_code", "city", "country"]
+    assert response.unique_labels == ["city", "country", "postal_code", "street_address"]
+    assert (
+        response.redacted_text == "Ship to [STREET_ADDRESS], [CITY], IL [POSTAL_CODE], [COUNTRY]."
+    )
+    assert [(entity.text, entity.label) for entity in response.entities] == [
+        ("742 Evergreen Terrace", "street_address"),
+        ("Springfield", "city"),
+        ("62704", "postal_code"),
+        ("United States", "country"),
+    ]
+    assert response.entities[0].metadata == {"model_label": "street"}
 
 
 def test_compliance_service_uses_model_aliases_but_returns_canonical_labels():

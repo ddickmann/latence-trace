@@ -64,6 +64,13 @@ benchmarking, for example `person -> name`, `social_security_number -> ssn`,
 and `drivers_license -> driver's license number`. Predictions are mapped back
 to canonical labels before validation, redaction, billing, and insights.
 
+Address redaction supports both whole-address and component labels. Use
+`address` when the whole address should be removed, or the focused component
+labels `street_address`, `postal_code`, `city`, and `country` when applications
+need finer-grained masking or analytics. These component labels are benchmarked
+with model-facing aliases such as `postal_code -> zip code` and
+`city -> city name`.
+
 ---
 
 ## Request: `GroundednessRequest`

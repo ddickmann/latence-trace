@@ -42,5 +42,9 @@ All 4xx and 5xx responses share the same structured envelope
 (`{detail: {code, message, hint, docs_url}}`), so agents and SDKs can
 parse one shape regardless of the failure mode.
 
+The compliance label catalog includes full-address redaction plus calibrated
+address components (`street_address`, `postal_code`, `city`, `country`) for
+applications that need finer-grained masking.
+
 This product is proprietary. See `LICENSE`. For commercial integrations,
 reach out to latence.ai.
