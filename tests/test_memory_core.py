@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from latence_trace.memory.models import MemoryPolicy, MemoryUpdateRequest
 from latence_trace.memory.service import update_memory
 
@@ -57,3 +59,181 @@ def test_memory_update_accepts_learned_ranker_signal() -> None:
     assert response.next_memory_state.spans
     assert any(span.scores.learned_survival > 0.0 for span in response.next_memory_state.spans)
     assert "learned_survival" in response.diagnostics.top_survival_causes[0]
+
+
+def test_memory_policy_context_ratio_scales_hot_budget() -> None:
+    payload = json.dumps(
+        [
+            {"order_id": f"ORD-{idx:04d}", "status": f"valuable_{idx}"}
+            for idx in range(8)
+        ]
+    )
+    policy = MemoryPolicy(
+        hot_token_budget=8,
+        warm_token_budget=16,
+        context_window_tokens=1_000,
+        memory_context_ratio=0.08,
+        max_spans=2,
+    )
+    response = update_memory(
+        MemoryUpdateRequest(
+            raw_context=payload,
+            memory_domain="tool",
+            memory_policy=policy,
+        )
+    )
+
+    assert response.diagnostics.effective_hot_token_budget == 80
+    assert response.diagnostics.effective_warm_token_budget == 160
+    assert response.diagnostics.effective_max_spans > policy.max_spans
+    assert response.diagnostics.hot_tokens > policy.hot_token_budget
+    assert "ORD-0000" in response.hot_context
+    assert "ORD-0007" in response.hot_context
+
+
+def test_memory_policy_context_ratio_does_not_shrink_explicit_budget() -> None:
+    response = update_memory(
+        MemoryUpdateRequest(
+            raw_context='{"order_id":"ORD-1234","status":"paid"}',
+            memory_domain="tool",
+            memory_policy=MemoryPolicy(
+                hot_token_budget=64,
+                warm_token_budget=128,
+                context_window_tokens=100,
+                memory_context_ratio=0.01,
+            ),
+        )
+    )
+
+    assert response.diagnostics.effective_hot_token_budget == 64
+    assert "ORD-1234" in response.hot_context
+
+
+def test_adaptive_memory_expands_beyond_target_when_exact_terms_need_it() -> None:
+    payload = json.dumps(
+        [
+            {
+                "order_id": f"ORD-{idx:04d}",
+                "payment_id": f"PAY-{idx:04d}",
+                "status": f"valuable_{idx}",
+            }
+            for idx in range(12)
+        ]
+    )
+    policy = MemoryPolicy(
+        hot_token_budget=8,
+        warm_token_budget=16,
+        memory_budget_mode="adaptive",
+        context_window_tokens=1_000,
+        memory_context_ratio=0.5,
+        target_token_reduction=0.95,
+        min_exact_critical_recall=0.98,
+        min_survival_mass=0.9,
+        max_spans=2,
+    )
+    response = update_memory(
+        MemoryUpdateRequest(raw_context=payload, memory_domain="tool", memory_policy=policy)
+    )
+
+    target_budget = int(response.diagnostics.hot_tokens * (1.0 - policy.target_token_reduction))
+    assert response.diagnostics.budget_mode_used == "adaptive"
+    assert response.diagnostics.effective_hot_token_budget > max(policy.hot_token_budget, target_budget)
+    assert response.diagnostics.estimated_exact_critical_recall >= policy.min_exact_critical_recall
+    assert response.diagnostics.survival_mass_retained >= policy.min_survival_mass
+    assert response.diagnostics.memory_underbudgeted is False
+    assert "ORD-0000" in response.hot_context
+    assert "PAY-0011" in response.hot_context
+
+
+def test_adaptive_memory_reports_underbudgeted_when_context_bound_is_too_small() -> None:
+    payload = json.dumps(
+        [
+            {
+                "order_id": f"ORD-{idx:04d}",
+                "payment_id": f"PAY-{idx:04d}",
+                "status": f"valuable_{idx}",
+            }
+            for idx in range(12)
+        ]
+    )
+    response = update_memory(
+        MemoryUpdateRequest(
+            raw_context=payload,
+            memory_domain="tool",
+            memory_policy=MemoryPolicy(
+                hot_token_budget=8,
+                warm_token_budget=16,
+                memory_budget_mode="adaptive",
+                context_window_tokens=100,
+                memory_context_ratio=0.3,
+                target_token_reduction=0.95,
+                min_exact_critical_recall=0.98,
+                min_survival_mass=0.9,
+                recent_tail_token_budget=10,
+                max_spans=2,
+            ),
+        )
+    )
+
+    assert response.diagnostics.effective_hot_token_budget == 30
+    assert response.diagnostics.memory_underbudgeted is True
+    assert response.diagnostics.recent_tail_required is True
+    assert response.diagnostics.recommended_hot_token_budget > response.diagnostics.effective_hot_token_budget
+    assert response.diagnostics.estimated_exact_critical_recall < 0.98
+
+
+def test_memory_diagnostics_include_stage_timings() -> None:
+    response = update_memory(
+        MemoryUpdateRequest(
+            raw_context='{"order_id":"ORD-5678","status":"paid"}',
+            memory_domain="tool",
+            memory_policy=MemoryPolicy(memory_budget_mode="adaptive"),
+        )
+    )
+
+    assert {"extract", "dedup", "survival", "selection", "total"} <= set(response.diagnostics.timings_ms)
+    assert response.diagnostics.timings_ms["total"] >= 0.0
+
+
+def test_adaptive_memory_preserves_first_turn_plan_concepts() -> None:
+    policy = MemoryPolicy(
+        hot_token_budget=16,
+        warm_token_budget=64,
+        memory_budget_mode="adaptive",
+        context_window_tokens=1_000,
+        memory_context_ratio=0.2,
+        target_token_reduction=0.95,
+        min_exact_critical_recall=0.98,
+        min_survival_mass=0.8,
+        genesis_anchor_turns=2,
+    )
+    first_turn = (
+        "Plan: build TRACE v2 biaffine student for Real-Time Agentic Runtime Verification. "
+        "Core concept: preserve src/trace/core.py, AdaptiveMemoryBudget, ReverseMaxSim, InfiniMemVault."
+    )
+    response = update_memory(
+        MemoryUpdateRequest(
+            query_text=first_turn,
+            turn_text=first_turn,
+            memory_domain="code",
+            memory_policy=policy,
+        )
+    )
+    state = response.next_memory_state
+    for idx in range(30):
+        response = update_memory(
+            MemoryUpdateRequest(
+                raw_context=f"noise generated_{idx}.py irrelevant status=ok_{idx}",
+                response_text="continue",
+                memory_domain="code",
+                prior_memory_state=state,
+                memory_policy=policy,
+            )
+        )
+        state = response.next_memory_state
+
+    assert response.diagnostics.genesis_anchor_spans >= 1
+    assert response.diagnostics.genesis_anchor_recall == 1.0
+    assert "src/trace/core.py" in response.hot_context
+    assert "AdaptiveMemoryBudget" in response.hot_context
+    assert "ReverseMaxSim" in response.hot_context

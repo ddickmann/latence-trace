@@ -483,7 +483,13 @@ class GroundednessRequest(BaseModel):
     )
     memory_policy: Optional[MemoryPolicy] = Field(
         default=None,
-        description="Optional hot/warm/cold memory budgets and survival policy.",
+        description=(
+            "Optional hot/warm/cold memory budgets and survival policy. "
+            "For large-context models, set context_window_tokens, "
+            "memory_context_ratio, and target_token_reduction so adaptive "
+            "memory can choose the smallest quality-gated budget instead of "
+            "using only fixed token caps."
+        ),
     )
     enable_memory_shadow: bool = Field(
         default=False,

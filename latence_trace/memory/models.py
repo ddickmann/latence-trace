@@ -22,6 +22,7 @@ SpanType = Literal[
 MemoryLayer = Literal["hot", "warm", "cold", "tombstone"]
 CompressionLevel = Literal["exact", "extractive", "summary", "fact", "tombstone"]
 MemoryActionType = Literal["added", "kept", "demoted", "removed", "deduped", "superseded", "anchored"]
+MemoryBudgetMode = Literal["fixed", "ratio", "adaptive"]
 
 
 class SpanSignature(BaseModel):
@@ -76,6 +77,60 @@ class MemoryState(BaseModel):
 class MemoryPolicy(BaseModel):
     hot_token_budget: int = Field(default=800, ge=1)
     warm_token_budget: int = Field(default=4000, ge=1)
+    memory_budget_mode: MemoryBudgetMode = Field(
+        default="adaptive",
+        description=(
+            "How hot-memory budget is resolved. fixed uses explicit token caps, "
+            "ratio uses context_window_tokens * memory_context_ratio, and adaptive "
+            "uses the smallest quality-gated budget within the allowed context."
+        ),
+    )
+    context_window_tokens: int | None = Field(
+        default=None,
+        ge=1,
+        description="Optional model context window used to derive ratio-based memory budgets.",
+    )
+    memory_context_ratio: float | None = Field(
+        default=None,
+        gt=0.0,
+        lt=1.0,
+        description=(
+            "Optional soft fraction of the model context window that hot memory may use. "
+            "The explicit hot_token_budget remains a floor, so small ratios do not force "
+            "destructive compression."
+        ),
+    )
+    target_token_reduction: float | None = Field(
+        default=None,
+        gt=0.0,
+        lt=1.0,
+        description=(
+            "Preferred compression target. For example, 0.90 means try to keep "
+            "memory near 10% of extracted span tokens, but expand when quality "
+            "gates would otherwise fail."
+        ),
+    )
+    min_exact_critical_recall: float = Field(default=0.98, ge=0.0, le=1.0)
+    min_survival_mass: float = Field(default=0.95, ge=0.0, le=1.0)
+    recent_tail_token_budget: int = Field(
+        default=0,
+        ge=0,
+        description="Tokens reserved for recent transcript tail outside hot memory.",
+    )
+    genesis_anchor_turns: int = Field(
+        default=2,
+        ge=0,
+        description=(
+            "Initial turns treated as durable planning/concept context. High-value "
+            "spans from these turns are protected by adaptive budget gates."
+        ),
+    )
+    genesis_anchor_score_floor: float = Field(
+        default=0.55,
+        ge=0.0,
+        le=1.0,
+        description="Minimum survival or exact-critical score for first-turn genesis anchoring.",
+    )
     max_spans: int = Field(default=256, ge=1)
     exact_critical_floor: float = Field(default=0.72, ge=0.0, le=1.0)
     rho: float = Field(default=0.7, ge=0.1, le=2.0)
@@ -99,6 +154,20 @@ class MemoryDiagnostics(BaseModel):
     actions: list[MemoryAction] = Field(default_factory=list)
     hot_tokens: int = 0
     warm_tokens: int = 0
+    effective_hot_token_budget: int = 0
+    effective_warm_token_budget: int = 0
+    effective_max_spans: int = 0
+    budget_mode_used: MemoryBudgetMode = "fixed"
+    target_token_reduction: float | None = None
+    actual_token_reduction: float = 0.0
+    estimated_exact_critical_recall: float = 1.0
+    survival_mass_retained: float = 1.0
+    memory_underbudgeted: bool = False
+    recommended_hot_token_budget: int = 0
+    recent_tail_required: bool = False
+    genesis_anchor_spans: int = 0
+    genesis_anchor_recall: float = 1.0
+    timings_ms: dict[str, float] = Field(default_factory=dict)
     cold_tokens: int = 0
     removed_tokens: int = 0
     exact_critical_spans: int = 0
