@@ -89,15 +89,20 @@ def merge_spans(
 
 
 def _superseded_tool_state(old: SpanRecord, new: SpanRecord) -> bool:
-    if new.created_turn < old.created_turn:
+    if new.created_turn <= old.created_turn:
         return False
     old_prefix = old.text.split(maxsplit=1)[0] if old.text else ""
     new_prefix = new.text.split(maxsplit=1)[0] if new.text else ""
     if old_prefix == new_prefix == "tool_exact_index":
-        return _overlap(old, new) >= 0.75
+        return _overlap(old, new) >= 0.75 or bool(
+            _tool_identifier_prefixes(old.text) & _tool_identifier_prefixes(new.text)
+        )
     old_field = _tool_fact_field(old.text)
     new_field = _tool_fact_field(new.text)
     if old_field and old_field == new_field:
+        return True
+    shared_state_keys = _tool_state_keys(old.text) & _tool_state_keys(new.text)
+    if shared_state_keys:
         return True
     tool_state_words = {"reservation", "booking", "order", "payment", "shipment"}
     old_words = set(normalize_text(old.text).split())
@@ -112,7 +117,10 @@ def _can_supersede_tool_state(span: SpanRecord) -> bool:
     if text.startswith("tool_exact_index"):
         return True
     normalized = normalize_text(text)
-    return any(token in normalized for token in ("reservation", "booking", "order", "payment", "shipment"))
+    return any(
+        token in normalized
+        for token in ("reservation", "booking", "order", "payment", "shipment", "refund", "status")
+    )
 
 
 def _tool_fact_field(text: str) -> str:
@@ -122,6 +130,28 @@ def _tool_fact_field(text: str) -> str:
     if "=" not in fact:
         return ""
     return fact.split("=", 1)[0]
+
+
+def _tool_state_keys(text: str) -> set[str]:
+    keys = set()
+    for token in normalize_text(text).replace(",", " ").replace(";", " ").split():
+        if "=" not in token:
+            continue
+        key = token.split("=", 1)[0].strip()
+        if key and any(fragment in key for fragment in ("status", "order", "reservation", "booking", "refund")):
+            keys.add(key)
+    return keys
+
+
+def _tool_identifier_prefixes(text: str) -> set[str]:
+    prefixes = set()
+    for token in normalize_text(text).replace(",", " ").split():
+        if "-" not in token:
+            continue
+        prefix = token.split("-", 1)[0].upper()
+        if 2 <= len(prefix) <= 16 and any(fragment in prefix for fragment in ("RSV", "ORD", "PAY", "RES", "BOOK")):
+            prefixes.add(prefix)
+    return prefixes
 
 
 def _can_supersede(old: SpanRecord, new: SpanRecord) -> bool:
