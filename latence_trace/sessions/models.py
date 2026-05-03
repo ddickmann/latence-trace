@@ -25,6 +25,8 @@ TraceSessionEventType = Literal[
     "observation",
 ]
 TraceSessionLane = Literal["code", "rag"]
+TraceRepairAction = Literal["none", "re_score", "ask_tool_again", "block_until_regrounded"]
+TraceRepairSeverity = Literal["info", "warn", "critical"]
 
 
 class TraceSessionState(BaseModel):
@@ -83,6 +85,56 @@ class TraceSessionEvent(BaseModel):
     idempotency_key: str | None = None
 
 
+class TraceSourcePointer(BaseModel):
+    source_id: str
+    event_id: str
+    content_hash: str
+    field: str | None = None
+    start_char: int | None = None
+    end_char: int | None = None
+    redacted: bool = False
+
+
+class TraceSourceRecord(BaseModel):
+    source_id: str
+    session_id: str
+    event_id: str
+    event_type: TraceSessionEventType
+    created_at: str
+    content_hash: str
+    content: str = ""
+    raw_context: str | None = None
+    query_text: str | None = None
+    response_text: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    redacted: bool = False
+
+
+class TraceRepairTrigger(BaseModel):
+    trigger_type: str
+    severity: TraceRepairSeverity = "warn"
+    reason: str
+    terms: list[str] = Field(default_factory=list)
+
+
+class TraceRepairExcerpt(BaseModel):
+    source_id: str
+    event_id: str
+    field: str
+    text: str
+    matched_terms: list[str] = Field(default_factory=list)
+    redacted: bool = True
+
+
+class TraceRepairPacket(BaseModel):
+    triggered: bool = False
+    triggers: list[TraceRepairTrigger] = Field(default_factory=list)
+    excerpts: list[TraceRepairExcerpt] = Field(default_factory=list)
+    suggested_action: TraceRepairAction = "none"
+    token_count: int = 0
+    repaired_terms: list[str] = Field(default_factory=list)
+
+
 class TraceSessionEventRequest(BaseModel):
     event: TraceSessionEvent
     memory_domain: str | None = None
@@ -94,6 +146,7 @@ class TraceSessionEventResponse(BaseModel):
     event: TraceSessionEvent
     hot_context: str = ""
     memory_diagnostics: MemoryDiagnostics | None = None
+    source_pointer: TraceSourcePointer | None = None
 
 
 class TraceSessionScoreRequest(BaseModel):
@@ -103,6 +156,7 @@ class TraceSessionScoreRequest(BaseModel):
     memory_domain: str | None = None
     return_context: bool = True
     idempotency_key: str | None = None
+    force_original_on_trigger: bool = False
 
 
 class TraceSessionScoreResponse(BaseModel):
@@ -110,6 +164,7 @@ class TraceSessionScoreResponse(BaseModel):
     trace_response: dict[str, Any]
     hot_context: str = ""
     memory_diagnostics: MemoryDiagnostics | None = None
+    repair_packet: TraceRepairPacket | None = None
 
 
 class TraceSessionContextResponse(BaseModel):
@@ -122,6 +177,26 @@ class TraceSessionContextResponse(BaseModel):
     cold_tokens: int = 0
     memory_state: MemoryState | None = None
     diagnostics: dict[str, Any] = Field(default_factory=dict)
+
+
+class TraceSessionSourceResponse(BaseModel):
+    session_id: str
+    source: TraceSourceRecord | None = None
+
+
+class TraceSessionRepairRequest(BaseModel):
+    query_text: str | None = None
+    response_text: str | None = None
+    missing_terms: list[str] = Field(default_factory=list)
+    reason: str | None = None
+    max_excerpts: int = Field(default=4, ge=1, le=20)
+    max_tokens: int = Field(default=512, ge=32, le=4096)
+    include_raw: bool = False
+
+
+class TraceSessionRepairResponse(BaseModel):
+    session_id: str
+    repair_packet: TraceRepairPacket
 
 
 class TraceSessionRollupRequest(BaseModel):

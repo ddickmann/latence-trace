@@ -47,6 +47,7 @@ def extract_spans(
     query_text: str | None = None,
     turn_index: int = 0,
     memory_domain: str | None = None,
+    source_pointer: dict | None = None,
 ) -> list[SpanRecord]:
     records: list[SpanRecord] = []
     domain = (memory_domain or "").strip().lower()
@@ -73,12 +74,15 @@ def extract_spans(
                         source=f"exact_index_{source}",
                         turn_index=turn_index,
                         span_type=_index_span_type(domain),
+                        source_pointer=source_pointer,
                     )
                 )
         consumed: set[str] = set()
         for block in _CODE_BLOCK_RE.findall(text):
             consumed.add(block)
-            records.append(_make_record(block, source=source, turn_index=turn_index))
+            records.append(
+                _make_record(block, source=source, turn_index=turn_index, source_pointer=source_pointer)
+            )
         remainder = text
         for block in consumed:
             remainder = remainder.replace(block, "\n")
@@ -87,7 +91,15 @@ def extract_spans(
                 continue
             if _token_count(sentence) < 3 and source != "response":
                 continue
-            records.append(_make_record(sentence, source=source, turn_index=turn_index, memory_domain=domain))
+            records.append(
+                _make_record(
+                    sentence,
+                    source=source,
+                    turn_index=turn_index,
+                    memory_domain=domain,
+                    source_pointer=source_pointer,
+                )
+            )
     return records
 
 
@@ -98,9 +110,13 @@ def _make_record(
     turn_index: int,
     span_type: SpanType | None = None,
     memory_domain: str | None = None,
+    source_pointer: dict | None = None,
 ) -> SpanRecord:
     span_type = span_type or _classify_span(text, source=source, memory_domain=memory_domain)
     signature = build_signature(text, span_type)
+    provenance = {"source": source, "turn_index": turn_index}
+    if source_pointer:
+        provenance["source_pointer"] = {**source_pointer, "field": source}
     return SpanRecord(
         id=span_id_for(text, span_type),
         text=text.strip(),
@@ -110,7 +126,7 @@ def _make_record(
         created_turn=turn_index,
         last_seen_turn=turn_index,
         source=source,
-        provenance={"source": source, "turn_index": turn_index},
+        provenance=provenance,
     )
 
 

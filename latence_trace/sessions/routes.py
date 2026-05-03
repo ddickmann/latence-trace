@@ -15,10 +15,13 @@ from latence_trace.sessions.models import (
     TraceSessionEventRequest,
     TraceSessionEventResponse,
     TraceSessionGetResponse,
+    TraceSessionRepairRequest,
+    TraceSessionRepairResponse,
     TraceSessionRollupRequest,
     TraceSessionRollupResponse,
     TraceSessionScoreRequest,
     TraceSessionScoreResponse,
+    TraceSessionSourceResponse,
 )
 from latence_trace.sessions.service import TraceSessionService
 
@@ -93,6 +96,44 @@ def create_trace_session_router(
         service: TraceSessionService = Depends(get_service),
     ) -> TraceSessionContextResponse:
         return _call(lambda: service.context(session_id))
+
+    @router.get(
+        "/{session_id}/sources/{source_id}",
+        response_model=TraceSessionSourceResponse,
+        operation_id="trace_session_source",
+    )
+    async def source(
+        session_id: str,
+        source_id: str,
+        include_raw: bool = False,
+        service: TraceSessionService = Depends(get_service),
+    ) -> TraceSessionSourceResponse:
+        return _call(lambda: service.source(session_id, source_id, include_raw=include_raw))
+
+    @router.post(
+        "/{session_id}/sources/{source_id}",
+        response_model=TraceSessionSourceResponse,
+        operation_id="trace_session_source_post",
+    )
+    async def source_post(
+        session_id: str,
+        source_id: str,
+        include_raw: bool = False,
+        service: TraceSessionService = Depends(get_service),
+    ) -> TraceSessionSourceResponse:
+        return _call(lambda: service.source(session_id, source_id, include_raw=include_raw))
+
+    @router.post(
+        "/{session_id}/repair",
+        response_model=TraceSessionRepairResponse,
+        operation_id="trace_session_repair",
+    )
+    async def repair(
+        session_id: str,
+        request: TraceSessionRepairRequest,
+        service: TraceSessionService = Depends(get_service),
+    ) -> TraceSessionRepairResponse:
+        return _call(lambda: service.repair(session_id, request))
 
     @router.post(
         "/{session_id}/rollup",

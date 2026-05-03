@@ -114,6 +114,7 @@ class MemoryUpdateRequest(BaseModel):
     prior_memory_state: MemoryState | None = None
     trace_response: dict[str, Any] | None = None
     trace_signals: dict[str, Any] | None = None
+    source_pointer: dict[str, Any] | None = None
     memory_ranker_weights: dict[str, float] | None = None
     memory_policy: MemoryPolicy = Field(default_factory=MemoryPolicy)
     enable_ingress_compression: bool = False

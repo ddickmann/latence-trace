@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import os
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
@@ -96,7 +96,7 @@ def create_router(service_provider: Callable[[], GroundednessService]) -> APIRou
     # the running event loop. Asyncio is single-threaded, so the lazy
     # init below is race-free even though it looks like a check-then-set.
     _inflight_limit = _resolve_inflight_limit()
-    _semaphore_holder: list[Optional[asyncio.Semaphore]] = [None]
+    _semaphore_holder: list[asyncio.Semaphore | None] = [None]
 
     def _inflight_semaphore() -> asyncio.Semaphore:
         sem = _semaphore_holder[0]
@@ -301,6 +301,16 @@ def create_router(service_provider: Callable[[], GroundednessService]) -> APIRou
                         "path": "/v1/trace/sessions/{session_id}/context",
                         "operation_id": "trace_session_context",
                     },
+                    "trace_session_source": {
+                        "method": "GET",
+                        "path": "/v1/trace/sessions/{session_id}/sources/{source_id}",
+                        "operation_id": "trace_session_source",
+                    },
+                    "trace_session_repair": {
+                        "method": "POST",
+                        "path": "/v1/trace/sessions/{session_id}/repair",
+                        "operation_id": "trace_session_repair",
+                    },
                     "agent_help": {"method": "GET", "path": "/agent-help"},
                     "ai_plugin": {
                         "method": "GET",
@@ -502,7 +512,7 @@ def _mount_amber_queue(router: APIRouter) -> None:
                     ),
                     "docs_url": "https://latence.ai/trace/docs",
                 },
-            )
+            ) from exc
         action = str(body.get("action", "")).lower()
         if action not in {"accept", "edit", "reject"}:
             raise HTTPException(

@@ -87,6 +87,7 @@ from latence_trace.observability.metrics import (
 from latence_trace.sessions.models import (
     TraceSessionCreateRequest,
     TraceSessionEventRequest,
+    TraceSessionRepairRequest,
     TraceSessionRollupRequest,
     TraceSessionScoreRequest,
 )
@@ -1334,6 +1335,17 @@ async def _handle_session_action(input_data: dict[str, Any], action: str) -> dic
             )
         elif action == "session.context":
             response = service.context(session_id)
+        elif action == "session.source":
+            response = service.source(
+                session_id,
+                str(payload.get("source_id") or ""),
+                include_raw=bool(payload.get("include_raw", False)),
+            )
+        elif action == "session.repair":
+            response = service.repair(
+                session_id,
+                TraceSessionRepairRequest.model_validate(payload),
+            )
         elif action == "session.rollup":
             response = service.rollup(
                 session_id,
@@ -1488,6 +1500,8 @@ async def handler(job: dict[str, Any]) -> dict[str, Any]:
         "session.event",
         "session.score",
         "session.context",
+        "session.source",
+        "session.repair",
         "session.rollup",
         "session.close",
     } or endpoint_id == "trace_session":

@@ -27,6 +27,7 @@ def update_memory(request: MemoryUpdateRequest) -> MemoryUpdateResponse:
         query_text=request.query_text,
         turn_index=turn_index,
         memory_domain=request.memory_domain,
+        source_pointer=request.source_pointer,
     )
     merged, dedup_actions = merge_spans(list(prior.spans), incoming)
     scored, survival_actions = update_survival(

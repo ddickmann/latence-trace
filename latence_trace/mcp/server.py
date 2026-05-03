@@ -194,6 +194,37 @@ def _session_tool_descriptors() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "trace_session_source",
+            "description": "Fetch a redacted immutable source-vault record by source id.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    **common_session,
+                    "source_id": {"type": "string"},
+                    "include_raw": {"type": "boolean"},
+                },
+                "required": ["session_id", "source_id"],
+            },
+        },
+        {
+            "name": "trace_session_repair",
+            "description": "Build a bounded repair packet from immutable original session history.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    **common_session,
+                    "query_text": {"type": "string"},
+                    "response_text": {"type": "string"},
+                    "missing_terms": {"type": "array", "items": {"type": "string"}},
+                    "reason": {"type": "string"},
+                    "max_excerpts": {"type": "integer"},
+                    "max_tokens": {"type": "integer"},
+                    "include_raw": {"type": "boolean"},
+                },
+                "required": ["session_id"],
+            },
+        },
+        {
             "name": "trace_session_rollup",
             "description": "Aggregate scored turns stored in a stateful TRACE session.",
             "inputSchema": {
@@ -293,6 +324,7 @@ def _handle_session_tool_call(
         from latence_trace.sessions.models import (  # noqa: PLC0415
             TraceSessionCreateRequest,
             TraceSessionEventRequest,
+            TraceSessionRepairRequest,
             TraceSessionRollupRequest,
             TraceSessionScoreRequest,
         )
@@ -324,6 +356,17 @@ def _handle_session_tool_call(
             response = holder.score(session_id, TraceSessionScoreRequest.model_validate(payload))
         elif name == "trace_session_context":
             response = holder.context(session_id)
+        elif name == "trace_session_source":
+            response = holder.source(
+                session_id,
+                str(arguments.get("source_id") or ""),
+                include_raw=bool(arguments.get("include_raw", False)),
+            )
+        elif name == "trace_session_repair":
+            response = holder.repair(
+                session_id,
+                TraceSessionRepairRequest.model_validate(arguments),
+            )
         elif name == "trace_session_rollup":
             response = holder.rollup(
                 session_id,
