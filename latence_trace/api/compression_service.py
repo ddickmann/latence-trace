@@ -33,6 +33,10 @@ def _message_text(messages: list[dict[str, Any]] | None) -> str:
     return "\n".join(parts)
 
 
+class CompressionProviderError(RuntimeError):
+    """Raised when the managed LLMLingua2 provider is required but fails."""
+
+
 class CompressionService:
     """Compress text with the SuperPod LLMLingua2 pipeline when configured.
 
@@ -43,8 +47,14 @@ class CompressionService:
     local/dev deployments available when vLLM or the Rust wheel is absent.
     """
 
-    def __init__(self, provider: VllmCompressionProvider | None = None) -> None:
+    def __init__(
+        self,
+        provider: VllmCompressionProvider | None = None,
+        *,
+        allow_provider_fallback: bool = False,
+    ) -> None:
         self.provider = provider
+        self.allow_provider_fallback = bool(allow_provider_fallback)
         self._postprocessor: Any | None = None
 
     @classmethod
@@ -52,13 +62,18 @@ class CompressionService:
         endpoint = os.environ.get("LATENCE_TRACE_COMPRESSION_ENDPOINT", "").strip()
         if not endpoint:
             return cls()
+        allow_provider_fallback = os.environ.get(
+            "LATENCE_TRACE_COMPRESSION_PROVIDER_FALLBACK",
+            "0",
+        ).lower() in {"1", "true", "yes", "on"}
         return cls(
             VllmCompressionProvider(
                 endpoint=endpoint,
                 model=os.environ.get("LATENCE_TRACE_COMPRESSION_MODEL"),
                 timeout=float(os.environ.get("LATENCE_TRACE_COMPRESSION_REQUEST_TIMEOUT_S", "30")),
                 max_concurrency=int(os.environ.get("LATENCE_TRACE_COMPRESSION_CONCURRENCY", "16")),
-            )
+            ),
+            allow_provider_fallback=allow_provider_fallback,
         )
 
     async def compress(self, request: CompressionRequest) -> CompressionResponse:
@@ -68,7 +83,11 @@ class CompressionService:
                 if request.action == "compress_messages" and request.messages:
                     return await self._compress_messages_with_superpod(request)
                 return await self._compress_text_with_superpod(text, request)
-            except Exception as exc:  # noqa: BLE001 - fallback keeps API available
+            except Exception as exc:  # noqa: BLE001 - report provider failures unless explicitly relaxed
+                if not self.allow_provider_fallback:
+                    raise CompressionProviderError(
+                        "Managed LLMLingua2 compression provider failed"
+                    ) from exc
                 fallback = self._fallback(text, request)
                 fallback.diagnostics["provider_error"] = str(exc)
                 return fallback
@@ -110,8 +129,16 @@ class CompressionService:
             for chunk_data in compressed_data
             if isinstance(chunk_data, tuple) and chunk_data and chunk_data[0]
         )
+        compressed, restored_force_tokens = _restore_missing_force_tokens(
+            original=text,
+            compressed=compressed,
+            force_tokens=request.effective_force_tokens,
+        )
         original_tokens = sum(len(probs) for probs in chunk_logprobs)
-        compressed_tokens = sum(result.compressed_tokens for result in compressed_results)
+        compressed_tokens = max(
+            sum(result.compressed_tokens for result in compressed_results),
+            _token_count(compressed),
+        )
         response = self._response_from_counts(
             original=text,
             compressed=compressed,
@@ -128,6 +155,7 @@ class CompressionService:
                 "chunks_processed": len(chunks),
                 "fallback_chunks": fallback_chunks,
                 "toon_applied": toon_applied,
+                "restored_force_tokens": restored_force_tokens,
                 "config_used": {
                     "compression_rate": request.effective_compression_rate,
                     "chunk_size": request.chunk_size,
@@ -310,6 +338,27 @@ class CompressionService:
         return _toon_encode(parsed), True
 
 
+def _restore_missing_force_tokens(
+    *,
+    original: str,
+    compressed: str,
+    force_tokens: list[str],
+) -> tuple[str, list[str]]:
+    """Preserve exact-critical force tokens even if the model/postprocessor drops them."""
+
+    restored: list[str] = []
+    output = compressed.strip()
+    original_sentences = [item.strip() for item in _SENTENCE_SPLIT_RE.split(original) if item.strip()]
+    for token in force_tokens:
+        if not token or token not in original or token in output:
+            continue
+        carrier = next((sentence for sentence in original_sentences if token in sentence), token)
+        if carrier not in output:
+            output = f"{output} {carrier}".strip()
+        restored.append(token)
+    return output, restored
+
+
 def _resolve_tokenizer_path(model_name: str) -> str:
     if model_name:
         if os.path.isfile(model_name):
@@ -332,7 +381,10 @@ def _resolve_tokenizer_path(model_name: str) -> str:
             return candidate
     except Exception:
         pass
-    for fallback in ("/app/model/tokenizer.json",):
+    for fallback in (
+        "/workspace/latence-trace/runpod/compression_model/tokenizer.json",
+        "/app/model/tokenizer.json",
+    ):
         if os.path.isfile(fallback):
             return fallback
     raise RuntimeError(f"Tokenizer not found for compression model '{model_name}'")

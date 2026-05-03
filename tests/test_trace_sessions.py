@@ -38,6 +38,21 @@ class _RiskyGroundednessService:
         )
 
 
+class _RecordingGroundednessService:
+    def __init__(self) -> None:
+        self.last_request = None
+
+    def groundedness(self, request) -> _DummyTraceResponse:
+        self.last_request = request
+        return _DummyTraceResponse(
+            {
+                "risk_band": "green",
+                "runtime_decision": {"action": "allow"},
+                "scores": {"groundedness_v2": 0.91},
+            }
+        )
+
+
 def test_trace_session_event_updates_stateful_memory() -> None:
     service = TraceSessionService(groundedness_service=object())
     created = service.create(
@@ -76,6 +91,29 @@ def test_trace_session_event_updates_stateful_memory() -> None:
         ),
     )
     assert duplicate.session.event_count == 1
+
+
+def test_trace_session_score_accepts_top_level_trace_aliases() -> None:
+    groundedness = _RecordingGroundednessService()
+    service = TraceSessionService(groundedness_service=groundedness)
+    created = service.create(TraceSessionCreateRequest(kind="rag"))
+
+    response = service.score(
+        created.session.session_id,
+        TraceSessionScoreRequest(
+            lane="rag",
+            trace_request={
+                "query": "What notice is required?",
+                "context": "The agreement requires 30 days written notice.",
+                "response": "It requires 30 days written notice.",
+            },
+        ),
+    )
+
+    assert response.trace_response["risk_band"] == "green"
+    assert groundedness.last_request.query_text == "What notice is required?"
+    assert groundedness.last_request.raw_context == "The agreement requires 30 days written notice."
+    assert groundedness.last_request.response_text == "It requires 30 days written notice."
 
 
 def test_stateful_session_proof_harness_writes_report(tmp_path: Path) -> None:

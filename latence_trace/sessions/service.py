@@ -217,6 +217,7 @@ class TraceSessionService:
                 _index_source_terms(session, source_record, request.memory_domain or self._memory_domain(session))
                 self._record_event(session, event)
         payload = dict(request.trace_request or {})
+        _normalize_trace_request_aliases(payload)
         if request.lane and "scoring_mode" not in payload:
             payload["scoring_mode"] = request.lane
         if session.kind in {"code", "rag"} and "scoring_mode" not in payload:
@@ -476,6 +477,15 @@ class TraceRepairService:
 
 def _has_premise(payload: dict[str, Any]) -> bool:
     return bool(payload.get("raw_context") or payload.get("chunk_ids") or payload.get("support_units"))
+
+
+def _normalize_trace_request_aliases(payload: dict[str, Any]) -> None:
+    if "query_text" not in payload and "query" in payload:
+        payload["query_text"] = payload["query"]
+    if "raw_context" not in payload and "context" in payload:
+        payload["raw_context"] = payload["context"]
+    if "response_text" not in payload and "response" in payload:
+        payload["response_text"] = payload["response"]
 
 
 def _memory_budget(memory_state: MemoryState | None) -> dict[str, Any]:

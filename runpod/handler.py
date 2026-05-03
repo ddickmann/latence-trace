@@ -137,7 +137,7 @@ def _detect_device() -> str:
 
 
 _STARTUP_WARMUP_REQUEST_COUNT = 4
-_PRIVATE_COMPRESSION_MODEL = "doubledsbv/compression-llmlingua2"
+_DEFAULT_COMPRESSION_MODEL = "latence/compression-v0.1"
 _RUNPOD_DIR = Path(__file__).resolve().parent
 _VENDORED_COMPRESSION_MODEL_DIR = _RUNPOD_DIR / "compression_model"
 
@@ -164,16 +164,19 @@ def _local_compression_model_available(model_dir: Path) -> bool:
 
 
 def _resolve_compression_model() -> tuple[str, bool]:
-    """Resolve the optional managed compression vLLM model.
+    """Resolve the managed compression vLLM model.
 
-    The historical default pointed at a private HuggingFace repo and made
-    worker startup fail before TRACE could serve any request. In auto mode we
-    only start a managed compression vLLM subprocess when a real local model is
-    vendored. Operators can still opt into an explicit HF/local model through
-    LATENCE_TRACE_COMPRESSION_MODEL.
+    Production should not silently degrade to sentence fallback. The managed
+    server is enabled by default and uses the SuperPod LLMLingua2 checkpoint
+    unless operators explicitly point to a complete local model, configure an
+    external compression endpoint, or opt out for local/dev.
     """
     explicit_model = (os.environ.get("LATENCE_TRACE_COMPRESSION_MODEL") or "").strip()
+    explicit_endpoint = (os.environ.get("LATENCE_TRACE_COMPRESSION_ENDPOINT") or "").strip()
     enable_override = _env_bool("LATENCE_TRACE_ENABLE_COMPRESSION_SERVER")
+
+    if explicit_endpoint:
+        return explicit_model, False
 
     if enable_override is False:
         return explicit_model, False
@@ -184,21 +187,14 @@ def _resolve_compression_model() -> tuple[str, bool]:
     if _local_compression_model_available(_VENDORED_COMPRESSION_MODEL_DIR):
         return str(_VENDORED_COMPRESSION_MODEL_DIR), True
 
-    if enable_override is True:
-        raise RuntimeError(
-            "LATENCE_TRACE_ENABLE_COMPRESSION_SERVER is enabled, but no explicit "
-            "LATENCE_TRACE_COMPRESSION_MODEL was provided and the vendored "
-            f"compression model at {_VENDORED_COMPRESSION_MODEL_DIR} is incomplete. "
-            "Provide a full local model directory or HuggingFace model ref."
-        )
-
     logger.warning(
-        "Managed compression vLLM server disabled: no complete vendored model found at %s. "
-        "TRACE compression will use provider fallback unless LATENCE_TRACE_COMPRESSION_MODEL "
-        "or LATENCE_TRACE_COMPRESSION_ENDPOINT is configured.",
+        "No complete vendored compression model found at %s. Starting managed "
+        "compression vLLM with the public production default %s; use "
+        "LATENCE_TRACE_COMPRESSION_MODEL to override it.",
         _VENDORED_COMPRESSION_MODEL_DIR,
+        _DEFAULT_COMPRESSION_MODEL,
     )
-    return "", False
+    return _DEFAULT_COMPRESSION_MODEL, True
 
 
 @dataclass(frozen=True)
@@ -237,10 +233,13 @@ class WorkerConfig:
     compression_model: str = ""
     compression_server_enabled: bool = False
     compression_port: int = 8004
-    compression_gpu_mem: float = 0.12
-    compression_max_model_len: int = 4096
+    compression_gpu_mem: float = 0.2
+    compression_max_model_len: int = 8192
     compression_max_num_seqs: int = 128
     compression_max_batched_tokens: int = 8192
+    compression_dtype: str = "auto"
+    compression_enforce_eager: bool = True
+    compression_trust_remote_code: bool = False
     compression_request_timeout_s: float = 30.0
     compression_default_chunk_size: int = 4096
     compression_default_compression_rate: float = 0.5
@@ -289,19 +288,19 @@ def create_config() -> WorkerConfig:
         not in {"0", "false", "no", "off"},
         colbert_model=colbert_model,
         colbert_port=_env_int("LATENCE_TRACE_COLBERT_PORT", 8001),
-        colbert_gpu_mem=_env_float("LATENCE_TRACE_COLBERT_GPU_MEM", 0.34),
+        colbert_gpu_mem=_env_float("LATENCE_TRACE_COLBERT_GPU_MEM", 0.2),
         colbert_max_model_len=_env_int("LATENCE_TRACE_COLBERT_MAX_MODEL_LEN", 8192),
         colbert_max_num_seqs=_env_int("LATENCE_TRACE_COLBERT_MAX_NUM_SEQS", 128),
         colbert_max_batched_tokens=_env_int("LATENCE_TRACE_COLBERT_MAX_BATCHED_TOKENS", 8192),
         nli_model=nli_model,
         nli_port=_env_int("LATENCE_TRACE_NLI_PORT", 8002),
-        nli_gpu_mem=_env_float("LATENCE_TRACE_NLI_GPU_MEM", 0.24),
+        nli_gpu_mem=_env_float("LATENCE_TRACE_NLI_GPU_MEM", 0.2),
         nli_max_model_len=_env_int("LATENCE_TRACE_NLI_MAX_MODEL_LEN", 512),
         nli_max_num_seqs=_env_int("LATENCE_TRACE_NLI_MAX_NUM_SEQS", 128),
         nli_max_batched_tokens=_env_int("LATENCE_TRACE_NLI_MAX_BATCHED_TOKENS", 8192),
         compliance_model=compliance_model,
         compliance_port=_env_int("LATENCE_TRACE_COMPLIANCE_GLINER_PORT", 8003),
-        compliance_gpu_mem=_env_float("LATENCE_TRACE_COMPLIANCE_GLINER_GPU_MEM", 0.18),
+        compliance_gpu_mem=_env_float("LATENCE_TRACE_COMPLIANCE_GLINER_GPU_MEM", 0.2),
         compliance_max_model_len=_env_int("LATENCE_TRACE_COMPLIANCE_MAX_MODEL_LEN", 768),
         compliance_max_num_seqs=_env_int("LATENCE_TRACE_COMPLIANCE_MAX_NUM_SEQS", 128),
         compliance_max_batched_tokens=_env_int("LATENCE_TRACE_COMPLIANCE_MAX_BATCHED_TOKENS", 8192),
@@ -314,12 +313,21 @@ def create_config() -> WorkerConfig:
         compression_model=compression_model,
         compression_server_enabled=compression_server_enabled,
         compression_port=_env_int("LATENCE_TRACE_COMPRESSION_PORT", 8004),
-        compression_gpu_mem=_env_float("LATENCE_TRACE_COMPRESSION_GPU_MEM", 0.12),
-        compression_max_model_len=_env_int("LATENCE_TRACE_COMPRESSION_MAX_MODEL_LEN", 4096),
+        compression_gpu_mem=_env_float("LATENCE_TRACE_COMPRESSION_GPU_MEM", 0.2),
+        compression_max_model_len=_env_int("LATENCE_TRACE_COMPRESSION_MAX_MODEL_LEN", 8192),
         compression_max_num_seqs=_env_int("LATENCE_TRACE_COMPRESSION_MAX_NUM_SEQS", 128),
         compression_max_batched_tokens=_env_int(
             "LATENCE_TRACE_COMPRESSION_MAX_BATCHED_TOKENS", 8192
         ),
+        compression_dtype=os.environ.get("LATENCE_TRACE_COMPRESSION_DTYPE", "auto"),
+        compression_enforce_eager=os.environ.get(
+            "LATENCE_TRACE_COMPRESSION_ENFORCE_EAGER", "1"
+        ).lower()
+        not in {"0", "false", "no"},
+        compression_trust_remote_code=os.environ.get(
+            "LATENCE_TRACE_COMPRESSION_TRUST_REMOTE_CODE", "0"
+        ).lower()
+        not in {"0", "false", "no"},
         compression_request_timeout_s=_env_float(
             "LATENCE_TRACE_COMPRESSION_REQUEST_TIMEOUT_S", 30.0
         ),
@@ -567,7 +575,7 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
             max_num_seqs=config.colbert_max_num_seqs,
             max_num_batched_tokens=config.colbert_max_batched_tokens,
             plugins=["moderncolbert", "moderncolbert_batched_io"],
-            enforce_eager=False,
+            enforce_eager=True,
         ),
         "nli": ManagedVllmServer(
             name="nli",
@@ -579,7 +587,7 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
             max_num_seqs=config.nli_max_num_seqs,
             max_num_batched_tokens=config.nli_max_batched_tokens,
             plugins=["nli_mdeberta"],
-            enforce_eager=False,
+            enforce_eager=True,
         ),
         "compliance_gliner": ManagedVllmServer(
             name="compliance_gliner",
@@ -591,7 +599,7 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
             max_num_seqs=config.compliance_max_num_seqs,
             max_num_batched_tokens=config.compliance_max_batched_tokens,
             plugins=["deberta_gliner", "deberta_gliner_io"],
-            enforce_eager=False,
+            enforce_eager=True,
         ),
     }
     if config.compression_server_enabled:
@@ -603,8 +611,10 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
             max_model_len=config.compression_max_model_len,
             max_num_seqs=config.compression_max_num_seqs,
             max_num_batched_tokens=config.compression_max_batched_tokens,
+            dtype=config.compression_dtype,
+            trust_remote_code=config.compression_trust_remote_code,
             plugins=["qwen3_compression"],
-            enforce_eager=False,
+            enforce_eager=config.compression_enforce_eager,
         )
     return servers
 
@@ -782,6 +792,86 @@ def _code_lane_health() -> dict[str, Any]:
     return payload
 
 
+def _runtime_model_config(config: WorkerConfig | None) -> dict[str, Any]:
+    if config is None:
+        return {}
+    return {
+        "colbert": {
+            "model": config.colbert_model,
+            "port": config.colbert_port,
+            "runner": "pooling",
+            "io_processor_plugin": "moderncolbert_batched_io",
+            "plugins": ["moderncolbert", "moderncolbert_batched_io"],
+            "gpu_memory_utilization": config.colbert_gpu_mem,
+            "max_model_len": config.colbert_max_model_len,
+            "max_num_seqs": config.colbert_max_num_seqs,
+            "max_num_batched_tokens": config.colbert_max_batched_tokens,
+            "dtype": "bfloat16",
+            "quantization": None,
+            "enforce_eager": True,
+            "trust_remote_code": True,
+            "enable_prefix_caching": False,
+            "enable_chunked_prefill": False,
+        },
+        "nli": {
+            "model": config.nli_model,
+            "port": config.nli_port,
+            "runner": "pooling",
+            "io_processor_plugin": "nli_mdeberta",
+            "plugins": ["nli_mdeberta"],
+            "gpu_memory_utilization": config.nli_gpu_mem,
+            "max_model_len": config.nli_max_model_len,
+            "max_num_seqs": config.nli_max_num_seqs,
+            "max_num_batched_tokens": config.nli_max_batched_tokens,
+            "dtype": "bfloat16",
+            "quantization": None,
+            "enforce_eager": True,
+            "trust_remote_code": True,
+            "enable_prefix_caching": False,
+            "enable_chunked_prefill": False,
+        },
+        "compliance_gliner": {
+            "model": config.compliance_model,
+            "port": config.compliance_port,
+            "runner": "pooling",
+            "io_processor_plugin": "deberta_gliner_io",
+            "plugins": ["deberta_gliner", "deberta_gliner_io"],
+            "gpu_memory_utilization": config.compliance_gpu_mem,
+            "max_model_len": config.compliance_max_model_len,
+            "max_num_seqs": config.compliance_max_num_seqs,
+            "max_num_batched_tokens": config.compliance_max_batched_tokens,
+            "dtype": "bfloat16",
+            "quantization": None,
+            "enforce_eager": True,
+            "trust_remote_code": True,
+            "enable_prefix_caching": False,
+            "enable_chunked_prefill": False,
+        },
+        "compression": {
+            "model": config.compression_model,
+            "enabled": config.compression_server_enabled,
+            "port": config.compression_port,
+            "runner": "pooling",
+            "task": "token_classify",
+            "plugins": ["qwen3_compression"],
+            "gpu_memory_utilization": config.compression_gpu_mem,
+            "max_model_len": config.compression_max_model_len,
+            "max_num_seqs": config.compression_max_num_seqs,
+            "max_num_batched_tokens": config.compression_max_batched_tokens,
+            "dtype": config.compression_dtype,
+            "quantization": None,
+            "enforce_eager": config.compression_enforce_eager,
+            "trust_remote_code": config.compression_trust_remote_code,
+            "enable_prefix_caching": False,
+            "enable_chunked_prefill": False,
+            "default_chunk_size": config.compression_default_chunk_size,
+            "default_compression_rate": config.compression_default_compression_rate,
+            "force_preserve_digit": config.compression_force_preserve_digit,
+            "fallback_mode": config.compression_fallback_mode,
+        },
+    }
+
+
 def _health_payload() -> dict[str, Any]:
     return {
         "success": True,
@@ -791,6 +881,7 @@ def _health_payload() -> dict[str, Any]:
         "max_concurrency": _config.max_concurrency if _config else None,
         "startup_warmup_requests": _STARTUP_WARMUP_REQUEST_COUNT,
         "servers": {name: server.health() for name, server in _servers.items()},
+        "model_runtime_config": _runtime_model_config(_config),
         "code_lane": _code_lane_health(),
     }
 

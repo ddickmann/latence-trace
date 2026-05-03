@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import select
@@ -17,17 +18,13 @@ logger = logging.getLogger(__name__)
 
 
 def _pause_group(pid: int) -> None:
-    try:
+    with contextlib.suppress(ProcessLookupError):
         os.killpg(os.getpgid(pid), signal.SIGSTOP)
-    except ProcessLookupError:
-        pass
 
 
 def _resume_group(pid: int) -> None:
-    try:
+    with contextlib.suppress(ProcessLookupError):
         os.killpg(os.getpgid(pid), signal.SIGCONT)
-    except ProcessLookupError:
-        pass
 
 
 class ManagedVllmServer:
@@ -58,6 +55,7 @@ class ManagedVllmServer:
         max_num_seqs: int = 128,
         max_num_batched_tokens: int | None = None,
         dtype: str = "bfloat16",
+        quantization: str | None = None,
         trust_remote_code: bool = True,
         enforce_eager: bool | None = None,
         enable_prefix_caching: bool = False,
@@ -77,6 +75,7 @@ class ManagedVllmServer:
         self.max_num_seqs = int(max_num_seqs)
         self.max_num_batched_tokens = max_num_batched_tokens
         self.dtype = dtype
+        self.quantization = quantization
         self.trust_remote_code = bool(trust_remote_code)
         self.enforce_eager = enforce_eager
         self.enable_prefix_caching = bool(enable_prefix_caching)
@@ -120,6 +119,8 @@ class ManagedVllmServer:
             cmd.extend(["--max-model-len", str(self.max_model_len)])
         if self.max_num_batched_tokens:
             cmd.extend(["--max-num-batched-tokens", str(self.max_num_batched_tokens)])
+        if self.quantization:
+            cmd.extend(["--quantization", self.quantization])
         if self.trust_remote_code:
             cmd.append("--trust-remote-code")
         if self.enforce_eager is True:
@@ -144,10 +145,8 @@ class ManagedVllmServer:
 
     def _release_gpu_lock_if_held(self) -> None:
         if self._gpu_phase_acquired:
-            try:
+            with contextlib.suppress(RuntimeError):
                 self._gpu_lock_instance.release()
-            except RuntimeError:
-                pass
             self._gpu_phase_acquired = False
 
     def _handle_gpu_phase_marker(self, line: str) -> None:
@@ -260,25 +259,17 @@ class ManagedVllmServer:
         if proc is None:
             return
         pid = proc.pid
-        try:
+        with contextlib.suppress(Exception):
             _resume_group(pid)
-        except Exception:
-            pass
-        try:
+        with contextlib.suppress(ProcessLookupError):
             os.killpg(os.getpgid(pid), signal.SIGTERM)
-        except ProcessLookupError:
-            pass
         try:
             proc.wait(timeout=10)
         except subprocess.TimeoutExpired:
-            try:
+            with contextlib.suppress(ProcessLookupError):
                 os.killpg(os.getpgid(pid), signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-            try:
+            with contextlib.suppress(Exception):
                 proc.wait(timeout=5)
-            except Exception:
-                pass
         finally:
             self._release_gpu_lock_if_held()
             self.process = None

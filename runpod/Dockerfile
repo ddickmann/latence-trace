@@ -60,7 +60,7 @@ RUN python -m pip install "vllm==0.19.0"
 # importlib.metadata entry-point lookup (which vllm runs at server start)
 # can resolve them against the installed vllm distribution. We install with
 # --no-deps because every dep is already pinned by the steps above.
-RUN git clone --depth 1 --branch "${VLLM_FACTORY_REF}" https://github.com/ddickmann/vllm-factory.git /opt/vllm-factory \
+RUN git clone --depth 1 --branch "${VLLM_FACTORY_REF}" https://github.com/latenceainew/vllm-factory.git /opt/vllm-factory \
     && python -m pip install --no-deps /opt/vllm-factory \
     && rm -rf /opt/vllm-factory
 

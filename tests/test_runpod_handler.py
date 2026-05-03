@@ -201,19 +201,19 @@ def _config(
         managed_vllm_enabled=managed_vllm_enabled,
         colbert_model="lightonai/LateOn",
         colbert_port=18001,
-        colbert_gpu_mem=0.34,
+        colbert_gpu_mem=0.2,
         colbert_max_model_len=8192,
         colbert_max_num_seqs=128,
         colbert_max_batched_tokens=8192,
         nli_model="MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7",
         nli_port=18002,
-        nli_gpu_mem=0.24,
+        nli_gpu_mem=0.2,
         nli_max_model_len=512,
         nli_max_num_seqs=128,
         nli_max_batched_tokens=8192,
         compliance_model="knowledgator/gliner-pii-large-v1.0",
         compliance_port=18003,
-        compliance_gpu_mem=0.18,
+        compliance_gpu_mem=0.2,
         compliance_max_model_len=768,
         compliance_max_num_seqs=128,
         compliance_max_batched_tokens=8192,
@@ -248,6 +248,9 @@ def test_create_config_pins_vllm_runtime_defaults(monkeypatch) -> None:
     monkeypatch.delenv("LATENCE_TRACE_COLBERT_MAX_BATCHED_TOKENS", raising=False)
     monkeypatch.delenv("LATENCE_TRACE_NLI_MAX_NUM_SEQS", raising=False)
     monkeypatch.delenv("LATENCE_TRACE_NLI_MAX_BATCHED_TOKENS", raising=False)
+    monkeypatch.delenv("LATENCE_TRACE_COMPRESSION_ENDPOINT", raising=False)
+    monkeypatch.delenv("LATENCE_TRACE_COMPRESSION_MODEL", raising=False)
+    monkeypatch.delenv("LATENCE_TRACE_ENABLE_COMPRESSION_SERVER", raising=False)
 
     config = runpod_handler.create_config()
 
@@ -259,16 +262,49 @@ def test_create_config_pins_vllm_runtime_defaults(monkeypatch) -> None:
     assert config.compliance_max_model_len == 768
     assert config.compliance_max_num_seqs == 128
     assert config.compliance_max_batched_tokens == 8192
+    assert config.colbert_gpu_mem == 0.2
+    assert config.nli_gpu_mem == 0.2
+    assert config.compliance_gpu_mem == 0.2
+    assert config.compression_model == "latence/compression-v0.1"
+    assert config.compression_server_enabled is True
+    assert config.compression_gpu_mem == 0.2
+    assert config.compression_max_model_len == 8192
+    assert config.compression_max_batched_tokens == 8192
+    assert config.compression_dtype == "auto"
+    assert config.compression_enforce_eager is True
 
 
-def test_create_config_disables_private_default_compression_model(monkeypatch, tmp_path) -> None:
+def test_create_config_uses_public_default_compression_model(monkeypatch, tmp_path) -> None:
     monkeypatch.delenv("LATENCE_TRACE_COMPRESSION_MODEL", raising=False)
+    monkeypatch.delenv("LATENCE_TRACE_COMPRESSION_ENDPOINT", raising=False)
     monkeypatch.delenv("LATENCE_TRACE_ENABLE_COMPRESSION_SERVER", raising=False)
     monkeypatch.setattr(runpod_handler, "_VENDORED_COMPRESSION_MODEL_DIR", tmp_path / "missing-model")
 
     config = runpod_handler.create_config()
 
+    assert config.compression_model == "latence/compression-v0.1"
+    assert config.compression_server_enabled is True
+
+
+def test_create_config_can_explicitly_disable_managed_compression(monkeypatch) -> None:
+    monkeypatch.delenv("LATENCE_TRACE_COMPRESSION_MODEL", raising=False)
+    monkeypatch.delenv("LATENCE_TRACE_COMPRESSION_ENDPOINT", raising=False)
+    monkeypatch.setenv("LATENCE_TRACE_ENABLE_COMPRESSION_SERVER", "0")
+
+    config = runpod_handler.create_config()
+
     assert config.compression_model == ""
+    assert config.compression_server_enabled is False
+
+
+def test_create_config_uses_external_compression_endpoint_without_managed_server(monkeypatch) -> None:
+    monkeypatch.setenv("LATENCE_TRACE_COMPRESSION_ENDPOINT", "http://compression.internal:8004")
+    monkeypatch.setenv("LATENCE_TRACE_COMPRESSION_MODEL", "external-compression")
+    monkeypatch.delenv("LATENCE_TRACE_ENABLE_COMPRESSION_SERVER", raising=False)
+
+    config = runpod_handler.create_config()
+
+    assert config.compression_model == "external-compression"
     assert config.compression_server_enabled is False
 
 
@@ -310,14 +346,21 @@ def test_build_servers_pin_requested_vllm_settings() -> None:
 
     assert servers["colbert"].max_num_seqs == 128
     assert servers["colbert"].max_num_batched_tokens == 8192
-    assert servers["colbert"].enforce_eager is False
+    assert servers["colbert"].gpu_memory_utilization == 0.2
+    assert servers["colbert"].enforce_eager is True
+    assert servers["colbert"].quantization is None
     assert servers["nli"].max_num_seqs == 128
     assert servers["nli"].max_num_batched_tokens == 8192
-    assert servers["nli"].enforce_eager is False
+    assert servers["nli"].gpu_memory_utilization == 0.2
+    assert servers["nli"].enforce_eager is True
+    assert servers["nli"].quantization is None
     assert servers["compliance_gliner"].model == "knowledgator/gliner-pii-large-v1.0"
     assert servers["compliance_gliner"].io_processor_plugin == "deberta_gliner_io"
     assert servers["compliance_gliner"].plugins == ["deberta_gliner", "deberta_gliner_io"]
     assert servers["compliance_gliner"].max_model_len == 768
+    assert servers["compliance_gliner"].gpu_memory_utilization == 0.2
+    assert servers["compliance_gliner"].enforce_eager is True
+    assert servers["compliance_gliner"].quantization is None
 
 
 def test_build_servers_only_adds_compression_when_enabled() -> None:
@@ -329,10 +372,55 @@ def test_build_servers_only_adds_compression_when_enabled() -> None:
     assert "compression" not in disabled
     assert enabled["compression"].model == "/models/compression"
     assert enabled["compression"].plugins == ["qwen3_compression"]
+    assert enabled["compression"].dtype == "auto"
+    assert enabled["compression"].quantization is None
+    assert enabled["compression"].enforce_eager is True
+    assert enabled["compression"].trust_remote_code is False
+    assert enabled["compression"].gpu_memory_utilization == 0.2
+    assert enabled["compression"].max_model_len == 8192
+    assert enabled["compression"].max_num_batched_tokens == 8192
 
 
 def test_build_servers_can_use_external_vllm_mode() -> None:
     assert runpod_handler._build_servers(_config(managed_vllm_enabled=False)) == {}
+
+
+def test_health_payload_surfaces_selected_model_runtime_config(monkeypatch) -> None:
+    config = _config(compression_model="/models/compression", compression_server_enabled=True)
+    runpod_handler._config = config
+    runpod_handler._servers = {}
+
+    try:
+        payload = runpod_handler._health_payload()
+    finally:
+        runpod_handler._config = None
+
+    compression = payload["model_runtime_config"]["compression"]
+    colbert = payload["model_runtime_config"]["colbert"]
+    nli = payload["model_runtime_config"]["nli"]
+    compliance = payload["model_runtime_config"]["compliance_gliner"]
+
+    assert colbert["model"] == "lightonai/LateOn"
+    assert colbert["io_processor_plugin"] == "moderncolbert_batched_io"
+    assert colbert["gpu_memory_utilization"] == 0.2
+    assert colbert["quantization"] is None
+    assert colbert["enforce_eager"] is True
+    assert nli["gpu_memory_utilization"] == 0.2
+    assert nli["quantization"] is None
+    assert nli["enforce_eager"] is True
+    assert compliance["gpu_memory_utilization"] == 0.2
+    assert compliance["quantization"] is None
+    assert compliance["enforce_eager"] is True
+    assert compression["model"] == "/models/compression"
+    assert compression["task"] == "token_classify"
+    assert compression["default_compression_rate"] == 0.5
+    assert compression["default_chunk_size"] == 4096
+    assert compression["force_preserve_digit"] is True
+    assert compression["max_model_len"] == 8192
+    assert compression["max_num_batched_tokens"] == 8192
+    assert compression["gpu_memory_utilization"] == 0.2
+    assert compression["quantization"] is None
+    assert compression["enforce_eager"] is True
 
 
 def test_dev_app_exposes_runpod_wrapper_routes() -> None:
@@ -654,19 +742,19 @@ def test_compact_response_surfaces_unused_context_contract() -> None:
         managed_vllm_enabled=True,
         colbert_model="lightonai/LateOn",
         colbert_port=18001,
-        colbert_gpu_mem=0.34,
+        colbert_gpu_mem=0.2,
         colbert_max_model_len=8192,
         colbert_max_num_seqs=128,
         colbert_max_batched_tokens=8192,
         nli_model="MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7",
         nli_port=18002,
-        nli_gpu_mem=0.24,
+        nli_gpu_mem=0.2,
         nli_max_model_len=512,
         nli_max_num_seqs=128,
         nli_max_batched_tokens=8192,
         compliance_model="knowledgator/gliner-pii-large-v1.0",
         compliance_port=18003,
-        compliance_gpu_mem=0.18,
+        compliance_gpu_mem=0.2,
         compliance_max_model_len=768,
         compliance_max_num_seqs=128,
         compliance_max_batched_tokens=8192,
