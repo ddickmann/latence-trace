@@ -3,16 +3,23 @@
 from __future__ import annotations
 
 import base64
+import json
+import os
 from collections.abc import Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 import torch
 from transformers import AutoConfig, AutoTokenizer
 from vllm.config import VllmConfig
-
-from vllm_factory.io.base import FactoryIOProcessor, PoolingRequestOutput, PromptType, TokensPrompt
+from vllm_factory.io.base import (
+    FactoryIOProcessor,
+    PoolingRequestOutput,
+    PromptType,
+    TokensPrompt,
+)
 
 
 def _request_output_index(output: PoolingRequestOutput) -> int | None:
@@ -54,16 +61,46 @@ class ModernColBERTBatchedIOProcessor(FactoryIOProcessor):
             cfg = AutoConfig.from_pretrained(model_id, trust_remote_code=True)
         except Exception:
             cfg = vllm_config.model_config.hf_config
+        st_config = self._load_sentence_transformer_config(model_id)
         self._query_max_length = int(
-            getattr(cfg, "query_length", getattr(cfg, "query_maxlen", 256))
+            st_config.get("query_length")
+            or getattr(cfg, "query_length", getattr(cfg, "query_maxlen", 256))
         )
-        self._document_max_length = int(
-            getattr(
-                cfg,
-                "document_length",
-                getattr(cfg, "document_maxlen", getattr(cfg, "max_position_embeddings", 8192)),
+        config_doc_maxlen = getattr(
+            cfg,
+            "document_length",
+            getattr(cfg, "document_maxlen", getattr(cfg, "max_position_embeddings", 8192)),
+        )
+        self._document_max_length = int(st_config.get("document_length") or config_doc_maxlen)
+        skiplist_words = st_config.get("skiplist_words")
+        if not isinstance(skiplist_words, list):
+            skiplist_words = list("!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~")
+        convert_tokens_to_ids = getattr(self._tokenizer, "convert_tokens_to_ids", None)
+        self._skiplist_ids = (
+            {int(convert_tokens_to_ids(str(word))) for word in skiplist_words}
+            if callable(convert_tokens_to_ids)
+            else set()
+        )
+
+    @staticmethod
+    def _load_sentence_transformer_config(model_id: str) -> dict[str, Any]:
+        local_file = Path(model_id) / "config_sentence_transformers.json"
+        if local_file.exists():
+            try:
+                return json.loads(local_file.read_text())
+            except Exception:
+                return {}
+        try:
+            from huggingface_hub import hf_hub_download
+
+            path = hf_hub_download(
+                repo_id=model_id,
+                filename="config_sentence_transformers.json",
+                token=os.environ.get("HF_TOKEN"),
             )
-        )
+            return json.loads(Path(path).read_text())
+        except Exception:
+            return {}
 
     def _normalize_is_query(self, value: Any, n: int) -> list[bool]:
         if isinstance(value, bool):
@@ -137,7 +174,7 @@ class ModernColBERTBatchedIOProcessor(FactoryIOProcessor):
     ) -> PromptType | Sequence[PromptType]:
         prepared = [
             self._prepare_prompt(text, is_query=is_query)
-            for text, is_query in zip(parsed_input.texts, parsed_input.is_query)
+            for text, is_query in zip(parsed_input.texts, parsed_input.is_query, strict=False)
         ]
         prompts = [TokensPrompt(prompt_token_ids=input_ids) for input_ids, _ in prepared]
         seq_lengths = [len(input_ids) for input_ids, _ in prepared]
@@ -156,11 +193,35 @@ class ModernColBERTBatchedIOProcessor(FactoryIOProcessor):
                 "batched": parsed_input.batched,
                 "n": len(prompts),
                 "is_query": parsed_input.is_query[0],
+                "input_ids": input_ids_payload,
+                "attention_mask": attention_masks,
             },
         )
         if len(prompts) == 1:
             return prompts[0]
         return prompts
+
+    def _filter_output(
+        self,
+        raw: Any,
+        *,
+        input_ids: Sequence[int] | None,
+        attention_mask: Sequence[int] | None,
+        is_query: bool,
+    ) -> torch.Tensor:
+        tensor = raw if isinstance(raw, torch.Tensor) else torch.as_tensor(raw)
+        if input_ids is None or attention_mask is None:
+            return tensor
+        ids = torch.as_tensor(list(input_ids), device=tensor.device)
+        mask = torch.as_tensor(list(attention_mask), device=tensor.device).bool()
+        if tensor.shape[0] != ids.shape[0] or tensor.shape[0] != mask.shape[0]:
+            return tensor
+        if not is_query:
+            skip = torch.zeros_like(mask)
+            for token_id in self._skiplist_ids:
+                skip |= ids == token_id
+            mask = mask & ~skip
+        return tensor[mask]
 
     @staticmethod
     def _encode_output(raw: Any) -> str:
@@ -182,8 +243,28 @@ class ModernColBERTBatchedIOProcessor(FactoryIOProcessor):
         else:
             ordered_outputs = list(model_output)
 
-        rows = [self._encode_output(output.outputs.data) for output in ordered_outputs]
         meta = request_meta or {}
+        ids_meta = meta.get("input_ids")
+        mask_meta = meta.get("attention_mask")
+        if ids_meta and isinstance(ids_meta[0], int):
+            ids_by_row = [ids_meta]
+        else:
+            ids_by_row = list(ids_meta or [])
+        if mask_meta and isinstance(mask_meta[0], int):
+            masks_by_row = [mask_meta]
+        else:
+            masks_by_row = list(mask_meta or [])
+        is_query = bool(meta.get("is_query", False))
+
+        rows = []
+        for idx, output in enumerate(ordered_outputs):
+            filtered = self._filter_output(
+                output.outputs.data,
+                input_ids=ids_by_row[idx] if idx < len(ids_by_row) else None,
+                attention_mask=masks_by_row[idx] if idx < len(masks_by_row) else None,
+                is_query=is_query,
+            )
+            rows.append(self._encode_output(filtered))
         if not meta.get("batched", False) and len(rows) == 1:
             return {"data": rows[0]}
         return {"data": rows}

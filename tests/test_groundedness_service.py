@@ -980,6 +980,74 @@ def test_vllm_factory_encoded_token_count_matches_token_ids(monkeypatch: pytest.
     assert provider.encoded_token_count(text, is_query=True) == len(provider._token_ids(text, is_query=True))
 
 
+def test_vllm_factory_provider_uses_pylate_lengths_and_filters_doc_skiplist(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class DummyTokenizer:
+        model_max_length = 8192
+
+        def __call__(
+            self,
+            text: str,
+            add_special_tokens: bool = True,
+            truncation: bool = True,
+            max_length: int | None = None,
+            padding: bool = False,
+            return_tensors=None,
+        ):
+            assert max_length in {31, 299}
+            return {"input_ids": [101, 2, 200, 3, 201, 102]}
+
+        def convert_tokens_to_ids(self, token):
+            return {"!": 2, ".": 3, "[Q] ": 50368, "[D] ": 50369}.get(token, 999)
+
+        def convert_ids_to_tokens(self, input_ids):
+            return [f"tok_{token_id}" for token_id in input_ids]
+
+    class DummyConfig:
+        colbert_dim = 4
+        query_length = 256
+        document_length = 8192
+
+    monkeypatch.setattr("transformers.AutoTokenizer.from_pretrained", lambda *args, **kwargs: DummyTokenizer())
+    monkeypatch.setattr("transformers.AutoConfig.from_pretrained", lambda *args, **kwargs: DummyConfig())
+    monkeypatch.setattr(
+        VllmFactoryModernColBERTProvider,
+        "_load_sentence_transformer_config",
+        staticmethod(
+            lambda _model: {
+                "query_length": 32,
+                "document_length": 300,
+                "skiplist_words": ["!", "."],
+            }
+        ),
+    )
+
+    provider = VllmFactoryModernColBERTProvider(
+        endpoint="http://localhost:8000",
+        model="dummy-moderncolbert",
+    )
+    raw = np.arange(28, dtype=np.float32).reshape(7, 4)
+
+    assert provider.query_maxlen == 32
+    assert provider.doc_maxlen == 300
+    assert provider.tokenize("alpha ! beta.", is_query=False) == [
+        "tok_101",
+        "tok_50369",
+        "tok_200",
+        "tok_201",
+        "tok_102",
+    ]
+    np.testing.assert_array_equal(
+        provider._filter_embedding_if_needed("alpha ! beta.", raw, is_query=False),
+        raw[[0, 1, 3, 5, 6]],
+    )
+    np.testing.assert_array_equal(
+        provider._filter_embedding_if_needed("alpha ! beta.", raw, is_query=True),
+        raw,
+    )
+
+
 def test_vllm_factory_decode_embedding_rejects_malformed_dimensions(monkeypatch: pytest.MonkeyPatch) -> None:
     class DummyTokenizer:
         model_max_length = 8192

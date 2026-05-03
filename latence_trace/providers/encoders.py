@@ -13,9 +13,12 @@ keeping a runtime dependency on the upstream voyager-index package:
 from __future__ import annotations
 
 import base64
+import json
+import os
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Optional
+from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -51,7 +54,7 @@ class VllmFactoryModernColBERTProvider:
         self.max_concurrency = max(1, int(max_concurrency))
         self._http_client: Any = None
         self._client_lock = threading.Lock()
-        self._executor: Optional[ThreadPoolExecutor] = (
+        self._executor: ThreadPoolExecutor | None = (
             ThreadPoolExecutor(
                 max_workers=self.max_concurrency,
                 thread_name_prefix="latence-trace-encoder",
@@ -77,9 +80,13 @@ class VllmFactoryModernColBERTProvider:
             config = AutoConfig.from_pretrained(model, trust_remote_code=True)
         except Exception:
             config = None
+        st_config = self._load_sentence_transformer_config(model)
         self.colbert_dim = int(getattr(config, "colbert_dim", getattr(config, "dim", 128)) if config else 128)
-        self.query_maxlen = int(getattr(config, "query_length", getattr(config, "query_maxlen", 256)) if config else 256)
-        self.doc_maxlen = int(
+        self.query_maxlen = int(
+            st_config.get("query_length")
+            or (getattr(config, "query_length", getattr(config, "query_maxlen", 256)) if config else 256)
+        )
+        config_doc_maxlen = (
             getattr(
                 config,
                 "document_length",
@@ -88,6 +95,36 @@ class VllmFactoryModernColBERTProvider:
             if config
             else 8192
         )
+        self.doc_maxlen = int(st_config.get("document_length") or config_doc_maxlen)
+        skiplist_words = st_config.get("skiplist_words")
+        if not isinstance(skiplist_words, list):
+            skiplist_words = list("!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~")
+        convert_tokens_to_ids = getattr(self.tokenizer, "convert_tokens_to_ids", None)
+        self.skiplist_ids = (
+            {int(convert_tokens_to_ids(str(word))) for word in skiplist_words}
+            if callable(convert_tokens_to_ids)
+            else set()
+        )
+
+    @staticmethod
+    def _load_sentence_transformer_config(model: str) -> dict[str, Any]:
+        local_file = Path(model) / "config_sentence_transformers.json"
+        if local_file.exists():
+            try:
+                return json.loads(local_file.read_text())
+            except Exception:
+                return {}
+        try:
+            from huggingface_hub import hf_hub_download
+
+            path = hf_hub_download(
+                repo_id=model,
+                filename="config_sentence_transformers.json",
+                token=os.environ.get("HF_TOKEN"),
+            )
+            return json.loads(Path(path).read_text())
+        except Exception:
+            return {}
 
     def _get_http_client(self):
         if self._http_client is not None:
@@ -152,8 +189,14 @@ class VllmFactoryModernColBERTProvider:
         prefix_id = self.query_prefix_id if is_query else self.document_prefix_id
         return [int(input_ids[0]), int(prefix_id), *[int(item) for item in input_ids[1:]]]
 
-    def tokenize(self, text: str, *, is_query: bool = False) -> list[str]:
+    def _filtered_token_ids(self, text: str, *, is_query: bool) -> list[int]:
         input_ids = self._token_ids(text, is_query=is_query)
+        if is_query:
+            return input_ids
+        return [token_id for token_id in input_ids if token_id not in self.skiplist_ids]
+
+    def tokenize(self, text: str, *, is_query: bool = False) -> list[str]:
+        input_ids = self._filtered_token_ids(text, is_query=is_query)
         if not input_ids:
             return []
         try:
@@ -161,7 +204,7 @@ class VllmFactoryModernColBERTProvider:
         except Exception:
             tokens = [str(item) for item in input_ids]
         normalized: list[str] = []
-        for token_id, token in zip(input_ids, tokens):
+        for token_id, token in zip(input_ids, tokens, strict=False):
             if token_id == self.query_prefix_id and (token is None or str(token) == str(token_id)):
                 normalized.append("[Q]")
             elif token_id == self.document_prefix_id and (token is None or str(token) == str(token_id)):
@@ -221,23 +264,37 @@ class VllmFactoryModernColBERTProvider:
                 return np.zeros((0, self.colbert_dim), dtype=np.float32)
             if array.size % self.colbert_dim != 0:
                 raise ValueError(
-                    "ModernColBERT /pooling response length {size} is not divisible by colbert_dim={dim}; "
-                    "the server did not return a multi-vector matrix. Check the model id and IO processor wiring.".format(
-                        size=array.size,
-                        dim=self.colbert_dim,
-                    )
+                    f"ModernColBERT /pooling response length {array.size} is not divisible by "
+                    f"colbert_dim={self.colbert_dim}; the server did not return a multi-vector matrix. "
+                    "Check the model id and IO processor wiring."
                 )
             return array.reshape(-1, self.colbert_dim)
         if array.ndim == 2:
             if array.shape[1] != self.colbert_dim:
                 raise ValueError(
-                    "ModernColBERT /pooling response inner dim {got} does not match colbert_dim={expected}".format(
-                        got=int(array.shape[1]),
-                        expected=self.colbert_dim,
-                    )
+                    f"ModernColBERT /pooling response inner dim {int(array.shape[1])} "
+                    f"does not match colbert_dim={self.colbert_dim}"
                 )
             return array
         raise TypeError("Unsupported ModernColBERT /pooling payload shape")
+
+    def _filter_embedding_if_needed(
+        self,
+        text: str,
+        embedding: np.ndarray,
+        *,
+        is_query: bool,
+    ) -> np.ndarray:
+        if is_query or embedding.shape[0] == 0:
+            return embedding
+        raw_ids = self._token_ids(text, is_query=is_query)
+        filtered_ids = self._filtered_token_ids(text, is_query=is_query)
+        if embedding.shape[0] == len(filtered_ids):
+            return embedding
+        if embedding.shape[0] != len(raw_ids):
+            return embedding
+        keep = np.asarray([token_id not in self.skiplist_ids for token_id in raw_ids], dtype=bool)
+        return embedding[keep]
 
     def _pool_texts(self, texts: list[str], *, is_query: bool) -> list[np.ndarray]:
         client = self._get_http_client()
@@ -250,10 +307,14 @@ class VllmFactoryModernColBERTProvider:
         body = response.json()
         raw = self._unwrap_data(body)
         if len(texts) == 1:
-            return [self._decode_embedding(raw)]
+            embedding = self._decode_embedding(raw)
+            return [self._filter_embedding_if_needed(texts[0], embedding, is_query=is_query)]
         if not isinstance(raw, list):
             raise TypeError(f"Unsupported batched ModernColBERT payload: {type(raw)!r}")
-        return [self._decode_embedding(item) for item in raw]
+        return [
+            self._filter_embedding_if_needed(text, self._decode_embedding(item), is_query=is_query)
+            for text, item in zip(texts, raw, strict=False)
+        ]
 
     def encode(self, inputs: Any, **kwargs: Any) -> list[np.ndarray]:
         texts = [inputs] if isinstance(inputs, str) else list(inputs)
