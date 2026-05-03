@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from latence_trace.memory.extract import extract_spans
 from latence_trace.memory.models import MemoryPolicy, MemoryUpdateRequest
 from latence_trace.memory.service import update_memory
 
@@ -60,6 +61,24 @@ def test_ood_tool_state_keeps_latest_structured_fact_not_old_reservation() -> No
     assert "ORD-0018" in hot
     assert "cancelled" in hot
     assert "RSV-0001" not in hot
+
+
+def test_ood_tool_exact_index_preserves_privacy_reduced_email_handle() -> None:
+    spans = extract_spans(
+        raw_context=(
+            '{"email": "olivia.gonzalez4421@example.com", "address": {"zip": "90504"}, '
+            '"reservations": ["K67C4W"], "flights": [{"flight_number": "HAT137"}], '
+            '"payment_methods": {"credit_card_9969263": {"id": "credit_card_9969263"}}}'
+        ),
+        memory_domain="tool",
+    )
+
+    extracted = "\n".join(span.text for span in spans)
+
+    assert "tool_fact email_localpart=olivia.gonzalez4421" in extracted
+    assert "HAT137" in extracted
+    assert "K67C4W" in extracted
+    assert "olivia.gonzalez4421@example.com" not in extracted
 
 
 def test_ood_rust_code_keeps_stable_anchors_over_generated_noise() -> None:

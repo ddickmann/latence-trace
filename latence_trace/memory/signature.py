@@ -15,6 +15,7 @@ _DATE_RE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b"
 _CURRENCY_RE = re.compile(r"(?:[$€£]\s?\d[\d,]*(?:\.\d+)?|\b\d[\d,]*(?:\.\d+)?\s?(?:USD|EUR|GBP)\b)")
 _JSON_FIELD_RE = re.compile(r'"([A-Za-z_][A-Za-z0-9_.-]{1,80})"\s*:\s*("[^"]{1,160}"|\d[\d.,]*|true|false|null)')
 _KEY_VALUE_RE = re.compile(r"\b([A-Za-z_][A-Za-z0-9_.-]{1,60})\s*[=:]\s*([A-Za-z0-9_.:/@-]{2,160})")
+_EMAIL_RE = re.compile(r"\b([A-Za-z0-9._%+-]{3,120})@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 _UUID_RE = re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", re.I)
 _ISSUE_RE = re.compile(r"\b(?:issue|ticket|order|booking|reservation|payment|shipment|tool_call|call|task)[_-]?(?:id)?[:=#\s-]*([A-Za-z0-9_.-]{3,80})\b", re.I)
 _TEST_RE = re.compile(r"\b(?:test_[A-Za-z0-9_]+|[A-Za-z0-9_]+Test|pytest\s+[A-Za-z0-9_./:-]+)\b")
@@ -133,6 +134,10 @@ def extract_exact_critical_terms(text: str, *, domain: str | None = None) -> lis
         terms.update(_rag_terms(text))
     if domain_key in {"tool", "workflow", "tau", "tau-bench"}:
         terms.update(_tool_terms(text))
+        # Keep a privacy-reduced handle for tool/user lookup state. The full
+        # email remains masked by memory extraction; the localpart is often the
+        # exact customer/user identifier used by tau-style workflows.
+        terms.update(match.group(1) for match in _EMAIL_RE.finditer(text))
     return sorted(term for term in terms if _valid_term(term) and not _is_noisy_code_term(term, domain_key))
 
 

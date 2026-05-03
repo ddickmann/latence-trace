@@ -16,7 +16,7 @@ from latence_trace.memory.types import classify_span
 _CODE_BLOCK_RE = re.compile(r"```.*?```", re.DOTALL)
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+|\n+")
 _PHONE_RE = re.compile(r"(?<!\d)(?:\+?\d[\d .()/-]{6,}\d)(?!\d)")
-_EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
+_EMAIL_RE = re.compile(r"\b([A-Za-z0-9._%+-]{3,120})@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 _ISO_DATE_FULL_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 _LOW_AUTHORITY_MARKERS = (
     "generated noise",
@@ -58,16 +58,18 @@ def extract_spans(
         ("raw_context", raw_context or ""),
     ]
     for source, text in sources:
-        text = _sanitize_sensitive_text(text)
-        if not text.strip():
+        original_text = text
+        sanitized_text = _sanitize_sensitive_text(text)
+        if not sanitized_text.strip():
             continue
         should_index = source in {"raw_context", "response"} or (source == "query" and domain == "code")
         if (
             should_index
             and not (source == "raw_context" and domain == "chat")
-            and not _is_low_authority_exact_source(text)
+            and not _is_low_authority_exact_source(sanitized_text)
         ):
-            for fact in _structured_exact_spans(text, domain=domain):
+            index_text = original_text if domain == "tool" else sanitized_text
+            for fact in _structured_exact_spans(index_text, domain=domain):
                 records.append(
                     _make_record(
                         fact,
@@ -78,12 +80,12 @@ def extract_spans(
                     )
                 )
         consumed: set[str] = set()
-        for block in _CODE_BLOCK_RE.findall(text):
+        for block in _CODE_BLOCK_RE.findall(sanitized_text):
             consumed.add(block)
             records.append(
                 _make_record(block, source=source, turn_index=turn_index, source_pointer=source_pointer)
             )
-        remainder = text
+        remainder = sanitized_text
         for block in consumed:
             remainder = remainder.replace(block, "\n")
         for sentence in _sentence_spans(remainder):
@@ -251,6 +253,8 @@ def _flatten_tool_payload(payload: object, path: str = "") -> list[str]:
         for index, value in enumerate(payload):
             child_path = f"{path}[{index}]" if path else f"item[{index}]"
             facts.extend(_flatten_tool_payload(value, child_path))
+    elif "email" in path.lower() and isinstance(payload, str):
+        facts.extend(f"tool_fact email_localpart={match.group(1)}" for match in _EMAIL_RE.finditer(payload))
     elif _is_tool_fact(path, payload):
         facts.append(f"tool_fact {path}={_clean_scalar(payload)}")
     return facts
