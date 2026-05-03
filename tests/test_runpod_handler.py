@@ -180,7 +180,14 @@ class _ComplianceService:
                 self.inflight -= 1
 
 
-def _config(*, profile: str = "quality", max_concurrency: int = 2):
+def _config(
+    *,
+    profile: str = "quality",
+    max_concurrency: int = 2,
+    managed_vllm_enabled: bool = True,
+    compression_model: str = "",
+    compression_server_enabled: bool = False,
+):
     return runpod_handler.WorkerConfig(
         profile=profile,
         version="test",
@@ -191,6 +198,7 @@ def _config(*, profile: str = "quality", max_concurrency: int = 2):
         collection_label="latence-trace",
         service_device="cpu",
         docs_url="",
+        managed_vllm_enabled=managed_vllm_enabled,
         colbert_model="lightonai/LateOn",
         colbert_port=18001,
         colbert_gpu_mem=0.34,
@@ -212,6 +220,8 @@ def _config(*, profile: str = "quality", max_concurrency: int = 2):
         compliance_threshold=0.5,
         compliance_dataset_path="doubledsbv/pii-replacement-dataset",
         compliance_request_timeout_s=30.0,
+        compression_model=compression_model,
+        compression_server_enabled=compression_server_enabled,
     )
 
 
@@ -251,6 +261,50 @@ def test_create_config_pins_vllm_runtime_defaults(monkeypatch) -> None:
     assert config.compliance_max_batched_tokens == 8192
 
 
+def test_create_config_disables_private_default_compression_model(monkeypatch, tmp_path) -> None:
+    monkeypatch.delenv("LATENCE_TRACE_COMPRESSION_MODEL", raising=False)
+    monkeypatch.delenv("LATENCE_TRACE_ENABLE_COMPRESSION_SERVER", raising=False)
+    monkeypatch.setattr(runpod_handler, "_VENDORED_COMPRESSION_MODEL_DIR", tmp_path / "missing-model")
+
+    config = runpod_handler.create_config()
+
+    assert config.compression_model == ""
+    assert config.compression_server_enabled is False
+
+
+def test_create_config_preserves_explicit_compression_model_override(monkeypatch) -> None:
+    monkeypatch.setenv("LATENCE_TRACE_COMPRESSION_MODEL", "local-or-hf/compression-model")
+    monkeypatch.delenv("LATENCE_TRACE_ENABLE_COMPRESSION_SERVER", raising=False)
+
+    config = runpod_handler.create_config()
+
+    assert config.compression_model == "local-or-hf/compression-model"
+    assert config.compression_server_enabled is True
+
+
+def test_create_config_uses_complete_vendored_compression_model(monkeypatch, tmp_path) -> None:
+    monkeypatch.delenv("LATENCE_TRACE_COMPRESSION_MODEL", raising=False)
+    monkeypatch.delenv("LATENCE_TRACE_ENABLE_COMPRESSION_SERVER", raising=False)
+    model_dir = tmp_path / "compression_model"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text("{}", encoding="utf-8")
+    (model_dir / "model.safetensors").write_bytes(b"stub")
+    monkeypatch.setattr(runpod_handler, "_VENDORED_COMPRESSION_MODEL_DIR", model_dir)
+
+    config = runpod_handler.create_config()
+
+    assert config.compression_model == str(model_dir)
+    assert config.compression_server_enabled is True
+
+
+def test_create_config_can_disable_managed_vllm_for_local_wrapper(monkeypatch) -> None:
+    monkeypatch.setenv("LATENCE_TRACE_START_MANAGED_VLLM", "0")
+
+    config = runpod_handler.create_config()
+
+    assert config.managed_vllm_enabled is False
+
+
 def test_build_servers_pin_requested_vllm_settings() -> None:
     servers = runpod_handler._build_servers(_config(max_concurrency=64))
 
@@ -264,6 +318,45 @@ def test_build_servers_pin_requested_vllm_settings() -> None:
     assert servers["compliance_gliner"].io_processor_plugin == "deberta_gliner_io"
     assert servers["compliance_gliner"].plugins == ["deberta_gliner", "deberta_gliner_io"]
     assert servers["compliance_gliner"].max_model_len == 768
+
+
+def test_build_servers_only_adds_compression_when_enabled() -> None:
+    disabled = runpod_handler._build_servers(_config())
+    enabled = runpod_handler._build_servers(
+        _config(compression_model="/models/compression", compression_server_enabled=True)
+    )
+
+    assert "compression" not in disabled
+    assert enabled["compression"].model == "/models/compression"
+    assert enabled["compression"].plugins == ["qwen3_compression"]
+
+
+def test_build_servers_can_use_external_vllm_mode() -> None:
+    assert runpod_handler._build_servers(_config(managed_vllm_enabled=False)) == {}
+
+
+def test_dev_app_exposes_runpod_wrapper_routes() -> None:
+    spec = importlib.util.spec_from_file_location(
+        "latence_trace_runpod_dev_app_test",
+        _RUNPOD_DIR / "dev_app.py",
+    )
+    assert spec is not None and spec.loader is not None
+    previous_handler = sys.modules.get("handler")
+    sys.modules["handler"] = runpod_handler
+    try:
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    finally:
+        if previous_handler is not None:
+            sys.modules["handler"] = previous_handler
+        else:
+            sys.modules.pop("handler", None)
+
+    routes = {(route.path, frozenset(getattr(route, "methods", []))) for route in module.app.routes}
+
+    assert any(path == "/healthz" and "GET" in methods for path, methods in routes)
+    assert any(path == "/run" and "POST" in methods for path, methods in routes)
+    assert any(path == "/runsync" and "POST" in methods for path, methods in routes)
 
 
 def test_initialize_exports_handler_concurrency_to_internal_vllm_clients(monkeypatch) -> None:
@@ -422,6 +515,94 @@ def test_runpod_handler_dispatches_compliance_redaction(monkeypatch) -> None:
     assert compliance.calls == 1
 
 
+def test_runpod_handler_dispatches_compression_action(monkeypatch) -> None:
+    class _CompressionService:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def compress(self, request):
+            self.calls += 1
+            return runpod_handler.CompressionResponse(
+                compressed_text=request.text,
+                original_tokens=3,
+                compressed_tokens=3,
+                compression_ratio=1.0,
+                provider="fallback",
+            )
+
+    compression = _CompressionService()
+    config = _config(max_concurrency=2)
+
+    monkeypatch.setattr(runpod_handler, "initialize", lambda: None)
+    runpod_handler._initialized = True
+    runpod_handler._config = config
+    runpod_handler._compression_service = compression
+
+    try:
+        result = asyncio.run(
+            runpod_handler.handler(
+                {
+                    "input": {
+                        "action": "compression",
+                        "text": "alpha beta gamma",
+                    }
+                }
+            )
+        )
+    finally:
+        runpod_handler.shutdown()
+
+    assert result["success"] is True
+    assert result["action"] == "compress"
+    assert result["result"]["compressed_text"] == "alpha beta gamma"
+    assert compression.calls == 1
+
+
+def test_runpod_handler_preserves_session_id_on_create(monkeypatch) -> None:
+    config = _config(max_concurrency=2)
+    session_service = runpod_handler.TraceSessionService(groundedness_service=_SlowService(sleep_ms=0))
+
+    monkeypatch.setattr(runpod_handler, "initialize", lambda: None)
+    runpod_handler._initialized = True
+    runpod_handler._config = config
+    runpod_handler._session_service = session_service
+
+    try:
+        created = asyncio.run(
+            runpod_handler.handler(
+                {
+                    "input": {
+                        "action": "session.create",
+                        "session_id": "explicit-runpod-session",
+                        "kind": "general",
+                    }
+                }
+            )
+        )
+        event = asyncio.run(
+            runpod_handler.handler(
+                {
+                    "input": {
+                        "action": "session.event",
+                        "session_id": "explicit-runpod-session",
+                        "event": {
+                            "event_type": "observation",
+                            "content": "Order INV-42 amount 1200 USD remains approved.",
+                        },
+                        "memory_domain": "rag",
+                    }
+                }
+            )
+        )
+    finally:
+        runpod_handler.shutdown()
+
+    assert created["success"] is True
+    assert created["result"]["session"]["session_id"] == "explicit-runpod-session"
+    assert event["success"] is True
+    assert event["result"]["session"]["session_id"] == "explicit-runpod-session"
+
+
 def test_runpod_compliance_redaction_uses_own_concurrency_budget(monkeypatch) -> None:
     compliance = _ComplianceService(sleep_ms=80)
     config = _config(max_concurrency=4)
@@ -470,6 +651,7 @@ def test_compact_response_surfaces_unused_context_contract() -> None:
         collection_label="latence-trace",
         service_device="cpu",
         docs_url="",
+        managed_vllm_enabled=True,
         colbert_model="lightonai/LateOn",
         colbert_port=18001,
         colbert_gpu_mem=0.34,

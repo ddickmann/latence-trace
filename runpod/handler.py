@@ -46,6 +46,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
+from pathlib import Path
 from typing import Any
 
 from pydantic import ValidationError as PydanticValidationError
@@ -136,6 +137,68 @@ def _detect_device() -> str:
 
 
 _STARTUP_WARMUP_REQUEST_COUNT = 4
+_PRIVATE_COMPRESSION_MODEL = "doubledsbv/compression-llmlingua2"
+_RUNPOD_DIR = Path(__file__).resolve().parent
+_VENDORED_COMPRESSION_MODEL_DIR = _RUNPOD_DIR / "compression_model"
+
+
+def _env_bool(name: str) -> bool | None:
+    raw = os.environ.get(name)
+    if raw is None or not str(raw).strip():
+        return None
+    return str(raw).strip().lower() not in {"0", "false", "no", "off"}
+
+
+def _local_compression_model_available(model_dir: Path) -> bool:
+    if not model_dir.is_dir():
+        return False
+    if not (model_dir / "config.json").exists():
+        return False
+    weight_markers = (
+        "model.safetensors",
+        "model.safetensors.index.json",
+        "pytorch_model.bin",
+        "pytorch_model.bin.index.json",
+    )
+    return any((model_dir / marker).exists() for marker in weight_markers)
+
+
+def _resolve_compression_model() -> tuple[str, bool]:
+    """Resolve the optional managed compression vLLM model.
+
+    The historical default pointed at a private HuggingFace repo and made
+    worker startup fail before TRACE could serve any request. In auto mode we
+    only start a managed compression vLLM subprocess when a real local model is
+    vendored. Operators can still opt into an explicit HF/local model through
+    LATENCE_TRACE_COMPRESSION_MODEL.
+    """
+    explicit_model = (os.environ.get("LATENCE_TRACE_COMPRESSION_MODEL") or "").strip()
+    enable_override = _env_bool("LATENCE_TRACE_ENABLE_COMPRESSION_SERVER")
+
+    if enable_override is False:
+        return explicit_model, False
+
+    if explicit_model:
+        return explicit_model, True
+
+    if _local_compression_model_available(_VENDORED_COMPRESSION_MODEL_DIR):
+        return str(_VENDORED_COMPRESSION_MODEL_DIR), True
+
+    if enable_override is True:
+        raise RuntimeError(
+            "LATENCE_TRACE_ENABLE_COMPRESSION_SERVER is enabled, but no explicit "
+            "LATENCE_TRACE_COMPRESSION_MODEL was provided and the vendored "
+            f"compression model at {_VENDORED_COMPRESSION_MODEL_DIR} is incomplete. "
+            "Provide a full local model directory or HuggingFace model ref."
+        )
+
+    logger.warning(
+        "Managed compression vLLM server disabled: no complete vendored model found at %s. "
+        "TRACE compression will use provider fallback unless LATENCE_TRACE_COMPRESSION_MODEL "
+        "or LATENCE_TRACE_COMPRESSION_ENDPOINT is configured.",
+        _VENDORED_COMPRESSION_MODEL_DIR,
+    )
+    return "", False
 
 
 @dataclass(frozen=True)
@@ -149,6 +212,7 @@ class WorkerConfig:
     collection_label: str
     service_device: str
     docs_url: str
+    managed_vllm_enabled: bool
     colbert_model: str
     colbert_port: int
     colbert_gpu_mem: float
@@ -170,7 +234,8 @@ class WorkerConfig:
     compliance_threshold: float
     compliance_dataset_path: str
     compliance_request_timeout_s: float
-    compression_model: str = "doubledsbv/compression-llmlingua2"
+    compression_model: str = ""
+    compression_server_enabled: bool = False
     compression_port: int = 8004
     compression_gpu_mem: float = 0.12
     compression_max_model_len: int = 4096
@@ -205,10 +270,7 @@ def create_config() -> WorkerConfig:
         "LATENCE_TRACE_COMPLIANCE_GLINER_MODEL",
         "knowledgator/gliner-pii-large-v1.0",
     )
-    compression_model = os.environ.get(
-        "LATENCE_TRACE_COMPRESSION_MODEL",
-        "doubledsbv/compression-llmlingua2",
-    )
+    compression_model, compression_server_enabled = _resolve_compression_model()
     return WorkerConfig(
         profile=profile,
         version=os.environ.get("LATENCE_TRACE_RUNPOD_VERSION", __version__),
@@ -223,6 +285,8 @@ def create_config() -> WorkerConfig:
         collection_label=os.environ.get("LATENCE_TRACE_COLLECTION_LABEL", "latence-trace"),
         service_device=os.environ.get("LATENCE_TRACE_SERVICE_DEVICE", _detect_device()),
         docs_url=os.environ.get("LATENCE_TRACE_DOCS_URL", ""),
+        managed_vllm_enabled=os.environ.get("LATENCE_TRACE_START_MANAGED_VLLM", "1").lower()
+        not in {"0", "false", "no", "off"},
         colbert_model=colbert_model,
         colbert_port=_env_int("LATENCE_TRACE_COLBERT_PORT", 8001),
         colbert_gpu_mem=_env_float("LATENCE_TRACE_COLBERT_GPU_MEM", 0.34),
@@ -248,6 +312,7 @@ def create_config() -> WorkerConfig:
         ),
         compliance_request_timeout_s=_env_float("LATENCE_TRACE_COMPLIANCE_REQUEST_TIMEOUT_S", 30.0),
         compression_model=compression_model,
+        compression_server_enabled=compression_server_enabled,
         compression_port=_env_int("LATENCE_TRACE_COMPRESSION_PORT", 8004),
         compression_gpu_mem=_env_float("LATENCE_TRACE_COMPRESSION_GPU_MEM", 0.12),
         compression_max_model_len=_env_int("LATENCE_TRACE_COMPRESSION_MAX_MODEL_LEN", 4096),
@@ -488,7 +553,10 @@ def _prepare_compliance_model_for_vllm(config: WorkerConfig) -> WorkerConfig:
 
 
 def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
-    return {
+    if not config.managed_vllm_enabled:
+        return {}
+
+    servers = {
         "colbert": ManagedVllmServer(
             name="colbert",
             model=config.colbert_model,
@@ -525,7 +593,9 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
             plugins=["deberta_gliner", "deberta_gliner_io"],
             enforce_eager=False,
         ),
-        "compression": ManagedVllmServer(
+    }
+    if config.compression_server_enabled:
+        servers["compression"] = ManagedVllmServer(
             name="compression",
             model=config.compression_model,
             port=config.compression_port,
@@ -535,8 +605,8 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
             max_num_batched_tokens=config.compression_max_batched_tokens,
             plugins=["qwen3_compression"],
             enforce_eager=False,
-        ),
-    }
+        )
+    return servers
 
 
 def initialize() -> None:
@@ -549,7 +619,9 @@ def initialize() -> None:
         if _initialized:
             return
 
-        config = _prepare_compliance_model_for_vllm(create_config())
+        config = create_config()
+        if config.managed_vllm_enabled:
+            config = _prepare_compliance_model_for_vllm(config)
         _config = config
 
         os.environ.setdefault("LATENCE_TRACE_PROFILE", config.profile)
@@ -558,20 +630,26 @@ def initialize() -> None:
         servers = _build_servers(config)
 
         try:
-            with ThreadPoolExecutor(max_workers=len(servers)) as pool:
-                futures = [pool.submit(server.start) for server in servers.values()]
-                for future in futures:
-                    future.result()
+            if servers:
+                with ThreadPoolExecutor(max_workers=len(servers)) as pool:
+                    futures = [pool.submit(server.start) for server in servers.values()]
+                    for future in futures:
+                        future.result()
 
-            os.environ["VOYAGER_GROUNDEDNESS_VLLM_ENDPOINT"] = servers["colbert"].base_url
+            colbert_server = servers.get("colbert")
+            if colbert_server is not None:
+                os.environ["VOYAGER_GROUNDEDNESS_VLLM_ENDPOINT"] = colbert_server.base_url
             os.environ["VOYAGER_GROUNDEDNESS_VLLM_MODEL"] = config.colbert_model
             os.environ["VOYAGER_GROUNDEDNESS_VLLM_MAX_CONCURRENCY"] = str(config.max_concurrency)
-            os.environ["LATENCE_TRACE_NLI_VLLM_ENDPOINT"] = servers["nli"].base_url
+            nli_server = servers.get("nli")
+            if nli_server is not None:
+                os.environ["LATENCE_TRACE_NLI_VLLM_ENDPOINT"] = nli_server.base_url
             os.environ["LATENCE_TRACE_NLI_VLLM_MODEL"] = config.nli_model
             os.environ["LATENCE_TRACE_NLI_VLLM_MAX_CONCURRENCY"] = str(config.max_concurrency)
             os.environ["VOYAGER_GROUNDEDNESS_NLI_MODEL"] = config.nli_model
-            compliance_server = servers["compliance_gliner"]
-            os.environ["LATENCE_TRACE_COMPLIANCE_GLINER_ENDPOINT"] = compliance_server.base_url
+            compliance_server = servers.get("compliance_gliner")
+            if compliance_server is not None:
+                os.environ["LATENCE_TRACE_COMPLIANCE_GLINER_ENDPOINT"] = compliance_server.base_url
             os.environ["LATENCE_TRACE_COMPLIANCE_GLINER_MODEL"] = config.compliance_model
             os.environ["LATENCE_TRACE_COMPLIANCE_MAX_CONCURRENCY"] = str(config.max_concurrency)
             os.environ["LATENCE_TRACE_COMPLIANCE_MAX_MODEL_LEN"] = str(
@@ -608,8 +686,11 @@ def initialize() -> None:
             compliance_service = ComplianceRedactionService.from_env()
             compression_service = CompressionService.from_env()
             service._compression_service = compression_service
-            _ensure_kernel_warmup(config.profile)
-            _prime_service_runtime(service)
+            if config.managed_vllm_enabled:
+                _ensure_kernel_warmup(config.profile)
+                _prime_service_runtime(service)
+            else:
+                logger.info("Skipping managed vLLM startup and warmup; using external/stateless dev mode")
             _get_request_executor(config)
 
             session_service = TraceSessionService(groundedness_service=service)
@@ -623,9 +704,9 @@ def initialize() -> None:
             logger.info(
                 "latence-trace RunPod worker ready: profile=%s colbert=%s nli=%s compliance=%s compression=%s",
                 config.profile,
-                servers["colbert"].base_url,
-                servers["nli"].base_url,
-                compliance_server.base_url,
+                colbert_server.base_url if colbert_server is not None else "external",
+                nli_server.base_url if nli_server is not None else "external",
+                compliance_server.base_url if compliance_server is not None else "external",
                 compression_server.base_url if compression_server is not None else "fallback",
             )
         except Exception:
@@ -1315,6 +1396,8 @@ async def _handle_session_action(input_data: dict[str, Any], action: str) -> dic
     session_id = str(payload.pop("session_id", "") or "").strip()
     try:
         if action == "session.create":
+            if session_id:
+                payload["session_id"] = session_id
             response = service.create(TraceSessionCreateRequest.model_validate(payload))
         elif action == "session.event":
             response = service.append_event(

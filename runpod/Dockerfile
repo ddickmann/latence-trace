@@ -66,6 +66,8 @@ RUN git clone --depth 1 --branch "${VLLM_FACTORY_REF}" https://github.com/ddickm
 
 RUN python -m pip install --no-deps /workspace/latence-trace/runpod/vllm_plugins/moderncolbert_batched
 RUN python -m pip install --no-deps /workspace/latence-trace/runpod/vllm_plugins/nli_mdeberta
+RUN python -m pip install /workspace/latence-trace/runpod/compression_model/text_processing-0.1.0-cp38-abi3-manylinux_2_34_x86_64.whl
+RUN python -m pip install --no-deps /workspace/latence-trace/runpod/vllm_plugins/qwen3_compression_plugin
 
 # Build-time smoke tests: validate Python imports and vLLM plugin
 # registration. Docker builds do not have the NVIDIA driver mounted, so
@@ -73,13 +75,25 @@ RUN python -m pip install --no-deps /workspace/latence-trace/runpod/vllm_plugins
 RUN python - <<'PY'
 from ctypes import CDLL
 from importlib.metadata import entry_points
+from pathlib import Path
 
 import torch
 import vllm
 import vllm_factory  # noqa: F401
 import moderncolbert_batched  # noqa: F401
 import latence_trace_nli_plugin  # noqa: F401
+import qwen3_compression_plugin  # noqa: F401
+import text_processing  # noqa: F401
 import latence_trace  # noqa: F401
+
+compression_assets = Path("/workspace/latence-trace/runpod/compression_model")
+required_assets = {
+    "tokenizer.json",
+    "text_processing-0.1.0-cp38-abi3-manylinux_2_34_x86_64.whl",
+}
+missing_assets = sorted(name for name in required_assets if not (compression_assets / name).exists())
+if missing_assets:
+    raise SystemExit(f"missing compression runtime assets: {missing_assets}")
 
 try:
     CDLL("libcuda.so.1")
@@ -93,6 +107,11 @@ required = {"moderncolbert_batched_io", "nli_mdeberta", "deberta_gliner_io"}
 missing = required - io_plugins
 if missing:
     raise SystemExit(f"missing vllm io_processor_plugins entry points: {sorted(missing)}")
+
+general_plugins = {ep.name for ep in entry_points(group="vllm.general_plugins")}
+missing_general = {"qwen3_compression"} - general_plugins
+if missing_general:
+    raise SystemExit(f"missing vllm general_plugins entry points: {sorted(missing_general)}")
 
 from gliner import GLiNER  # noqa: F401
 from gliner.data_processing.collator import TokenDataCollator  # noqa: F401
