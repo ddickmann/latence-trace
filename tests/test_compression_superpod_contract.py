@@ -100,6 +100,40 @@ async def test_superpod_contract_uses_postprocessor_force_tokens(monkeypatch, tm
 
 
 @pytest.mark.asyncio
+async def test_superpod_default_is_forty_percent_with_structural_preservation(
+    monkeypatch, tmp_path
+) -> None:
+    tokenizer = tmp_path / "tokenizer.json"
+    tokenizer.write_text("{}", encoding="utf-8")
+    fake_module = SimpleNamespace(
+        FastPreprocessor=_FakePreprocessor,
+        FastPostprocessor=_FakePostprocessor,
+        PostprocessorConfig=_FakePostprocessorConfig,
+    )
+    monkeypatch.setitem(sys.modules, "text_processing", fake_module)
+
+    service = CompressionService(provider=_FakeProvider(str(tokenizer)))
+    response = await service.compress(
+        CompressionRequest(
+            text=(
+                "### Rollout\n"
+                "| file | status |\n"
+                "| src/cache.py | fixed |\n"
+                "Run `pytest tests/test_cache.py -q` before deploy."
+            ),
+        )
+    )
+
+    config = response.diagnostics["config_used"]
+    assert config["compression_rate"] == 0.4
+    assert config["force_preserve_digit"] is True
+    assert "src/cache.py" in config["force_tokens"]
+    assert "pytest tests/test_cache.py -q" in config["force_tokens"]
+    assert "### Rollout" in config["force_tokens"]
+    assert "| src/cache.py | fixed |" in config["force_tokens"]
+
+
+@pytest.mark.asyncio
 async def test_superpod_contract_backfills_dropped_force_token_context(
     monkeypatch, tmp_path
 ) -> None:

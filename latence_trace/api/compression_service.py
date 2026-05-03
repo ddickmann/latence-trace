@@ -16,6 +16,12 @@ from latence_trace.api.compression_models import (
 from latence_trace.providers.compression import VllmCompressionProvider
 
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+|\n+")
+_PATH_RE = re.compile(r"\b(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.-]+\b")
+_CODE_SYMBOL_RE = re.compile(
+    r"\b[A-Za-z_][A-Za-z0-9_]*(?:(?:::|\.|->)[A-Za-z_][A-Za-z0-9_]*)+\b"
+)
+_CALL_RE = re.compile(r"\b[A-Za-z_][A-Za-z0-9_]*\(\)")
+_INLINE_CODE_RE = re.compile(r"`([^`\n]{1,160})`")
 
 
 def _token_count(text: str) -> int:
@@ -103,6 +109,7 @@ class CompressionService:
         text_processing = self._text_processing()
         processed_text, toon_applied = self._maybe_apply_toon(text, request)
         chunks = self._chunk_text(processed_text, request.chunk_size, text_processing)
+        force_tokens = _effective_force_tokens(request, text)
         chunk_logprobs = []
         fallback_chunks = 0
         for chunk in chunks:
@@ -115,7 +122,7 @@ class CompressionService:
         config = text_processing.PostprocessorConfig(
             target_rate=1.0 - request.effective_compression_rate,
             force_preserve_digit=request.force_preserve_digit,
-            force_tokens=request.effective_force_tokens,
+            force_tokens=force_tokens,
             fallback_mode=request.fallback_mode,
         )
         postprocessor = self._ensure_postprocessor(text_processing)
@@ -132,7 +139,7 @@ class CompressionService:
         compressed, restored_force_tokens = _restore_missing_force_tokens(
             original=text,
             compressed=compressed,
-            force_tokens=request.effective_force_tokens,
+            force_tokens=force_tokens,
         )
         original_tokens = sum(len(probs) for probs in chunk_logprobs)
         compressed_tokens = max(
@@ -147,7 +154,7 @@ class CompressionService:
             provider="superpod_vllm",
         )
         response.preserved_terms = sorted(
-            token for token in request.effective_force_tokens if token and token in compressed
+            token for token in force_tokens if token and token in compressed
         )
         response.diagnostics.update(
             {
@@ -160,7 +167,7 @@ class CompressionService:
                     "compression_rate": request.effective_compression_rate,
                     "chunk_size": request.chunk_size,
                     "force_preserve_digit": request.force_preserve_digit,
-                    "force_tokens": request.effective_force_tokens,
+                    "force_tokens": force_tokens,
                     "fallback_mode": request.fallback_mode,
                 },
             }
@@ -219,14 +226,16 @@ class CompressionService:
             provider="superpod_vllm",
         )
         response.compressed_messages = compressed_messages
+        force_tokens = _effective_force_tokens(request, _message_text(messages))
         response.preserved_terms = sorted(
-            token for token in request.effective_force_tokens if token and token in compressed_text
+            token for token in force_tokens if token and token in compressed_text
         )
         response.diagnostics.update(
             {
                 "message_statistics": stats,
                 "target_compression": request.target_compression,
                 "max_compression": request.max_compression,
+                "force_tokens": force_tokens,
             }
         )
         return response
@@ -238,7 +247,7 @@ class CompressionService:
         target_tokens = max(1, int(round(_token_count(text) * request.target_token_ratio)))
         selected: list[str] = []
         total = 0
-        preserved = {term for term in request.preserve_exact if term and term in text}
+        preserved = {term for term in _effective_force_tokens(request, text) if term and term in text}
         for sentence in sentences:
             sentence_tokens = _token_count(sentence)
             must_keep = any(term in sentence for term in preserved)
@@ -357,6 +366,55 @@ def _restore_missing_force_tokens(
             output = f"{output} {carrier}".strip()
         restored.append(token)
     return output, restored
+
+
+def _effective_force_tokens(request: CompressionRequest, text: str) -> list[str]:
+    tokens = set(request.effective_force_tokens)
+    if request.auto_preserve_structural_tokens:
+        tokens.update(_auto_preserve_tokens(text))
+    return sorted(_drop_subsumed_tokens(token for token in tokens if token and token in text))
+
+
+def _drop_subsumed_tokens(tokens: Any) -> set[str]:
+    unique = {str(token).strip() for token in tokens if str(token).strip()}
+    output: set[str] = set()
+    for token in unique:
+        if any(
+            token != other
+            and token in other
+            and not any(char.isspace() for char in other)
+            and "|" not in other
+            for other in unique
+        ):
+            continue
+        output.add(token)
+    return output
+
+
+def _auto_preserve_tokens(text: str) -> set[str]:
+    """Extract cheap structural anchors that should survive lossy compression."""
+
+    tokens: set[str] = set()
+    tokens.update(_PATH_RE.findall(text))
+    tokens.update(_CODE_SYMBOL_RE.findall(text))
+    tokens.update(_CALL_RE.findall(text))
+    tokens.update(match.strip() for match in _INLINE_CODE_RE.findall(text) if match.strip())
+
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith(("#", "- ", "* ", "> ")):
+            tokens.add(stripped[:160])
+        if "|" in stripped and len(stripped) <= 200:
+            tokens.add(stripped)
+        if stripped.startswith("```"):
+            tokens.add("```")
+            language = stripped.removeprefix("```").strip()
+            if language:
+                tokens.add(stripped[:80])
+
+    return {token for token in tokens if len(token) <= 200}
 
 
 def _resolve_tokenizer_path(model_name: str) -> str:

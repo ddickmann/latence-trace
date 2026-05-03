@@ -242,7 +242,7 @@ class WorkerConfig:
     compression_trust_remote_code: bool = False
     compression_request_timeout_s: float = 30.0
     compression_default_chunk_size: int = 4096
-    compression_default_compression_rate: float = 0.5
+    compression_default_compression_rate: float = 0.4
     compression_force_preserve_digit: bool = True
     compression_fallback_mode: bool = True
 
@@ -333,7 +333,7 @@ def create_config() -> WorkerConfig:
         ),
         compression_default_chunk_size=_env_int("LATENCE_TRACE_COMPRESSION_DEFAULT_CHUNK_SIZE", 4096),
         compression_default_compression_rate=_env_float(
-            "LATENCE_TRACE_COMPRESSION_DEFAULT_COMPRESSION_RATE", 0.5
+            "LATENCE_TRACE_COMPRESSION_DEFAULT_COMPRESSION_RATE", 0.4
         ),
         compression_force_preserve_digit=os.environ.get(
             "LATENCE_TRACE_COMPRESSION_FORCE_PRESERVE_DIGIT", "1"
@@ -1599,7 +1599,7 @@ async def _maybe_compress_memory_payload(payload: dict[str, Any]) -> dict[str, A
         preserve_exact=force_tokens,
         force_preserve_digit=config.compression_force_preserve_digit,
         fallback_mode=config.compression_fallback_mode,
-        apply_toon=bool(payload.get("ingress_apply_toon", domain == "tool")),
+        apply_toon=bool(payload.get("ingress_apply_toon", domain != "code")),
     )
     compressed = await service.compress(request)
     if not compressed.compressed_text.strip():
@@ -1614,13 +1614,13 @@ async def _maybe_compress_memory_payload(payload: dict[str, Any]) -> dict[str, A
 
 def _memory_ingress_compression_rate(domain: str) -> float:
     return {
-        "rag": 0.75,
-        "search": 0.75,
-        "grounding": 0.65,
-        "tool": 0.60,
-        "code": 0.45,
-        "chat": 0.50,
-    }.get(domain, 0.60)
+        "rag": 0.40,
+        "search": 0.40,
+        "grounding": 0.40,
+        "tool": 0.40,
+        "code": 0.40,
+        "chat": 0.40,
+    }.get(domain, 0.40)
 
 
 def _memory_ingress_sidecar(domain: str, terms: list[str], *, max_terms: int = 40) -> str:

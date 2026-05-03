@@ -17,7 +17,7 @@ class CompressionRequest(BaseModel):
         description="Optional chat-style messages. The service compresses their joined content.",
     )
     target_token_ratio: float = Field(
-        default=0.5,
+        default=0.6,
         ge=0.05,
         le=1.0,
         description="Approximate fraction of whitespace tokens to keep.",
@@ -33,10 +33,32 @@ class CompressionRequest(BaseModel):
         default_factory=list,
         description="Exact tokens/strings that the LLMLingua2 postprocessor must preserve.",
     )
+    preserve_tokens: list[str] = Field(
+        default_factory=lambda: [
+            "```",
+            "`",
+            "|",
+            "|---",
+            "| ---",
+            "#",
+            "##",
+            "###",
+            "- ",
+            "* ",
+        ],
+        description=(
+            "Structural tokens to preserve by default for code fences, inline code, "
+            "Markdown headings/lists, and tables."
+        ),
+    )
+    auto_preserve_structural_tokens: bool = Field(
+        default=True,
+        description="Automatically preserve code-like, Markdown, and table tokens found in the input.",
+    )
     force_preserve_digit: bool = True
     fallback_mode: bool = True
-    apply_toon: bool = False
-    toon_encoding: bool = False
+    apply_toon: bool = True
+    toon_encoding: bool = True
     target_compression: float = Field(
         default=0.4,
         ge=0.0,
@@ -73,7 +95,9 @@ class CompressionRequest(BaseModel):
 
     @property
     def effective_force_tokens(self) -> list[str]:
-        return sorted({token for token in [*self.force_tokens, *self.preserve_exact] if token})
+        return sorted(
+            {token for token in [*self.force_tokens, *self.preserve_tokens, *self.preserve_exact] if token}
+        )
 
 
 class CompressionSpan(BaseModel):

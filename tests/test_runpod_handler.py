@@ -413,7 +413,7 @@ def test_health_payload_surfaces_selected_model_runtime_config(monkeypatch) -> N
     assert compliance["enforce_eager"] is True
     assert compression["model"] == "/models/compression"
     assert compression["task"] == "token_classify"
-    assert compression["default_compression_rate"] == 0.5
+    assert compression["default_compression_rate"] == 0.4
     assert compression["default_chunk_size"] == 4096
     assert compression["force_preserve_digit"] is True
     assert compression["max_model_len"] == 8192
