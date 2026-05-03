@@ -271,6 +271,36 @@ def create_router(service_provider: Callable[[], GroundednessService]) -> APIRou
                         "path": "/v1/compliance/schema",
                         "operation_id": "v1_compliance_schema",
                     },
+                    "compression": {
+                        "method": "POST",
+                        "path": "/v1/compression",
+                        "operation_id": "compression_compress",
+                    },
+                    "memory_update": {
+                        "method": "POST",
+                        "path": "/v1/memory/update",
+                        "operation_id": "memory_update",
+                    },
+                    "trace_session_create": {
+                        "method": "POST",
+                        "path": "/v1/trace/sessions",
+                        "operation_id": "trace_session_create",
+                    },
+                    "trace_session_event": {
+                        "method": "POST",
+                        "path": "/v1/trace/sessions/{session_id}/events",
+                        "operation_id": "trace_session_event",
+                    },
+                    "trace_session_score": {
+                        "method": "POST",
+                        "path": "/v1/trace/sessions/{session_id}/score",
+                        "operation_id": "trace_session_score",
+                    },
+                    "trace_session_context": {
+                        "method": "GET",
+                        "path": "/v1/trace/sessions/{session_id}/context",
+                        "operation_id": "trace_session_context",
+                    },
                     "agent_help": {"method": "GET", "path": "/agent-help"},
                     "ai_plugin": {
                         "method": "GET",

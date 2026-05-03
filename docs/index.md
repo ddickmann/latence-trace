@@ -10,6 +10,8 @@ privacy-safe observability across verification and compliance lanes. It is
   [`guides/tutorial.md`](guides/tutorial.md)
 - **API reference (every field, every endpoint):**
   [`api-reference.md`](api-reference.md)
+- **Stateful TRACE Sessions:**
+  [`trace_sessions.md`](trace_sessions.md)
 - **Product overview:** [`guides/beta-overview.md`](guides/beta-overview.md)
 - **Pareto-optimal default profiles (`fast` / `balanced` / `quality`):**
   [`guides/profiles.md`](guides/profiles.md)
@@ -30,6 +32,11 @@ A running `latence-trace` server self-describes for AI agents and devs:
 | Endpoint                          | What it returns                                                                                       |
 |-----------------------------------|-------------------------------------------------------------------------------------------------------|
 | `GET /agent-help`                 | Canonical request shape, active/default/available profiles, full endpoint map                         |
+| `POST /v1/trace/sessions`         | Create a stateful TRACE + InfiniMem session for coding, RAG, or general-purpose agents                |
+| `POST /v1/trace/sessions/{id}/score` | Score a turn while the server loads, updates, and returns bounded session memory                    |
+| `GET /v1/trace/sessions/{id}/context` | Return the current bounded hot context plus memory counters                                         |
+| `POST /v1/memory/update`          | Stateless/caller-carried InfiniMem update for custom integrations                                     |
+| `POST /v1/compression`            | Standalone LLMLingua2 ingress compression                                                             |
 | `POST /v1/compliance/redact`      | PII detection, mask/replacement redaction, custom regex labels, and usage/timing metadata             |
 | `GET /v1/compliance/schema`       | Compliance label catalog, GDPR categories, optimized GLiNER aliases, and supported modes              |
 | `GET /.well-known/ai-plugin.json` | ChatGPT-style plugin descriptor for AI tool registries                                                |

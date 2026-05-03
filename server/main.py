@@ -53,6 +53,8 @@ from latence_trace.observability import (
     register_default_collectors,
 )
 from latence_trace.observability.metrics import update_license_gauge
+from latence_trace.sessions.routes import create_trace_session_router
+from latence_trace.sessions.service import TraceSessionService
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +103,8 @@ _compliance_service: ComplianceRedactionService | None = None
 _compliance_service_lock = threading.Lock()
 _compression_service: CompressionService | None = None
 _compression_service_lock = threading.Lock()
+_trace_session_service: TraceSessionService | None = None
+_trace_session_service_lock = threading.Lock()
 
 
 def _get_service() -> GroundednessService:
@@ -145,6 +149,19 @@ def _get_compression_service() -> CompressionService:
             if _compression_service is None:
                 _compression_service = CompressionService.from_env()
     return _compression_service
+
+
+def _get_trace_session_service() -> TraceSessionService:
+    """Lazily build the stateful TRACE session service."""
+
+    global _trace_session_service
+    if _trace_session_service is None:
+        with _trace_session_service_lock:
+            if _trace_session_service is None:
+                _trace_session_service = TraceSessionService(
+                    groundedness_service=_get_service(),
+                )
+    return _trace_session_service
 
 
 def _resolve_profile_from_env() -> str | None:
@@ -291,6 +308,7 @@ def create_app(profile: str | None = None) -> FastAPI:
     )
     app.include_router(create_compression_router(_get_compression_service))
     app.include_router(create_memory_router())
+    app.include_router(create_trace_session_router(_get_trace_session_service))
 
     if os.environ.get("LATENCE_TRACE_ENABLE_MCP_HTTP", "0") in {"1", "true", "yes"}:
         try:

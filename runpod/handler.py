@@ -84,6 +84,13 @@ from latence_trace.observability.metrics import (
     LANE_REQUEST_COUNT,
     PHANTOM_VERDICT_COUNT,
 )
+from latence_trace.sessions.models import (
+    TraceSessionCreateRequest,
+    TraceSessionEventRequest,
+    TraceSessionRollupRequest,
+    TraceSessionScoreRequest,
+)
+from latence_trace.sessions.service import TraceSessionService
 from server import ManagedVllmServer
 
 try:  # pragma: no cover - optional in local dev
@@ -269,6 +276,7 @@ _servers: dict[str, ManagedVllmServer] = {}
 _service: GroundednessService | None = None
 _compliance_service: ComplianceRedactionService | None = None
 _compression_service: CompressionService | None = None
+_session_service: TraceSessionService | None = None
 _initialize_lock = threading.Lock()
 _request_executor: ThreadPoolExecutor | None = None
 _request_executor_lock = threading.Lock()
@@ -532,6 +540,7 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
 
 def initialize() -> None:
     global _initialized, _config, _servers, _service, _compliance_service, _compression_service
+    global _session_service
     if _initialized:
         return
 
@@ -602,10 +611,13 @@ def initialize() -> None:
             _prime_service_runtime(service)
             _get_request_executor(config)
 
+            session_service = TraceSessionService(groundedness_service=service)
+
             _servers = servers
             _service = service
             _compliance_service = compliance_service
             _compression_service = compression_service
+            _session_service = session_service
             _initialized = True
             logger.info(
                 "latence-trace RunPod worker ready: profile=%s colbert=%s nli=%s compliance=%s compression=%s",
@@ -623,6 +635,7 @@ def initialize() -> None:
 
 def shutdown() -> None:
     global _initialized, _servers, _service, _compliance_service, _compression_service
+    global _session_service
     global _request_executor
     global _lane_semaphores, _lane_semaphores_loop
     global _compliance_semaphore, _compliance_semaphore_loop
@@ -640,6 +653,7 @@ def shutdown() -> None:
             logger.exception("failed to close compliance provider")
     _compliance_service = None
     _compression_service = None
+    _session_service = None
     _initialized = False
     with _request_executor_lock:
         if _request_executor is not None:
@@ -1284,6 +1298,86 @@ async def _handle_memory_update(input_data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+async def _handle_session_action(input_data: dict[str, Any], action: str) -> dict[str, Any]:
+    initialize()
+    service = _session_service
+    config = _config
+    if service is None or config is None:
+        return _service_error_payload(
+            "TRACE session service unavailable",
+            error_code="session_unavailable",
+            status_code=503,
+        )
+    payload = dict(input_data)
+    payload.pop("action", None)
+    payload.pop("endpoint_id", None)
+    session_id = str(payload.pop("session_id", "") or "").strip()
+    try:
+        if action == "session.create":
+            response = service.create(TraceSessionCreateRequest.model_validate(payload))
+        elif action == "session.event":
+            response = service.append_event(
+                session_id,
+                TraceSessionEventRequest.model_validate(payload),
+            )
+        elif action == "session.score":
+            loop = asyncio.get_running_loop()
+            request = TraceSessionScoreRequest.model_validate(payload)
+            response = await asyncio.wait_for(
+                loop.run_in_executor(
+                    _get_request_executor(config),
+                    service.score,
+                    session_id,
+                    request,
+                ),
+                timeout=config.request_timeout_s,
+            )
+        elif action == "session.context":
+            response = service.context(session_id)
+        elif action == "session.rollup":
+            response = service.rollup(
+                session_id,
+                TraceSessionRollupRequest.model_validate(payload),
+            )
+        elif action == "session.close":
+            response = service.close(session_id)
+        else:
+            return _service_error_payload(
+                f"Unknown session action: {action}",
+                error_code="invalid_action",
+                status_code=400,
+            )
+    except PydanticValidationError as exc:
+        return _service_error_payload(
+            str(exc),
+            error_code="validation_error",
+            hint="Send a valid TRACE session payload for the selected session action.",
+            status_code=400,
+        )
+    except asyncio.TimeoutError:
+        return _service_error_payload(
+            f"TRACE session action exceeded {config.request_timeout_s:.2f}s execution timeout",
+            error_code="job_timeout",
+            status_code=504,
+        )
+    except ServiceError as exc:
+        return _service_error_payload(
+            str(exc),
+            error_code=getattr(exc, "error_code", "service_error"),
+            hint=getattr(exc, "hint", None),
+            status_code=getattr(exc, "status_code", None),
+        )
+    except Exception as exc:  # pragma: no cover - runtime safeguard
+        logger.exception("session_action_failed")
+        return _service_error_payload(str(exc), error_code="service_error")
+    return {
+        "success": True,
+        "action": action,
+        "result": response.model_dump(mode="json"),
+        "version": config.version,
+    }
+
+
 async def _maybe_compress_memory_payload(payload: dict[str, Any]) -> dict[str, Any]:
     if not payload.get("enable_ingress_compression"):
         return payload
@@ -1389,11 +1483,20 @@ async def handler(job: dict[str, Any]) -> dict[str, Any]:
         return await _handle_compression(input_data)
     if action in {"memory.update", "memory_update"} or endpoint_id == "memory":
         return await _handle_memory_update(input_data)
+    if action in {
+        "session.create",
+        "session.event",
+        "session.score",
+        "session.context",
+        "session.rollup",
+        "session.close",
+    } or endpoint_id == "trace_session":
+        return await _handle_session_action(input_data, action)
     if action not in {"score", ""}:
         return _service_error_payload(
             f"Unknown action: {action}",
             error_code="invalid_action",
-            hint="Set action to 'score' (default), 'rollup', 'redact', 'compress', or 'memory.update'.",
+            hint="Set action to 'score' (default), 'rollup', 'redact', 'compress', 'memory.update', or a session.* action.",
             status_code=400,
         )
 

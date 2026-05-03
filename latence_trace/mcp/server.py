@@ -22,7 +22,8 @@ import logging
 import os
 import sys
 import threading
-from typing import Any, Callable, Dict, Optional
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -39,18 +40,18 @@ _JSONRPC_INVALID_PARAMS = -32602
 _JSONRPC_INTERNAL_ERROR = -32603
 
 
-def _success(req_id: Any, result: Dict[str, Any]) -> Dict[str, Any]:
+def _success(req_id: Any, result: dict[str, Any]) -> dict[str, Any]:
     return {"jsonrpc": "2.0", "id": req_id, "result": result}
 
 
-def _error(req_id: Any, code: int, message: str, data: Any = None) -> Dict[str, Any]:
-    err: Dict[str, Any] = {"code": code, "message": message}
+def _error(req_id: Any, code: int, message: str, data: Any = None) -> dict[str, Any]:
+    err: dict[str, Any] = {"code": code, "message": message}
     if data is not None:
         err["data"] = data
     return {"jsonrpc": "2.0", "id": req_id, "error": err}
 
 
-def _tool_descriptor() -> Dict[str, Any]:
+def _tool_descriptor() -> dict[str, Any]:
     """Tool schema served on ``tools/list``.
 
     The JSON Schema mirrors :class:`GroundednessRequest` so MCP clients
@@ -129,7 +130,82 @@ def _tool_descriptor() -> Dict[str, Any]:
     }
 
 
-def _handle_initialize(req_id: Any, _params: Dict[str, Any]) -> Dict[str, Any]:
+def _session_tool_descriptors() -> list[dict[str, Any]]:
+    common_session = {
+        "session_id": {"type": "string", "description": "Opaque TRACE session id."}
+    }
+    return [
+        {
+            "name": "trace_session_create",
+            "description": "Create a stateful TRACE + InfiniMem session.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "kind": {"type": "string", "enum": ["code", "rag", "general"]},
+                    "metadata": {"type": "object"},
+                    "memory_policy": {"type": "object"},
+                },
+            },
+        },
+        {
+            "name": "trace_session_event",
+            "description": "Append an event and continuously update InfiniMem.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    **common_session,
+                    "event": {"type": "object"},
+                    "memory_domain": {"type": "string"},
+                },
+                "required": ["session_id", "event"],
+            },
+        },
+        {
+            "name": "trace_session_score_code",
+            "description": "Score a coding-agent turn in a stateful TRACE session.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    **common_session,
+                    "trace_request": {"type": "object"},
+                },
+                "required": ["session_id", "trace_request"],
+            },
+        },
+        {
+            "name": "trace_session_score_rag",
+            "description": "Score a RAG-agent turn in a stateful TRACE session.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    **common_session,
+                    "trace_request": {"type": "object"},
+                },
+                "required": ["session_id", "trace_request"],
+            },
+        },
+        {
+            "name": "trace_session_context",
+            "description": "Return bounded hot context for a stateful TRACE session.",
+            "inputSchema": {
+                "type": "object",
+                "properties": common_session,
+                "required": ["session_id"],
+            },
+        },
+        {
+            "name": "trace_session_rollup",
+            "description": "Aggregate scored turns stored in a stateful TRACE session.",
+            "inputSchema": {
+                "type": "object",
+                "properties": common_session,
+                "required": ["session_id"],
+            },
+        },
+    ]
+
+
+def _handle_initialize(req_id: Any, _params: dict[str, Any]) -> dict[str, Any]:
     return _success(
         req_id,
         {
@@ -140,17 +216,17 @@ def _handle_initialize(req_id: Any, _params: Dict[str, Any]) -> Dict[str, Any]:
     )
 
 
-def _handle_tools_list(req_id: Any, _params: Dict[str, Any]) -> Dict[str, Any]:
-    return _success(req_id, {"tools": [_tool_descriptor()]})
+def _handle_tools_list(req_id: Any, _params: dict[str, Any]) -> dict[str, Any]:
+    return _success(req_id, {"tools": [_tool_descriptor(), *_session_tool_descriptors()]})
 
 
 def _handle_tools_call(
     req_id: Any,
-    params: Dict[str, Any],
+    params: dict[str, Any],
     service_factory: Callable[[], Any],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     name = (params or {}).get("name")
-    if name != "score_groundedness":
+    if name != "score_groundedness" and not str(name or "").startswith("trace_session_"):
         # Per JSON-RPC 2.0, "Method not found" is -32601. The MCP spec
         # treats the tool name as a parameter to ``tools/call``, not a
         # JSON-RPC method, so an unknown tool is "invalid params"
@@ -159,6 +235,9 @@ def _handle_tools_call(
         return _error(req_id, _JSONRPC_INVALID_PARAMS, f"unknown tool: {name}")
 
     arguments = (params or {}).get("arguments") or {}
+    if str(name or "").startswith("trace_session_"):
+        return _handle_session_tool_call(req_id, str(name), arguments, service_factory)
+
     try:
         from latence_trace.api.models import GroundednessRequest  # noqa: PLC0415
     except Exception as exc:  # pragma: no cover - import guard
@@ -204,12 +283,73 @@ def _handle_tools_call(
     )
 
 
+def _handle_session_tool_call(
+    req_id: Any,
+    name: str,
+    arguments: dict[str, Any],
+    service_factory: Callable[[], Any],
+) -> dict[str, Any]:
+    try:
+        from latence_trace.sessions.models import (  # noqa: PLC0415
+            TraceSessionCreateRequest,
+            TraceSessionEventRequest,
+            TraceSessionRollupRequest,
+            TraceSessionScoreRequest,
+        )
+        from latence_trace.sessions.service import TraceSessionService  # noqa: PLC0415
+    except Exception as exc:  # pragma: no cover - import guard
+        return _error(req_id, _JSONRPC_INTERNAL_ERROR, f"failed to import session schema: {exc}")
+
+    service = service_factory()
+    holder = getattr(service, "_mcp_trace_session_service", None)
+    if holder is None:
+        holder = TraceSessionService(groundedness_service=service)
+        service._mcp_trace_session_service = holder
+    session_id = str(arguments.get("session_id") or "")
+    try:
+        if name == "trace_session_create":
+            response = holder.create(TraceSessionCreateRequest.model_validate(arguments))
+        elif name == "trace_session_event":
+            response = holder.append_event(
+                session_id,
+                TraceSessionEventRequest.model_validate(arguments),
+            )
+        elif name == "trace_session_score_code":
+            payload = dict(arguments)
+            payload["lane"] = "code"
+            response = holder.score(session_id, TraceSessionScoreRequest.model_validate(payload))
+        elif name == "trace_session_score_rag":
+            payload = dict(arguments)
+            payload["lane"] = "rag"
+            response = holder.score(session_id, TraceSessionScoreRequest.model_validate(payload))
+        elif name == "trace_session_context":
+            response = holder.context(session_id)
+        elif name == "trace_session_rollup":
+            response = holder.rollup(
+                session_id,
+                TraceSessionRollupRequest.model_validate(arguments),
+            )
+        else:
+            return _error(req_id, _JSONRPC_INVALID_PARAMS, f"unknown tool: {name}")
+        body = response.model_dump(mode="json")
+    except Exception as exc:
+        return _error(req_id, _JSONRPC_INTERNAL_ERROR, f"{name} failed: {exc}")
+    return _success(
+        req_id,
+        {
+            "content": [{"type": "text", "text": json.dumps(body, indent=2, default=str)}],
+            "structuredContent": body,
+            "isError": False,
+        },
+    )
+
+
 # Module-level singleton + lock so repeat tool calls reuse the same
 # warmed encoder / NLI / reranker state. The previous per-call factory
 # was correct but threw away the model caches every invocation, which
 # defeated PA1 / PA2 / PA3 entirely for MCP clients (Cursor / Claude
 # Desktop) that issue many short turns in sequence.
-_DEFAULT_SERVICE_HOLDER: Dict[str, Any] = {"service": None}
+_DEFAULT_SERVICE_HOLDER: dict[str, Any] = {"service": None}
 _DEFAULT_SERVICE_LOCK = threading.Lock()
 
 
@@ -244,9 +384,9 @@ def reset_default_service_factory_for_tests() -> None:
 
 
 def _dispatch(
-    message: Dict[str, Any],
+    message: dict[str, Any],
     service_factory: Callable[[], Any],
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     method = message.get("method")
     req_id = message.get("id")
     params = message.get("params") or {}
@@ -271,7 +411,7 @@ def _dispatch(
 
 def run_stdio_loop(
     *,
-    service_factory: Optional[Callable[[], Any]] = None,
+    service_factory: Callable[[], Any] | None = None,
     stdin=None,
     stdout=None,
 ) -> int:

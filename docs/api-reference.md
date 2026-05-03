@@ -14,6 +14,12 @@ read [`guides/tutorial.md`](guides/tutorial.md) first.
 | Method | Path                       | operation_id            |
 |--------|----------------------------|-------------------------|
 | POST   | `/groundedness`            | `score_groundedness`    |
+| POST   | `/v1/trace/sessions`       | `trace_session_create`  |
+| POST   | `/v1/trace/sessions/{session_id}/events` | `trace_session_event` |
+| POST   | `/v1/trace/sessions/{session_id}/score` | `trace_session_score` |
+| GET    | `/v1/trace/sessions/{session_id}/context` | `trace_session_context` |
+| POST   | `/v1/memory/update`        | `memory_update`         |
+| POST   | `/v1/compression`          | `compression_compress`  |
 | POST   | `/v1/compliance/redact`    | `v1_compliance_redact`  |
 | GET    | `/v1/compliance/schema`    | `v1_compliance_schema`  |
 | GET    | `/v1/compliance/healthz`   | `v1_compliance_healthz` |
@@ -23,6 +29,54 @@ read [`guides/tutorial.md`](guides/tutorial.md) first.
 | GET    | `/docs`                    | Swagger UI              |
 | GET    | `/healthz`                 | Liveness                |
 | GET    | `/readyz`                  | Readiness + warmup state|
+
+---
+
+## Stateful TRACE Sessions
+
+The basic stateless APIs remain first-class. Sessions add a product layer for
+long-running coding, RAG, and general-purpose agents that need continuous
+state, bounded hot context, event logs, and InfiniMem survival memory.
+
+Create a session:
+
+```json
+{
+  "kind": "code",
+  "metadata": {"runtime": "cursor"},
+  "privacy_mode": "standard"
+}
+```
+
+Append events with `POST /v1/trace/sessions/{session_id}/events`:
+
+```json
+{
+  "event": {
+    "event_type": "file_read",
+    "content": "Read src/cache.py and found CacheClient.get_many.",
+    "metadata": {"path": "src/cache.py"}
+  },
+  "memory_domain": "code"
+}
+```
+
+Score a turn with managed state:
+
+```json
+{
+  "lane": "code",
+  "trace_request": {
+    "response_text": "I will update CacheClient.get_many in src/cache.py.",
+    "raw_context": "class CacheClient: def get_many(self, keys): ...",
+    "response_language_hint": "python"
+  }
+}
+```
+
+Responses include the updated `session`, optional `hot_context`,
+`trace_response`, and memory diagnostics. Gateway paths use the public prefix
+`/api/v1/trace/sessions`.
 
 ---
 
