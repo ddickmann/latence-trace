@@ -1,6 +1,9 @@
 """Stateful TRACE session runtime."""
 
 from latence_trace.sessions.models import (
+    TraceRepairExcerpt,
+    TraceRepairPacket,
+    TraceRepairTrigger,
     TraceSessionCloseResponse,
     TraceSessionContextResponse,
     TraceSessionCreateRequest,
@@ -11,17 +14,15 @@ from latence_trace.sessions.models import (
     TraceSessionGetResponse,
     TraceSessionRepairRequest,
     TraceSessionRepairResponse,
-    TraceRepairExcerpt,
-    TraceRepairPacket,
-    TraceRepairTrigger,
     TraceSessionRollupRequest,
     TraceSessionRollupResponse,
     TraceSessionScoreRequest,
     TraceSessionScoreResponse,
-    TraceSourcePointer,
-    TraceSourceRecord,
+    TraceSessionSourceRequest,
     TraceSessionSourceResponse,
     TraceSessionState,
+    TraceSourcePointer,
+    TraceSourceRecord,
 )
 from latence_trace.sessions.service import (
     InMemorySessionStore,
@@ -51,6 +52,7 @@ __all__ = [
     "TraceSessionScoreResponse",
     "TraceSourcePointer",
     "TraceSourceRecord",
+    "TraceSessionSourceRequest",
     "TraceSessionSourceResponse",
     "TraceSessionService",
     "TraceSessionState",

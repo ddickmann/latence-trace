@@ -21,6 +21,7 @@ from latence_trace.sessions.models import (
     TraceSessionRollupResponse,
     TraceSessionScoreRequest,
     TraceSessionScoreResponse,
+    TraceSessionSourceRequest,
     TraceSessionSourceResponse,
 )
 from latence_trace.sessions.service import TraceSessionService
@@ -118,10 +119,10 @@ def create_trace_session_router(
     async def source_post(
         session_id: str,
         source_id: str,
-        include_raw: bool = False,
+        request: TraceSessionSourceRequest,
         service: TraceSessionService = Depends(get_service),
     ) -> TraceSessionSourceResponse:
-        return _call(lambda: service.source(session_id, source_id, include_raw=include_raw))
+        return _call(lambda: service.source(session_id, source_id, include_raw=request.include_raw))
 
     @router.post(
         "/{session_id}/repair",

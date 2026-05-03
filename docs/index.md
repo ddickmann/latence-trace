@@ -35,6 +35,8 @@ A running `latence-trace` server self-describes for AI agents and devs:
 | `POST /v1/trace/sessions`         | Create a stateful TRACE + InfiniMem session for coding, RAG, or general-purpose agents                |
 | `POST /v1/trace/sessions/{id}/score` | Score a turn while the server loads, updates, and returns bounded session memory                    |
 | `GET /v1/trace/sessions/{id}/context` | Return the current bounded hot context plus memory counters                                         |
+| `GET /v1/trace/sessions/{id}/sources/{source_id}` | Fetch a redacted immutable source-vault record by pointer                              |
+| `POST /v1/trace/sessions/{id}/repair` | Build a bounded repair packet from original source history                                          |
 | `POST /v1/memory/update`          | Stateless/caller-carried InfiniMem update for custom integrations                                     |
 | `POST /v1/compression`            | Standalone LLMLingua2 ingress compression                                                             |
 | `POST /v1/compliance/redact`      | PII detection, mask/replacement redaction, custom regex labels, and usage/timing metadata             |

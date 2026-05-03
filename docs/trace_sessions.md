@@ -25,6 +25,8 @@ receive bounded hot context without waiting for a dedicated summarization step.
 | `POST /v1/trace/sessions/{session_id}/score` | Score a turn and update TRACE + InfiniMem state. |
 | `POST /v1/trace/sessions/{session_id}/memory/update` | Memory-only stateful update. |
 | `GET /v1/trace/sessions/{session_id}/context` | Fetch bounded hot context. |
+| `GET /v1/trace/sessions/{session_id}/sources/{source_id}` | Fetch a redacted immutable source-vault record. |
+| `POST /v1/trace/sessions/{session_id}/repair` | Build a bounded repair packet from original source history. |
 | `POST /v1/trace/sessions/{session_id}/rollup` | Roll up stored scored turns. |
 | `DELETE /v1/trace/sessions/{session_id}` | Close a session. |
 
@@ -53,7 +55,24 @@ curl -X POST https://api.latence.ai/api/v1/trace/sessions/trcsess_123/score \
   }'
 ```
 
+Repair packets are returned automatically from `/score` when the repair gate
+triggers. Callers can also request one explicitly:
+
+```bash
+curl -X POST https://api.latence.ai/api/v1/trace/sessions/trcsess_123/repair \
+  -H "Authorization: Bearer $LATENCE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "missing_terms": ["src/cache.py", "CacheClient.get_many"],
+    "reason": "agent claim lost exact file evidence",
+    "max_tokens": 512
+  }'
+```
+
 ## Safety
 
 Gateway logging stores compact counters and diagnostics by default. Raw session
 content should only be exported under an explicit debug path with redaction.
+Source and repair endpoints return redacted excerpts by default; raw source
+export requires `include_raw=true` and should be reserved for controlled debug
+or compliance export paths.

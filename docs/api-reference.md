@@ -18,6 +18,8 @@ read [`guides/tutorial.md`](guides/tutorial.md) first.
 | POST   | `/v1/trace/sessions/{session_id}/events` | `trace_session_event` |
 | POST   | `/v1/trace/sessions/{session_id}/score` | `trace_session_score` |
 | GET    | `/v1/trace/sessions/{session_id}/context` | `trace_session_context` |
+| GET    | `/v1/trace/sessions/{session_id}/sources/{source_id}` | `trace_session_source` |
+| POST   | `/v1/trace/sessions/{session_id}/repair` | `trace_session_repair` |
 | POST   | `/v1/memory/update`        | `memory_update`         |
 | POST   | `/v1/compression`          | `compression_compress`  |
 | POST   | `/v1/compliance/redact`    | `v1_compliance_redact`  |
@@ -75,8 +77,20 @@ Score a turn with managed state:
 ```
 
 Responses include the updated `session`, optional `hot_context`,
-`trace_response`, and memory diagnostics. Gateway paths use the public prefix
-`/api/v1/trace/sessions`.
+`trace_response`, memory diagnostics, and an optional `repair_packet` when the
+repair gate pulls original evidence from the immutable source vault. Gateway
+paths use the public prefix `/api/v1/trace/sessions`.
+
+Request a repair packet explicitly:
+
+```json
+{
+  "missing_terms": ["src/cache.py", "CacheClient.get_many"],
+  "reason": "agent claim lost exact file evidence",
+  "max_excerpts": 4,
+  "max_tokens": 512
+}
+```
 
 ---
 

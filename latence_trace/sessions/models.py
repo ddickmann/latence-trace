@@ -184,6 +184,10 @@ class TraceSessionSourceResponse(BaseModel):
     source: TraceSourceRecord | None = None
 
 
+class TraceSessionSourceRequest(BaseModel):
+    include_raw: bool = False
+
+
 class TraceSessionRepairRequest(BaseModel):
     query_text: str | None = None
     response_text: str | None = None
