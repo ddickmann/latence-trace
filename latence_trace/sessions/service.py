@@ -190,6 +190,7 @@ class TraceSessionService:
         )
         session.memory_state = result.next_memory_state
         _attach_source_pointer(session.memory_state, source_pointer)
+        session.metadata["_last_memory_diagnostics"] = result.diagnostics.model_dump(mode="json")
         self._store.append_source(source_record)
         _index_source_terms(session, source_record, request.memory_domain or self._memory_domain(session))
         self._record_event(session, event)
@@ -230,8 +231,17 @@ class TraceSessionService:
         payload.setdefault("memory_policy", session.memory_policy.model_dump(mode="json"))
         if session.memory_state and "memory_state" not in payload:
             payload["memory_state"] = session.memory_state.model_dump(mode="json")
+        generation_packet = self._repair.generation_packet(
+            session=session,
+            request=request,
+            hot_context=self._hot_context(session),
+        )
+        generation_context = _context_for_generation(
+            self._hot_context(session),
+            generation_packet,
+        )
         if not _has_premise(payload):
-            context = self._hot_context(session)
+            context = generation_context or self._hot_context(session)
             if context:
                 payload["raw_context"] = context
         if source_pointer is None:
@@ -261,13 +271,18 @@ class TraceSessionService:
             trace_payload=response_payload,
             hot_context=self._hot_context(session),
         )
+        if repair_packet.triggered:
+            generation_packet = repair_packet
+            generation_context = _context_for_generation(self._hot_context(session), generation_packet)
         saved = self._store.save(session)
         return TraceSessionScoreResponse(
             session=saved,
             trace_response=response_payload,
             hot_context=self._hot_context(saved) if request.return_context else "",
+            repair_context=_repair_context(generation_packet) if request.return_context else "",
+            context_for_generation=generation_context if request.return_context else "",
             memory_diagnostics=response.memory_diagnostics,
-            repair_packet=repair_packet if repair_packet.triggered else None,
+            repair_packet=generation_packet if generation_packet.triggered else None,
         )
 
     def source(
@@ -295,11 +310,19 @@ class TraceSessionService:
     def context(self, session_id: str) -> TraceSessionContextResponse:
         session = self._require_session(session_id)
         diagnostics = _memory_budget(session.memory_state)
+        hot = self._hot_context(session)
+        packet = self._repair.generation_packet(
+            session=session,
+            request=TraceSessionScoreRequest(trace_request={}),
+            hot_context=hot,
+        )
         return TraceSessionContextResponse(
             session_id=session.session_id,
             kind=session.kind,
             status=session.status,
-            hot_context=self._hot_context(session),
+            hot_context=hot,
+            repair_context=_repair_context(packet),
+            context_for_generation=_context_for_generation(hot, packet),
             hot_tokens=diagnostics["hot_tokens"],
             warm_tokens=diagnostics["warm_tokens"],
             cold_tokens=diagnostics["cold_tokens"],
@@ -411,6 +434,31 @@ class TraceRepairService:
         )
         return self._packet_from_sources(session.session_id, source_request, triggers=triggers)
 
+    def generation_packet(
+        self,
+        *,
+        session: TraceSessionState,
+        request: TraceSessionScoreRequest,
+        hot_context: str,
+    ) -> TraceRepairPacket:
+        triggers = _generation_repair_triggers(
+            session=session,
+            request=request,
+            hot_context=hot_context,
+        )
+        if not triggers:
+            return TraceRepairPacket(triggered=False)
+        terms = _dedupe([term for trigger in triggers for term in trigger.terms])
+        source_request = TraceSessionRepairRequest(
+            query_text=_trace_text(request.trace_request, "query_text"),
+            response_text=_trace_text(request.trace_request, "response_text"),
+            missing_terms=terms,
+            reason="; ".join(trigger.reason for trigger in triggers),
+            max_excerpts=8,
+            max_tokens=2048,
+        )
+        return self._packet_from_sources(session.session_id, source_request, triggers=triggers)
+
     def build_manual_packet(
         self,
         session: TraceSessionState,
@@ -435,20 +483,48 @@ class TraceRepairService:
         terms = _dedupe([*request.missing_terms, *_terms_from_repair_request(request)])
         excerpts: list[TraceRepairExcerpt] = []
         budget = request.max_tokens
-        for record in self._store.sources(session_id):
+        seen: set[tuple[str, str]] = set()
+        source_records = self._store.sources(session_id)
+        matched_candidates: list[tuple[int, int, TraceSourceRecord, str, str, list[str]]] = []
+        for source_index, record in enumerate(source_records):
+            for field, value in _source_fields(record).items():
+                matched = _matched_terms(value, terms)
+                if matched:
+                    matched_candidates.append(
+                        (len(matched), source_index, record, field, value, matched)
+                    )
+        matched_candidates.sort(key=lambda item: (item[0], item[1]), reverse=True)
+        for _, _, record, field, value, matched in matched_candidates:
             if len(excerpts) >= request.max_excerpts or budget <= 0:
+                break
+            excerpt_text = _bounded_excerpt(value, matched, max_tokens=min(120, budget))
+            if not excerpt_text:
+                continue
+            if not request.include_raw:
+                excerpt_text = _redact_text(excerpt_text)
+            token_count = len(excerpt_text.split())
+            budget -= token_count
+            seen.add((record.source_id, field))
+            excerpts.append(
+                TraceRepairExcerpt(
+                    source_id=record.source_id,
+                    event_id=record.event_id,
+                    field=field,
+                    text=excerpt_text,
+                    matched_terms=matched,
+                    redacted=not request.include_raw,
+                )
+            )
+        query = request.query_text or request.response_text or ""
+        for record in reversed(source_records):
+            if len(excerpts) >= request.max_excerpts or budget <= 0 or not query:
                 break
             for field, value in _source_fields(record).items():
                 if len(excerpts) >= request.max_excerpts or budget <= 0:
                     break
-                matched = _matched_terms(value, terms)
-                if not matched and terms:
+                if (record.source_id, field) in seen or not _text_overlap(value, query):
                     continue
-                if not matched and not _text_overlap(value, request.query_text or request.response_text or ""):
-                    continue
-                excerpt_text = _bounded_excerpt(value, matched, max_tokens=min(120, budget))
-                if not excerpt_text:
-                    continue
+                excerpt_text = _bounded_excerpt(value, [], max_tokens=min(160, budget))
                 if not request.include_raw:
                     excerpt_text = _redact_text(excerpt_text)
                 token_count = len(excerpt_text.split())
@@ -459,7 +535,7 @@ class TraceRepairService:
                         event_id=record.event_id,
                         field=field,
                         text=excerpt_text,
-                        matched_terms=matched,
+                        matched_terms=[],
                         redacted=not request.include_raw,
                     )
                 )
@@ -501,6 +577,25 @@ def _memory_budget(memory_state: MemoryState | None) -> dict[str, Any]:
         "span_count": len(memory_state.spans),
         "turn_index": memory_state.turn_index,
     }
+
+
+def _repair_context(packet: TraceRepairPacket | None) -> str:
+    if packet is None or not packet.triggered or not packet.excerpts:
+        return ""
+    return "\n\n".join(
+        f"[REPAIR_EXCERPT_{idx} source_id={excerpt.source_id} field={excerpt.field} "
+        f"terms={','.join(excerpt.matched_terms)}]\n{excerpt.text}"
+        for idx, excerpt in enumerate(packet.excerpts, start=1)
+    )
+
+
+def _context_for_generation(hot_context: str, packet: TraceRepairPacket | None) -> str:
+    repair = _repair_context(packet)
+    if not repair:
+        return hot_context
+    if not hot_context:
+        return f"[SOURCE_VAULT_REPAIR_EXCERPTS]\n{repair}"
+    return f"[TRACE_HOT_MEMORY]\n{hot_context}\n\n[SOURCE_VAULT_REPAIR_EXCERPTS]\n{repair}"
 
 
 def _rollup_turn_from_trace(response: dict[str, Any]) -> dict[str, Any]:
@@ -638,7 +733,7 @@ def _repair_triggers(
     band = str(trace_payload.get("risk_band") or "").lower()
     runtime = trace_payload.get("runtime_decision") or {}
     action = str(runtime.get("action") or runtime.get("recommendation") or "").lower() if isinstance(runtime, dict) else ""
-    terms = _terms_from_trace_request(request.trace_request, domain=_session_domain(session))
+    terms = _terms_from_trace_request(request.trace_request or {}, domain=_session_domain(session))
     missing = [term for term in terms if term.lower() not in hot_context.lower()]
     if request.force_original_on_trigger and terms:
         triggers.append(
@@ -679,6 +774,67 @@ def _repair_triggers(
     return _dedupe_triggers(triggers)
 
 
+def _generation_repair_triggers(
+    *,
+    session: TraceSessionState,
+    request: TraceSessionScoreRequest,
+    hot_context: str,
+) -> list[TraceRepairTrigger]:
+    triggers: list[TraceRepairTrigger] = []
+    domain = _session_domain(session)
+    terms = _terms_from_trace_request(request.trace_request or {}, domain=domain)
+    missing = [term for term in terms if term.lower() not in hot_context.lower()]
+    if request.force_original_on_trigger and terms:
+        triggers.append(
+            TraceRepairTrigger(
+                trigger_type="forced_original",
+                severity="warn",
+                reason="caller requested original-source repair before generation",
+                terms=terms,
+            )
+        )
+    if missing and _terms_exist_in_vault(session, missing):
+        triggers.append(
+            TraceRepairTrigger(
+                trigger_type="pre_generation_exact_critical_loss",
+                severity="critical",
+                reason="exact-critical terms exist in immutable history but are missing from generation context",
+                terms=missing[:24],
+            )
+        )
+    diagnostics = session.metadata.get("_last_memory_diagnostics") or {}
+    if isinstance(diagnostics, dict):
+        diagnostic_terms = terms[:16] or list(session.metadata.get("_source_exact_terms", []))[-16:]
+        if diagnostics.get("memory_underbudgeted"):
+            triggers.append(
+                TraceRepairTrigger(
+                    trigger_type="pre_generation_memory_underbudgeted",
+                    severity="critical",
+                    reason="adaptive memory diagnostics marked hot context underbudgeted",
+                    terms=diagnostic_terms,
+                )
+            )
+        if diagnostics.get("recent_tail_required"):
+            triggers.append(
+                TraceRepairTrigger(
+                    trigger_type="pre_generation_recent_tail_required",
+                    severity="warn",
+                    reason="adaptive memory diagnostics require recent-tail source repair",
+                    terms=diagnostic_terms,
+                )
+            )
+        if float(diagnostics.get("genesis_anchor_recall", 1.0) or 1.0) < 1.0:
+            triggers.append(
+                TraceRepairTrigger(
+                    trigger_type="pre_generation_genesis_anchor_loss",
+                    severity="critical",
+                    reason="first-turn genesis anchors are not fully represented in hot context",
+                    terms=diagnostic_terms,
+                )
+            )
+    return _dedupe_triggers(triggers)
+
+
 def _terms_exist_in_vault(session: TraceSessionState, terms: list[str]) -> bool:
     # The service-level caller fills this by searching all sources during packet
     # construction. The gate only needs to know whether a term is plausibly
@@ -706,6 +862,7 @@ def _terms_from_repair_request(
 
 
 def _trace_text(trace_request: dict[str, Any], key: str) -> str | None:
+    trace_request = trace_request or {}
     value = trace_request.get(key)
     return str(value) if value is not None else None
 

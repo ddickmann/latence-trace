@@ -163,6 +163,8 @@ class TraceSessionScoreResponse(BaseModel):
     session: TraceSessionState
     trace_response: dict[str, Any]
     hot_context: str = ""
+    repair_context: str = ""
+    context_for_generation: str = ""
     memory_diagnostics: MemoryDiagnostics | None = None
     repair_packet: TraceRepairPacket | None = None
 
@@ -172,6 +174,8 @@ class TraceSessionContextResponse(BaseModel):
     kind: TraceSessionKind
     status: TraceSessionStatus
     hot_context: str = ""
+    repair_context: str = ""
+    context_for_generation: str = ""
     warm_tokens: int = 0
     hot_tokens: int = 0
     cold_tokens: int = 0

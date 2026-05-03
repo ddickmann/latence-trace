@@ -1,0 +1,52 @@
+{
+  "benchmark": "beam",
+  "question_id": "100K_0_q2_temporal_reasoning",
+  "question_type": "temporal_reasoning",
+  "question": "How many weeks do I have between finishing the transaction management features and the final deployment deadline?",
+  "ground_truth_answer": "LLM response should state: 8 weeks | LLM response should state: from January 15, 2024 till March 15, 2024",
+  "original_failed_answer": "Between finishing the transaction management features (completed on January 15, 2024) and the final deployment deadline (April 15, 2024), you have 13 weeks.",
+  "repair": {
+    "triggered": true,
+    "suggested_action": "re_score",
+    "excerpt_count": 8,
+    "token_count": 960,
+    "repaired_terms": [
+      "final adjustments, testing, and deployment",
+      "transaction management",
+      "Dec 16, 2023 - Jan 15, 2024",
+      "Feb 16 - Mar 15, 2024",
+      "15",
+      "2024",
+      "January 15, 2024",
+      "March 15, 2024",
+      "13"
+    ],
+    "excerpt_previews": [
+      "user: Sure, let's break it down for my budget tracker project. ### Components: 1. **User Authentication** - Registration - Login - Logout 2. **Transaction Management** - Add Income - Add Expense - View Transactions 3. **Basic Analytics** - Monthly Summary - Category-wise Spending ### Milestones: - *",
+      "user: Sure, let's break it down for my budget tracker project. ### Components: 1. **User Authentication** - Registration - Login - Logout 2. **Transaction Management** - Add Income - Add Expense - View Transactions 3. **Basic Analytics** - Monthly Summary - Category-wise Spending ### Milestones: - *",
+      "Sure, let's break it down for my budget tracker project. ### Components: 1. **User Authentication** - Registration - Login - Logout 2. **Transaction Management** - Add Income - Add Expense - View Transactions 3. **Basic Analytics** - Monthly Summary - Category-wise Spending ### Milestones: - **Nov 1",
+      "Yes, this breakdown works well! Let's refine the schedule and ensure each component is covered with specific tasks and timelines. Here's a detailed plan for your budget tracker project: ### Detailed Schedule #### **Nov 1 - Nov 15, 2023: Setup Flask Project** - **Task 1:** Set up the development envi",
+      "user: I'm trying to plan out my project and I want to make sure I meet the April 15 deadline for the MVP scope, which includes income/expense tracking, user login, and basic analytics, can you help me create a schedule to ensure I complete all these features on time? ->-> 1,4 assistant: Of course! L",
+      "user: I'm trying to plan out my project and I want to make sure I meet the April 15 deadline for the MVP scope, which includes income/expense tracking, user login, and basic analytics, can you help me create a schedule to ensure I complete all these features on time? ->-> 1,4 assistant: Of course! L",
+      "Of course! Let's create a detailed schedule to ensure you meet the April 15, 2024, deadline for your MVP scope, which includes income/expense tracking, user login, and basic analytics. We'll break down the project into phases and assign specific tasks and milestones to each phase. ### Project Phases",
+      "first two-week sprint ending on March 29, focusing on user registration and login features. We'll break down the tasks, estimate the time required, and set clear milestones. ### Sprint Plan: User Registration and Login #### Sprint Duration: - **Start Date:** March 15, 2024 - **End Date:** March 29, "
+    ]
+  },
+  "repaired_answer": "Based on the retrieved memories, the transaction management features were scheduled to be completed by January 15, 2024 (see memories 6, 7, 22, 23, 24, and 25). The final deployment deadline for the MVP is April 15, 2024 (see memories 2, 4, 9, 21, and 43).\n\nTo calculate the number of weeks between these two milestones:\n\n- From January 15, 2024, to April 15, 2024, is exactly 3 months.\n- Counting the full calendar weeks between these dates:\n    - January 15 to February 15: 4 weeks and 2 days\n    - February 15 to March 15: 4 weeks\n    - March 15 to April 15: 4 weeks and 2 days\n    - Total: (4w2d) + 4w + (4w2d) = 12 weeks and 4 days\n\nTherefore, you have approximately 12 weeks (plus a few extra days) between finishing the transaction management features and the final deployment deadline.",
+  "judgment": "FAIL",
+  "score": 0.0,
+  "nugget_scores": [
+    {
+      "nugget": "LLM response should state: 8 weeks",
+      "score": 0.0,
+      "reason": "The response states '12 weeks (plus a few extra days)' instead of the required '8 weeks', so the required element is missing and incorrect."
+    },
+    {
+      "nugget": "LLM response should state: from January 15, 2024 till March 15, 2024",
+      "score": 0.0,
+      "reason": "The response states the interval as January 15, 2024 to April 15, 2024, not January 15, 2024 till March 15, 2024 as required by the rubric criterion."
+    }
+  ],
+  "ingested_chunks": 94,
+  "elapsed_s": 63.9
+}

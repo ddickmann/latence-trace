@@ -300,3 +300,46 @@ def test_score_repair_gate_returns_packet_for_risky_lost_anchor() -> None:
     }
     repair_text = " ".join(excerpt.text for excerpt in response.repair_packet.excerpts)
     assert "RUST-991" in repair_text
+    assert "SOURCE_VAULT_REPAIR_EXCERPTS" in response.context_for_generation
+    assert "RUST-991" in response.repair_context
+
+
+def test_score_uses_repaired_generation_context_when_no_premise() -> None:
+    groundedness = _RecordingGroundednessService()
+    service = TraceSessionService(groundedness_service=groundedness)
+    created = service.create(
+        TraceSessionCreateRequest(
+            kind="code",
+            memory_policy=MemoryPolicy(hot_token_budget=32, warm_token_budget=96),
+        )
+    )
+    service.append_event(
+        created.session.session_id,
+        TraceSessionEventRequest(
+            memory_domain="code",
+            event=TraceSessionEvent(
+                content="Opened src/lib.rs and found deploy_guard::verify_release for RUST-991.",
+                raw_context="src/lib.rs deploy_guard::verify_release failed before patch RUST-991.",
+            ),
+        ),
+    )
+
+    response = service.score(
+        created.session.session_id,
+        TraceSessionScoreRequest(
+            lane="code",
+            trace_request={
+                "query_text": "Does RUST-991 update src/lib.rs?",
+                "response_text": "RUST-991 is fixed.",
+            },
+            force_original_on_trigger=True,
+        ),
+    )
+
+    assert groundedness.last_request is not None
+    assert "SOURCE_VAULT_REPAIR_EXCERPTS" in groundedness.last_request.raw_context
+    assert "RUST-991" in groundedness.last_request.raw_context
+    assert response.repair_packet is not None
+    assert response.repair_packet.triggered
+    assert "SOURCE_VAULT_REPAIR_EXCERPTS" in response.context_for_generation
+    assert "RUST-991" in response.context_for_generation

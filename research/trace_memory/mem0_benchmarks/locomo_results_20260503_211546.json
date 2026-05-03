@@ -1,0 +1,1036 @@
+{
+  "metadata": {
+    "benchmark": "locomo",
+    "project_name": "trace-evidence-locomo-small-gpt41",
+    "run_id": "traceevlocomo01",
+    "timestamp": "20260503_211546",
+    "answerer_model": "gpt-4.1",
+    "judge_model": "gpt-4.1",
+    "provider": "openai",
+    "top_k": 50,
+    "top_k_cutoffs": [
+      "top_50"
+    ],
+    "total_questions": 3,
+    "categories": [
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  "metrics_by_cutoff": {
+    "top_50": {
+      "overall": {
+        "total": 3,
+        "correct": 3,
+        "accuracy": 100.0,
+        "avg_score": 100.0
+      },
+      "by_category": {
+        "open-domain": {
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100.0,
+          "avg_score": 100.0
+        },
+        "temporal": {
+          "total": 2,
+          "correct": 2,
+          "accuracy": 100.0,
+          "avg_score": 100.0
+        }
+      }
+    }
+  },
+  "evaluations": [
+    {
+      "question_id": "conv0_q0",
+      "conversation_idx": 0,
+      "category": 2,
+      "category_name": "temporal",
+      "question": "When did Caroline go to the LGBTQ support group?",
+      "ground_truth_answer": "7 May 2023",
+      "evidence": [
+        "D1:3"
+      ],
+      "user_id": "locomo_0_traceevlocomo01",
+      "reference_date": "9:55 am on 22 October, 2023",
+      "retrieval": {
+        "search_query": "When did Caroline go to the LGBTQ support group?",
+        "search_results": [
+          {
+            "memory": "Caroline: I went to a LGBTQ support group yesterday and it was so powerful.",
+            "score": 0.460673,
+            "id": "mem_69acc70ba2bcd41c",
+            "created_at": "2023-05-08T13:56:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: I went to a LGBTQ support group yesterday and it was so powerful.",
+            "score": 0.454156,
+            "id": "mem_9f901d283a6b0afe",
+            "created_at": "2023-05-08T13:56:00+00:00"
+          },
+          {
+            "memory": "Caroline: Yes, I did.",
+            "score": 0.430201,
+            "id": "mem_72e8c4980c599ea5",
+            "created_at": "2023-07-15T13:51:00+00:00"
+          },
+          {
+            "memory": "Caroline: Seeing my mentee's face light up when they saw the support was the best!",
+            "score": 0.428265,
+            "id": "mem_f4660b43b5e7c05d",
+            "created_at": "2023-07-17T14:31:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: Seeing my mentee's face light up when they saw the support was the best!",
+            "score": 0.425943,
+            "id": "mem_217c9f8b623b6fc7",
+            "created_at": "2023-07-17T14:31:00+00:00"
+          },
+          {
+            "memory": "Caroline: The support group has made me feel accepted and given me courage to embrace myself.",
+            "score": 0.42206,
+            "id": "mem_e231e127d9225d51",
+            "created_at": "2023-05-08T13:56:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: The support group has made me feel accepted and given me courage to embrace myself.",
+            "score": 0.420635,
+            "id": "mem_fcf50567a5fffc07",
+            "created_at": "2023-05-08T13:56:00+00:00"
+          },
+          {
+            "memory": "Caroline: The room was electric with energy and support!",
+            "score": 0.402213,
+            "id": "mem_b32e8bfdb6e42b5c",
+            "created_at": "2023-10-13T10:31:00+00:00"
+          },
+          {
+            "memory": "Caroline: Wow, Mel, family love and support is the best!",
+            "score": 0.400199,
+            "id": "mem_480bb2a2505c8b73",
+            "created_at": "2023-07-15T13:51:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: The room was electric with energy and support!",
+            "score": 0.398799,
+            "id": "mem_3758ea57181df982",
+            "created_at": "2023-10-13T10:31:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: Yes, I did.",
+            "score": 0.394831,
+            "id": "mem_a9b2a146064873c4",
+            "created_at": "2023-07-15T13:51:00+00:00"
+          },
+          {
+            "memory": "It's great to see the love and support for the LGBTQ+ community.",
+            "score": 0.394831,
+            "id": "mem_64ca42f427ac3ff1",
+            "created_at": "2023-07-03T13:36:00+00:00"
+          },
+          {
+            "memory": "Caroline: I'm inspired seeing my work make a difference for the LGBTQ+ community.",
+            "score": 0.390889,
+            "id": "mem_1c4dd80265e2f1d7",
+            "created_at": "2023-09-13T00:09:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: I'm inspired seeing my work make a difference for the LGBTQ+ community.",
+            "score": 0.388775,
+            "id": "mem_0b1b4291842d6247",
+            "created_at": "2023-09-13T00:09:00+00:00"
+          },
+          {
+            "memory": "assistant: Melanie: I'll always remember our camping trip last year when we saw the Perseid meteor shower.",
+            "score": 0.387646,
+            "id": "mem_c55276a3f4eac25a",
+            "created_at": "2023-07-20T20:56:00+00:00"
+          },
+          {
+            "memory": "Caroline: The mentoring is going great!",
+            "score": 0.381045,
+            "id": "mem_f259bb464787e47e",
+            "created_at": "2023-07-17T14:31:00+00:00"
+          },
+          {
+            "memory": "Appreciate the support of those close to me.",
+            "score": 0.377624,
+            "id": "mem_7960c3d41db4d8e2",
+            "created_at": "2023-10-22T09:55:00+00:00"
+          },
+          {
+            "memory": "Loving the inclusivity and support.",
+            "score": 0.373664,
+            "id": "mem_c54fe25a002cf9e8",
+            "created_at": "2023-05-25T13:14:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: The mentoring is going great!",
+            "score": 0.372803,
+            "id": "mem_fdcc159ccbf83c0f",
+            "created_at": "2023-07-17T14:31:00+00:00"
+          },
+          {
+            "memory": "Caroline: It must have been special at your wedding.",
+            "score": 0.372051,
+            "id": "mem_d050a9a49a4a4c78",
+            "created_at": "2023-07-15T13:51:00+00:00"
+          },
+          {
+            "memory": "Caroline: I'm always here for you, Mel!",
+            "score": 0.369295,
+            "id": "mem_18e54769adfe403b",
+            "created_at": "2023-08-17T13:50:00+00:00"
+          },
+          {
+            "memory": "Caroline: The pride event was awesome!",
+            "score": 0.366907,
+            "id": "mem_2ac520afef338617",
+            "created_at": "2023-07-17T14:31:00+00:00"
+          },
+          {
+            "memory": "Caroline: Oops, sorry 'bout the accident!",
+            "score": 0.366907,
+            "id": "mem_630f077b3ffa8c51",
+            "created_at": "2023-10-20T18:55:00+00:00"
+          },
+          {
+            "memory": "Caroline: The kids look so cute, Mel!",
+            "score": 0.366907,
+            "id": "mem_a1af64741d45f5af",
+            "created_at": "2023-10-20T18:55:00+00:00"
+          },
+          {
+            "memory": "Caroline: The transgender stories were so inspiring!",
+            "score": 0.366907,
+            "id": "mem_f398719e859ed5b8",
+            "created_at": "2023-05-08T13:56:00+00:00"
+          },
+          {
+            "memory": "I got lots of help from this adoption advice/assistance group I attended.",
+            "score": 0.365434,
+            "id": "mem_fb83147d227fc0c6",
+            "created_at": "2023-08-23T15:31:00+00:00"
+          },
+          {
+            "memory": "Thanks for the support and encouragement.",
+            "score": 0.363485,
+            "id": "mem_86a12024d8a6e937",
+            "created_at": "2023-06-09T19:55:00+00:00"
+          },
+          {
+            "memory": "How did they handle the accident?",
+            "score": 0.363485,
+            "id": "mem_9e41a62210dc9a39",
+            "created_at": "2023-10-20T18:55:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: The pride event was awesome!",
+            "score": 0.361815,
+            "id": "mem_72799997f48d3ef4",
+            "created_at": "2023-07-17T14:31:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: Oops, sorry 'bout the accident!",
+            "score": 0.361815,
+            "id": "mem_427a4a2317ab6d11",
+            "created_at": "2023-10-20T18:55:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: The kids look so cute, Mel!",
+            "score": 0.361815,
+            "id": "mem_430f17e6f3958ea9",
+            "created_at": "2023-10-20T18:55:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: The transgender stories were so inspiring!",
+            "score": 0.361815,
+            "id": "mem_388663d8f47b7899",
+            "created_at": "2023-05-08T13:56:00+00:00"
+          },
+          {
+            "memory": "assistant: Melanie: That must have been tough for you, Caroline.",
+            "score": 0.359581,
+            "id": "mem_84dc0248bb082c2e",
+            "created_at": "2023-10-22T09:55:00+00:00"
+          },
+          {
+            "memory": "Caroline: It taught me self-acceptance and how to find support.",
+            "score": 0.357933,
+            "id": "mem_b77e3bc63a0deabd",
+            "created_at": "2023-07-12T16:33:00+00:00"
+          },
+          {
+            "memory": "assistant: Melanie: I'll never forget the day my youngest took her first steps.",
+            "score": 0.356911,
+            "id": "mem_dde12c277a00d02c",
+            "created_at": "2023-07-20T20:56:00+00:00"
+          },
+          {
+            "memory": "Caroline: I'm definitely carrying on volunteering at the youth center.",
+            "score": 0.355919,
+            "id": "mem_d56383959280a7ca",
+            "created_at": "2023-08-28T15:19:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: It taught me self-acceptance and how to find support.",
+            "score": 0.354971,
+            "id": "mem_f8035df3ebaf4801",
+            "created_at": "2023-07-12T16:33:00+00:00"
+          },
+          {
+            "memory": "Don't forget to prepare emotionally, since the wait can be hard.",
+            "score": 0.354434,
+            "id": "mem_44aebea8d81fedfc",
+            "created_at": "2023-10-13T10:31:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: I'm definitely carrying on volunteering at the youth center.",
+            "score": 0.352957,
+            "id": "mem_2e0cc6909af778a6",
+            "created_at": "2023-08-28T15:19:00+00:00"
+          },
+          {
+            "memory": "Caroline: Check out my painting for the art show!",
+            "score": 0.349075,
+            "id": "mem_6e9b150d033ccb4d",
+            "created_at": "2023-07-17T14:31:00+00:00"
+          },
+          {
+            "memory": "Caroline: I loved it.",
+            "score": 0.348997,
+            "id": "mem_d811ce0c9ebd8080",
+            "created_at": "2023-08-28T15:19:00+00:00"
+          },
+          {
+            "memory": "Caroline: He's so cute!",
+            "score": 0.348997,
+            "id": "mem_a5378cadfacb173f",
+            "created_at": "2023-08-23T15:31:00+00:00"
+          },
+          {
+            "memory": "assistant: Melanie: Glad you have support, Caroline!",
+            "score": 0.348537,
+            "id": "mem_14e1133fe15af7c6",
+            "created_at": "2023-07-06T20:18:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: Check out my painting for the art show!",
+            "score": 0.347634,
+            "id": "mem_76d20139ad97886a",
+            "created_at": "2023-07-17T14:31:00+00:00"
+          },
+          {
+            "memory": "It's so peaceful waking up to the sound of birds and the smell of fresh air - it always refreshes my soul.",
+            "score": 0.347602,
+            "id": "mem_7f384a06fe3cf446",
+            "created_at": "2023-10-20T18:55:00+00:00"
+          },
+          {
+            "memory": "Caroline: Since I was 17 or so.",
+            "score": 0.347478,
+            "id": "mem_33a28441b241b34a",
+            "created_at": "2023-09-13T00:09:00+00:00"
+          },
+          {
+            "memory": "Caroline: Glad you got some R&R after the drive.",
+            "score": 0.347061,
+            "id": "mem_552b7e6bfe6a8e21",
+            "created_at": "2023-10-20T18:55:00+00:00"
+          },
+          {
+            "memory": "Caroline: I'm so lucky to have such a great support system around me.",
+            "score": 0.347061,
+            "id": "mem_2b7d5b7a5973c383",
+            "created_at": "2023-07-06T20:18:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: Glad you got some R&R after the drive.",
+            "score": 0.34562,
+            "id": "mem_b43ff44da9b92e32",
+            "created_at": "2023-10-20T18:55:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: I'm so lucky to have such a great support system around me.",
+            "score": 0.34562,
+            "id": "mem_f7fe4dac05e4c835",
+            "created_at": "2023-07-06T20:18:00+00:00"
+          }
+        ],
+        "search_latency_ms": 206.7,
+        "total_results": 50
+      },
+      "cutoff_results": {
+        "top_50": {
+          "judgment": "CORRECT",
+          "score": 1.0,
+          "generated_answer": "Caroline went to the LGBTQ support group on 7 May 2023.",
+          "memories_evaluated": 50,
+          "reason": "The generated answer exactly matches the gold answer, providing the correct date of 7 May 2023."
+        }
+      }
+    },
+    {
+      "question_id": "conv0_q1",
+      "conversation_idx": 0,
+      "category": 2,
+      "category_name": "temporal",
+      "question": "When did Melanie paint a sunrise?",
+      "ground_truth_answer": "2022",
+      "evidence": [
+        "D1:12"
+      ],
+      "user_id": "locomo_0_traceevlocomo01",
+      "reference_date": "9:55 am on 22 October, 2023",
+      "retrieval": {
+        "search_query": "When did Melanie paint a sunrise?",
+        "search_results": [
+          {
+            "memory": "Melanie: 5 years already!",
+            "score": 0.419545,
+            "id": "mem_0392f7836dce87b6",
+            "created_at": "2023-06-09T19:55:00+00:00"
+          },
+          {
+            "memory": "assistant: Melanie: I'll always remember our camping trip last year when we saw the Perseid meteor shower.",
+            "score": 0.404811,
+            "id": "mem_c55276a3f4eac25a",
+            "created_at": "2023-07-20T20:56:00+00:00"
+          },
+          {
+            "memory": "assistant: Melanie: Nope, never been to something like that.",
+            "score": 0.378105,
+            "id": "mem_2d702f63bef13a87",
+            "created_at": "2023-10-13T10:31:00+00:00"
+          },
+          {
+            "memory": "assistant: Melanie: Yeah, I made it in pottery class yesterday.",
+            "score": 0.376364,
+            "id": "mem_3f27b9a09124617b",
+            "created_at": "2023-08-25T13:33:00+00:00"
+          },
+          {
+            "memory": "Melanie: I love it.",
+            "score": 0.370487,
+            "id": "mem_1c3170e6543bd343",
+            "created_at": "2023-10-13T10:31:00+00:00"
+          },
+          {
+            "memory": "Melanie: It so fun!",
+            "score": 0.370487,
+            "id": "mem_275dd6a4656c18d8",
+            "created_at": "2023-06-09T19:55:00+00:00"
+          },
+          {
+            "memory": "Melanie: Here it is.",
+            "score": 0.370487,
+            "id": "mem_0494464689c4a30b",
+            "created_at": "2023-08-17T13:50:00+00:00"
+          },
+          {
+            "memory": "assistant: Melanie: That must have been tough for you, Caroline.",
+            "score": 0.370092,
+            "id": "mem_84dc0248bb082c2e",
+            "created_at": "2023-10-22T09:55:00+00:00"
+          },
+          {
+            "memory": "assistant: Melanie: I'll never forget the day my youngest took her first steps.",
+            "score": 0.366933,
+            "id": "mem_dde12c277a00d02c",
+            "created_at": "2023-07-20T20:56:00+00:00"
+          },
+          {
+            "memory": "assistant: Melanie: We always look forward to our family camping trip.",
+            "score": 0.365514,
+            "id": "mem_70aec30827f72aba",
+            "created_at": "2023-07-20T20:56:00+00:00"
+          },
+          {
+            "memory": "assistant: Melanie: Yeah, Here's one I did last week.",
+            "score": 0.365197,
+            "id": "mem_a34f2acff45c344c",
+            "created_at": "2023-10-13T10:31:00+00:00"
+          },
+          {
+            "memory": "Caroline: Hi Melanie!",
+            "score": 0.362645,
+            "id": "mem_68105b78a4893b5c",
+            "created_at": "2023-08-23T15:31:00+00:00"
+          },
+          {
+            "memory": "assistant: Melanie: Yeah, it's normal to be both excited and nervous with a big decision.",
+            "score": 0.362491,
+            "id": "mem_65ed5723b1f1048c",
+            "created_at": "2023-08-23T15:31:00+00:00"
+          },
+          {
+            "memory": "assistant: Melanie: Yeah, I painted that lake sunrise last year!",
+            "score": 0.35853,
+            "id": "mem_b59a32620689fc37",
+            "created_at": "2023-05-08T13:56:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: Hi Melanie!",
+            "score": 0.348607,
+            "id": "mem_f12514a01c391c02",
+            "created_at": "2023-08-23T15:31:00+00:00"
+          },
+          {
+            "memory": "Melanie: That's awesome!",
+            "score": 0.344647,
+            "id": "mem_03d49613cb4172c8",
+            "created_at": "2023-08-28T15:19:00+00:00"
+          },
+          {
+            "memory": "Caroline: Yes, I did.",
+            "score": 0.344647,
+            "id": "mem_72e8c4980c599ea5",
+            "created_at": "2023-07-15T13:51:00+00:00"
+          },
+          {
+            "memory": "rag_exact_index Melanie: 5 years already!",
+            "score": 0.344091,
+            "id": "mem_a520269f29d5172f",
+            "created_at": "2023-06-09T19:55:00+00:00"
+          },
+          {
+            "memory": "assistant: Melanie: 5 years already!",
+            "score": 0.342683,
+            "id": "mem_b544f5f4c962f46e",
+            "created_at": "2023-06-09T19:55:00+00:00"
+          },
+          {
+            "memory": "Melanie: No doubts, Caroline.",
+            "score": 0.342633,
+            "id": "mem_d5b427e1a7bfa71f",
+            "created_at": "2023-05-25T13:14:00+00:00"
+          },
+          {
+            "memory": "Melanie: Yeah, it's tough.",
+            "score": 0.336805,
+            "id": "mem_a00ac6d05e34ca37",
+            "created_at": "2023-05-25T13:14:00+00:00"
+          },
+          {
+            "memory": "Did you join in?",
+            "score": 0.336737,
+            "id": "mem_20a9868cdd3df175",
+            "created_at": "2023-07-15T13:51:00+00:00"
+          },
+          {
+            "memory": "assistant: Melanie: It so fun!",
+            "score": 0.335329,
+            "id": "mem_c35084fd0ef9b153",
+            "created_at": "2023-06-09T19:55:00+00:00"
+          },
+          {
+            "memory": "assistant: Melanie: Here it is.",
+            "score": 0.335329,
+            "id": "mem_800d907fca5f3f5d",
+            "created_at": "2023-08-17T13:50:00+00:00"
+          },
+          {
+            "memory": "Caroline: Congrats, Melanie!",
+            "score": 0.334791,
+            "id": "mem_c757771bd3d587b1",
+            "created_at": "2023-06-09T19:55:00+00:00"
+          },
+          {
+            "memory": "Caroline: Woohoo Melanie!",
+            "score": 0.334791,
+            "id": "mem_4dd09f1cb1c1b48c",
+            "created_at": "2023-10-22T09:55:00+00:00"
+          },
+          {
+            "memory": "Caroline: Awesome, Melanie!",
+            "score": 0.334791,
+            "id": "mem_5d922b0fddcb8bad",
+            "created_at": "2023-07-12T16:33:00+00:00"
+          },
+          {
+            "memory": "Caroline: Cool, Melanie!",
+            "score": 0.334791,
+            "id": "mem_665ceab6cc4d23d3",
+            "created_at": "2023-07-12T16:33:00+00:00"
+          },
+          {
+            "memory": "Melanie: I totally agree, Caroline.",
+            "score": 0.333949,
+            "id": "mem_567d8b9e74fb88bf",
+            "created_at": "2023-10-22T09:55:00+00:00"
+          },
+          {
+            "memory": "Melanie: It was amazing, Caroline.",
+            "score": 0.333949,
+            "id": "mem_e41e44fd3ddd811e",
+            "created_at": "2023-07-15T13:51:00+00:00"
+          },
+          {
+            "memory": "Caroline: Thanks, Melanie!",
+            "score": 0.333383,
+            "id": "mem_13d91580988273d1",
+            "created_at": "2023-05-08T13:56:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: Woohoo Melanie!",
+            "score": 0.332003,
+            "id": "mem_64b5f6552e98010d",
+            "created_at": "2023-10-22T09:55:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: Awesome, Melanie!",
+            "score": 0.332003,
+            "id": "mem_5ddaab939eabd00f",
+            "created_at": "2023-07-12T16:33:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: Cool, Melanie!",
+            "score": 0.332003,
+            "id": "mem_c7fe9698674538c5",
+            "created_at": "2023-07-12T16:33:00+00:00"
+          },
+          {
+            "memory": "Did you make it?",
+            "score": 0.331369,
+            "id": "mem_1b525556937d1838",
+            "created_at": "2023-07-03T13:36:00+00:00"
+          },
+          {
+            "memory": "Melanie: That's really cool.",
+            "score": 0.330057,
+            "id": "mem_e8736ba347cc387f",
+            "created_at": "2023-05-08T13:56:00+00:00"
+          },
+          {
+            "memory": "assistant: Melanie: Bye Caroline.",
+            "score": 0.329989,
+            "id": "mem_d54e216b3b3d51ee",
+            "created_at": "2023-08-23T15:31:00+00:00"
+          },
+          {
+            "memory": "assistant: Melanie: Absolutely!",
+            "score": 0.329785,
+            "id": "mem_a2a26aa84d1bd2fd",
+            "created_at": "2023-10-20T18:55:00+00:00"
+          },
+          {
+            "memory": "assistant: Melanie: Thanks!",
+            "score": 0.329785,
+            "id": "mem_e1c711d445e13363",
+            "created_at": "2023-10-20T18:55:00+00:00"
+          },
+          {
+            "memory": "assistant: Melanie: Cool!",
+            "score": 0.329785,
+            "id": "mem_088a16b360c21c24",
+            "created_at": "2023-08-28T15:19:00+00:00"
+          },
+          {
+            "memory": "assistant: Melanie: Wow!",
+            "score": 0.329785,
+            "id": "mem_5bb0953256b29d59",
+            "created_at": "2023-07-17T14:31:00+00:00"
+          },
+          {
+            "memory": "Caroline: Sure thing, Melanie!",
+            "score": 0.328043,
+            "id": "mem_4f2f8616cbe1d610",
+            "created_at": "2023-08-17T13:50:00+00:00"
+          },
+          {
+            "memory": "Melanie: They're really amazing.",
+            "score": 0.328043,
+            "id": "mem_cc3f421a011adf64",
+            "created_at": "2023-10-20T18:55:00+00:00"
+          },
+          {
+            "memory": "Melanie: Wow, that's awesome!",
+            "score": 0.328043,
+            "id": "mem_a1f8082513772acf",
+            "created_at": "2023-08-14T14:24:00+00:00"
+          },
+          {
+            "memory": "Melanie: Wow, that's gorgeous!",
+            "score": 0.328043,
+            "id": "mem_ec81ad8a9cb7ac20",
+            "created_at": "2023-08-25T13:33:00+00:00"
+          },
+          {
+            "memory": "Melanie: That's awesome, Caro!",
+            "score": 0.328043,
+            "id": "mem_011c4101e8a25c0a",
+            "created_at": "2023-07-15T13:51:00+00:00"
+          },
+          {
+            "memory": "Melanie: Luna and Oliver!",
+            "score": 0.328043,
+            "id": "mem_9a449dc8f77104b8",
+            "created_at": "2023-07-12T16:33:00+00:00"
+          },
+          {
+            "memory": "Melanie: That's a gorgeous photo, Caroline!",
+            "score": 0.326646,
+            "id": "mem_b931cdf7927f1988",
+            "created_at": "2023-07-06T20:18:00+00:00"
+          },
+          {
+            "memory": "Caroline: I totally agree, Melanie.",
+            "score": 0.326107,
+            "id": "mem_f78f9a49bb7defc0",
+            "created_at": "2023-05-25T13:14:00+00:00"
+          },
+          {
+            "memory": "Caroline: Glad it helped ya, Melanie!",
+            "score": 0.326107,
+            "id": "mem_5c49c096c551e7b2",
+            "created_at": "2023-07-12T16:33:00+00:00"
+          }
+        ],
+        "search_latency_ms": 250.2,
+        "total_results": 50
+      },
+      "cutoff_results": {
+        "top_50": {
+          "judgment": "CORRECT",
+          "score": 1.0,
+          "generated_answer": "Melanie painted a lake sunrise in 2022.",
+          "memories_evaluated": 50,
+          "reason": "The generated answer correctly states that Melanie painted a sunrise in 2022, which matches the gold answer."
+        }
+      }
+    },
+    {
+      "question_id": "conv0_q2",
+      "conversation_idx": 0,
+      "category": 3,
+      "category_name": "open-domain",
+      "question": "What fields would Caroline be likely to pursue in her educaton?",
+      "ground_truth_answer": "Psychology, counseling certification",
+      "evidence": [
+        "D1:9",
+        "D1:11"
+      ],
+      "user_id": "locomo_0_traceevlocomo01",
+      "reference_date": "9:55 am on 22 October, 2023",
+      "retrieval": {
+        "search_query": "What fields would Caroline be likely to pursue in her educaton?",
+        "search_results": [
+          {
+            "memory": "Caroline: Wow, what a fun moment!",
+            "score": 0.370565,
+            "id": "mem_0acf7a29a956f412",
+            "created_at": "2023-08-28T15:19:00+00:00"
+          },
+          {
+            "memory": "Caroline: It must have been special at your wedding.",
+            "score": 0.367622,
+            "id": "mem_d050a9a49a4a4c78",
+            "created_at": "2023-07-15T13:51:00+00:00"
+          },
+          {
+            "memory": "Caroline: I'm always here for you, Mel!",
+            "score": 0.364511,
+            "id": "mem_18e54769adfe403b",
+            "created_at": "2023-08-17T13:50:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: Wow, what a fun moment!",
+            "score": 0.363236,
+            "id": "mem_e8fa9d62c8cc48d4",
+            "created_at": "2023-08-28T15:19:00+00:00"
+          },
+          {
+            "memory": "What motivated you to pursue counseling?",
+            "score": 0.363183,
+            "id": "mem_61b3bced4de98f5a",
+            "created_at": "2023-06-27T10:37:00+00:00"
+          },
+          {
+            "memory": "Caroline: Wow, what an amazing family pic!",
+            "score": 0.35734,
+            "id": "mem_5a1900072db4419f",
+            "created_at": "2023-06-09T19:55:00+00:00"
+          },
+          {
+            "memory": "Caroline: Wow, Melanie, what a beautiful moment!",
+            "score": 0.35734,
+            "id": "mem_c958c7ab26162d6f",
+            "created_at": "2023-07-20T20:56:00+00:00"
+          },
+          {
+            "memory": "assistant: Melanie: That must have been tough for you, Caroline.",
+            "score": 0.355876,
+            "id": "mem_84dc0248bb082c2e",
+            "created_at": "2023-10-22T09:55:00+00:00"
+          },
+          {
+            "memory": "assistant: Melanie: I'll never forget the day my youngest took her first steps.",
+            "score": 0.353378,
+            "id": "mem_dde12c277a00d02c",
+            "created_at": "2023-07-20T20:56:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: Wow, what an amazing family pic!",
+            "score": 0.343101,
+            "id": "mem_1ee3b3e7620d8b48",
+            "created_at": "2023-06-09T19:55:00+00:00"
+          },
+          {
+            "memory": "Caroline: Since I was 17 or so.",
+            "score": 0.340713,
+            "id": "mem_33a28441b241b34a",
+            "created_at": "2023-09-13T00:09:00+00:00"
+          },
+          {
+            "memory": "Caroline: I loved it.",
+            "score": 0.340712,
+            "id": "mem_d811ce0c9ebd8080",
+            "created_at": "2023-08-28T15:19:00+00:00"
+          },
+          {
+            "memory": "Caroline: He's so cute!",
+            "score": 0.340712,
+            "id": "mem_a5378cadfacb173f",
+            "created_at": "2023-08-23T15:31:00+00:00"
+          },
+          {
+            "memory": "This book I read last year reminds me to always pursue my dreams, just like you are doing!🌟 [Sharing image - query: painted canvas follow your dreams.",
+            "score": 0.337339,
+            "id": "mem_7858f904f635f7ea",
+            "created_at": "2023-07-12T16:33:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: Since I was 17 or so.",
+            "score": 0.333483,
+            "id": "mem_2e2e66eae5484826",
+            "created_at": "2023-09-13T00:09:00+00:00"
+          },
+          {
+            "memory": "Caroline: Hi Melanie!",
+            "score": 0.330856,
+            "id": "mem_68105b78a4893b5c",
+            "created_at": "2023-08-23T15:31:00+00:00"
+          },
+          {
+            "memory": "Caroline: Yeah, it's true!",
+            "score": 0.328957,
+            "id": "mem_75e443bc29f8ec1e",
+            "created_at": "2023-07-12T16:33:00+00:00"
+          },
+          {
+            "memory": "Thanks, Caroline!",
+            "score": 0.328842,
+            "id": "mem_df70d42feb7b66aa",
+            "created_at": "2023-06-09T19:55:00+00:00"
+          },
+          {
+            "memory": "Caroline: I 100% agree, Mel.",
+            "score": 0.327587,
+            "id": "mem_056037ce40190109",
+            "created_at": "2023-06-09T19:55:00+00:00"
+          },
+          {
+            "memory": "rag_exact_index 17 user: Caroline: Since I was 17 or so.",
+            "score": 0.324525,
+            "id": "mem_2f9685313921eaea",
+            "created_at": "2023-09-13T00:09:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: I 100% agree, Mel.",
+            "score": 0.324525,
+            "id": "mem_33b7670ae0f84633",
+            "created_at": "2023-06-09T19:55:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: Thanks!",
+            "score": 0.322651,
+            "id": "mem_58a642451ebd17d2",
+            "created_at": "2023-08-25T13:33:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: Hi Melanie!",
+            "score": 0.322651,
+            "id": "mem_f12514a01c391c02",
+            "created_at": "2023-08-23T15:31:00+00:00"
+          },
+          {
+            "memory": "Caroline: Ah, they're adorable!",
+            "score": 0.318691,
+            "id": "mem_afc798df86e3d1bf",
+            "created_at": "2023-07-12T16:33:00+00:00"
+          },
+          {
+            "memory": "Caroline: Nah, I haven't.",
+            "score": 0.318691,
+            "id": "mem_36d4dff75d58ba15",
+            "created_at": "2023-08-25T13:33:00+00:00"
+          },
+          {
+            "memory": "Caroline: No worries, Mel!",
+            "score": 0.318691,
+            "id": "mem_c43c36d36cd70993",
+            "created_at": "2023-07-15T13:51:00+00:00"
+          },
+          {
+            "memory": "Caroline: Yes, I did.",
+            "score": 0.318691,
+            "id": "mem_72e8c4980c599ea5",
+            "created_at": "2023-07-15T13:51:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: Yeah, it's true!",
+            "score": 0.318382,
+            "id": "mem_27c05c116c95ffd0",
+            "created_at": "2023-07-12T16:33:00+00:00"
+          },
+          {
+            "memory": "rag_exact_index 100 user: Caroline: I 100% agree, Mel.",
+            "score": 0.317912,
+            "id": "mem_80311c8d850dd3f4",
+            "created_at": "2023-06-09T19:55:00+00:00"
+          },
+          {
+            "memory": "Caroline: It was so special to me.",
+            "score": 0.316755,
+            "id": "mem_84f901a086d1032c",
+            "created_at": "2023-08-28T15:19:00+00:00"
+          },
+          {
+            "memory": "Melanie: No doubts, Caroline.",
+            "score": 0.316678,
+            "id": "mem_d5b427e1a7bfa71f",
+            "created_at": "2023-05-25T13:14:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: Yeah totally!",
+            "score": 0.312341,
+            "id": "mem_095ec10c3f262bea",
+            "created_at": "2023-08-28T15:19:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: That's amazing!",
+            "score": 0.311539,
+            "id": "mem_9d8ae5fb7be1fb9a",
+            "created_at": "2023-08-17T13:50:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: Yeah, definitely!",
+            "score": 0.311539,
+            "id": "mem_2cf99c439f5e18d3",
+            "created_at": "2023-08-25T13:33:00+00:00"
+          },
+          {
+            "memory": "Melanie: I totally agree, Caroline.",
+            "score": 0.311471,
+            "id": "mem_567d8b9e74fb88bf",
+            "created_at": "2023-10-22T09:55:00+00:00"
+          },
+          {
+            "memory": "Melanie: It was amazing, Caroline.",
+            "score": 0.311471,
+            "id": "mem_e41e44fd3ddd811e",
+            "created_at": "2023-07-15T13:51:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: He's so cute!",
+            "score": 0.311387,
+            "id": "mem_b4be48d8e6ce36c6",
+            "created_at": "2023-08-23T15:31:00+00:00"
+          },
+          {
+            "memory": "Caroline: Yeah, Mel!",
+            "score": 0.310849,
+            "id": "mem_7ae0962f8828b419",
+            "created_at": "2023-08-17T13:50:00+00:00"
+          },
+          {
+            "memory": "Caroline: That's so nice!",
+            "score": 0.310849,
+            "id": "mem_904e04f8746aa505",
+            "created_at": "2023-07-12T16:33:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: Thanks, Mell!",
+            "score": 0.309525,
+            "id": "mem_c283eb9df18e8b51",
+            "created_at": "2023-07-12T16:33:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: Woohoo Melanie!",
+            "score": 0.309525,
+            "id": "mem_64b5f6552e98010d",
+            "created_at": "2023-10-22T09:55:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: Awesome, Melanie!",
+            "score": 0.309525,
+            "id": "mem_5ddaab939eabd00f",
+            "created_at": "2023-07-12T16:33:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: Cool, Melanie!",
+            "score": 0.309525,
+            "id": "mem_c7fe9698674538c5",
+            "created_at": "2023-07-12T16:33:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: Awesome, Mel!",
+            "score": 0.309525,
+            "id": "mem_a8fd72a11cd83b73",
+            "created_at": "2023-07-15T13:51:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: Definitely, Mel!",
+            "score": 0.309525,
+            "id": "mem_0d67392442ac7340",
+            "created_at": "2023-08-17T13:50:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: Agreed, Mel!",
+            "score": 0.309525,
+            "id": "mem_0f539d6d5673ded5",
+            "created_at": "2023-08-25T13:33:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: Nice job!",
+            "score": 0.309525,
+            "id": "mem_436feff22bf38fdf",
+            "created_at": "2023-07-03T13:36:00+00:00"
+          },
+          {
+            "memory": "user: Caroline: It was so special to me.",
+            "score": 0.309525,
+            "id": "mem_e6508474408a5aa3",
+            "created_at": "2023-08-28T15:19:00+00:00"
+          },
+          {
+            "memory": "What made it so special?",
+            "score": 0.309374,
+            "id": "mem_f8e0d8ebab2dd5ea",
+            "created_at": "2023-10-13T10:31:00+00:00"
+          },
+          {
+            "memory": "Caroline: Thanks, Mell!",
+            "score": 0.308835,
+            "id": "mem_41277a63d314ab54",
+            "created_at": "2023-07-12T16:33:00+00:00"
+          }
+        ],
+        "search_latency_ms": 119.3,
+        "total_results": 50
+      },
+      "cutoff_results": {
+        "top_50": {
+          "judgment": "CORRECT",
+          "score": 1.0,
+          "generated_answer": "Based on available memories, counseling is the most likely field Caroline would pursue in her education.",
+          "memories_evaluated": 50,
+          "reason": "The generated answer mentions counseling, which matches one of the fields listed in the gold answer."
+        }
+      }
+    }
+  ]
+}

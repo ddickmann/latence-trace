@@ -1,0 +1,96 @@
+{
+  "client_count": 1,
+  "created_at": "2026-05-03T21:25:06.813313+00:00",
+  "users": {
+    "longmemeval_0a995998_traceevlme01": {
+      "cold_tokens": 321,
+      "diagnostics": {
+        "cold_tokens": 321,
+        "hot_tokens": 85953,
+        "span_count": 5404,
+        "turn_index": 242,
+        "warm_tokens": 1873
+      },
+      "events": 242,
+      "hot_tokens": 85953,
+      "last_search": {
+        "cold_tokens": 321,
+        "diagnostics": {
+          "cold_tokens": 321,
+          "hot_tokens": 85953,
+          "span_count": 5404,
+          "turn_index": 242,
+          "warm_tokens": 1873
+        },
+        "hot_tokens": 85953,
+        "query": "How many items of clothing do I need to pick up or return from a store?",
+        "repair_results": 0,
+        "returned": 50,
+        "top_k": 50,
+        "warm_tokens": 1873
+      },
+      "session_id": "trace_mem0_3e7c5c8c6571e",
+      "warm_tokens": 1873
+    },
+    "longmemeval_18bc8abd_traceevlme01": {
+      "cold_tokens": 232,
+      "diagnostics": {
+        "cold_tokens": 232,
+        "hot_tokens": 78974,
+        "span_count": 5158,
+        "turn_index": 219,
+        "warm_tokens": 5113
+      },
+      "events": 219,
+      "hot_tokens": 78974,
+      "last_search": {
+        "cold_tokens": 232,
+        "diagnostics": {
+          "cold_tokens": 232,
+          "hot_tokens": 78974,
+          "span_count": 5158,
+          "turn_index": 219,
+          "warm_tokens": 5113
+        },
+        "hot_tokens": 78974,
+        "query": "What brand of BBQ sauce am I currently obsessed with?",
+        "repair_results": 0,
+        "returned": 50,
+        "top_k": 50,
+        "warm_tokens": 5113
+      },
+      "session_id": "trace_mem0_2058a01e48d3f7",
+      "warm_tokens": 5113
+    },
+    "longmemeval_gpt4_4edbafa2_traceevlme01": {
+      "cold_tokens": 94,
+      "diagnostics": {
+        "cold_tokens": 94,
+        "hot_tokens": 84572,
+        "span_count": 5329,
+        "turn_index": 230,
+        "warm_tokens": 1896
+      },
+      "events": 230,
+      "hot_tokens": 84572,
+      "last_search": {
+        "cold_tokens": 94,
+        "diagnostics": {
+          "cold_tokens": 94,
+          "hot_tokens": 84572,
+          "span_count": 5329,
+          "turn_index": 230,
+          "warm_tokens": 1896
+        },
+        "hot_tokens": 84572,
+        "query": "What was the date on which I attended the first BBQ event in June?",
+        "repair_results": 0,
+        "returned": 50,
+        "top_k": 50,
+        "warm_tokens": 1896
+      },
+      "session_id": "trace_mem0_16876870dc6a2a",
+      "warm_tokens": 1896
+    }
+  }
+}
