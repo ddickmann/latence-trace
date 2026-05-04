@@ -7,7 +7,7 @@ latence-trace without touching their request/response shapes.
 """
 
 from enum import Enum
-from typing import Dict, List, Literal, Optional, Tuple, Union
+from typing import Dict, List, Literal, Optional, Union
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
@@ -681,6 +681,25 @@ class GroundednessScores(BaseModel):
             "Fraction of support units emitted as ``usage_state = uncertain``."
         ),
     )
+    context_trust_score: Optional[float] = Field(
+        default=None,
+        description=(
+            "Average context-trust risk across support units. Diagnostic only; "
+            "does not lower groundedness_v2 in v1."
+        ),
+    )
+    context_trust_suspicious_count: Optional[int] = Field(
+        default=None,
+        description="Count of support units with suspicious context-trust state.",
+    )
+    context_trust_blocked_count: Optional[int] = Field(
+        default=None,
+        description="Count of support units with blocked context-trust state.",
+    )
+    context_trust_max_risk: Optional[float] = Field(
+        default=None,
+        description="Maximum context-trust risk observed across support units.",
+    )
     # --- Code-lane additions ------------------------------------------
     composite_phantom_score: Optional[float] = Field(
         default=None,
@@ -843,6 +862,49 @@ class GroundednessNLIDiagnostics(BaseModel):
     claims: List[GroundednessNLIClaim] = Field(default_factory=list)
 
 
+class ContextTrustLabel(BaseModel):
+    """Normalized context-trust label emitted for a support unit."""
+
+    label: str
+    score: float
+    severity: str
+    count: int = 1
+    source: str = "heuristic"
+
+
+class ContextTrustSpan(BaseModel):
+    """Span-level context-trust evidence inside a support unit."""
+
+    label: str
+    start: int
+    end: int
+    text: str
+    score: float
+    severity: str
+    source: str = "heuristic"
+    pattern_id: Optional[str] = None
+    metadata: Dict[str, object] = Field(default_factory=dict)
+
+
+class ContextTrustDiagnostics(BaseModel):
+    """Aggregate context safety diagnostics for RAG/support-unit context."""
+
+    enabled: bool = True
+    provider: str = "heuristic"
+    support_unit_count: int = 0
+    trusted_count: int = 0
+    suspicious_count: int = 0
+    blocked_count: int = 0
+    score: float = 0.0
+    max_risk: float = 0.0
+    suspicious_support_ids: List[str] = Field(default_factory=list)
+    blocked_support_ids: List[str] = Field(default_factory=list)
+    labels: List[ContextTrustLabel] = Field(default_factory=list)
+    skipped_reason: Optional[str] = None
+    suspicious_threshold: float = 0.20
+    blocked_threshold: float = 0.60
+
+
 class CorpusRouteDiagnostics(BaseModel):
     """Per-request corpus router diagnostics.
 
@@ -937,6 +999,9 @@ class RuntimeEvidence(BaseModel):
     text: str
     coverage_score: Optional[float] = None
     usage_state: Optional[str] = None
+    context_trust_state: Optional[str] = None
+    context_trust_score: Optional[float] = None
+    context_trust_labels: List[str] = Field(default_factory=list)
 
 
 class RuntimeDecisionRecord(BaseModel):
@@ -1452,6 +1517,20 @@ class GroundednessSupportUnit(BaseModel):
             "``usage_state = unused``."
         ),
     )
+    context_trust_state: Optional[Literal["trusted", "suspicious", "blocked"]] = Field(
+        default=None,
+        description=(
+            "Instruction-contamination state for this support unit. Diagnostic "
+            "only; high risk is surfaced to runtime_decision rather than "
+            "lowering groundedness_v2 directly."
+        ),
+    )
+    context_trust_score: Optional[float] = Field(
+        default=None,
+        description="Per-support-unit context-trust risk in [0, 1].",
+    )
+    context_trust_labels: List[ContextTrustLabel] = Field(default_factory=list)
+    context_trust_spans: List[ContextTrustSpan] = Field(default_factory=list)
     source_id: Optional[str] = Field(
         default=None,
         description="Echoed from the matching support_units[] request entry, when supplied.",
@@ -1658,6 +1737,7 @@ class GroundednessResponse(BaseModel):
     warnings: List[str] = Field(default_factory=list)
     literal_diagnostics: Optional[GroundednessLiteralDiagnostics] = None
     nli_diagnostics: Optional[GroundednessNLIDiagnostics] = None
+    context_trust_diagnostics: Optional[ContextTrustDiagnostics] = None
     semantic_entropy_diagnostics: Optional[GroundednessSemanticEntropyDiagnostics] = None
     structured_diagnostics: Optional[GroundednessStructuredDiagnostics] = None
     code_lane_diagnostics: Optional[CodeLaneDiagnostics] = Field(

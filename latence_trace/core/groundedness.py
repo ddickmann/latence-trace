@@ -37,6 +37,10 @@ from latence_trace.core.semantic_entropy import (
     compute_semantic_entropy,
     is_semantic_entropy_enabled,
 )
+from latence_trace.core.context_trust import (
+    diagnostics_from_results,
+    get_context_trust_provider,
+)
 from latence_trace.core.thresholds import (
     RiskBandPolicy,
     classify_risk_band,
@@ -44,7 +48,6 @@ from latence_trace.core.thresholds import (
 )
 from latence_trace.core.structured import (
     default_penalty_per_mismatch,
-    detect_source_format,
     is_structured_enabled,
     resolve_structured_mode,
     verification_to_dict,
@@ -324,6 +327,36 @@ class SupportUnitInput:
     speaker: Optional[str] = None
     timestamp: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+def _apply_context_trust_scan(
+    *,
+    support_units_payload: List[Dict[str, Any]],
+    support_inputs: Sequence[SupportUnitInput],
+) -> Dict[str, Any]:
+    provider = get_context_trust_provider()
+    texts: List[str] = []
+    source_levels: List[str] = []
+    for idx, payload in enumerate(support_units_payload):
+        unit = support_inputs[idx] if idx < len(support_inputs) else None
+        texts.append(str(getattr(unit, "text", payload.get("text", "")) or ""))
+        source_levels.append(
+            str(getattr(unit, "source_mode", payload.get("source_mode", "tool")) or "tool")
+        )
+    classify_many = getattr(provider, "classify_many", None)
+    if callable(classify_many):
+        results = list(classify_many(texts, source_levels=source_levels))
+    else:
+        results = [
+            provider.classify(text, source_level=source_levels[idx])
+            for idx, text in enumerate(texts)
+        ]
+    support_ids: List[str] = []
+    for idx, payload in enumerate(support_units_payload):
+        result = results[idx]
+        payload.update(result.support_unit_fields())
+        support_ids.append(str(payload.get("support_id") or idx))
+    return diagnostics_from_results(results, support_ids=support_ids)
 
 
 def _normalize(x: torch.Tensor) -> torch.Tensor:
@@ -3464,6 +3497,10 @@ def score_groundedness(
         response_tokens=response_tokens_aligned,
         query_tokens=query_tokens_aligned,
     )
+    context_trust_diagnostics = _apply_context_trust_scan(
+        support_units_payload=support_units_payload,
+        support_inputs=support_units,
+    )
 
     groundedness_v2 = fuse_groundedness_v2(
         reverse_context_calibrated=(
@@ -3601,6 +3638,12 @@ def score_groundedness(
         "context_usage_ratio": float(usage_aggregates["context_usage_ratio"]),
         "context_unused_ratio": float(usage_aggregates["context_unused_ratio"]),
         "context_uncertain_ratio": float(usage_aggregates["context_uncertain_ratio"]),
+        "context_trust_score": float(context_trust_diagnostics["score"]),
+        "context_trust_suspicious_count": int(
+            context_trust_diagnostics["suspicious_count"]
+        ),
+        "context_trust_blocked_count": int(context_trust_diagnostics["blocked_count"]),
+        "context_trust_max_risk": float(context_trust_diagnostics["max_risk"]),
     }
 
     file_attribution = _build_rag_file_attribution(
@@ -3633,6 +3676,7 @@ def score_groundedness(
                 "aggregate_score": nli_payload["aggregate_score"],
             }
         ),
+        "context_trust_diagnostics": context_trust_diagnostics,
         "semantic_entropy_diagnostics": semantic_entropy_payload,
         "structured_diagnostics": structured_payload,
         "_internals": {
@@ -4448,6 +4492,10 @@ def score_groundedness_chunked(
         response_tokens=response_tokens_aligned,
         query_tokens=query_tokens,
     )
+    context_trust_diagnostics = _apply_context_trust_scan(
+        support_units_payload=support_units_payload,
+        support_inputs=flat_support_units,
+    )
 
     semantic_entropy_payload = _maybe_run_semantic_entropy(
         verification_samples=verification_samples,
@@ -4633,6 +4681,12 @@ def score_groundedness_chunked(
         "context_usage_ratio": float(usage_aggregates["context_usage_ratio"]),
         "context_unused_ratio": float(usage_aggregates["context_unused_ratio"]),
         "context_uncertain_ratio": float(usage_aggregates["context_uncertain_ratio"]),
+        "context_trust_score": float(context_trust_diagnostics["score"]),
+        "context_trust_suspicious_count": int(
+            context_trust_diagnostics["suspicious_count"]
+        ),
+        "context_trust_blocked_count": int(context_trust_diagnostics["blocked_count"]),
+        "context_trust_max_risk": float(context_trust_diagnostics["max_risk"]),
     }
 
     file_attribution = _build_rag_file_attribution(
@@ -4665,6 +4719,7 @@ def score_groundedness_chunked(
                 "aggregate_score": nli_payload["aggregate_score"],
             }
         ),
+        "context_trust_diagnostics": context_trust_diagnostics,
         "semantic_entropy_diagnostics": semantic_entropy_payload,
         "structured_diagnostics": structured_payload,
         "_internals": {
@@ -5301,6 +5356,10 @@ def score_groundedness_response_chunked(
         response_tokens=flat_response_tokens,
         query_tokens=query_tokens,
     )
+    context_trust_diagnostics = _apply_context_trust_scan(
+        support_units_payload=support_units_payload,
+        support_inputs=flat_support_units,
+    )
 
     evidence_candidates.sort(key=lambda item: item["_rank"], reverse=True)
     top_evidence = [
@@ -5426,6 +5485,12 @@ def score_groundedness_response_chunked(
     scores["context_usage_ratio"] = float(usage_aggregates["context_usage_ratio"])
     scores["context_unused_ratio"] = float(usage_aggregates["context_unused_ratio"])
     scores["context_uncertain_ratio"] = float(usage_aggregates["context_uncertain_ratio"])
+    scores["context_trust_score"] = float(context_trust_diagnostics["score"])
+    scores["context_trust_suspicious_count"] = int(
+        context_trust_diagnostics["suspicious_count"]
+    )
+    scores["context_trust_blocked_count"] = int(context_trust_diagnostics["blocked_count"])
+    scores["context_trust_max_risk"] = float(context_trust_diagnostics["max_risk"])
 
     return {
         "scores": scores,
@@ -5437,6 +5502,7 @@ def score_groundedness_response_chunked(
         "warnings": list(dict.fromkeys(warnings)),
         "literal_diagnostics": base.get("literal_diagnostics"),
         "nli_diagnostics": base.get("nli_diagnostics"),
+        "context_trust_diagnostics": context_trust_diagnostics,
         "semantic_entropy_diagnostics": base.get("semantic_entropy_diagnostics"),
         "structured_diagnostics": base.get("structured_diagnostics"),
         "_internals": base.get("_internals"),

@@ -82,6 +82,10 @@ class GroundednessScores(BaseModel):
     context_attribution_ratio: float | None = None
     support_units_used: int | None = None
     support_units_total: int | None = None
+    context_trust_score: float | None = None
+    context_trust_suspicious_count: int | None = None
+    context_trust_blocked_count: int | None = None
+    context_trust_max_risk: float | None = None
 
 
 class GroundednessRequest(BaseModel):
@@ -130,6 +134,7 @@ class GroundednessResponse(BaseModel):
     response_tokens: Sequence[TokenScore] = Field(default_factory=list)
     nli: Sequence[NLIVerdict] = Field(default_factory=list)
     support_units: Sequence[Mapping[str, Any]] = Field(default_factory=list)
+    context_trust_diagnostics: Mapping[str, Any] | None = None
     runtime_decision: RuntimeDecision | None = None
     runtime_head_features: Mapping[str, float] | None = None
     request_id: str | None = None

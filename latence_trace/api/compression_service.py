@@ -13,6 +13,7 @@ from latence_trace.api.compression_models import (
     CompressionResponse,
     CompressionSpan,
 )
+from latence_trace.core.fast_text_windows import fast_text_windows
 from latence_trace.providers.compression import VllmCompressionProvider
 
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+|\n+")
@@ -329,10 +330,12 @@ class CompressionService:
         return self._postprocessor
 
     def _chunk_text(self, text: str, chunk_size: int, text_processing: Any) -> list[str]:
-        safe_chunk_size = min(max(512, int(chunk_size)), 7500)
-        preprocessor = text_processing.FastPreprocessor(safe_chunk_size)
-        raw_chunks = preprocessor.process_single_text(text)
-        chunks = [text[chunk.start : chunk.end] for chunk in raw_chunks]
+        windows = fast_text_windows(
+            text,
+            chunk_size=chunk_size,
+            text_processing=text_processing,
+        )
+        chunks = [window.text for window in windows]
         return [chunk for chunk in chunks if chunk.strip()] or [text]
 
     def _maybe_apply_toon(self, text: str, request: CompressionRequest) -> tuple[str, bool]:

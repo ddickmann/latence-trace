@@ -54,7 +54,6 @@ from latence_trace.api.models import (
     CodeLanePerFileUsage,
     CodeLanePerUnitOwnership,
     CollectionKind,
-    DriftTrend,
     FileAttributionDiagnostics,
     FileSessionStatsPayload,
     GroundednessEligibility,
@@ -65,8 +64,6 @@ from latence_trace.api.models import (
     RollingStatsPayload,
     RollupRequest,
     RollupResponse,
-    RollupTopDeadFile,
-    RollupTurnInput,
     RuntimeDecisionRecord,
     ScoringMode,
     SessionSignals as SessionSignalsPayload,
@@ -98,7 +95,6 @@ from latence_trace.core.code_lane import (
     CodeLaneConfig,
     CodeLaneResult,
     GPUScorer,
-    NLICascade,
     SESSION_STATE_SCHEMA_VERSION,
     SessionSignals as SessionSignalsData,
     SessionState as SessionStateData,
@@ -1801,6 +1797,7 @@ class GroundednessService:
             warnings=warnings,
             literal_diagnostics=scored.get("literal_diagnostics"),
             nli_diagnostics=scored.get("nli_diagnostics"),
+            context_trust_diagnostics=scored.get("context_trust_diagnostics"),
             semantic_entropy_diagnostics=(
                 scored.get("semantic_entropy_diagnostics")
                 or (
@@ -1915,7 +1912,6 @@ class GroundednessService:
             raise ValidationError("response_text did not produce any embeddings")
 
         query_embeddings: Optional[torch.Tensor] = None
-        query_tokens: Optional[List[str]] = None
         if (request.query_text or "").strip():
             query_embeddings = encode_texts(
                 provider,
@@ -1923,12 +1919,6 @@ class GroundednessService:
                 is_query=True,
                 prompt_name=request.query_prompt_name,
             )[0]
-            query_tokens = tokenize_text(
-                provider,
-                request.query_text,
-                expected_len=int(query_embeddings.shape[0]),
-                is_query=True,
-            )
 
         response_tokens_flat, response_embeddings_flat, response_token_char_spans = (
             _stitch_response_chunks(response_chunks)

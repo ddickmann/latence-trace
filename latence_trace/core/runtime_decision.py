@@ -17,6 +17,15 @@ from pathlib import Path
 from typing import Any, Mapping, Optional
 
 from latence_trace.core import runtime_heads
+from latence_trace.core.context_trust import (
+    blocked_threshold as context_trust_blocked_threshold,
+)
+from latence_trace.core.context_trust import (
+    context_trust_enabled,
+)
+from latence_trace.core.context_trust import (
+    suspicious_threshold as context_trust_suspicious_threshold,
+)
 
 _DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 _DEFAULT_POLICY_PATH = _DATA_DIR / "runtime_policy.optimized_v1_plus_calibrator.json"
@@ -178,6 +187,7 @@ def _support_evidence(response: Any, *, limit: int = 3) -> list[dict[str, Any]]:
     units = list(getattr(response, "support_units", []) or [])
     units.sort(
         key=lambda unit: (
+            float(getattr(unit, "context_trust_score", 0.0) or 0.0),
             float(getattr(unit, "coverage_score", 0.0) or 0.0),
             float(getattr(unit, "usage_confidence", 0.0) or 0.0),
         ),
@@ -185,6 +195,10 @@ def _support_evidence(response: Any, *, limit: int = 3) -> list[dict[str, Any]]:
     )
     evidence: list[dict[str, Any]] = []
     for unit in units[:limit]:
+        labels = []
+        for label in list(getattr(unit, "context_trust_labels", []) or []):
+            labels.append(str(getattr(label, "label", label)))
+        context_trust_score = getattr(unit, "context_trust_score", None)
         evidence.append(
             {
                 "index": int(getattr(unit, "index", len(evidence))),
@@ -192,6 +206,13 @@ def _support_evidence(response: Any, *, limit: int = 3) -> list[dict[str, Any]]:
                 "text": str(getattr(unit, "text", ""))[:800],
                 "coverage_score": float(getattr(unit, "coverage_score", 0.0) or 0.0),
                 "usage_state": str(getattr(getattr(unit, "usage_state", None), "value", getattr(unit, "usage_state", ""))),
+                "context_trust_state": getattr(unit, "context_trust_state", None),
+                "context_trust_score": (
+                    None
+                    if context_trust_score is None
+                    else float(context_trust_score or 0.0)
+                ),
+                "context_trust_labels": labels,
             }
         )
     return evidence
@@ -237,7 +258,61 @@ def _reason_codes(response: Any) -> list[str]:
     hist = getattr(file_attr, "reason_code_histogram", None)
     if isinstance(hist, Mapping):
         codes.update(str(key) for key, count in hist.items() if int(count or 0) > 0)
+    context_codes = _context_trust_reason_codes(response)
+    codes.update(context_codes)
     return sorted(codes)
+
+
+def _context_trust_decision_enabled() -> bool:
+    raw = os.environ.get("LATENCE_TRACE_CONTEXT_TRUST_DECISION_ENABLED", "").strip().lower()
+    if not raw:
+        return context_trust_enabled()
+    return raw not in _FALSE_VALUES
+
+
+def _context_trust_max_risk(response: Any) -> float | None:
+    scores = getattr(response, "scores", None)
+    value = getattr(scores, "context_trust_max_risk", None)
+    if value is None:
+        diagnostics = getattr(response, "context_trust_diagnostics", None)
+        value = getattr(diagnostics, "max_risk", None)
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _context_trust_reason_codes(response: Any) -> list[str]:
+    if not _context_trust_decision_enabled():
+        return []
+    max_risk = _context_trust_max_risk(response)
+    if max_risk is None:
+        return []
+    if max_risk >= context_trust_blocked_threshold():
+        return ["context_trust_blocked"]
+    if max_risk >= context_trust_suspicious_threshold():
+        return ["context_trust_suspicious"]
+    return []
+
+
+def _apply_context_trust_action(
+    action: str,
+    response: Any,
+    *,
+    block_disabled: bool,
+) -> str:
+    if not _context_trust_decision_enabled():
+        return action
+    max_risk = _context_trust_max_risk(response)
+    if max_risk is None:
+        return action
+    if max_risk >= context_trust_blocked_threshold():
+        return "auto_repair" if block_disabled else "block"
+    if max_risk >= context_trust_suspicious_threshold() and action == "allow":
+        return "auto_repair"
+    return action
 
 
 def _structured_literal_guard_reason(response: Any, class_key: str) -> Optional[str]:
@@ -262,6 +337,11 @@ def build_runtime_decision(response: Any) -> Optional[dict[str, Any]]:
     policy, policy_sha, error = _load_policy()
     if policy is None:
         score, score_channel = _score_from_response(response)
+        action = _apply_context_trust_action(
+            "auto_repair",
+            response,
+            block_disabled=False,
+        )
         return {
             "policy_version": "unavailable",
             "policy_sha256": None,
@@ -269,10 +349,12 @@ def build_runtime_decision(response: Any) -> Optional[dict[str, Any]]:
             "score": score,
             "score_channel": score_channel,
             "band": str(response.scores.risk_band or "unknown"),
-            "action": "auto_repair",
+            "action": action,
             "evidence": _support_evidence(response),
             "unsupported_spans": _unsupported_spans(response),
-            "reason_codes": [error or "policy_unavailable"],
+            "reason_codes": sorted(
+                {error or "policy_unavailable", *_context_trust_reason_codes(response)}
+            ),
             "rollback_safe": True,
         }
 
@@ -296,6 +378,11 @@ def build_runtime_decision(response: Any) -> Optional[dict[str, Any]]:
     if action == "allow" and structured_guard_reason is not None:
         action = "auto_repair"
         reason_codes.append(structured_guard_reason)
+    action = _apply_context_trust_action(
+        action,
+        response,
+        block_disabled=bool(class_policy.get("block_disabled", False)),
+    )
     decision_band = _band_for_action(action)
     return {
         "policy_version": str(policy.get("channel") or "runtime_decision"),
