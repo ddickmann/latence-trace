@@ -11,8 +11,9 @@ from __future__ import annotations
 import math
 import os
 import random
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any
 
 from latence_trace_client.errors import (
     LatenceTraceAPIError,
@@ -22,7 +23,6 @@ from latence_trace_client.errors import (
     LatenceTraceValidationError,
     _Envelope,
 )
-
 
 DEFAULT_USER_AGENT = "latence-trace-client/1.0.0"
 DEFAULT_TIMEOUT_SECONDS = 30.0
@@ -43,14 +43,14 @@ class RetryPolicy:
     base_seconds: float = 0.25
     cap_seconds: float = 8.0
 
-    def sleep_for(self, attempt: int, retry_after_header: Optional[float]) -> float:
+    def sleep_for(self, attempt: int, retry_after_header: float | None) -> float:
         if retry_after_header is not None:
             return max(0.0, retry_after_header)
         backoff = min(self.cap_seconds, self.base_seconds * math.pow(2, attempt))
         return random.uniform(0.0, backoff)
 
 
-def default_headers(api_key: Optional[str], extra: Optional[Mapping[str, str]] = None) -> dict:
+def default_headers(api_key: str | None, extra: Mapping[str, str] | None = None) -> dict:
     """Compose request headers with bearer auth + UA + W3C trace context."""
 
     headers: dict = {
@@ -87,7 +87,7 @@ def inject_trace_context(headers: dict) -> None:
         pass
 
 
-def parse_retry_after(value: Optional[str]) -> Optional[float]:
+def parse_retry_after(value: str | None) -> float | None:
     if not value:
         return None
     try:
@@ -96,7 +96,7 @@ def parse_retry_after(value: Optional[str]) -> Optional[float]:
         return None
 
 
-def decode_error(status: int, body: Any, request_id: Optional[str]) -> LatenceTraceAPIError:
+def decode_error(status: int, body: Any, request_id: str | None) -> LatenceTraceAPIError:
     envelope = _envelope_from_body(body)
     message = envelope.message if envelope and envelope.message else f"HTTP {status}"
     if status in (401, 402, 403):
@@ -110,7 +110,7 @@ def decode_error(status: int, body: Any, request_id: Optional[str]) -> LatenceTr
     return LatenceTraceAPIError(message, status=status, envelope=envelope, request_id=request_id)
 
 
-def _envelope_from_body(body: Any) -> Optional[_Envelope]:
+def _envelope_from_body(body: Any) -> _Envelope | None:
     if not isinstance(body, Mapping):
         return None
     detail = body.get("detail")
@@ -134,12 +134,12 @@ def _envelope_from_body(body: Any) -> Optional[_Envelope]:
     )
 
 
-def coerce_base_url(base_url: Optional[str]) -> str:
+def coerce_base_url(base_url: str | None) -> str:
     base = base_url or os.environ.get("LATENCE_TRACE_URL", "http://localhost:8090")
     return base.rstrip("/")
 
 
-def coerce_api_key(api_key: Optional[str]) -> Optional[str]:
+def coerce_api_key(api_key: str | None) -> str | None:
     return api_key or os.environ.get("LATENCE_TRACE_API_KEY")
 
 

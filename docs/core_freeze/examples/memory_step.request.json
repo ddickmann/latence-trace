@@ -1,0 +1,11 @@
+{
+  "turn_text": "User requires refunds above EUR 500 to go through manual approval.",
+  "memory_domain": "rag",
+  "prior_memory_state": null,
+  "trace_response": {
+    "risk_band": "amber",
+    "runtime_decision": {
+      "action": "auto_repair"
+    }
+  }
+}

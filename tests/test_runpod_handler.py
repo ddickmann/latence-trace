@@ -132,6 +132,13 @@ class _SlowService:
             with self._lock:
                 self.inflight -= 1
 
+    def rollup(self, request) -> runpod_handler.RollupResponse:
+        return runpod_handler.RollupResponse(
+            turns=len(request.turns),
+            session_id=request.session_id,
+            risk_band_trail=[turn.risk_band for turn in request.turns if turn.risk_band],
+        )
+
 
 class _ComplianceService:
     def __init__(self, sleep_ms: int = 40) -> None:
@@ -682,6 +689,16 @@ def test_runpod_handler_preserves_session_id_on_create(monkeypatch) -> None:
                 }
             )
         )
+        fetched = asyncio.run(
+            runpod_handler.handler(
+                {
+                    "input": {
+                        "action": "session.get",
+                        "session_id": "explicit-runpod-session",
+                    }
+                }
+            )
+        )
     finally:
         runpod_handler.shutdown()
 
@@ -689,6 +706,76 @@ def test_runpod_handler_preserves_session_id_on_create(monkeypatch) -> None:
     assert created["result"]["session"]["session_id"] == "explicit-runpod-session"
     assert event["success"] is True
     assert event["result"]["session"]["session_id"] == "explicit-runpod-session"
+    assert fetched["success"] is True
+    assert fetched["result"]["session"]["session_id"] == "explicit-runpod-session"
+
+
+def test_runpod_handler_dispatches_rollup(monkeypatch) -> None:
+    config = _config(max_concurrency=2)
+
+    monkeypatch.setattr(runpod_handler, "initialize", lambda: None)
+    runpod_handler._initialized = True
+    runpod_handler._config = config
+    runpod_handler._service = _SlowService(sleep_ms=0)
+
+    try:
+        result = asyncio.run(
+            runpod_handler.handler(
+                {
+                    "input": {
+                        "action": "rollup",
+                        "session_id": "sess-rollup",
+                        "turns": [
+                            {
+                                "risk_band": "green",
+                                "scores": {"groundedness_v2": 0.9},
+                            },
+                            {
+                                "risk_band": "amber",
+                                "scores": {"groundedness_v2": 0.55},
+                            },
+                        ],
+                    }
+                }
+            )
+        )
+    finally:
+        runpod_handler.shutdown()
+
+    assert result["success"] is True
+    assert result["action"] == "rollup"
+    assert result["rollup"]["turns"] == 2
+    assert result["rollup"]["session_id"] == "sess-rollup"
+    assert result["rollup"]["risk_band_trail"] == ["green", "amber"]
+
+
+def test_runpod_handler_dispatches_memory_update(monkeypatch) -> None:
+    config = _config(max_concurrency=2)
+
+    monkeypatch.setattr(runpod_handler, "initialize", lambda: None)
+    runpod_handler._initialized = True
+    runpod_handler._config = config
+    runpod_handler._compression_service = None
+
+    try:
+        result = asyncio.run(
+            runpod_handler.handler(
+                {
+                    "input": {
+                        "action": "memory.update",
+                        "turn_text": "Keep invoice INV-42 and refund approval constraints.",
+                        "memory_domain": "rag",
+                    }
+                }
+            )
+        )
+    finally:
+        runpod_handler.shutdown()
+
+    assert result["success"] is True
+    assert result["action"] == "memory.update"
+    assert result["result"]["next_memory_state"]["turn_index"] == 1
+    assert "hot_context" in result["result"]
 
 
 def test_runpod_compliance_redaction_uses_own_concurrency_budget(monkeypatch) -> None:
@@ -934,6 +1021,31 @@ def test_compact_response_surfaces_unused_context_contract() -> None:
     assert "full" in verbose
     assert verbose["full"]["scores"]["support_units_unused"] == 1
     assert verbose["full"]["support_units"][0]["usage_state"] == "used"
+
+
+def test_score_response_can_return_canonical_model_dump() -> None:
+    response = _SlowService(sleep_ms=0).groundedness(
+        type(
+            "Req",
+            (),
+            {
+                "scoring_mode": runpod_handler.ScoringMode.RAG,
+                "profile": None,
+                "session_id": "sess-1",
+            },
+        )()
+    )
+
+    canonical = runpod_handler._score_response(
+        response,
+        verbose=False,
+        response_format="canonical",
+    )
+
+    assert canonical["success"] is True
+    assert canonical["action"] == "score"
+    assert canonical["result"]["session_id"] == "sess-1"
+    assert canonical["result"]["scores"]["primary_name"] == "reverse_context"
 
 
 def test_runpod_handler_passes_profile_and_compacts_effective_profile(monkeypatch) -> None:

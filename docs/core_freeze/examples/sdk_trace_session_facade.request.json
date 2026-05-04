@@ -1,0 +1,25 @@
+{
+  "sdk": "python",
+  "pattern": "caller_carried_state",
+  "session": {
+    "session_id": "external-agent-run-001",
+    "memory_state": null
+  },
+  "calls": [
+    {
+      "method": "client.session(...).memory_step",
+      "kwargs": {
+        "turn_text": "Remember that invoice INV-42 requires manual approval.",
+        "memory_domain": "rag"
+      }
+    },
+    {
+      "method": "client.session(...).rag",
+      "kwargs": {
+        "query_text": "Can invoice INV-42 be refunded automatically?",
+        "response_text": "The refund must be reviewed before a timeline is promised.",
+        "raw_context": ["Refunds above EUR 500 require manual approval."]
+      }
+    }
+  ]
+}

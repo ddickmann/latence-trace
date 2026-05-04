@@ -1,0 +1,19 @@
+{
+  "session_id": "sess_demo",
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "risk_band": "green",
+      "scores": {
+        "groundedness_v2": 0.91
+      }
+    },
+    {
+      "turn_id": "turn_2",
+      "risk_band": "amber",
+      "scores": {
+        "groundedness_v2": 0.58
+      }
+    }
+  ]
+}

@@ -261,6 +261,11 @@ def create_router(service_provider: Callable[[], GroundednessService]) -> APIRou
                         "path": "/groundedness",
                         "operation_id": "score_groundedness",
                     },
+                    "rollup": {
+                        "method": "POST",
+                        "path": "/groundedness/rollup",
+                        "operation_id": "rollup_groundedness",
+                    },
                     "compliance_redact": {
                         "method": "POST",
                         "path": "/v1/compliance/redact",
@@ -270,6 +275,11 @@ def create_router(service_provider: Callable[[], GroundednessService]) -> APIRou
                         "method": "GET",
                         "path": "/v1/compliance/schema",
                         "operation_id": "v1_compliance_schema",
+                    },
+                    "compliance_healthz": {
+                        "method": "GET",
+                        "path": "/v1/compliance/healthz",
+                        "operation_id": "v1_compliance_healthz",
                     },
                     "compression": {
                         "method": "POST",
@@ -286,10 +296,20 @@ def create_router(service_provider: Callable[[], GroundednessService]) -> APIRou
                         "path": "/v1/trace/sessions",
                         "operation_id": "trace_session_create",
                     },
+                    "trace_session_get": {
+                        "method": "GET",
+                        "path": "/v1/trace/sessions/{session_id}",
+                        "operation_id": "trace_session_get",
+                    },
                     "trace_session_event": {
                         "method": "POST",
                         "path": "/v1/trace/sessions/{session_id}/events",
                         "operation_id": "trace_session_event",
+                    },
+                    "trace_session_memory_update": {
+                        "method": "POST",
+                        "path": "/v1/trace/sessions/{session_id}/memory/update",
+                        "operation_id": "trace_session_memory_update",
                     },
                     "trace_session_score": {
                         "method": "POST",
@@ -306,10 +326,25 @@ def create_router(service_provider: Callable[[], GroundednessService]) -> APIRou
                         "path": "/v1/trace/sessions/{session_id}/sources/{source_id}",
                         "operation_id": "trace_session_source",
                     },
+                    "trace_session_source_post": {
+                        "method": "POST",
+                        "path": "/v1/trace/sessions/{session_id}/sources/{source_id}",
+                        "operation_id": "trace_session_source_post",
+                    },
                     "trace_session_repair": {
                         "method": "POST",
                         "path": "/v1/trace/sessions/{session_id}/repair",
                         "operation_id": "trace_session_repair",
+                    },
+                    "trace_session_rollup": {
+                        "method": "POST",
+                        "path": "/v1/trace/sessions/{session_id}/rollup",
+                        "operation_id": "trace_session_rollup",
+                    },
+                    "trace_session_close": {
+                        "method": "DELETE",
+                        "path": "/v1/trace/sessions/{session_id}",
+                        "operation_id": "trace_session_close",
                     },
                     "agent_help": {"method": "GET", "path": "/agent-help"},
                     "ai_plugin": {
@@ -320,6 +355,32 @@ def create_router(service_provider: Callable[[], GroundednessService]) -> APIRou
                     "docs": {"method": "GET", "path": "/docs"},
                     "healthz": {"method": "GET", "path": "/healthz"},
                     "readyz": {"method": "GET", "path": "/readyz"},
+                },
+                "state_model": {
+                    "stateless_compute": [
+                        "score",
+                        "rollup",
+                        "compliance_redact",
+                        "compression",
+                    ],
+                    "caller_carried_state": ["memory_update"],
+                    "server_stateful": [
+                        "trace_session_create",
+                        "trace_session_get",
+                        "trace_session_event",
+                        "trace_session_memory_update",
+                        "trace_session_score",
+                        "trace_session_context",
+                        "trace_session_source",
+                        "trace_session_repair",
+                        "trace_session_rollup",
+                        "trace_session_close",
+                    ],
+                    "note": (
+                        "Default TRACE sessions use process-local state. Production "
+                        "RunPod workflows should use caller-carried memory state or "
+                        "a deployment with durable SessionStore persistence."
+                    ),
                 },
                 "premise_lanes": [
                     {

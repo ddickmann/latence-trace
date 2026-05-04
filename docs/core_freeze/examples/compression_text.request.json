@@ -1,0 +1,6 @@
+{
+  "text": "The support agent must preserve invoice numbers, dates, and customer commitments while removing redundant transcript filler.",
+  "compression_rate": 0.4,
+  "force_preserve_digit": true,
+  "preserve_exact": ["invoice numbers", "dates", "customer commitments"]
+}

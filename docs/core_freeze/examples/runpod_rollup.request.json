@@ -1,0 +1,29 @@
+{
+  "input": {
+    "action": "rollup",
+    "session_id": "sess-support-001",
+    "turns": [
+      {
+        "risk_band": "green",
+        "scores": {
+          "groundedness_v2": 0.92,
+          "context_unused_ratio": 0.18
+        },
+        "runtime_decision": {
+          "action": "allow"
+        }
+      },
+      {
+        "risk_band": "amber",
+        "scores": {
+          "groundedness_v2": 0.45,
+          "context_unused_ratio": 0.62
+        },
+        "runtime_decision": {
+          "action": "auto_repair"
+        }
+      }
+    ],
+    "heatmap_format": "data"
+  }
+}

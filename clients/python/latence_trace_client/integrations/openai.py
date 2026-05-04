@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Sequence
+from contextlib import suppress
 from functools import wraps
 from typing import Any
 
@@ -114,10 +115,8 @@ def wrap_openai_chat(
         except (AttributeError, TypeError):
             # ChatCompletion is a pydantic model; fall back to
             # model_extra so callers can still find the score.
-            try:
+            with suppress(Exception):  # pragma: no cover - last-resort
                 completion.model_extra["latence_trace"] = score
-            except Exception:  # pragma: no cover - last-resort
-                pass
         return completion
 
     return wrapped

@@ -1,0 +1,7 @@
+{
+  "text": "Contact Jane Doe at jane@example.com for invoice DE123456789.",
+  "mode": "open",
+  "redact": true,
+  "redaction_mode": "mask",
+  "include_original_text": false
+}

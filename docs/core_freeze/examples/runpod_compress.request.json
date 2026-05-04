@@ -1,0 +1,8 @@
+{
+  "input": {
+    "action": "compress",
+    "text": "Refund policy: invoices above EUR 500 require manual approval before a refund timeline can be promised.",
+    "compression_rate": 0.4,
+    "preserve_exact": ["EUR 500", "manual approval"]
+  }
+}

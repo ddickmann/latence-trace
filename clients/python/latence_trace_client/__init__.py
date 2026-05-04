@@ -12,8 +12,8 @@ typed Pydantic models, so calling code stays identical regardless of
 the runtime.
 """
 
-from latence_trace_client.async_client import AsyncLatenceTraceClient
-from latence_trace_client.client import LatenceTraceClient
+from latence_trace_client.async_client import AsyncLatenceTraceClient, AsyncTraceSession
+from latence_trace_client.client import LatenceTraceClient, TraceSession
 from latence_trace_client.errors import (
     LatenceTraceAPIError,
     LatenceTraceAuthError,
@@ -44,6 +44,7 @@ __version__ = "1.0.0"
 
 __all__ = [
     "AsyncLatenceTraceClient",
+    "AsyncTraceSession",
     "AttributionMode",
     "ComplianceCustomLabel",
     "ComplianceEntity",
@@ -66,5 +67,6 @@ __all__ = [
     "RuntimeDecision",
     "SupportUnit",
     "TokenScore",
+    "TraceSession",
     "__version__",
 ]

@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any
+from uuid import UUID
 
 try:  # pragma: no cover - extras-only import
     from langchain_core.callbacks.base import BaseCallbackHandler
@@ -34,7 +35,11 @@ except ImportError as exc:  # pragma: no cover - extras-only import
 
 from latence_trace_client.client import LatenceTraceClient
 from latence_trace_client.errors import LatenceTraceAPIError
-from latence_trace_client.models import AttributionMode, ComplianceRedactionMode
+from latence_trace_client.models import (
+    AttributionMode,
+    ComplianceLabelMode,
+    ComplianceRedactionMode,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +78,11 @@ class LatenceComplianceRedactor:
             text=text,
             labels=self._labels,
             categories=self._categories,
-            mode="category" if self._labels or self._categories else "open",
+            mode=(
+                ComplianceLabelMode.CATEGORY
+                if self._labels or self._categories
+                else ComplianceLabelMode.OPEN
+            ),
             redact=True,
             redaction_mode=self._redaction_mode,
             include_original_text=False,
@@ -112,12 +121,16 @@ class LatenceTraceCallback(BaseCallbackHandler):
 
     def on_chain_start(
         self,
-        _serialized: dict[str, Any],
+        serialized: dict[str, Any],
         inputs: dict[str, Any],
         *,
-        run_id: Any,
+        run_id: UUID,
+        parent_run_id: UUID | None = None,
+        tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
         **_kwargs: Any,
-    ) -> None:
+    ) -> Any:
+        del serialized, parent_run_id, tags, metadata
         self._chain_inputs[run_id] = dict(inputs)
 
     def on_chain_end(

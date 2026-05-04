@@ -1,0 +1,11 @@
+{
+  "input": {
+    "action": "redact",
+    "text": "Contact Jane Doe at jane@example.com before sending the prompt.",
+    "mode": "category",
+    "labels": ["email", "person"],
+    "redact": true,
+    "redaction_mode": "mask",
+    "include_original_text": false
+  }
+}

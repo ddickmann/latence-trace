@@ -1,0 +1,177 @@
+{
+  "version": "trace-core-freeze-v1",
+  "canonical_default": "sdk_direct_to_customer_trace_endpoint",
+  "non_canonical_surfaces": [
+    {
+      "id": "legacy_compliance_prefix",
+      "status": "legacy_public",
+      "paths": ["/compliance/redact", "/compliance/schema", "/compliance/healthz"],
+      "note": "Kept for backwards compatibility. Canonical product docs and SDK use /v1/compliance/*."
+    },
+    {
+      "id": "amber_queue",
+      "status": "internal_optional",
+      "paths": ["/v1/amber/{tenant_id}", "/v1/amber/{tenant_id}/decisions"],
+      "note": "Review-queue backend surface, not part of the stateless compute product API."
+    },
+    {
+      "id": "mcp_http",
+      "status": "optional_integration",
+      "paths": ["/mcp/*"],
+      "note": "Mounted only when LATENCE_TRACE_ENABLE_MCP_HTTP is enabled."
+    },
+    {
+      "id": "metrics",
+      "status": "ops",
+      "paths": ["/metrics"],
+      "note": "Prometheus scrape endpoint, intentionally excluded from OpenAPI."
+    }
+  ],
+  "product_paths": [
+    {
+      "id": "privacy.redact",
+      "capability_family": "privacy",
+      "state_model": "stateless_compute",
+      "fastapi": [{"method": "POST", "path": "/v1/compliance/redact", "operation_id": "v1_compliance_redact"}],
+      "agent_help_keys": ["compliance_redact"],
+      "runpod_actions": ["redact", "compliance_redaction"],
+      "sdk": {"sync": ["privacy.redact", "redact_compliance"], "async": ["privacy.redact", "redact_compliance"]},
+      "examples": ["privacy_redact.request.json", "runpod_redact.request.json"],
+      "gates": ["pii_local_release", "pii_native_gliner_parity", "compliance_canary_runpod_live", "compliance_canary_gateway_live"]
+    },
+    {
+      "id": "grounding.rag",
+      "capability_family": "grounding",
+      "state_model": "stateless_compute",
+      "fastapi": [{"method": "POST", "path": "/groundedness", "operation_id": "score_groundedness"}],
+      "agent_help_keys": ["score"],
+      "runpod_actions": ["score"],
+      "sdk": {"sync": ["grounding.rag", "score_groundedness"], "async": ["grounding.rag", "score_groundedness"]},
+      "examples": ["grounding_rag.request.json", "runpod_score_canonical.request.json"],
+      "gates": ["grounding_local_core", "grounding_service_local", "trace_v2_readiness_local", "runpod_360_live"]
+    },
+    {
+      "id": "grounding.code",
+      "capability_family": "grounding",
+      "state_model": "caller_carried_optional_state",
+      "fastapi": [{"method": "POST", "path": "/groundedness", "operation_id": "score_groundedness"}],
+      "agent_help_keys": ["score"],
+      "runpod_actions": ["score"],
+      "sdk": {"sync": ["grounding.code", "score_groundedness"], "async": ["grounding.code", "score_groundedness"]},
+      "examples": ["grounding_code.request.json"],
+      "gates": ["code_local_core", "trace_v2_readiness_local", "runpod_360_live"]
+    },
+    {
+      "id": "compression.text",
+      "capability_family": "compression",
+      "state_model": "stateless_compute",
+      "fastapi": [{"method": "POST", "path": "/v1/compression", "operation_id": "compression_compress"}],
+      "agent_help_keys": ["compression"],
+      "runpod_actions": ["compress", "compression"],
+      "sdk": {"sync": ["compression.text"], "async": ["compression.text"]},
+      "examples": ["compression_text.request.json", "runpod_compress.request.json"],
+      "gates": ["compression_local_core"]
+    },
+    {
+      "id": "compression.messages",
+      "capability_family": "compression",
+      "state_model": "stateless_compute",
+      "fastapi": [{"method": "POST", "path": "/v1/compression", "operation_id": "compression_compress"}],
+      "agent_help_keys": ["compression"],
+      "runpod_actions": ["compress", "compression"],
+      "sdk": {"sync": ["compression.messages"], "async": ["compression.messages"]},
+      "examples": ["compression_messages.request.json"],
+      "gates": ["compression_local_core", "sdk_local_core"]
+    },
+    {
+      "id": "memory.step",
+      "capability_family": "memory",
+      "state_model": "caller_carried_state",
+      "fastapi": [{"method": "POST", "path": "/v1/memory/update", "operation_id": "memory_update"}],
+      "agent_help_keys": ["memory_update"],
+      "runpod_actions": ["memory.update", "memory_update"],
+      "sdk": {"sync": ["memory.step"], "async": ["memory.step"]},
+      "examples": ["memory_step.request.json", "runpod_memory_update.request.json"],
+      "gates": ["memory_local_core", "memory_hardening_local"]
+    },
+    {
+      "id": "rollup",
+      "capability_family": "rollup",
+      "state_model": "stateless_compute",
+      "fastapi": [{"method": "POST", "path": "/groundedness/rollup", "operation_id": "rollup_groundedness"}],
+      "agent_help_keys": ["rollup"],
+      "runpod_actions": ["rollup"],
+      "sdk": {"sync": ["rollup"], "async": ["rollup"]},
+      "examples": ["rollup.request.json", "runpod_rollup.request.json"],
+      "gates": ["pii_local_release", "runpod_360_live"]
+    },
+    {
+      "id": "session.server",
+      "capability_family": "sessions",
+      "state_model": "server_stateful_demo_or_durable_store",
+      "fastapi": [
+        {"method": "POST", "path": "/v1/trace/sessions", "operation_id": "trace_session_create"},
+        {"method": "GET", "path": "/v1/trace/sessions/{session_id}", "operation_id": "trace_session_get"},
+        {"method": "POST", "path": "/v1/trace/sessions/{session_id}/events", "operation_id": "trace_session_event"},
+        {"method": "POST", "path": "/v1/trace/sessions/{session_id}/memory/update", "operation_id": "trace_session_memory_update"},
+        {"method": "POST", "path": "/v1/trace/sessions/{session_id}/score", "operation_id": "trace_session_score"},
+        {"method": "GET", "path": "/v1/trace/sessions/{session_id}/context", "operation_id": "trace_session_context"},
+        {"method": "GET", "path": "/v1/trace/sessions/{session_id}/sources/{source_id}", "operation_id": "trace_session_source"},
+        {"method": "POST", "path": "/v1/trace/sessions/{session_id}/sources/{source_id}", "operation_id": "trace_session_source_post"},
+        {"method": "POST", "path": "/v1/trace/sessions/{session_id}/repair", "operation_id": "trace_session_repair"},
+        {"method": "POST", "path": "/v1/trace/sessions/{session_id}/rollup", "operation_id": "trace_session_rollup"},
+        {"method": "DELETE", "path": "/v1/trace/sessions/{session_id}", "operation_id": "trace_session_close"}
+      ],
+      "agent_help_keys": [
+        "trace_session_create",
+        "trace_session_get",
+        "trace_session_event",
+        "trace_session_memory_update",
+        "trace_session_score",
+        "trace_session_context",
+        "trace_session_source",
+        "trace_session_source_post",
+        "trace_session_repair",
+        "trace_session_rollup",
+        "trace_session_close"
+      ],
+      "runpod_actions": [
+        "session.create",
+        "session.get",
+        "session.event",
+        "session.score",
+        "session.context",
+        "session.source",
+        "session.repair",
+        "session.rollup",
+        "session.close"
+      ],
+      "sdk": {"sync": ["session"], "async": ["session"]},
+      "examples": [
+        "trace_session_create.request.json",
+        "trace_session_event.request.json",
+        "trace_session_score.request.json",
+        "trace_session_repair.request.json",
+        "trace_session_rollup.request.json",
+        "trace_session_source.request.json",
+        "trace_session_close.request.json"
+      ],
+      "gates": ["sessions_repair_local", "pii_local_release"]
+    },
+    {
+      "id": "session.sdk_facade",
+      "capability_family": "sessions",
+      "state_model": "sdk_managed_caller_carried_state",
+      "fastapi": [],
+      "agent_help_keys": [],
+      "runpod_actions": [],
+      "sdk": {"sync": ["session", "TraceSession.event", "TraceSession.memory_step", "TraceSession.rag", "TraceSession.code"], "async": ["session", "AsyncTraceSession.event", "AsyncTraceSession.memory_step", "AsyncTraceSession.rag", "AsyncTraceSession.code"]},
+      "examples": ["sdk_trace_session_facade.request.json"],
+      "gates": ["sdk_local_core"]
+    }
+  ],
+  "discovery": {
+    "agent_help_keys": ["agent_help", "ai_plugin", "openapi", "docs", "healthz", "readyz"],
+    "fastapi_operation_ids": ["agent_help", "ai_plugin_descriptor", "healthz", "readyz"]
+  }
+}

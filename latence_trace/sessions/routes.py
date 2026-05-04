@@ -166,4 +166,12 @@ def _call(fn):
     try:
         return fn()
     except ServiceError as exc:
-        raise HTTPException(status_code=getattr(exc, "status_code", 500), detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=getattr(exc, "status_code", 500),
+            detail={
+                "code": getattr(exc, "error_code", "service_error"),
+                "message": str(exc),
+                "hint": getattr(exc, "hint", None),
+                "docs_url": getattr(exc, "docs_url", None),
+            },
+        ) from exc

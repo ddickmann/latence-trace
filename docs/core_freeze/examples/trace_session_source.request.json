@@ -1,0 +1,7 @@
+{
+  "method": "POST",
+  "path": "/v1/trace/sessions/sess-support-001/sources/src-001",
+  "body": {
+    "include_raw": false
+  }
+}

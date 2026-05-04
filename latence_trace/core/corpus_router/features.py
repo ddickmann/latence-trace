@@ -15,8 +15,8 @@ requires retraining and a version bump on the persisted joblib bundle
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 # Schema version for the serialized classifier bundle. Bump if feature
 # semantics change so older joblib artefacts refuse to load.
@@ -47,6 +47,7 @@ _CODE_SYMBOL_RE = re.compile(
     r"[A-Za-z_][A-Za-z0-9_]*\([^)]*\)|[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*)",
 )
 _MULTI_CLAIM_CUE_RE = re.compile(r"\b(?:and|or|also|plus|should|must|may|cannot|while|until)\b|[,;]", re.IGNORECASE)
+_REGEX_SAMPLE_CHARS = 20_000
 
 # Very small English stopword set used for the ASCII / language heuristic.
 _EN_STOP = frozenset(
@@ -58,7 +59,7 @@ _EN_STOP = frozenset(
     }
 )
 
-FEATURE_NAMES: Tuple[str, ...] = (
+FEATURE_NAMES: tuple[str, ...] = (
     "response_len_tokens_log",           # log1p of whitespace token count
     "response_sentence_count_log",
     "response_punct_density",
@@ -94,8 +95,8 @@ class FeatureVector:
     names: Sequence[str]
     values: Sequence[float]
 
-    def as_dict(self) -> Dict[str, float]:
-        return {k: float(v) for k, v in zip(self.names, self.values)}
+    def as_dict(self) -> dict[str, float]:
+        return {k: float(v) for k, v in zip(self.names, self.values, strict=True)}
 
 
 def _log1p_int(n: int) -> float:
@@ -107,7 +108,7 @@ def _token_count(text: str) -> int:
     return len(text.split()) if text else 0
 
 
-def _fenced_max_nonblank(response: str) -> Tuple[int, int]:
+def _fenced_max_nonblank(response: str) -> tuple[int, int]:
     n_blocks = 0
     best = 0
     for m in _FENCE_RE.finditer(response or ""):
@@ -203,12 +204,15 @@ def featurize(
     r = response or ""
     c = raw_context or ""
     q = query or ""
+    r_sample = r[:_REGEX_SAMPLE_CHARS]
+    c_sample = c[:_REGEX_SAMPLE_CHARS]
+    combined_sample = f"{q}\n{c_sample}\n{r_sample}"
 
-    n_blocks, fenced_max_nonblank = _fenced_max_nonblank(r)
-    file_headers = len(_FILE_HEADER_RE.findall(c))
-    code_ext_hits = len(_CODE_FILE_EXT_RE.findall(c))
+    n_blocks, fenced_max_nonblank = _fenced_max_nonblank(r_sample)
+    file_headers = len(_FILE_HEADER_RE.findall(c_sample))
+    code_ext_hits = len(_CODE_FILE_EXT_RE.findall(c_sample))
 
-    values: List[float] = [
+    values: list[float] = [
         _log1p_int(_token_count(r)),
         _log1p_int(_sentence_count(r)),
         _punct_density(r),
@@ -219,9 +223,9 @@ def featurize(
         _char_ratio(r, lambda ch: ch in "{}"),
         _char_ratio(r, lambda ch: ch == "`"),
         _log1p_int(len(c)),
-        _json_hint_density(c),
-        _yaml_hint_density(c),
-        float(min(len(_TABLE_ROW_RE.findall(c)), 50)),
+        _json_hint_density(c_sample),
+        _yaml_hint_density(c_sample),
+        float(min(len(_TABLE_ROW_RE.findall(c_sample)), 50)),
         float(min(file_headers, 50)),
         float(min(code_ext_hits, 50)),
         float(1 if file_headers >= 2 else 0),
@@ -229,11 +233,11 @@ def featurize(
         _char_ratio(r, lambda ch: ord(ch) < 128),
         _stopword_ratio(r),
         _numeric_token_ratio(r),
-        _cue_density(f"{q}\n{c}\n{r}", _POLICY_CUE_RE),
-        float(min(len(_LIST_MARKER_RE.findall(r)), 20)),
-        float(min(len(_LIST_MARKER_RE.findall(c)), 50)),
-        _cue_density(f"{q}\n{c}\n{r}", _CODE_SYMBOL_RE),
-        _cue_density(r, _MULTI_CLAIM_CUE_RE),
+        _cue_density(combined_sample, _POLICY_CUE_RE),
+        float(min(len(_LIST_MARKER_RE.findall(r_sample)), 20)),
+        float(min(len(_LIST_MARKER_RE.findall(c_sample)), 50)),
+        _cue_density(combined_sample, _CODE_SYMBOL_RE),
+        _cue_density(r_sample, _MULTI_CLAIM_CUE_RE),
         float(1 if _POLICY_CUE_RE.search(q) else 0),
         float(1 if re.search(r"\b(?:code|sdk|api|function|method|pytest|test|patch)\b", q, re.IGNORECASE) else 0),
     ]
@@ -242,14 +246,14 @@ def featurize(
 
 
 def featurize_batch(
-    rows: Iterable[Dict[str, str]],
+    rows: Iterable[dict[str, str]],
     *,
     query_key: str = "query",
     response_key: str = "response",
     context_key: str = "raw_context",
-) -> Tuple[List[List[float]], Tuple[str, ...]]:
+) -> tuple[list[list[float]], tuple[str, ...]]:
     """Vectorised wrapper that preserves input row order."""
-    matrix: List[List[float]] = []
+    matrix: list[list[float]] = []
     for row in rows:
         vec = featurize(
             query=str(row.get(query_key) or ""),

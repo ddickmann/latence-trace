@@ -1,0 +1,15 @@
+{
+  "heatmap_format": "data",
+  "extra_turns": [
+    {
+      "risk_band": "amber",
+      "scores": {
+        "groundedness_v2": 0.45,
+        "context_unused_ratio": 0.62
+      },
+      "runtime_decision": {
+        "action": "auto_repair"
+      }
+    }
+  ]
+}

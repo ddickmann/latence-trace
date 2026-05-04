@@ -1,0 +1,14 @@
+{
+  "query": "Update the refund status check without changing authentication.",
+  "response_text": "def refund_status(user_id):\n    return admin_override(user_id)",
+  "scoring_mode": "code",
+  "support_units": [
+    {
+      "text": "def refund_status(user_id):\n    return lookup_refund_status(user_id)",
+      "source_id": "billing/refunds.py"
+    }
+  ],
+  "session_state": null,
+  "emit_chunk_ownership": true,
+  "auto_decide": true
+}

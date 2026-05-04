@@ -1,0 +1,14 @@
+{
+  "query": "Can this invoice be refunded automatically?",
+  "response_text": "The invoice will be refunded within 48 hours.",
+  "scoring_mode": "rag",
+  "support_units": [
+    {
+      "text": "Refunds above EUR 500 require manual approval before a timeline can be promised.",
+      "source_id": "refund_policy_2026"
+    }
+  ],
+  "attribution_mode": "closed_book",
+  "heatmap_format": "data",
+  "auto_decide": true
+}

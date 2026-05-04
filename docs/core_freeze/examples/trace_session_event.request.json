@@ -1,0 +1,11 @@
+{
+  "memory_domain": "rag",
+  "return_context": true,
+  "event": {
+    "event_type": "retrieval_result",
+    "content": "Refunds above EUR 500 require manual approval before a refund timeline can be promised.",
+    "query_text": "Can invoice INV-42 be refunded automatically?",
+    "raw_context": "Policy source: refunds above EUR 500 require manual approval.",
+    "idempotency_key": "evt-refund-policy-001"
+  }
+}

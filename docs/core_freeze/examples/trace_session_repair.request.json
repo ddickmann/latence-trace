@@ -1,0 +1,9 @@
+{
+  "query_text": "Can invoice INV-42 be refunded automatically?",
+  "response_text": "The customer will be refunded within 48 hours.",
+  "missing_terms": ["manual approval", "EUR 500"],
+  "reason": "Unsupported refund timeline claim.",
+  "max_excerpts": 4,
+  "max_tokens": 512,
+  "include_raw": false
+}

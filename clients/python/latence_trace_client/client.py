@@ -12,7 +12,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 import httpx
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from latence_trace_client._transport import (
     DEFAULT_TIMEOUT_SECONDS,
@@ -47,6 +47,125 @@ PremiseSupportUnits = Sequence[SupportUnit | Mapping[str, Any]]
 ComplianceCustomLabels = Sequence[ComplianceCustomLabel | Mapping[str, Any]]
 
 
+class PrivacyClient:
+    def __init__(self, owner: LatenceTraceClient) -> None:
+        self._owner = owner
+
+    def redact(self, **kwargs: Any) -> ComplianceRedactionResponse:
+        return self._owner.redact_compliance(**kwargs)
+
+
+class GroundingClient:
+    def __init__(self, owner: LatenceTraceClient) -> None:
+        self._owner = owner
+
+    def rag(self, **kwargs: Any) -> GroundednessResponse:
+        extra = dict(kwargs.pop("extra", {}) or {})
+        extra.setdefault("scoring_mode", "rag")
+        return self._owner.score_groundedness(extra=extra, **kwargs)
+
+    def code(self, **kwargs: Any) -> GroundednessResponse:
+        extra = dict(kwargs.pop("extra", {}) or {})
+        extra.setdefault("scoring_mode", "code")
+        return self._owner.score_groundedness(extra=extra, **kwargs)
+
+
+class CompressionClient:
+    def __init__(self, owner: LatenceTraceClient) -> None:
+        self._owner = owner
+
+    def text(self, text: str, **options: Any) -> Mapping[str, Any]:
+        return self._owner._request(
+            "POST",
+            "/v1/compression",
+            json={"text": text, **options},
+            expected_model=None,
+        )
+
+    def messages(
+        self,
+        messages: Sequence[Mapping[str, Any]],
+        **options: Any,
+    ) -> Mapping[str, Any]:
+        return self._owner._request(
+            "POST",
+            "/v1/compression",
+            json={"action": "compress_messages", "messages": list(messages), **options},
+            expected_model=None,
+        )
+
+
+class MemoryClient:
+    def __init__(self, owner: LatenceTraceClient) -> None:
+        self._owner = owner
+
+    def step(
+        self,
+        *,
+        prior_memory_state: Mapping[str, Any] | None = None,
+        **payload: Any,
+    ) -> Mapping[str, Any]:
+        body = dict(payload)
+        body["prior_memory_state"] = prior_memory_state
+        return self._owner._request(
+            "POST",
+            "/v1/memory/update",
+            json=body,
+            expected_model=None,
+        )
+
+
+class TraceSession:
+    """SDK-managed state facade for stateless TRACE deployments."""
+
+    def __init__(
+        self,
+        owner: LatenceTraceClient,
+        *,
+        session_id: str | None = None,
+        memory_state: Mapping[str, Any] | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> None:
+        self._owner = owner
+        self.session_id = session_id
+        self.memory_state = dict(memory_state) if memory_state else None
+        self.metadata = dict(metadata or {})
+        self.events: list[Mapping[str, Any]] = []
+
+    def event(self, event_type: str, content: str, **metadata: Any) -> Mapping[str, Any]:
+        event = {
+            "event_type": event_type,
+            "content": content,
+            "metadata": metadata,
+        }
+        self.events.append(event)
+        return event
+
+    def memory_step(self, **payload: Any) -> Mapping[str, Any]:
+        result = self._owner.memory.step(
+            prior_memory_state=self.memory_state,
+            **payload,
+        )
+        next_state = result.get("next_memory_state")
+        if isinstance(next_state, Mapping):
+            self.memory_state = dict(next_state)
+        return result
+
+    def rag(self, **kwargs: Any) -> GroundednessResponse:
+        extra = dict(kwargs.pop("extra", {}) or {})
+        if self.session_id:
+            extra.setdefault("session_id", self.session_id)
+        if self.memory_state:
+            extra.setdefault("memory_state", self.memory_state)
+        return self._owner.grounding.rag(extra=extra, **kwargs)
+
+    def code(self, **kwargs: Any) -> GroundednessResponse:
+        extra = dict(kwargs.pop("extra", {}) or {})
+        if self.session_id:
+            extra.setdefault("session_id", self.session_id)
+        return self._owner.grounding.code(extra=extra, **kwargs)
+
+
 class LatenceTraceClient:
     """Sync client. ``with LatenceTraceClient(...) as c:`` closes the pool."""
 
@@ -70,6 +189,10 @@ class LatenceTraceClient:
             transport=transport,
             headers=self._headers,
         )
+        self.privacy = PrivacyClient(self)
+        self.grounding = GroundingClient(self)
+        self.compression = CompressionClient(self)
+        self.memory = MemoryClient(self)
 
     # context manager support ---------------------------------------------
 
@@ -196,6 +319,28 @@ class LatenceTraceClient:
             expected_model=ComplianceRedactionResponse,
         )
 
+    def rollup(self, turns: Sequence[Mapping[str, Any]], **options: Any) -> Mapping[str, Any]:
+        return self._request(
+            "POST",
+            "/groundedness/rollup",
+            json={"turns": list(turns), **options},
+            expected_model=None,
+        )
+
+    def session(
+        self,
+        *,
+        session_id: str | None = None,
+        memory_state: Mapping[str, Any] | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> TraceSession:
+        return TraceSession(
+            self,
+            session_id=session_id,
+            memory_state=memory_state,
+            metadata=metadata,
+        )
+
     # --- internal --------------------------------------------------------
 
     def _build_payload(
@@ -254,7 +399,7 @@ class LatenceTraceClient:
         path: str,
         *,
         json: dict | None = None,
-        expected_model: type | None = None,
+        expected_model: type[BaseModel] | None = None,
     ) -> Any:
         attempt = 0
         last_error: Exception | None = None
@@ -283,7 +428,10 @@ class LatenceTraceClient:
             raise self._error_from_response(response)
 
     @staticmethod
-    def _parse_success(response: httpx.Response, expected_model: type | None) -> Any:
+    def _parse_success(
+        response: httpx.Response,
+        expected_model: type[BaseModel] | None,
+    ) -> Any:
         request_id = response.headers.get("x-request-id")
         body = response.json()
         if expected_model is None:

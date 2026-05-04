@@ -140,6 +140,28 @@ _STARTUP_WARMUP_REQUEST_COUNT = 4
 _DEFAULT_COMPRESSION_MODEL = "latence/compression-v0.1"
 _RUNPOD_DIR = Path(__file__).resolve().parent
 _VENDORED_COMPRESSION_MODEL_DIR = _RUNPOD_DIR / "compression_model"
+SUPPORTED_RUNPOD_ACTIONS = frozenset(
+    {
+        "score",
+        "",
+        "rollup",
+        "redact",
+        "compliance_redaction",
+        "compress",
+        "compression",
+        "memory.update",
+        "memory_update",
+        "session.create",
+        "session.get",
+        "session.event",
+        "session.score",
+        "session.context",
+        "session.source",
+        "session.repair",
+        "session.rollup",
+        "session.close",
+    }
+)
 
 
 def _env_bool(name: str) -> bool | None:
@@ -1082,6 +1104,36 @@ def _compact_response(response: GroundednessResponse, *, verbose: bool) -> dict[
     return result
 
 
+def _score_response(
+    response: GroundednessResponse,
+    *,
+    verbose: bool,
+    response_format: str,
+) -> dict[str, Any]:
+    """Return the requested RunPod scoring envelope.
+
+    ``compact`` is the legacy dashboard/benchmark shape. ``canonical`` mirrors
+    the other RunPod product actions by putting the Pydantic response dump under
+    ``result`` so SDKs and gateways can share one typed contract.
+    """
+
+    if response_format == "canonical":
+        return {
+            "success": True,
+            "action": "score",
+            "result": response.model_dump(mode="json"),
+            "version": _config.version if _config else __version__,
+        }
+    return _compact_response(response, verbose=verbose)
+
+
+def _response_format(input_data: dict[str, Any]) -> str:
+    raw = str(input_data.get("response_format") or "").strip().lower()
+    if raw in {"canonical", "full", "model"}:
+        return "canonical"
+    return "compact"
+
+
 def _emit_audit_record(
     *,
     input_data: dict[str, Any],
@@ -1490,6 +1542,8 @@ async def _handle_session_action(input_data: dict[str, Any], action: str) -> dic
             if session_id:
                 payload["session_id"] = session_id
             response = service.create(TraceSessionCreateRequest.model_validate(payload))
+        elif action == "session.get":
+            response = service.get(session_id)
         elif action == "session.event":
             response = service.append_event(
                 session_id,
@@ -1671,6 +1725,7 @@ async def handler(job: dict[str, Any]) -> dict[str, Any]:
         return await _handle_memory_update(input_data)
     if action in {
         "session.create",
+        "session.get",
         "session.event",
         "session.score",
         "session.context",
@@ -1741,12 +1796,16 @@ async def handler(job: dict[str, Any]) -> dict[str, Any]:
                 _log_turn_event(request=request, response=response, duration_ms=duration_ms)
             except Exception:  # pragma: no cover - logging must never fail a turn
                 logger.exception("groundedness_turn_log_failed")
-            compact = _compact_response(response, verbose=verbose)
+            score_response = _score_response(
+                response,
+                verbose=verbose,
+                response_format=_response_format(input_data),
+            )
             try:
-                _emit_audit_record(input_data=input_data, response=compact, request=request)
+                _emit_audit_record(input_data=input_data, response=score_response, request=request)
             except Exception:  # pragma: no cover - audit log must never fail a turn
                 logger.exception("audit_log_emit_failed")
-            return compact
+            return score_response
     except asyncio.TimeoutError:
         if lane == ScoringMode.CODE:
             timeout_value = _config.code_request_timeout_s if _config else 2.0
@@ -1777,7 +1836,13 @@ async def handler(job: dict[str, Any]) -> dict[str, Any]:
         )
 
 
-__all__ = ["create_config", "handler", "initialize", "shutdown"]
+__all__ = [
+    "SUPPORTED_RUNPOD_ACTIONS",
+    "create_config",
+    "handler",
+    "initialize",
+    "shutdown",
+]
 
 
 if __name__ == "__main__":  # pragma: no cover - exercised in container

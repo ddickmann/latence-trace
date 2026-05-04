@@ -1,0 +1,13 @@
+{
+  "input": {
+    "action": "score",
+    "response_format": "canonical",
+    "query": "Can this invoice be refunded automatically?",
+    "context": [
+      "Refunds above EUR 500 require manual approval before a timeline can be promised."
+    ],
+    "response": "The invoice will be refunded within 48 hours.",
+    "scoring_mode": "rag",
+    "auto_decide": true
+  }
+}

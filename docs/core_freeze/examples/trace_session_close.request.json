@@ -1,0 +1,5 @@
+{
+  "method": "DELETE",
+  "path": "/v1/trace/sessions/sess-support-001",
+  "body": {}
+}

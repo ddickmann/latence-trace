@@ -1,0 +1,14 @@
+{
+  "session_id": "sess-support-001",
+  "kind": "rag",
+  "state_backend": "server",
+  "privacy_mode": "redacted",
+  "metadata": {
+    "customer": "pilot",
+    "workflow": "support-refund-review"
+  },
+  "memory_policy": {
+    "hot_token_budget": 512,
+    "warm_token_budget": 2048
+  }
+}

@@ -8,16 +8,17 @@ parsing prose.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping, Optional
+from typing import Any
 
 
 @dataclass
 class _Envelope:
     code: str
     message: str
-    hint: Optional[str] = None
-    docs_url: Optional[str] = None
+    hint: str | None = None
+    docs_url: str | None = None
     extra: Mapping[str, Any] = ()  # type: ignore[assignment]
 
     def as_dict(self) -> dict:
@@ -38,8 +39,8 @@ class LatenceTraceAPIError(Exception):
         message: str,
         *,
         status: int,
-        envelope: Optional[_Envelope] = None,
-        request_id: Optional[str] = None,
+        envelope: _Envelope | None = None,
+        request_id: str | None = None,
     ) -> None:
         super().__init__(message)
         self.status = status
@@ -48,6 +49,12 @@ class LatenceTraceAPIError(Exception):
         self.code = envelope.code if envelope else "unknown_error"
         self.hint = envelope.hint if envelope else None
         self.docs_url = envelope.docs_url if envelope else None
+
+    @property
+    def status_code(self) -> int:
+        """Compatibility alias used by integration adapters."""
+
+        return self.status
 
 
 class LatenceTraceAuthError(LatenceTraceAPIError):
@@ -66,9 +73,9 @@ class LatenceTraceRateLimited(LatenceTraceAPIError):
         message: str,
         *,
         status: int = 429,
-        envelope: Optional[_Envelope] = None,
-        request_id: Optional[str] = None,
-        retry_after: Optional[float] = None,
+        envelope: _Envelope | None = None,
+        request_id: str | None = None,
+        retry_after: float | None = None,
     ) -> None:
         super().__init__(
             message,
@@ -86,5 +93,5 @@ class LatenceTraceServerError(LatenceTraceAPIError):
 class LatenceTraceTimeout(LatenceTraceAPIError):
     """Raised when the request never completed before the timeout."""
 
-    def __init__(self, message: str, *, request_id: Optional[str] = None) -> None:
+    def __init__(self, message: str, *, request_id: str | None = None) -> None:
         super().__init__(message, status=0, envelope=None, request_id=request_id)

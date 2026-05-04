@@ -1,0 +1,13 @@
+{
+  "lane": "rag",
+  "memory_domain": "rag",
+  "return_context": true,
+  "force_original_on_trigger": false,
+  "event": {
+    "event_type": "assistant_response",
+    "query_text": "Can invoice INV-42 be refunded automatically?",
+    "response_text": "The customer will be refunded within 48 hours.",
+    "raw_context": "Refunds above EUR 500 require manual approval before timelines are promised.",
+    "idempotency_key": "evt-agent-answer-001"
+  }
+}
