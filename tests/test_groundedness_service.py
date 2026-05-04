@@ -551,6 +551,81 @@ def test_vllm_factory_moderncolbert_provider_uses_token_embed_contract(
     ]
 
 
+def test_vllm_factory_moderncolbert_provider_retries_malformed_batch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requests_seen = 0
+
+    class DummyTokenizer:
+        model_max_length = 8192
+
+        def __call__(
+            self,
+            text: str,
+            add_special_tokens: bool = True,
+            truncation: bool = True,
+            max_length: int | None = None,
+            padding: bool = False,
+            return_tensors=None,
+        ):
+            token_count = len(_TOKEN_RE.findall(text))
+            return {"input_ids": [101, *range(200, 200 + token_count), 102]}
+
+        def convert_ids_to_tokens(self, input_ids):
+            return [f"tok_{token_id}" for token_id in input_ids]
+
+    class DummyConfig:
+        colbert_dim = 4
+        query_length = 256
+        document_length = 8192
+
+    class DummyResponse:
+        text = "ok"
+
+        def __init__(self, payload):
+            self._payload = payload
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return self._payload
+
+    class DummyClient:
+        def post(self, path: str, json=None):
+            nonlocal requests_seen
+            assert path == "/pooling"
+            requests_seen += 1
+            if requests_seen == 1:
+                return DummyResponse({"data": {"data": [[float(idx) for idx in range(8)]]}})
+            return DummyResponse(
+                {
+                    "data": {
+                        "data": [
+                            [float(idx) for idx in range(8)],
+                            [float(idx) for idx in range(8, 16)],
+                        ]
+                    }
+                }
+            )
+
+    monkeypatch.setattr("transformers.AutoTokenizer.from_pretrained", lambda *args, **kwargs: DummyTokenizer())
+    monkeypatch.setattr("transformers.AutoConfig.from_pretrained", lambda *args, **kwargs: DummyConfig())
+
+    provider = VllmFactoryModernColBERTProvider(
+        endpoint="http://localhost:8000",
+        model="dummy-moderncolbert",
+        batch_size=2,
+    )
+    monkeypatch.setattr(provider, "_get_http_client", lambda: DummyClient())
+
+    embeddings = provider.encode(["alpha supports claim", "beta supports note"], is_query=False)
+
+    assert requests_seen == 2
+    assert len(embeddings) == 2
+    assert all(embedding.shape == (2, 4) for embedding in embeddings)
+
+
 @requires_voyager
 def test_groundedness_warns_when_packed_budget_exceeds_encoder_limit(tmp_path: Path) -> None:
     class LimitedTokenizer:

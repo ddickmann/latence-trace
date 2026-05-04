@@ -1914,6 +1914,12 @@ def _collect_usage_nli_stats(
             )
             if not indices:
                 continue
+            if support_count > 1 and len(indices) == support_count:
+                # A claim mapped to every support unit is useful for global NLI
+                # scoring, but it is not discriminative enough for per-unit
+                # usage labels. Otherwise one entailed claim can mark every
+                # retrieved distractor as "used".
+                continue
             entailment = float(record.get("entailment") or 0.0)
             score = float(record.get("score") or 0.0)
             is_positive = (
@@ -2039,7 +2045,10 @@ def apply_support_unit_usage_classification(
         coverage_only_positive = (
             strong_coverage
             and matched_response_tokens == 0
-            and response_overlap >= thresholds.response_overlap_used_min
+            and dense_local_use
+            and attribution_score >= thresholds.attribution_score_min
+            and response_overlap >= thresholds.support_response_share_used_min
+            and support_response_share >= thresholds.support_response_share_used_min
             and not nli_positive
         )
         provisional = bool(

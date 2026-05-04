@@ -166,6 +166,13 @@ def _discover_runpod_endpoint_ids(client: httpx.Client) -> list[str]:
 
 def _extract_response(target: CanaryTarget, raw: dict[str, Any]) -> dict[str, Any]:
     if target.name == "runpod":
+        local_result = raw.get("result")
+        if isinstance(local_result, dict):
+            return {
+                **local_result,
+                "_runpod_status": raw.get("status"),
+                "_runpod_error": raw.get("error"),
+            }
         output = raw.get("output")
         if isinstance(output, dict):
             result = output.get("result")

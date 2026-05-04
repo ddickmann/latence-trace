@@ -302,19 +302,36 @@ class VllmFactoryModernColBERTProvider:
             texts[0] if len(texts) == 1 else texts,
             is_query=bool(is_query) if len(texts) == 1 else [bool(is_query)] * len(texts),
         )
-        response = client.post("/pooling", json=payload)
-        response.raise_for_status()
-        body = response.json()
-        raw = self._unwrap_data(body)
-        if len(texts) == 1:
-            embedding = self._decode_embedding(raw)
-            return [self._filter_embedding_if_needed(texts[0], embedding, is_query=is_query)]
-        if not isinstance(raw, list):
-            raise TypeError(f"Unsupported batched ModernColBERT payload: {type(raw)!r}")
-        return [
-            self._filter_embedding_if_needed(text, self._decode_embedding(item), is_query=is_query)
-            for text, item in zip(texts, raw, strict=False)
-        ]
+        last_error: Exception | None = None
+        for _attempt in range(2):
+            try:
+                response = client.post("/pooling", json=payload)
+                response.raise_for_status()
+                body = response.json()
+                raw = self._unwrap_data(body)
+                if len(texts) == 1:
+                    embedding = self._decode_embedding(raw)
+                    return [self._filter_embedding_if_needed(texts[0], embedding, is_query=is_query)]
+                if not isinstance(raw, list):
+                    raise TypeError(f"Unsupported batched ModernColBERT payload: {type(raw)!r}")
+                if len(raw) != len(texts):
+                    raise TypeError(
+                        "ModernColBERT /pooling returned "
+                        f"{len(raw)} items for {len(texts)} input texts"
+                    )
+                return [
+                    self._filter_embedding_if_needed(
+                        text,
+                        self._decode_embedding(item),
+                        is_query=is_query,
+                    )
+                    for text, item in zip(texts, raw, strict=True)
+                ]
+            except Exception as exc:
+                last_error = exc
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError("ModernColBERT /pooling returned no embeddings")
 
     def encode(self, inputs: Any, **kwargs: Any) -> list[np.ndarray]:
         texts = [inputs] if isinstance(inputs, str) else list(inputs)

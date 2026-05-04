@@ -23,8 +23,8 @@ from latence_trace.core.groundedness import (
     tokenize_text,
 )
 from tests.test_context_coverage import (
-    _OrthoStubProvider,
     _make_support_units_from_texts,
+    _OrthoStubProvider,
 )
 
 
@@ -46,19 +46,17 @@ def _hermetic_voyager_env():
     snapshot = {
         key: value
         for key, value in os.environ.items()
-        if key.startswith("VOYAGER_GROUNDEDNESS_")
-        or key.startswith("LATENCE_TRACE_")
+        if key.startswith(("VOYAGER_GROUNDEDNESS_", "LATENCE_TRACE_"))
     }
     for key in list(os.environ.keys()):
-        if key.startswith("VOYAGER_GROUNDEDNESS_") or key.startswith("LATENCE_TRACE_"):
+        if key.startswith(("VOYAGER_GROUNDEDNESS_", "LATENCE_TRACE_")):
             del os.environ[key]
     try:
         yield
     finally:
         for key in list(os.environ.keys()):
             if (
-                key.startswith("VOYAGER_GROUNDEDNESS_")
-                or key.startswith("LATENCE_TRACE_")
+                key.startswith(("VOYAGER_GROUNDEDNESS_", "LATENCE_TRACE_"))
             ) and key not in snapshot:
                 del os.environ[key]
         for key, value in snapshot.items():
@@ -122,7 +120,7 @@ def _score_lower_level(
         chunk_token_budget=response_chunk_tokens,
         encode_fn=encode_texts,
     )
-    result = score_groundedness_response_chunked(
+    return score_groundedness_response_chunked(
         response_chunks=response_chunks,
         support_batches=support_batches,
         response_text=response_text,
@@ -135,7 +133,6 @@ def _score_lower_level(
         nli_concat_premises=False if nli_provider is not None else None,
         nli_use_atomic_claims=False if nli_provider is not None else None,
     )
-    return result
 
 
 def _build_service(provider: _OrthoStubProvider) -> GroundednessService:
@@ -303,6 +300,163 @@ def test_task_detached_high_coverage_unit_is_unused_not_used() -> None:
         support_units_payload=payload,
         support_inputs=support_units,
         coverage_threshold=0.5,
+        response_tokens=tokenize_text(provider, response_text),
+        query_tokens=tokenize_text(provider, query_text),
+    )
+
+    assert payload[0]["usage_state"] == "used"
+    assert payload[1]["usage_state"] == "unused"
+
+
+def test_sparse_overlap_high_coverage_unit_is_not_coverage_only_used() -> None:
+    provider = _OrthoStubProvider()
+    response_text = (
+        "Saturn has rings made of ice. The main rings are dominated by "
+        "water-ice particles and trace rocky debris."
+    )
+    query_text = "What are Saturn's rings made of?"
+    distractor = (
+        "Bamboo is a fast-growing woody grass used in erosion control, "
+        "landscape design, flooring, scaffolding, paper pulp, textile "
+        "fibres, and tropical garden screens."
+    )
+    support_texts = [response_text, distractor]
+    support_units = _make_support_units_from_texts(provider, support_texts)
+    distractor_token_count = len(support_units[1].tokens)
+    payload = [
+        {
+            "index": 0,
+            "support_id": "unit-0",
+            "text": support_texts[0],
+            "token_count": len(support_units[0].tokens),
+            "tokens": support_units[0].tokens,
+            "token_scores": [0.9] * len(support_units[0].tokens),
+            "coverage_score": 0.96,
+            "score": 0.91,
+            "matched_response_tokens": 18,
+        },
+        {
+            "index": 1,
+            "support_id": "unit-1",
+            "text": support_texts[1],
+            "token_count": distractor_token_count,
+            "tokens": support_units[1].tokens,
+            "token_scores": [0.0] * distractor_token_count,
+            "coverage_score": 0.97,
+            "score": 0.0,
+            "matched_response_tokens": 0,
+        },
+    ]
+
+    apply_support_unit_usage_classification(
+        support_units_payload=payload,
+        support_inputs=support_units,
+        coverage_threshold=0.5,
+        response_tokens=tokenize_text(provider, response_text),
+        query_tokens=tokenize_text(provider, query_text),
+    )
+
+    assert payload[0]["usage_state"] == "used"
+    assert payload[1]["usage_state"] == "unused"
+
+
+def test_high_maxsim_without_dense_local_use_is_unused() -> None:
+    provider = _OrthoStubProvider()
+    response_text = "Marie Curie won the Nobel Prize in Physics in 1903."
+    query_text = "When did Marie Curie win her first Nobel Prize?"
+    distractor = (
+        "Coral reefs are underwater ecosystems held together by calcium "
+        "carbonate secreted by colonies of polyps."
+    )
+    support_texts = [response_text, distractor]
+    support_units = _make_support_units_from_texts(provider, support_texts)
+    distractor_token_count = len(support_units[1].tokens)
+    payload = [
+        {
+            "index": 0,
+            "support_id": "unit-0",
+            "text": support_texts[0],
+            "token_count": len(support_units[0].tokens),
+            "tokens": support_units[0].tokens,
+            "token_scores": [0.9] * len(support_units[0].tokens),
+            "coverage_score": 0.99,
+            "score": 0.91,
+            "matched_response_tokens": 12,
+        },
+        {
+            "index": 1,
+            "support_id": "unit-1",
+            "text": support_texts[1],
+            "token_count": distractor_token_count,
+            "tokens": support_units[1].tokens,
+            "token_scores": [0.0] * distractor_token_count,
+            "coverage_score": 0.97,
+            "score": 0.0,
+            "matched_response_tokens": 0,
+        },
+    ]
+
+    apply_support_unit_usage_classification(
+        support_units_payload=payload,
+        support_inputs=support_units,
+        coverage_threshold=0.5,
+        response_tokens=tokenize_text(provider, response_text),
+        query_tokens=tokenize_text(provider, query_text),
+    )
+
+    assert payload[0]["usage_state"] == "used"
+    assert payload[1]["usage_state"] == "unused"
+
+
+def test_all_support_nli_mapping_does_not_mark_every_unit_used() -> None:
+    provider = _OrthoStubProvider()
+    response_text = "Saturn has rings made of ice."
+    query_text = "What are Saturn's rings made of?"
+    distractor = (
+        "Bamboo is a fast-growing woody grass used in erosion control, "
+        "landscape design, flooring, scaffolding, paper pulp, textile "
+        "fibres, and tropical garden screens."
+    )
+    support_texts = [response_text, distractor]
+    support_units = _make_support_units_from_texts(provider, support_texts)
+    distractor_token_count = len(support_units[1].tokens)
+    payload = [
+        {
+            "index": 0,
+            "support_id": "unit-0",
+            "text": support_texts[0],
+            "token_count": len(support_units[0].tokens),
+            "tokens": support_units[0].tokens,
+            "token_scores": [0.9] * len(support_units[0].tokens),
+            "coverage_score": 0.99,
+            "score": 0.91,
+            "matched_response_tokens": 8,
+        },
+        {
+            "index": 1,
+            "support_id": "unit-1",
+            "text": support_texts[1],
+            "token_count": distractor_token_count,
+            "tokens": support_units[1].tokens,
+            "token_scores": [0.0] * distractor_token_count,
+            "coverage_score": 0.97,
+            "score": 0.0,
+            "matched_response_tokens": 0,
+        },
+    ]
+
+    apply_support_unit_usage_classification(
+        support_units_payload=payload,
+        support_inputs=support_units,
+        coverage_threshold=0.5,
+        claim_records=[
+            {
+                "entailment": 0.98,
+                "score": 0.2,
+                "support_unit_indices": [0, 1],
+                "support_ids": ["unit-0", "unit-1"],
+            }
+        ],
         response_tokens=tokenize_text(provider, response_text),
         query_tokens=tokenize_text(provider, query_text),
     )
