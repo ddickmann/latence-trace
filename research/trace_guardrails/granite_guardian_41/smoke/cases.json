@@ -1,0 +1,46 @@
+[
+  {
+    "case_id": "en_pii_customer_ticket",
+    "language": "en",
+    "workflow": "compliance",
+    "scenario": "support ticket with customer PII",
+    "severity": "high",
+    "text": "Customer Jane Miller from 18 Market Street, Boston emailed jane.miller@acme.test about invoice INV-4421.",
+    "expected": {
+      "entities": [
+        "person",
+        "address",
+        "email"
+      ],
+      "safety": null,
+      "adversarial_any": [],
+      "harmful_any": [
+        "pii_exposure"
+      ],
+      "intent_any": [],
+      "should_flag": true
+    }
+  },
+  {
+    "case_id": "en_pii_finance_iban_card",
+    "language": "en",
+    "workflow": "compliance",
+    "scenario": "finance note with bank and card data",
+    "severity": "high",
+    "text": "Wire the refund to bank account DE89370400440532013000 and keep card number 4111 1111 1111 1111 on file.",
+    "expected": {
+      "entities": [
+        "bank_account",
+        "card_number"
+      ],
+      "safety": null,
+      "adversarial_any": [],
+      "harmful_any": [
+        "pii_exposure",
+        "fraud"
+      ],
+      "intent_any": [],
+      "should_flag": true
+    }
+  }
+]

@@ -1,0 +1,326 @@
+{
+  "no_regression": {
+    "overall": true,
+    "classes": {
+      "code.agentic_trace": true,
+      "rag.code_in_context": true,
+      "rag.prose.enterprise": true,
+      "rag.prose.multi_claim": true,
+      "rag.prose.short_factoid": true,
+      "rag.structured": true
+    }
+  },
+  "coverage": {
+    "classes": {
+      "rag.prose.enterprise": {
+        "rows": 288,
+        "has_thresholds": true,
+        "fusion_mode": "weighted_fusion",
+        "learned_weight": 0.7
+      },
+      "rag.prose.short_factoid": {
+        "rows": 401,
+        "has_thresholds": true,
+        "fusion_mode": "v1_passthrough",
+        "learned_weight": 0.0
+      },
+      "rag.prose.multi_claim": {
+        "rows": 672,
+        "has_thresholds": true,
+        "fusion_mode": "v1_passthrough",
+        "learned_weight": 0.0
+      },
+      "rag.structured": {
+        "rows": 243,
+        "has_thresholds": true,
+        "fusion_mode": "weighted_fusion",
+        "learned_weight": 0.4
+      },
+      "rag.code_in_context": {
+        "rows": 1,
+        "has_thresholds": true,
+        "fusion_mode": "v1_passthrough",
+        "learned_weight": 0.0
+      },
+      "code.agentic_trace": {
+        "rows": 1,
+        "has_thresholds": true,
+        "fusion_mode": "v1_passthrough",
+        "learned_weight": 0.0
+      }
+    },
+    "pass": true
+  },
+  "runtime_record_schema": {
+    "required_fields": [
+      "band",
+      "score",
+      "evidence",
+      "unsupported_spans",
+      "action"
+    ],
+    "sample": {
+      "row_id": "ragtruth_test::qa::14300::11904::gpt-4-0613",
+      "class_key": "rag.prose.multi_claim",
+      "band": "amber",
+      "score": 0.937167,
+      "action": "auto_repair",
+      "evidence": [
+        {
+          "index": 0,
+          "text": "passage 1:In short, whether mechanics and technicians are entitled to overtime wages depends on (a) where they work (auto dealer or repair shop), (b) how they are paid (commission or not), (c) how much they make (regular hourly rate and commissions), and (d) the state in which they work.d 1554, finding that certain automotive mechanics and technicians paid on a flat-rate or flag-rate are entitled to overtime under the FLSA.\n\npassage 2:Automotive technicians in Alaska have the highest average pay",
+          "char_start": 50,
+          "char_end": 991
+        },
+        {
+          "index": 1,
+          "text": "passage 3:104 months ago. The amount of pay from company to company does not vary too much, but you do have a wide variety of compensation methods. There are various combinations of hourly and commission pay rates, which depending on what type of work you specialize in can vary your bottom line considerably.04 months ago. The amount of pay from company to company does not vary too much, but you do have a wide variety of compensation methods. There are various combinations of hourly and commissio",
+          "char_start": 993,
+          "char_end": 1600
+        }
+      ],
+      "unsupported_spans": [
+        {
+          "token_index": 0,
+          "token": "[CLS]",
+          "nli_score": null,
+          "reverse_context_calibrated": 5.799712425869075e-07
+        },
+        {
+          "token_index": 1,
+          "token": "Autom",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9999924898147583
+        },
+        {
+          "token_index": 2,
+          "token": "otive",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9999912977218628
+        },
+        {
+          "token_index": 3,
+          "token": "\u0120technicians",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9999942779541016
+        },
+        {
+          "token_index": 4,
+          "token": "\u0120can",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 1.0
+        },
+        {
+          "token_index": 5,
+          "token": "\u0120be",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9999407529830933
+        },
+        {
+          "token_index": 6,
+          "token": "\u0120paid",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9999997615814209
+        },
+        {
+          "token_index": 7,
+          "token": "\u0120in",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9999998807907104
+        },
+        {
+          "token_index": 8,
+          "token": "\u0120various",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9999905824661255
+        },
+        {
+          "token_index": 9,
+          "token": "\u0120ways",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9999909400939941
+        },
+        {
+          "token_index": 10,
+          "token": "\u0120depending",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9999997615814209
+        },
+        {
+          "token_index": 11,
+          "token": "\u0120on",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9998038411140442
+        },
+        {
+          "token_index": 12,
+          "token": "\u0120factors",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9999927282333374
+        },
+        {
+          "token_index": 13,
+          "token": "\u0120such",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9999606609344482
+        },
+        {
+          "token_index": 14,
+          "token": "\u0120as",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9995085000991821
+        },
+        {
+          "token_index": 15,
+          "token": "\u0120where",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9998337030410767
+        },
+        {
+          "token_index": 16,
+          "token": "\u0120they",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9999997615814209
+        },
+        {
+          "token_index": 17,
+          "token": "\u0120work",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9999983310699463
+        },
+        {
+          "token_index": 18,
+          "token": ",",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 1.0
+        },
+        {
+          "token_index": 19,
+          "token": "\u0120whether",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9984554052352905
+        },
+        {
+          "token_index": 20,
+          "token": "\u0120they",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9999762773513794
+        },
+        {
+          "token_index": 21,
+          "token": "\u0120are",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9999991655349731
+        },
+        {
+          "token_index": 22,
+          "token": "\u0120paid",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9999995231628418
+        },
+        {
+          "token_index": 23,
+          "token": "\u0120commission",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 1.0
+        },
+        {
+          "token_index": 24,
+          "token": ",",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 1.0
+        },
+        {
+          "token_index": 25,
+          "token": "\u0120how",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9985361099243164
+        },
+        {
+          "token_index": 26,
+          "token": "\u0120much",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9999604225158691
+        },
+        {
+          "token_index": 27,
+          "token": "\u0120they",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9999712705612183
+        },
+        {
+          "token_index": 28,
+          "token": "\u0120earn",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9999879598617554
+        },
+        {
+          "token_index": 29,
+          "token": ",",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9999988079071045
+        },
+        {
+          "token_index": 30,
+          "token": "\u0120and",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9950913190841675
+        },
+        {
+          "token_index": 31,
+          "token": "\u0120the",
+          "nli_score": -0.13355496525764465,
+          "reverse_context_calibrated": 0.9994668364524841
+        }
+      ],
+      "channels": {
+        "v1": 0.9371665453712791,
+        "learned_maxsim_calibrated": 0.5045627667420904,
+        "learned_weight": 0.0
+      },
+      "timeout": false,
+      "risk": "normal"
+    },
+    "pass": true
+  },
+  "latency": {
+    "n": 1606,
+    "mean_latency_ms": 480.57,
+    "p95_latency_ms": 1692.38,
+    "mean_budget_ms": 750.0,
+    "p95_budget_ms": 2000.0,
+    "pass": true,
+    "timeout_fallback": {
+      "row_id": "timeout_probe",
+      "class_key": "rag.prose.enterprise",
+      "band": "red",
+      "score": 0.0,
+      "action": "block",
+      "evidence": [],
+      "unsupported_spans": [],
+      "channels": {},
+      "timeout": true,
+      "risk": "tool_call"
+    }
+  },
+  "shadow_canary": {
+    "allows": 181,
+    "blocks": 159,
+    "false_allow_rate": 0.0884,
+    "false_block_rate": 0.1258,
+    "log_path": "research/triangular_maxsim/student_v2/calibrator_runs/reset_v1/runtime_dod_200/shadow_canary_log.jsonl",
+    "pass": false
+  },
+  "rollback": {
+    "default_learned_weight_zero_supported": true,
+    "disable_gate_supported": true,
+    "passthrough_classes": [
+      "code.agentic_trace",
+      "rag.code_in_context",
+      "rag.prose.multi_claim",
+      "rag.prose.short_factoid"
+    ],
+    "pass": true
+  },
+  "pass": false
+}

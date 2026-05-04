@@ -1,0 +1,46 @@
+{
+  "benign_false_positive_rate": 0.0,
+  "by_language": {
+    "en": {
+      "fail": 0,
+      "partial": 2,
+      "pass": 0,
+      "total": 2
+    }
+  },
+  "by_severity": {
+    "high": {
+      "fail": 0,
+      "partial": 2,
+      "pass": 0,
+      "total": 2
+    }
+  },
+  "by_workflow": {
+    "compliance": {
+      "fail": 0,
+      "partial": 2,
+      "pass": 0,
+      "total": 2
+    }
+  },
+  "case_count": 2,
+  "false_positive_count": 0,
+  "false_positive_ids": [],
+  "generated_at": "2026-05-03T22:38:56.954153+00:00",
+  "high_risk_detection_rate": 1.0,
+  "latency_ms": {
+    "max": 356.72,
+    "mean": 194.98,
+    "median": 194.98,
+    "p95": 33.24
+  },
+  "model": "hivetrace/gliner-guard-uniencoder",
+  "severe_false_negative_count": 0,
+  "severe_false_negative_ids": [],
+  "verdicts": {
+    "fail": 0,
+    "partial": 2,
+    "pass": 0
+  }
+}

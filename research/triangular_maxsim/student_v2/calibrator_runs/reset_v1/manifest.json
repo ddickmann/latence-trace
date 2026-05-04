@@ -1,0 +1,48 @@
+{
+  "inputs": [
+    "research/triangular_maxsim/student_v2/data_v2/train.jsonl"
+  ],
+  "token_features": "research/triangular_maxsim/student_v2/calibrator_runs/reset_v1/token_features.jsonl",
+  "row_features": "research/triangular_maxsim/student_v2/calibrator_runs/reset_v1/row_features.jsonl",
+  "feature_names": [
+    "maxsim_proxy",
+    "calibrated_maxsim_proxy",
+    "heatmap_score",
+    "reverse_context_z",
+    "top2_mean_proxy",
+    "best_second_margin_proxy",
+    "support_unit_hits_above_threshold",
+    "support_unit_soft_breadth",
+    "effective_support_units_norm",
+    "support_unit_index_norm",
+    "token_nli_score",
+    "exact_in_evidence",
+    "lower_in_evidence",
+    "numeric_token",
+    "numeric_value_in_evidence",
+    "identifier_token",
+    "content_token",
+    "token_len_norm",
+    "position_norm",
+    "row_turn_score",
+    "row_nli_aggregate",
+    "teacher_green",
+    "teacher_amber",
+    "teacher_red",
+    "class::rag.prose.enterprise",
+    "class::rag.prose.short_factoid",
+    "class::rag.prose.multi_claim",
+    "class::rag.structured",
+    "class::rag.code_in_context",
+    "class::code.agentic_trace"
+  ],
+  "turn_feature_names": [
+    "mean_token_support",
+    "bottom10_token_support",
+    "unsupported_fraction",
+    "min_token_support",
+    "raw_maxsim_score"
+  ],
+  "n_rows": 8000,
+  "n_token_rows": 200000
+}

@@ -1,0 +1,285 @@
+{
+  "model": "research/triangular_maxsim/student_v2/calibrator_runs/reset_v1/maxsim_calibrator_logistic.json",
+  "n_rows": 72453,
+  "raw_maxsim_baseline": {
+    "n": 72453,
+    "binary_grounded_accuracy": 0.5147,
+    "ungrounded_precision": 0.5702,
+    "ungrounded_recall": 0.2135,
+    "ungrounded_f1": 0.3107,
+    "paired_score_accuracy": 0.71,
+    "paired_n": 30000,
+    "by_task": {
+      "ragtruth::qa": {
+        "n": 900,
+        "binary_grounded_accuracy": 0.8022,
+        "ungrounded_precision": 0.05,
+        "ungrounded_recall": 0.0063,
+        "ungrounded_f1": 0.0111,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "ragtruth::summarization": {
+        "n": 900,
+        "binary_grounded_accuracy": 0.7744,
+        "ungrounded_precision": 1.0,
+        "ungrounded_recall": 0.0049,
+        "ungrounded_f1": 0.0098,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "ragtruth::data2text": {
+        "n": 900,
+        "binary_grounded_accuracy": 0.6433,
+        "ungrounded_precision": 0.6433,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 0.783,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "halueval::qa": {
+        "n": 20000,
+        "binary_grounded_accuracy": 0.5556,
+        "ungrounded_precision": 0.7189,
+        "ungrounded_recall": 0.1826,
+        "ungrounded_f1": 0.2912,
+        "paired_score_accuracy": 0.8773,
+        "paired_n": 10000,
+        "by_task": {}
+      },
+      "halueval::summarization": {
+        "n": 20000,
+        "binary_grounded_accuracy": 0.5001,
+        "ungrounded_precision": 0.5714,
+        "ungrounded_recall": 0.0008,
+        "ungrounded_f1": 0.0016,
+        "paired_score_accuracy": 0.7441,
+        "paired_n": 10000,
+        "by_task": {}
+      },
+      "halueval::dialogue": {
+        "n": 20000,
+        "binary_grounded_accuracy": 0.4883,
+        "ungrounded_precision": 0.4874,
+        "ungrounded_recall": 0.4542,
+        "ungrounded_f1": 0.4702,
+        "paired_score_accuracy": 0.5085,
+        "paired_n": 10000,
+        "by_task": {}
+      },
+      "internal::test": {
+        "n": 3306,
+        "binary_grounded_accuracy": 0.5372,
+        "ungrounded_precision": 0.795,
+        "ungrounded_recall": 0.2515,
+        "ungrounded_f1": 0.3821,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "internal::ood_eval": {
+        "n": 6447,
+        "binary_grounded_accuracy": 0.4093,
+        "ungrounded_precision": 0.9705,
+        "ungrounded_recall": 0.1152,
+        "ungrounded_f1": 0.206,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      }
+    }
+  },
+  "learned_token_calibrator": {
+    "n": 72453,
+    "binary_grounded_accuracy": 0.641,
+    "ungrounded_precision": 0.6317,
+    "ungrounded_recall": 0.7171,
+    "ungrounded_f1": 0.6717,
+    "paired_score_accuracy": 0.7089,
+    "paired_n": 30000,
+    "by_task": {
+      "ragtruth::qa": {
+        "n": 900,
+        "binary_grounded_accuracy": 0.7144,
+        "ungrounded_precision": 0.3498,
+        "ungrounded_recall": 0.7063,
+        "ungrounded_f1": 0.4679,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "ragtruth::summarization": {
+        "n": 900,
+        "binary_grounded_accuracy": 0.6811,
+        "ungrounded_precision": 0.3683,
+        "ungrounded_recall": 0.5686,
+        "ungrounded_f1": 0.447,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "ragtruth::data2text": {
+        "n": 900,
+        "binary_grounded_accuracy": 0.6433,
+        "ungrounded_precision": 0.6433,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 0.783,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "halueval::qa": {
+        "n": 20000,
+        "binary_grounded_accuracy": 0.7769,
+        "ungrounded_precision": 0.846,
+        "ungrounded_recall": 0.677,
+        "ungrounded_f1": 0.7521,
+        "paired_score_accuracy": 0.8772,
+        "paired_n": 10000,
+        "by_task": {}
+      },
+      "halueval::summarization": {
+        "n": 20000,
+        "binary_grounded_accuracy": 0.6247,
+        "ungrounded_precision": 0.676,
+        "ungrounded_recall": 0.4787,
+        "ungrounded_f1": 0.5605,
+        "paired_score_accuracy": 0.741,
+        "paired_n": 10000,
+        "by_task": {}
+      },
+      "halueval::dialogue": {
+        "n": 20000,
+        "binary_grounded_accuracy": 0.5165,
+        "ungrounded_precision": 0.5088,
+        "ungrounded_recall": 0.9584,
+        "ungrounded_f1": 0.6647,
+        "paired_score_accuracy": 0.5084,
+        "paired_n": 10000,
+        "by_task": {}
+      },
+      "internal::test": {
+        "n": 3306,
+        "binary_grounded_accuracy": 0.6615,
+        "ungrounded_precision": 0.6907,
+        "ungrounded_recall": 0.7337,
+        "ungrounded_f1": 0.7115,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "internal::ood_eval": {
+        "n": 6447,
+        "binary_grounded_accuracy": 0.6291,
+        "ungrounded_precision": 0.7031,
+        "ungrounded_recall": 0.7656,
+        "ungrounded_f1": 0.733,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      }
+    }
+  },
+  "v1_router": {
+    "n": 0,
+    "status": "not_supplied_offline"
+  },
+  "v1_plus_calibrator": {
+    "n": 0,
+    "status": "requires_cached_v1_predictions"
+  },
+  "raw_plus_calibrator": {
+    "n": 72453,
+    "binary_grounded_accuracy": 0.5632,
+    "ungrounded_precision": 0.6097,
+    "ungrounded_recall": 0.4089,
+    "ungrounded_f1": 0.4895,
+    "paired_score_accuracy": 0.7095,
+    "paired_n": 30000,
+    "by_task": {
+      "ragtruth::qa": {
+        "n": 900,
+        "binary_grounded_accuracy": 0.79,
+        "ungrounded_precision": 0.2899,
+        "ungrounded_recall": 0.125,
+        "ungrounded_f1": 0.1747,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "ragtruth::summarization": {
+        "n": 900,
+        "binary_grounded_accuracy": 0.7844,
+        "ungrounded_precision": 0.8125,
+        "ungrounded_recall": 0.0637,
+        "ungrounded_f1": 0.1182,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "ragtruth::data2text": {
+        "n": 900,
+        "binary_grounded_accuracy": 0.6433,
+        "ungrounded_precision": 0.6433,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 0.783,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "halueval::qa": {
+        "n": 20000,
+        "binary_grounded_accuracy": 0.6637,
+        "ungrounded_precision": 0.8288,
+        "ungrounded_recall": 0.4126,
+        "ungrounded_f1": 0.5509,
+        "paired_score_accuracy": 0.8772,
+        "paired_n": 10000,
+        "by_task": {}
+      },
+      "halueval::summarization": {
+        "n": 20000,
+        "binary_grounded_accuracy": 0.5098,
+        "ungrounded_precision": 0.6719,
+        "ungrounded_recall": 0.0383,
+        "ungrounded_f1": 0.0725,
+        "paired_score_accuracy": 0.7429,
+        "paired_n": 10000,
+        "by_task": {}
+      },
+      "halueval::dialogue": {
+        "n": 20000,
+        "binary_grounded_accuracy": 0.5153,
+        "ungrounded_precision": 0.5096,
+        "ungrounded_recall": 0.8155,
+        "ungrounded_f1": 0.6272,
+        "paired_score_accuracy": 0.5084,
+        "paired_n": 10000,
+        "by_task": {}
+      },
+      "internal::test": {
+        "n": 3306,
+        "binary_grounded_accuracy": 0.5941,
+        "ungrounded_precision": 0.7512,
+        "ungrounded_recall": 0.4285,
+        "ungrounded_f1": 0.5457,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "internal::ood_eval": {
+        "n": 6447,
+        "binary_grounded_accuracy": 0.4759,
+        "ungrounded_precision": 0.8547,
+        "ungrounded_recall": 0.2552,
+        "ungrounded_f1": 0.393,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      }
+    }
+  }
+}

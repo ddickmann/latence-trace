@@ -1,0 +1,142 @@
+{
+  "checkpoint": "research/triangular_maxsim/student_v2/checkpoints_v2/student_final.pt",
+  "benchmark": "halueval",
+  "tasks": "qa,summarization,data2text,dialogue",
+  "n_rows": 60,
+  "v1_status": "ok",
+  "student_only": {
+    "n": 60,
+    "turn_band_3way_accuracy": 0.4167,
+    "binary_grounded_accuracy": 0.4167,
+    "ungrounded_precision": 0.4324,
+    "ungrounded_recall": 0.5333,
+    "ungrounded_f1": 0.4776,
+    "paired_score_accuracy": 0.3333,
+    "paired_n": 30,
+    "by_task": {
+      "halueval::qa": {
+        "n": 20,
+        "turn_band_3way_accuracy": 0.15,
+        "binary_grounded_accuracy": 0.15,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": 0.1,
+        "paired_n": 10,
+        "by_task": {}
+      },
+      "halueval::summarization": {
+        "n": 20,
+        "turn_band_3way_accuracy": 0.45,
+        "binary_grounded_accuracy": 0.45,
+        "ungrounded_precision": 0.4737,
+        "ungrounded_recall": 0.9,
+        "ungrounded_f1": 0.6207,
+        "paired_score_accuracy": 0.5,
+        "paired_n": 10,
+        "by_task": {}
+      },
+      "halueval::dialogue": {
+        "n": 20,
+        "turn_band_3way_accuracy": 0.65,
+        "binary_grounded_accuracy": 0.65,
+        "ungrounded_precision": 0.6364,
+        "ungrounded_recall": 0.7,
+        "ungrounded_f1": 0.6667,
+        "paired_score_accuracy": 0.4,
+        "paired_n": 10,
+        "by_task": {}
+      }
+    }
+  },
+  "v1_router": {
+    "n": 60,
+    "turn_band_3way_accuracy": 0.4167,
+    "binary_grounded_accuracy": 0.6167,
+    "ungrounded_precision": 0.6061,
+    "ungrounded_recall": 0.6667,
+    "ungrounded_f1": 0.6349,
+    "paired_score_accuracy": 0.6,
+    "paired_n": 30,
+    "by_task": {
+      "halueval::qa": {
+        "n": 20,
+        "turn_band_3way_accuracy": 0.4,
+        "binary_grounded_accuracy": 0.55,
+        "ungrounded_precision": 0.5714,
+        "ungrounded_recall": 0.4,
+        "ungrounded_f1": 0.4706,
+        "paired_score_accuracy": 0.4,
+        "paired_n": 10,
+        "by_task": {}
+      },
+      "halueval::summarization": {
+        "n": 20,
+        "turn_band_3way_accuracy": 0.25,
+        "binary_grounded_accuracy": 0.55,
+        "ungrounded_precision": 0.5294,
+        "ungrounded_recall": 0.9,
+        "ungrounded_f1": 0.6667,
+        "paired_score_accuracy": 0.7,
+        "paired_n": 10,
+        "by_task": {}
+      },
+      "halueval::dialogue": {
+        "n": 20,
+        "turn_band_3way_accuracy": 0.6,
+        "binary_grounded_accuracy": 0.75,
+        "ungrounded_precision": 0.7778,
+        "ungrounded_recall": 0.7,
+        "ungrounded_f1": 0.7368,
+        "paired_score_accuracy": 0.7,
+        "paired_n": 10,
+        "by_task": {}
+      }
+    }
+  },
+  "v1_plus_student": {
+    "n": 60,
+    "turn_band_3way_accuracy": 0.2167,
+    "binary_grounded_accuracy": 0.4833,
+    "ungrounded_precision": 0.4848,
+    "ungrounded_recall": 0.5333,
+    "ungrounded_f1": 0.5079,
+    "paired_score_accuracy": 0.5667,
+    "paired_n": 30,
+    "by_task": {
+      "halueval::qa": {
+        "n": 20,
+        "turn_band_3way_accuracy": 0.15,
+        "binary_grounded_accuracy": 0.45,
+        "ungrounded_precision": 0.4615,
+        "ungrounded_recall": 0.6,
+        "ungrounded_f1": 0.5217,
+        "paired_score_accuracy": 0.4,
+        "paired_n": 10,
+        "by_task": {}
+      },
+      "halueval::summarization": {
+        "n": 20,
+        "turn_band_3way_accuracy": 0.4,
+        "binary_grounded_accuracy": 0.45,
+        "ungrounded_precision": 0.3333,
+        "ungrounded_recall": 0.1,
+        "ungrounded_f1": 0.1538,
+        "paired_score_accuracy": 0.6,
+        "paired_n": 10,
+        "by_task": {}
+      },
+      "halueval::dialogue": {
+        "n": 20,
+        "turn_band_3way_accuracy": 0.1,
+        "binary_grounded_accuracy": 0.55,
+        "ungrounded_precision": 0.5294,
+        "ungrounded_recall": 0.9,
+        "ungrounded_f1": 0.6667,
+        "paired_score_accuracy": 0.7,
+        "paired_n": 10,
+        "by_task": {}
+      }
+    }
+  }
+}

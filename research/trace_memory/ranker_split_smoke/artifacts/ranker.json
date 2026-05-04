@@ -1,0 +1,38 @@
+{
+  "diagnostics": {
+    "domain_counts": {
+      "chat": 62806,
+      "code": 10842,
+      "grounding": 1833,
+      "tool": 2236
+    },
+    "exact_critical_guard": "hard_rule_retained",
+    "long_horizon_training_rows": 1020,
+    "max_training_turn_count": 311,
+    "negative_rows": 64203,
+    "positive_rows": 13514,
+    "source": "in_run_split",
+    "train_split": "train"
+  },
+  "label_counts": {
+    "anchor": 13460,
+    "demote": 21193,
+    "keep": 54,
+    "remove": 42209,
+    "superseded": 801
+  },
+  "model_type": "mean_difference_linear_ranker",
+  "training_rows": 77717,
+  "weights": {
+    "attribution": 0.016505,
+    "dead_weight": -0.158151,
+    "domain_decay_pressure": 0.209609,
+    "exact_critical": 0.531785,
+    "is_code_domain": 0.341874,
+    "is_rag_or_search_domain": -0.378706,
+    "is_tool_domain": 0.036831,
+    "redundancy": -0.079122,
+    "relevance": 0.158653,
+    "salience": 0.09444
+  }
+}

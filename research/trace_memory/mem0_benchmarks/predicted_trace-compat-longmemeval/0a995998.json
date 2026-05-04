@@ -1,0 +1,141 @@
+{
+  "question_id": "0a995998",
+  "question_type": "multi-session",
+  "question": "How many items of clothing do I need to pick up or return from a store?",
+  "ground_truth_answer": "3",
+  "question_date": "2023/02/15 (Wed) 23:50",
+  "is_abstention": false,
+  "user_id": "longmemeval_0a995998_tracecompatlme01",
+  "answer_session_ids": [
+    "answer_afa9873b_2",
+    "answer_afa9873b_3",
+    "answer_afa9873b_1"
+  ],
+  "retrieval": {
+    "search_query": "How many items of clothing do I need to pick up or return from a store?",
+    "search_results": [
+      {
+        "memory": "Do you have any tips on how to keep track of items I need to pick up or return?",
+        "score": 0.456563,
+        "id": "mem_9f87c9ceb4dfae45",
+        "created_at": "2023-02-15T16:19:00+00:00"
+      },
+      {
+        "memory": "By the way, I just exchanged a pair of boots I got from Zara on 2/5, and I still need to pick up the new pair.",
+        "score": 0.428895,
+        "id": "mem_fc524caf41090204",
+        "created_at": "2023-02-15T16:19:00+00:00"
+      },
+      {
+        "memory": "Now, about keeping track of items to pick up or return...",
+        "score": 0.404081,
+        "id": "mem_74ac393102c42ed6",
+        "created_at": "2023-02-15T16:19:00+00:00"
+      },
+      {
+        "memory": "By implementing these strategies, you'll be more likely to remember to pick up your new boots and return any items that don't fit quite right.",
+        "score": 0.401291,
+        "id": "mem_fe603966fbb9ab05",
+        "created_at": "2023-02-15T16:19:00+00:00"
+      },
+      {
+        "memory": "I'm looking for some advice on how to properly store and preserve my comic book collection.",
+        "score": 0.386336,
+        "id": "mem_b02fa7cf2908898b",
+        "created_at": "2023-02-15T15:24:00+00:00"
+      },
+      {
+        "memory": "This will prevent clutter from building up again and ensure you can always find what you need.",
+        "score": 0.376584,
+        "id": "mem_ca477fc12f3031dd",
+        "created_at": "2023-02-15T03:41:00+00:00"
+      },
+      {
+        "memory": "They're both great additions to my wardrobe, but I need to make sure I'm not holding onto items that don't complement them.",
+        "score": 0.371571,
+        "id": "mem_664bb8d85fb5445c",
+        "created_at": "2023-02-15T06:30:00+00:00"
+      },
+      {
+        "memory": "It seems like no matter how many measures are put in place, corruption and mismanagement will always find a way to seep through.",
+        "score": 0.369385,
+        "id": "mem_384080ab350942ac",
+        "created_at": "2023-02-15T17:13:00+00:00"
+      },
+      {
+        "memory": "Volunteer with conservation organizations: Many conservation organizations and government agencies have programs focused on invasive species management, and are always in need of volunteers.",
+        "score": 0.369385,
+        "id": "mem_ab1007eef021ccc0",
+        "created_at": "2023-02-15T11:42:00+00:00"
+      },
+      {
+        "memory": "I'm going to start being more mindful of how I store and dispose of my eco-friendly items.",
+        "score": 0.361487,
+        "id": "mem_f7b1ceaec3c5640b",
+        "created_at": "2023-02-15T03:14:00+00:00"
+      },
+      {
+        "memory": "user: I'm going to start being more mindful of how I store and dispose of my eco-friendly items.",
+        "score": 0.361222,
+        "id": "mem_425e3f25cedb04a1",
+        "created_at": "2023-02-15T03:14:00+00:00"
+      },
+      {
+        "memory": "* Consider creating a \"Knowledge Base\" or \"Resources\" board/list to store company knowledge, templates, and best practices.",
+        "score": 0.355862,
+        "id": "mem_3ca0cc263dc8956a",
+        "created_at": "2023-02-15T19:20:00+00:00"
+      },
+      {
+        "memory": "assistant: I do not have access to the latest updates or current life situations, but i can tell you that manchester is a city that has a rich history and has many historical sites that could benefit from similar efforts.",
+        "score": 0.353383,
+        "id": "mem_e109fd32e30d6c7e",
+        "created_at": "2023-02-15T03:25:00+00:00"
+      },
+      {
+        "memory": "* **Scraps**: Store small scraps (less than 1/4 yard) in a designated scrap bin or container.",
+        "score": 0.353202,
+        "id": "mem_6d3b4ff876594fe7",
+        "created_at": "2023-02-15T11:31:00+00:00"
+      },
+      {
+        "memory": "**Keep receipts organized**: Store receipts for items you need to return in a designated spot, like a folder or envelope, so you can easily find them when you need to return the item.",
+        "score": 0.351053,
+        "id": "mem_48272fbad6761be5",
+        "created_at": "2023-02-15T16:19:00+00:00"
+      },
+      {
+        "memory": "As for your dry cleaning, don't forget to pick it up soon!",
+        "score": 0.350529,
+        "id": "mem_b2fe9d2385d602d7",
+        "created_at": "2023-02-15T06:30:00+00:00"
+      },
+      {
+        "memory": "I need to return some boots to Zara, actually.",
+        "score": 0.347401,
+        "id": "mem_c8e944092aa6dcab",
+        "created_at": "2023-02-15T11:13:00+00:00"
+      },
+      {
+        "memory": "**Leave space for decorative items**: Don't overcrowd your shelf.",
+        "score": 0.347293,
+        "id": "mem_c662e5c406699ae9",
+        "created_at": "2023-02-15T09:28:00+00:00"
+      },
+      {
+        "memory": "I'm an AI, I don't have personal experiences, so I wasn't actually taking a train from station A to station B.",
+        "score": 0.344556,
+        "id": "mem_7140e2f874944b47",
+        "created_at": "2023-02-15T19:43:00+00:00"
+      },
+      {
+        "memory": "**Purge and declutter**: Begin by taking everything out of your closet and sorting items into three piles: keep, donate/sell, and discard.",
+        "score": 0.343766,
+        "id": "mem_58b863976a024264",
+        "created_at": "2023-02-15T11:13:00+00:00"
+      }
+    ],
+    "search_latency_ms": 677.3,
+    "total_results": 20
+  }
+}

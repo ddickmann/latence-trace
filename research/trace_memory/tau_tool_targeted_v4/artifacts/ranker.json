@@ -1,0 +1,27 @@
+{
+  "diagnostics": {
+    "exact_critical_guard": "hard_rule_retained",
+    "negative_rows": 1365,
+    "positive_rows": 819
+  },
+  "label_counts": {
+    "anchor": 819,
+    "demote": 789,
+    "remove": 575,
+    "superseded": 1
+  },
+  "model_type": "mean_difference_linear_ranker",
+  "training_rows": 2184,
+  "weights": {
+    "attribution": -0.012759,
+    "dead_weight": 0.014103,
+    "domain_decay_pressure": 0.063967,
+    "exact_critical": 0.392383,
+    "is_code_domain": 0.0,
+    "is_rag_or_search_domain": 0.0,
+    "is_tool_domain": 0.0,
+    "redundancy": 0.222735,
+    "relevance": 0.004029,
+    "salience": 0.042125
+  }
+}

@@ -1,0 +1,22 @@
+{"case_id": "case", "dataset": "LongMemEval", "domain": "chat", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "LongMemEval", "domain": "chat", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "LongMemEval", "domain": "chat", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "MTRAG", "domain": "rag", "split": "train", "turn_count": 10}
+{"case_id": "case", "dataset": "MTRAG", "domain": "rag", "split": "train", "turn_count": 10}
+{"case_id": "case", "dataset": "MTRAG", "domain": "rag", "split": "train", "turn_count": 14}
+{"case_id": "0", "dataset": "RAGTruth", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "1", "dataset": "RAGTruth", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "2", "dataset": "RAGTruth", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "GaRAGe", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "GaRAGe", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "GaRAGe", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "AnalogJ__lexicon-336", "dataset": "SWE-agent trajectories", "domain": "code", "split": "train", "turn_count": 93}
+{"case_id": "AnalogJ__lexicon-336", "dataset": "SWE-agent trajectories", "domain": "code", "split": "train", "turn_count": 51}
+{"case_id": "AnalogJ__lexicon-336", "dataset": "SWE-agent trajectories", "domain": "code", "split": "train", "turn_count": 59}
+{"case_id": "astropy__astropy-12907", "dataset": "SWE-bench Verified", "domain": "code", "split": "dev", "turn_count": 1}
+{"case_id": "astropy__astropy-13033", "dataset": "SWE-bench Verified", "domain": "code", "split": "train", "turn_count": 1}
+{"case_id": "astropy__astropy-13236", "dataset": "SWE-bench Verified", "domain": "code", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "tau-bench", "domain": "tool", "split": "train", "turn_count": 24}
+{"case_id": "case", "dataset": "tau-bench", "domain": "tool", "split": "train", "turn_count": 42}
+{"case_id": "case", "dataset": "tau-bench", "domain": "tool", "split": "train", "turn_count": 22}
+{"case_id": "swe_agent_stress_100", "dataset": "SWE-agent long-horizon stress", "domain": "code", "split": "train", "turn_count": 100}

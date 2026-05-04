@@ -1,0 +1,1229 @@
+{
+  "question_id": "conv2_q0",
+  "conversation_idx": 2,
+  "category": 2,
+  "category_name": "temporal",
+  "question": "Who did Maria have dinner with on May 3, 2023?",
+  "ground_truth_answer": "her mother",
+  "evidence": [
+    "D13:16"
+  ],
+  "user_id": "locomo_2_tracelocomo01",
+  "reference_date": "11:08 am on 16 August, 2023",
+  "retrieval": {
+    "search_query": "Who did Maria have dinner with on May 3, 2023?",
+    "search_results": [
+      {
+        "memory": "user: John: Yeah, Maria, let's keep each other and everyone else motivated to make a difference! Together, our impact will surely last.",
+        "score": 0.92,
+        "id": "repair:src_611265e1fbfecd29df76be3e:0",
+        "created_at": "2023-08-16T11:08:00+00:00"
+      },
+      {
+        "memory": "John: Yeah, Maria, let's keep each other and everyone else motivated to make a difference! Together, our impact will surely last.",
+        "score": 0.92,
+        "id": "repair:src_611265e1fbfecd29df76be3e:2",
+        "created_at": "2023-08-16T11:08:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: Yeah, John! Let's keep spreading kindness. It's awesome to know we can bring joy and comfort to those who need it.",
+        "score": 0.92,
+        "id": "repair:src_7fc3bad418caa3918975a09d:3",
+        "created_at": "2023-08-16T11:08:00+00:00"
+      },
+      {
+        "memory": "Maria: Yeah, John! Let's keep spreading kindness. It's awesome to know we can bring joy and comfort to those who need it.",
+        "score": 0.92,
+        "id": "repair:src_7fc3bad418caa3918975a09d:5",
+        "created_at": "2023-08-16T11:08:00+00:00"
+      },
+      {
+        "memory": "user: John: Maria, I'm glad you're finding fulfillment there. It's amazing how a little kindness can have such a big impact on someone's life. Let's continue making a difference in our community!",
+        "score": 0.92,
+        "id": "repair:src_cbfef0bbb5edf931b7343820:6",
+        "created_at": "2023-08-16T11:08:00+00:00"
+      },
+      {
+        "memory": "Maria: Wow, that must have been awesome!",
+        "score": 0.430495,
+        "id": "mem_2e2c551c62d34e34",
+        "created_at": "2023-04-18T19:34:00+00:00"
+      },
+      {
+        "memory": "Maria: Yeah, I did.",
+        "score": 0.407881,
+        "id": "mem_42b8024bf3c4d511",
+        "created_at": "2023-02-05T14:33:00+00:00"
+      },
+      {
+        "memory": "John: Hey Maria, I'm so excited to tell you I started a weekend yoga class with a colleague - it's awesome!",
+        "score": 0.391978,
+        "id": "mem_75ae5018eabd2b46",
+        "created_at": "2023-04-07T00:24:00+00:00"
+      },
+      {
+        "memory": "It's such a blessing to have family who always supports us and reminds us that we're not alone.",
+        "score": 0.39194,
+        "id": "mem_57330af532e94b35",
+        "created_at": "2023-06-27T00:21:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: Yeah, I did.",
+        "score": 0.38418,
+        "id": "mem_56fb3e7f2c7c3034",
+        "created_at": "2023-02-05T14:33:00+00:00"
+      },
+      {
+        "memory": "It's always great to have fun and bring out everyone's creative and silly sides with games like that.",
+        "score": 0.383537,
+        "id": "mem_47733adf5aa2adb2",
+        "created_at": "2023-07-17T15:34:00+00:00"
+      },
+      {
+        "memory": "Maria: You did awesome!",
+        "score": 0.378548,
+        "id": "mem_aa8a20cec6819c76",
+        "created_at": "2023-02-05T14:33:00+00:00"
+      },
+      {
+        "memory": "Must have taken a lot of work.",
+        "score": 0.378105,
+        "id": "mem_fe1104224a5b75e7",
+        "created_at": "2023-06-16T19:20:00+00:00"
+      },
+      {
+        "memory": "It must have been great to be involved.",
+        "score": 0.378105,
+        "id": "mem_597436b3291bbd58",
+        "created_at": "2022-12-17T11:01:00+00:00"
+      },
+      {
+        "memory": "Well, I'm off to have dinner with some friends from the gym.",
+        "score": 0.372391,
+        "id": "mem_063cfd80015732f4",
+        "created_at": "2023-07-07T18:29:00+00:00"
+      },
+      {
+        "memory": "It must have been quite the adventure.",
+        "score": 0.371492,
+        "id": "mem_a8a15c2e16d5169b",
+        "created_at": "2023-04-02T09:36:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: Wow, that must've been great!",
+        "score": 0.366353,
+        "id": "mem_145dfcf0bab60b97",
+        "created_at": "2023-04-10T18:13:00+00:00"
+      },
+      {
+        "memory": "The energy from the crowd must have unreal!",
+        "score": 0.366353,
+        "id": "mem_518a0e49c64fbd32",
+        "created_at": "2023-06-27T00:21:00+00:00"
+      },
+      {
+        "memory": "My kids have so much and others don't.",
+        "score": 0.365183,
+        "id": "mem_02d47e0a7a1e261e",
+        "created_at": "2023-01-28T13:17:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: You did awesome!",
+        "score": 0.363183,
+        "id": "mem_a85dc5d97eec737e",
+        "created_at": "2023-02-05T14:33:00+00:00"
+      },
+      {
+        "memory": "It must have been such a joyful and carefree time!",
+        "score": 0.36221,
+        "id": "mem_b3d7e5783d4b8958",
+        "created_at": "2023-06-16T19:20:00+00:00"
+      },
+      {
+        "memory": "It must feel incredible to have a supportive team like that.",
+        "score": 0.36221,
+        "id": "mem_7538ad0285c39351",
+        "created_at": "2023-07-31T13:59:00+00:00"
+      },
+      {
+        "memory": "You made everyone so comfortable and it must have been so rewarding.",
+        "score": 0.36072,
+        "id": "mem_98c5bd54a4b84cce",
+        "created_at": "2023-04-10T18:13:00+00:00"
+      },
+      {
+        "memory": "Your family trip must have been great too, right?",
+        "score": 0.358779,
+        "id": "mem_185758ebf0fbf13b",
+        "created_at": "2023-06-12T14:47:00+00:00"
+      },
+      {
+        "memory": "The colors there are so vivid - it must have been amazing!",
+        "score": 0.358779,
+        "id": "mem_71727fe50d4cc49c",
+        "created_at": "2023-06-16T19:20:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: My fam's small, but I love spending time with the friends I have.",
+        "score": 0.358363,
+        "id": "mem_b2f613f6c0d7e631",
+        "created_at": "2022-12-22T18:10:00+00:00"
+      },
+      {
+        "memory": "That must have been tough for you and everyone there.",
+        "score": 0.357817,
+        "id": "mem_29da0115375297bb",
+        "created_at": "2023-07-07T18:29:00+00:00"
+      },
+      {
+        "memory": "Seeing everyone come together for a shared cause must have been inspiring.",
+        "score": 0.355319,
+        "id": "mem_a2ec5bad560a1e94",
+        "created_at": "2023-04-07T00:24:00+00:00"
+      },
+      {
+        "memory": "It's always inspiring to share thos things with like-minded individuals.",
+        "score": 0.35396,
+        "id": "mem_88d1baeb18022955",
+        "created_at": "2023-01-01T20:30:00+00:00"
+      },
+      {
+        "memory": "It's always fun coming up with activities for my family to enjoy.",
+        "score": 0.35396,
+        "id": "mem_47e718db82153497",
+        "created_at": "2023-03-06T18:03:00+00:00"
+      },
+      {
+        "memory": "Did you have any pets growing up?",
+        "score": 0.353918,
+        "id": "mem_40176db9ee331b2b",
+        "created_at": "2023-08-13T15:14:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: I've gone camping a few times but never tried mountain climbing.",
+        "score": 0.353378,
+        "id": "mem_4fbb64cc1d68abf5",
+        "created_at": "2023-06-12T14:47:00+00:00"
+      },
+      {
+        "memory": "Connecting with others and discovering fun activities is always awesome.",
+        "score": 0.35247,
+        "id": "mem_e47e3b5efbeaedda",
+        "created_at": "2023-07-17T15:34:00+00:00"
+      },
+      {
+        "memory": "Even when times are hard, they always have my back.",
+        "score": 0.350529,
+        "id": "mem_201f71abc82e6a17",
+        "created_at": "2023-08-13T15:14:00+00:00"
+      },
+      {
+        "memory": "Have you discussed it with anyone yet?",
+        "score": 0.349958,
+        "id": "mem_4d8b85d32703e32c",
+        "created_at": "2023-03-06T18:03:00+00:00"
+      },
+      {
+        "memory": "I'm really lucky to have my family on this journey with me.",
+        "score": 0.343639,
+        "id": "mem_7af22fa7d2a1b255",
+        "created_at": "2023-06-16T19:20:00+00:00"
+      },
+      {
+        "memory": "It breaks my heart that our kids don't have the proper stuff they need.",
+        "score": 0.34295,
+        "id": "mem_102651f8110ded51",
+        "created_at": "2023-01-28T13:17:00+00:00"
+      },
+      {
+        "memory": "John: Hey Maria, great chatting with you again!",
+        "score": 0.342922,
+        "id": "mem_80c56b56f4f8e6ca",
+        "created_at": "2023-08-05T17:19:00+00:00"
+      },
+      {
+        "memory": "John: Yeah Maria, making memories with family is priceless!",
+        "score": 0.342922,
+        "id": "mem_ac85c8d259e42e8c",
+        "created_at": "2022-12-22T18:10:00+00:00"
+      },
+      {
+        "memory": "Maria: No, I didn't.",
+        "score": 0.338698,
+        "id": "mem_b9059230d34ae534",
+        "created_at": "2023-08-13T15:14:00+00:00"
+      },
+      {
+        "memory": "Maria: Yeah, working with passionate people like you is really motivating.",
+        "score": 0.337029,
+        "id": "mem_35f3e4c821ad274a",
+        "created_at": "2023-05-25T13:24:00+00:00"
+      },
+      {
+        "memory": "It's great that you have your family on this journey with you.",
+        "score": 0.335795,
+        "id": "mem_f2ab884d37207816",
+        "created_at": "2023-05-04T15:18:00+00:00"
+      },
+      {
+        "memory": "user: John: Yeah Maria, making memories with family is priceless!",
+        "score": 0.332099,
+        "id": "mem_ca2960926a88c9e6",
+        "created_at": "2022-12-22T18:10:00+00:00"
+      },
+      {
+        "memory": "Maria: Yeah, last weekend I had a picnic with some friends from church.",
+        "score": 0.332034,
+        "id": "mem_b20dd1e428291523",
+        "created_at": "2023-07-17T15:34:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: You're really inspiring with your commitment.",
+        "score": 0.331394,
+        "id": "mem_c1bd9be65165b6ed",
+        "created_at": "2023-05-04T15:18:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: Cool, so you have a reminder of all that.",
+        "score": 0.331394,
+        "id": "mem_da3dad67ce18d641",
+        "created_at": "2023-06-16T19:20:00+00:00"
+      },
+      {
+        "memory": "John: Hi Maria!",
+        "score": 0.330514,
+        "id": "mem_6f2bfa95e1191cb8",
+        "created_at": "2022-12-22T18:10:00+00:00"
+      },
+      {
+        "memory": "It's great to have a friend like you who shares the same passion.",
+        "score": 0.329989,
+        "id": "mem_87b914d281f07d03",
+        "created_at": "2023-07-07T18:29:00+00:00"
+      },
+      {
+        "memory": "It's great to have a group of people with the same passion for serving.",
+        "score": 0.329989,
+        "id": "mem_3c92a578165b3b1a",
+        "created_at": "2023-01-01T20:30:00+00:00"
+      },
+      {
+        "memory": "Maria: Hey John, great news - I'm now friends with one of my fellow volunteers!",
+        "score": 0.328954,
+        "id": "mem_0fd7a5107e9d242c",
+        "created_at": "2023-01-09T19:06:00+00:00"
+      },
+      {
+        "memory": "It's really cool to have a friend like you who's just as passionate and motivated.",
+        "score": 0.328074,
+        "id": "mem_8ebefc0aef6c1bfa",
+        "created_at": "2023-08-09T20:06:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: Things have been tough for her lately.",
+        "score": 0.324531,
+        "id": "mem_0c73ad58e62346a0",
+        "created_at": "2023-07-03T20:43:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: Glad you have a good support system, John.",
+        "score": 0.324531,
+        "id": "mem_8409b45264ba3d12",
+        "created_at": "2023-03-06T18:03:00+00:00"
+      },
+      {
+        "memory": "How did the extra funding help with building the school?",
+        "score": 0.324531,
+        "id": "mem_2b0691aecc3c6db6",
+        "created_at": "2022-12-17T11:01:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: Yeah, last weekend I had a picnic with some friends from church.",
+        "score": 0.323718,
+        "id": "mem_011b7ee173f79264",
+        "created_at": "2023-07-17T15:34:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: Last weekend I did something new that had an impact on me.",
+        "score": 0.321805,
+        "id": "mem_06eaff2645dc029c",
+        "created_at": "2023-04-07T00:24:00+00:00"
+      },
+      {
+        "memory": "John: Let's do it, Maria!",
+        "score": 0.320902,
+        "id": "mem_252c72d4a1569eec",
+        "created_at": "2023-02-25T20:55:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: No, I didn't.",
+        "score": 0.320638,
+        "id": "mem_cf5f38e7bfa7da4c",
+        "created_at": "2023-08-13T15:14:00+00:00"
+      },
+      {
+        "memory": "It's a wonderful quality to have.",
+        "score": 0.320638,
+        "id": "mem_e218233e3fe05d29",
+        "created_at": "2023-07-03T20:43:00+00:00"
+      },
+      {
+        "memory": "John: No problem, Maria.",
+        "score": 0.319758,
+        "id": "mem_bf756351f58d962f",
+        "created_at": "2023-01-28T13:17:00+00:00"
+      },
+      {
+        "memory": "John: No problem, Maria!",
+        "score": 0.319758,
+        "id": "mem_be611a8c09c90927",
+        "created_at": "2023-05-25T13:24:00+00:00"
+      },
+      {
+        "memory": "user: John: Yeah, Maria, let's keep each other and everyone else motivated to make a difference!",
+        "score": 0.319054,
+        "id": "mem_ad2b9dac52f928c3",
+        "created_at": "2023-08-16T11:08:00+00:00"
+      },
+      {
+        "memory": "How did being in that environment with such motivated people affect you?",
+        "score": 0.31681,
+        "id": "mem_6d9ad472dcb6aad4",
+        "created_at": "2023-04-18T19:34:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: Yeah, at the event, I had a conversation with someone named David.",
+        "score": 0.31681,
+        "id": "mem_4bd55b071574996a",
+        "created_at": "2023-02-05T14:33:00+00:00"
+      },
+      {
+        "memory": "Maria: That's amazing.",
+        "score": 0.316678,
+        "id": "mem_b0ece1f8733efe05",
+        "created_at": "2023-08-16T11:08:00+00:00"
+      },
+      {
+        "memory": "Maria: That's so moving!",
+        "score": 0.316678,
+        "id": "mem_4f8b26757a82ed30",
+        "created_at": "2023-08-03T18:20:00+00:00"
+      },
+      {
+        "memory": "Maria: I totally agree.",
+        "score": 0.316678,
+        "id": "mem_1608ca4fa168f2b4",
+        "created_at": "2023-07-05T18:59:00+00:00"
+      },
+      {
+        "memory": "Maria: No problem, John.",
+        "score": 0.316678,
+        "id": "mem_3c9308535dab5fee",
+        "created_at": "2023-04-02T09:36:00+00:00"
+      },
+      {
+        "memory": "Maria: Of course, John.",
+        "score": 0.316678,
+        "id": "mem_67160d446f6d51bb",
+        "created_at": "2023-02-05T14:33:00+00:00"
+      },
+      {
+        "memory": "John: Yeah, Maria, let's keep each other and everyone else motivated to make a difference!",
+        "score": 0.31487,
+        "id": "mem_94fd35cb3e306b45",
+        "created_at": "2023-08-16T11:08:00+00:00"
+      },
+      {
+        "memory": "user: John: Let's do it, Maria!",
+        "score": 0.313671,
+        "id": "mem_aa4ccf67aa34769c",
+        "created_at": "2023-02-25T20:55:00+00:00"
+      },
+      {
+        "memory": "user: John: Talking with the group of people who were as stoked as me on tech for change was awesome!",
+        "score": 0.313374,
+        "id": "mem_20e80b3ac57515c6",
+        "created_at": "2023-04-18T19:34:00+00:00"
+      },
+      {
+        "memory": "Here's a pic of us at dinner.",
+        "score": 0.313334,
+        "id": "mem_e0829fba818fd0cd",
+        "created_at": "2022-12-22T18:10:00+00:00"
+      },
+      {
+        "memory": "user: John: Hi Maria!",
+        "score": 0.312454,
+        "id": "mem_8b111e0609be57f3",
+        "created_at": "2022-12-22T18:10:00+00:00"
+      },
+      {
+        "memory": "Maria: That picture is amazing!",
+        "score": 0.311471,
+        "id": "mem_6b79b2eafa881d32",
+        "created_at": "2023-07-05T18:59:00+00:00"
+      },
+      {
+        "memory": "Maria: That picture is awesome!",
+        "score": 0.311471,
+        "id": "mem_47dd97231c084da4",
+        "created_at": "2023-07-05T18:59:00+00:00"
+      },
+      {
+        "memory": "Maria: That picture is so cute!",
+        "score": 0.311471,
+        "id": "mem_852894270786ff1f",
+        "created_at": "2023-08-13T15:14:00+00:00"
+      },
+      {
+        "memory": "John:  Yep, let's keep making great memories with our loved ones and cherishing the time we have.",
+        "score": 0.310855,
+        "id": "mem_88eb020e75694422",
+        "created_at": "2022-12-22T18:10:00+00:00"
+      },
+      {
+        "memory": "Have a good day!",
+        "score": 0.310782,
+        "id": "mem_3335662a7215fd26",
+        "created_at": "2023-08-13T15:14:00+00:00"
+      },
+      {
+        "memory": "user: John: Congrats, Maria!",
+        "score": 0.310591,
+        "id": "mem_d033b10947d9a594",
+        "created_at": "2023-06-16T19:20:00+00:00"
+      },
+      {
+        "memory": "user: John: Woohoo, Maria!",
+        "score": 0.310591,
+        "id": "mem_937d1424347162e6",
+        "created_at": "2023-07-22T18:21:00+00:00"
+      },
+      {
+        "memory": "user: John: Yes, Maria!",
+        "score": 0.310591,
+        "id": "mem_7e10382ee99d8a13",
+        "created_at": "2023-06-12T14:47:00+00:00"
+      },
+      {
+        "memory": "user: John: No problem, Maria!",
+        "score": 0.310591,
+        "id": "mem_48ade4f3b81c4eee",
+        "created_at": "2023-05-25T13:24:00+00:00"
+      },
+      {
+        "memory": "John: Talking with the group of people who were as stoked as me on tech for change was awesome!",
+        "score": 0.310553,
+        "id": "mem_ca33a9f140272b6e",
+        "created_at": "2023-04-18T19:34:00+00:00"
+      },
+      {
+        "memory": "John: Yes, Maria!",
+        "score": 0.309902,
+        "id": "mem_dd12a21220afa13a",
+        "created_at": "2023-06-12T14:47:00+00:00"
+      },
+      {
+        "memory": "Maria: Yeah, it's tough.",
+        "score": 0.309902,
+        "id": "mem_ed03b2c44663498f",
+        "created_at": "2023-01-09T19:06:00+00:00"
+      },
+      {
+        "memory": "I just started helping out with a food drive for folks who lost their jobs.",
+        "score": 0.30949,
+        "id": "mem_04ac1c676bac951a",
+        "created_at": "2023-02-05T14:33:00+00:00"
+      },
+      {
+        "memory": "user: John: Hey Maria, I've been busy with work and family, but last week I had an unexpected incident on my way home.",
+        "score": 0.308818,
+        "id": "mem_88eed1226a25333a",
+        "created_at": "2023-01-09T19:06:00+00:00"
+      },
+      {
+        "memory": "John: Thanks, Maria.",
+        "score": 0.308494,
+        "id": "mem_683b6332e2cd4919",
+        "created_at": "2022-12-22T18:10:00+00:00"
+      },
+      {
+        "memory": "John: Definitely, Maria.",
+        "score": 0.308494,
+        "id": "mem_c88e8f6f66080269",
+        "created_at": "2022-12-22T18:10:00+00:00"
+      },
+      {
+        "memory": "John: Yeah Maria, it's awesome!",
+        "score": 0.307775,
+        "id": "mem_b9b1912c0f644054",
+        "created_at": "2022-12-22T18:10:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: That's amazing.",
+        "score": 0.307511,
+        "id": "mem_d03aa6cbfc34707b",
+        "created_at": "2023-08-16T11:08:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: Looks fun!",
+        "score": 0.307511,
+        "id": "mem_634fe81bb45613bb",
+        "created_at": "2023-07-22T18:21:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: That's so moving!",
+        "score": 0.307511,
+        "id": "mem_89e53dc2520d6d49",
+        "created_at": "2023-08-03T18:20:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: No way, John!",
+        "score": 0.307511,
+        "id": "mem_0692f05e22644052",
+        "created_at": "2023-04-18T19:34:00+00:00"
+      },
+      {
+        "memory": "It's a relief to have their support.",
+        "score": 0.307511,
+        "id": "mem_f8944167cbbe9958",
+        "created_at": "2023-06-27T00:21:00+00:00"
+      },
+      {
+        "memory": "John: You're right, Maria.",
+        "score": 0.306631,
+        "id": "mem_1122ca38d68c0bd7",
+        "created_at": "2023-08-16T11:08:00+00:00"
+      },
+      {
+        "memory": "John: Take care, Maria.",
+        "score": 0.306631,
+        "id": "mem_6b7a354e03f7ae47",
+        "created_at": "2023-07-05T18:59:00+00:00"
+      },
+      {
+        "memory": "Here's a pic from last Friday with some veterans who are really excited about this.",
+        "score": 0.306065,
+        "id": "mem_f32305603ea19728",
+        "created_at": "2023-05-20T19:38:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: Good to hear that you're finding comfort in the good times you had with Max.",
+        "score": 0.30553,
+        "id": "mem_231e188e317d2113",
+        "created_at": "2023-06-03T11:51:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: She's an amazing learner - so much fun to work with and watch her grow.",
+        "score": 0.30553,
+        "id": "mem_c2fe018fe5921c07",
+        "created_at": "2023-08-13T15:14:00+00:00"
+      },
+      {
+        "memory": "Glad to have you.",
+        "score": 0.305414,
+        "id": "mem_2662e00dcfa7c71a",
+        "created_at": "2023-01-09T19:06:00+00:00"
+      },
+      {
+        "memory": "Maria: No worries, John.",
+        "score": 0.305414,
+        "id": "mem_a584b1ef7915ad4b",
+        "created_at": "2023-01-01T20:30:00+00:00"
+      },
+      {
+        "memory": "Maria: No problem, John!",
+        "score": 0.305414,
+        "id": "mem_477aec2ec0852c1e",
+        "created_at": "2023-04-10T18:13:00+00:00"
+      },
+      {
+        "memory": "John: Hey Maria, I've been busy with work and family, but last week I had an unexpected incident on my way home.",
+        "score": 0.305241,
+        "id": "mem_80c8a331083f0de0",
+        "created_at": "2023-01-09T19:06:00+00:00"
+      },
+      {
+        "memory": "Don't be afraid to take risks-- I'm 100% behind you!",
+        "score": 0.30496,
+        "id": "mem_b8df458459cba04f",
+        "created_at": "2023-05-06T17:04:00+00:00"
+      },
+      {
+        "memory": "user: John: Yeah Maria, it's awesome!",
+        "score": 0.304713,
+        "id": "mem_2efe9ba21786862a",
+        "created_at": "2022-12-22T18:10:00+00:00"
+      },
+      {
+        "memory": "user: John: Maria, thanks a lot!",
+        "score": 0.304713,
+        "id": "mem_7f070c2512933599",
+        "created_at": "2023-04-02T09:36:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: Yeah, let's do it, John!",
+        "score": 0.304713,
+        "id": "mem_74556ade41e918e8",
+        "created_at": "2023-01-09T19:06:00+00:00"
+      },
+      {
+        "memory": "John: It's definitely isn't, Maria.",
+        "score": 0.304695,
+        "id": "mem_75324e17537fccb0",
+        "created_at": "2023-01-28T13:17:00+00:00"
+      },
+      {
+        "memory": "John: I totally agree, Maria!",
+        "score": 0.304695,
+        "id": "mem_dc3876d28295ae67",
+        "created_at": "2023-02-25T20:55:00+00:00"
+      },
+      {
+        "memory": "user: John:  Yep, let's keep making great memories with our loved ones and cherishing the time we have.",
+        "score": 0.304361,
+        "id": "mem_5977d801e6009cc0",
+        "created_at": "2022-12-22T18:10:00+00:00"
+      },
+      {
+        "memory": "We'll keep going and never give up.",
+        "score": 0.304151,
+        "id": "mem_e51988f54b57ceb4",
+        "created_at": "2023-05-06T17:04:00+00:00"
+      },
+      {
+        "memory": "You never know the difference a kind gesture can make.",
+        "score": 0.304151,
+        "id": "mem_3cbfe5c1e4c03e67",
+        "created_at": "2023-01-28T13:17:00+00:00"
+      },
+      {
+        "memory": "Who are they?",
+        "score": 0.30383,
+        "id": "mem_3cac244ff9555735",
+        "created_at": "2023-04-18T19:34:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: I bet!",
+        "score": 0.30383,
+        "id": "mem_5e1703d4509505b1",
+        "created_at": "2023-04-02T09:36:00+00:00"
+      },
+      {
+        "memory": "Have a great time!",
+        "score": 0.30383,
+        "id": "mem_bdf32f9681d9d043",
+        "created_at": "2023-08-13T15:14:00+00:00"
+      },
+      {
+        "memory": "Maria: That sounds amazing!",
+        "score": 0.303551,
+        "id": "mem_2b342330c899e3c5",
+        "created_at": "2023-04-18T19:34:00+00:00"
+      },
+      {
+        "memory": "Maria: Hey John, thanks.",
+        "score": 0.303551,
+        "id": "mem_7254390eb0ab3c86",
+        "created_at": "2023-06-27T00:21:00+00:00"
+      },
+      {
+        "memory": "Maria: Great news John!",
+        "score": 0.303551,
+        "id": "mem_d127b0cd874e71f3",
+        "created_at": "2023-05-04T15:18:00+00:00"
+      },
+      {
+        "memory": "Maria: That's really cool.",
+        "score": 0.303551,
+        "id": "mem_f7a2f0b426ca87d2",
+        "created_at": "2023-04-07T00:24:00+00:00"
+      },
+      {
+        "memory": "John: Thanks a lot, Maria.",
+        "score": 0.303287,
+        "id": "mem_d407af4b281090c5",
+        "created_at": "2022-12-22T18:10:00+00:00"
+      },
+      {
+        "memory": "I may have found a job at a tech company I like that needs my mechanical skills for their hardware team.",
+        "score": 0.30299,
+        "id": "mem_634b1ecf86c0258e",
+        "created_at": "2023-08-05T17:19:00+00:00"
+      },
+      {
+        "memory": "user: John: Hey Maria, I've been busy doing the petition I started - it's tricky but it's been cool getting back in touch with my buddies and gaining support.",
+        "score": 0.302884,
+        "id": "mem_0576aac46960c101",
+        "created_at": "2023-05-25T13:24:00+00:00"
+      },
+      {
+        "memory": "Maria: That's really great of you.",
+        "score": 0.302513,
+        "id": "mem_75c4abcee41e6cd6",
+        "created_at": "2023-02-05T14:33:00+00:00"
+      },
+      {
+        "memory": "Never saw this coming.",
+        "score": 0.30221,
+        "id": "mem_5a5f3d0203c08e01",
+        "created_at": "2023-08-05T17:19:00+00:00"
+      },
+      {
+        "memory": "Your determination never ceases to amaze me.",
+        "score": 0.30221,
+        "id": "mem_aeb0fbd158937879",
+        "created_at": "2023-07-07T18:29:00+00:00"
+      },
+      {
+        "memory": "It's like a never-ending journey of learning and growth.",
+        "score": 0.30221,
+        "id": "mem_07e23faa48e507c5",
+        "created_at": "2023-05-04T15:18:00+00:00"
+      },
+      {
+        "memory": "I can only imagine how tough it must be.",
+        "score": 0.30221,
+        "id": "mem_d692a0ec4449635e",
+        "created_at": "2023-08-05T17:19:00+00:00"
+      },
+      {
+        "memory": "Your little one is so smart and keen to learn, must be awesome!",
+        "score": 0.30221,
+        "id": "mem_abf6528cbd9675d2",
+        "created_at": "2023-08-13T15:14:00+00:00"
+      },
+      {
+        "memory": "Here's a pic of my family - they're the reason why I never give up.",
+        "score": 0.30221,
+        "id": "mem_34ddcb39ec1bd8a4",
+        "created_at": "2022-12-22T18:10:00+00:00"
+      },
+      {
+        "memory": "I can imagine that must be challenging, but it's great to see you embracing them.",
+        "score": 0.30221,
+        "id": "mem_5965cc7699798e00",
+        "created_at": "2023-06-12T14:47:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: Yeah John, it's super important to teach kids about veterans and what they did for us.",
+        "score": 0.30211,
+        "id": "mem_002f569c5cd8bbd5",
+        "created_at": "2023-08-03T18:20:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: We organized a meal for the shelter residents and I helped with getting everything ready.",
+        "score": 0.302105,
+        "id": "mem_87976c20c6aead78",
+        "created_at": "2023-04-10T18:13:00+00:00"
+      },
+      {
+        "memory": "user: John: You're right, Maria.",
+        "score": 0.301633,
+        "id": "mem_bffed0d4ad4c53b9",
+        "created_at": "2023-08-16T11:08:00+00:00"
+      },
+      {
+        "memory": "user: John: It's definitely isn't, Maria.",
+        "score": 0.301633,
+        "id": "mem_ac546fa3e38760dd",
+        "created_at": "2023-01-28T13:17:00+00:00"
+      },
+      {
+        "memory": "user: John: I totally agree, Maria!",
+        "score": 0.301633,
+        "id": "mem_80d8b9c06ee0dd47",
+        "created_at": "2023-02-25T20:55:00+00:00"
+      },
+      {
+        "memory": "user: John: Yep, Maria.",
+        "score": 0.300735,
+        "id": "mem_7a1813ec0823186a",
+        "created_at": "2023-05-06T17:04:00+00:00"
+      },
+      {
+        "memory": "What did you make?",
+        "score": 0.300735,
+        "id": "mem_19f2fbfb8280f93b",
+        "created_at": "2022-12-22T18:10:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: Yeah, sure is.",
+        "score": 0.300735,
+        "id": "mem_3bab24b930a46809",
+        "created_at": "2023-02-25T20:55:00+00:00"
+      },
+      {
+        "memory": "Where did you find it?",
+        "score": 0.300207,
+        "id": "mem_3c8ea12e046f7cbc",
+        "created_at": "2023-01-01T20:30:00+00:00"
+      },
+      {
+        "memory": "Thanks for sharing it with me.",
+        "score": 0.300207,
+        "id": "mem_a5f9594f63b1ea44",
+        "created_at": "2023-06-27T00:21:00+00:00"
+      },
+      {
+        "memory": "John: Maria, thank you!",
+        "score": 0.299855,
+        "id": "mem_e739412c06f5edec",
+        "created_at": "2023-01-09T19:06:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: Yeah, John!",
+        "score": 0.299327,
+        "id": "mem_a682bbeda09b095e",
+        "created_at": "2022-12-22T18:10:00+00:00"
+      },
+      {
+        "memory": "user: John: Thanks, Maria.",
+        "score": 0.299327,
+        "id": "mem_e48d4d39f2080cb2",
+        "created_at": "2022-12-22T18:10:00+00:00"
+      },
+      {
+        "memory": "user: John: Definitely, Maria.",
+        "score": 0.299327,
+        "id": "mem_1c48e4497eb0c322",
+        "created_at": "2022-12-22T18:10:00+00:00"
+      },
+      {
+        "memory": "user: John: Awesome, Maria!",
+        "score": 0.299327,
+        "id": "mem_17840f6fcd064f37",
+        "created_at": "2023-05-04T15:18:00+00:00"
+      },
+      {
+        "memory": "user: John: Hey Maria!",
+        "score": 0.299327,
+        "id": "mem_f1cd12fd1fe52754",
+        "created_at": "2022-12-17T11:01:00+00:00"
+      },
+      {
+        "memory": "user: John: Cool, Maria!",
+        "score": 0.299327,
+        "id": "mem_54147c698fcda4df",
+        "created_at": "2023-03-06T18:03:00+00:00"
+      },
+      {
+        "memory": "user: John: Sure, Maria!",
+        "score": 0.299327,
+        "id": "mem_50aba8619b3c7efb",
+        "created_at": "2023-05-04T15:18:00+00:00"
+      },
+      {
+        "memory": "user: John: No problem, Maria.",
+        "score": 0.299327,
+        "id": "mem_9494112da469facb",
+        "created_at": "2023-01-28T13:17:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: Yeah, it's tough.",
+        "score": 0.299327,
+        "id": "mem_da5e12e9f8d1a01d",
+        "created_at": "2023-01-09T19:06:00+00:00"
+      },
+      {
+        "memory": "user: John: Way to go, Maria!",
+        "score": 0.299327,
+        "id": "mem_a16e59901da19dc3",
+        "created_at": "2023-04-10T18:13:00+00:00"
+      },
+      {
+        "memory": "Maria: Yeah, nature is amazing like that.",
+        "score": 0.29898,
+        "id": "mem_276a4cc6fa55fe7c",
+        "created_at": "2023-08-11T00:10:00+00:00"
+      },
+      {
+        "memory": "Maria: Yeah, that's why I love volunteering!",
+        "score": 0.29898,
+        "id": "mem_32990d1fd357a05f",
+        "created_at": "2023-07-03T20:43:00+00:00"
+      },
+      {
+        "memory": "John: Wow, Maria, that's awesome!",
+        "score": 0.298817,
+        "id": "mem_9c3ceea79b0e5359",
+        "created_at": "2023-04-10T18:13:00+00:00"
+      },
+      {
+        "memory": "John: Hey Maria, that's awesome!",
+        "score": 0.298817,
+        "id": "mem_947d42d77c1f0981",
+        "created_at": "2023-07-31T13:59:00+00:00"
+      },
+      {
+        "memory": "John: Wow Maria, that's awesome!",
+        "score": 0.298817,
+        "id": "mem_7dcbedee5249fffc",
+        "created_at": "2023-05-04T15:18:00+00:00"
+      },
+      {
+        "memory": "John: Hi Maria, thanks for asking.",
+        "score": 0.298817,
+        "id": "mem_70b5f1aa32f3e905",
+        "created_at": "2023-05-20T19:38:00+00:00"
+      },
+      {
+        "memory": "John: Hey Maria, I've been busy doing the petition I started - it's tricky but it's been cool getting back in touch with my buddies and gaining support.",
+        "score": 0.298817,
+        "id": "mem_2cd0f7a68192acfe",
+        "created_at": "2023-05-25T13:24:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: That sounds amazing!",
+        "score": 0.298553,
+        "id": "mem_a5ccbce71477eaa4",
+        "created_at": "2023-04-18T19:34:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: You got this!",
+        "score": 0.298553,
+        "id": "mem_17e98ba7b2e06de6",
+        "created_at": "2023-08-05T17:19:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: John, that's great!",
+        "score": 0.298553,
+        "id": "mem_085403b13bcee327",
+        "created_at": "2023-08-05T17:19:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: John, that's awesome!",
+        "score": 0.298553,
+        "id": "mem_9a6ab023926e3316",
+        "created_at": "2023-08-09T20:06:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: That picture is amazing!",
+        "score": 0.298553,
+        "id": "mem_2e91dd185bc7920d",
+        "created_at": "2023-07-05T18:59:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: Hey John, I'm good.",
+        "score": 0.298553,
+        "id": "mem_9057d9237b610c5e",
+        "created_at": "2023-05-20T19:38:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: That picture is awesome!",
+        "score": 0.298553,
+        "id": "mem_2104b5eeda3763a0",
+        "created_at": "2023-07-05T18:59:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: That picture is so cute!",
+        "score": 0.298553,
+        "id": "mem_d42c963562ff817e",
+        "created_at": "2023-08-13T15:14:00+00:00"
+      },
+      {
+        "memory": "It's so awesome to have friends like you.",
+        "score": 0.298553,
+        "id": "mem_f817bffbc39f9581",
+        "created_at": "2023-06-03T11:51:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: Yeah, John.",
+        "score": 0.298447,
+        "id": "mem_6cdc531a3d74c756",
+        "created_at": "2022-12-22T18:10:00+00:00"
+      },
+      {
+        "memory": "user: John: Wow, Maria, that's awesome!",
+        "score": 0.2981,
+        "id": "mem_8455d67273af5132",
+        "created_at": "2023-04-10T18:13:00+00:00"
+      },
+      {
+        "memory": "user: John: Wow Maria, that's awesome!",
+        "score": 0.2981,
+        "id": "mem_ff642ef505ca78bf",
+        "created_at": "2023-05-04T15:18:00+00:00"
+      },
+      {
+        "memory": "John: Yeah, they are my rock in tough times and always cheer me on.",
+        "score": 0.297842,
+        "id": "mem_18748daa90a09dcd",
+        "created_at": "2022-12-22T18:10:00+00:00"
+      },
+      {
+        "memory": "You're always dreaming up ways to make a difference and I'm sure your drive will pay off.",
+        "score": 0.297842,
+        "id": "mem_b75aa0e74bc229a4",
+        "created_at": "2023-05-06T17:04:00+00:00"
+      },
+      {
+        "memory": "John: Nice job, Maria!",
+        "score": 0.296775,
+        "id": "mem_f9cbbeb502d6c6bb",
+        "created_at": "2023-02-05T14:33:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: No worries, John.",
+        "score": 0.296247,
+        "id": "mem_9e66a28b6e285b12",
+        "created_at": "2023-01-01T20:30:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: I totally agree.",
+        "score": 0.296247,
+        "id": "mem_0bee5fb4ebd193bb",
+        "created_at": "2023-07-05T18:59:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: No problem, John!",
+        "score": 0.296247,
+        "id": "mem_d0e255470de21691",
+        "created_at": "2023-04-10T18:13:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: No problem, John.",
+        "score": 0.296247,
+        "id": "mem_c31bb4699fe5022c",
+        "created_at": "2023-04-02T09:36:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: Of course, John.",
+        "score": 0.296247,
+        "id": "mem_844818a43899ac87",
+        "created_at": "2023-02-05T14:33:00+00:00"
+      },
+      {
+        "memory": "How did you handle it?",
+        "score": 0.296247,
+        "id": "mem_3f748e273fb55589",
+        "created_at": "2023-01-09T19:06:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: Count me in, John!",
+        "score": 0.296247,
+        "id": "mem_dae75732d99c0b59",
+        "created_at": "2023-05-20T19:38:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: Way to go, John!",
+        "score": 0.296247,
+        "id": "mem_1341f4da3ad4070f",
+        "created_at": "2023-04-02T09:36:00+00:00"
+      },
+      {
+        "memory": "assistant: Maria: It was in London.",
+        "score": 0.296247,
+        "id": "mem_51ee358fef0ed872",
+        "created_at": "2023-03-06T18:03:00+00:00"
+      },
+      {
+        "memory": "John: The sign says, \"Always look on the bright side of life\".",
+        "score": 0.295901,
+        "id": "mem_337c8e763e21e1b5",
+        "created_at": "2023-04-07T00:24:00+00:00"
+      },
+      {
+        "memory": "It's always nice to know that what I'm doing is making an impact.",
+        "score": 0.295901,
+        "id": "mem_a744e89bd8e5cc54",
+        "created_at": "2023-06-27T00:21:00+00:00"
+      },
+      {
+        "memory": "It reminds me to always look out for others, especially when they're feeling down.",
+        "score": 0.295901,
+        "id": "mem_1248ee87f485e15a",
+        "created_at": "2023-01-28T13:17:00+00:00"
+      },
+      {
+        "memory": "John: I've always had a great respect for our military and wanted to show my support.",
+        "score": 0.295901,
+        "id": "mem_16891cea0d5e9c4a",
+        "created_at": "2023-07-03T20:43:00+00:00"
+      },
+      {
+        "memory": "Don't feel like I'm making much of an impact here, which has me questioning my decisions and goals.",
+        "score": 0.295901,
+        "id": "mem_44cc6aa2f5bb26a3",
+        "created_at": "2023-08-11T00:10:00+00:00"
+      },
+      {
+        "memory": "John: I just try to find things that we'll have fun with, like a walk or picnic in the park, or finding events in our town and beyond.",
+        "score": 0.295737,
+        "id": "mem_5366ed7849978ad6",
+        "created_at": "2023-03-06T18:03:00+00:00"
+      },
+      {
+        "memory": "user: John: Glad I could help, Maria.",
+        "score": 0.29502,
+        "id": "mem_6d60038e6c0c25b7",
+        "created_at": "2023-04-10T18:13:00+00:00"
+      },
+      {
+        "memory": "It's an awesome way to connect and have a blast.",
+        "score": 0.29502,
+        "id": "mem_84abb66710ac5bc6",
+        "created_at": "2022-12-22T18:10:00+00:00"
+      },
+      {
+        "memory": "Meal times are always fun.",
+        "score": 0.29396,
+        "id": "mem_2792d3cb35162936",
+        "created_at": "2022-12-22T18:10:00+00:00"
+      },
+      {
+        "memory": "They're always there for us.",
+        "score": 0.29396,
+        "id": "mem_6045e48c63b347ba",
+        "created_at": "2023-08-13T15:14:00+00:00"
+      },
+      {
+        "memory": "I'll always be there for you.",
+        "score": 0.29396,
+        "id": "mem_69ee86cb85b1fb51",
+        "created_at": "2023-02-05T14:33:00+00:00"
+      },
+      {
+        "memory": "Thanks for always being there for me.",
+        "score": 0.29396,
+        "id": "mem_798c18192b60114f",
+        "created_at": "2023-02-05T14:33:00+00:00"
+      },
+      {
+        "memory": "Community events like that are always amazing.",
+        "score": 0.29396,
+        "id": "mem_7e2ec0cb373a11ba",
+        "created_at": "2023-08-09T20:06:00+00:00"
+      },
+      {
+        "memory": "What sparked your decision to start this initiative?",
+        "score": 0.29396,
+        "id": "mem_26d407fba8916014",
+        "created_at": "2023-02-05T14:33:00+00:00"
+      },
+      {
+        "memory": "I've always been passionate about veterans and their rights.",
+        "score": 0.29396,
+        "id": "mem_3a9c654f7ae2b36c",
+        "created_at": "2023-05-20T19:38:00+00:00"
+      },
+      {
+        "memory": "Trips like these are great - always full of amazing memories!",
+        "score": 0.29396,
+        "id": "mem_b32d4b4615f624d7",
+        "created_at": "2023-06-16T19:20:00+00:00"
+      }
+    ],
+    "search_latency_ms": 403.9,
+    "total_results": 200
+  },
+  "cutoff_results": {
+    "top_200": {
+      "judgment": "WRONG",
+      "score": 0.0,
+      "generated_answer": "The memories do not contain any information about who Maria had dinner with on May 3, 2023.",
+      "memories_evaluated": 200,
+      "reason": "The generated answer does not mention Maria having dinner with her mother or any related information, thus it contains zero correct items from the gold answer."
+    }
+  }
+}

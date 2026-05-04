@@ -1,0 +1,145 @@
+{
+  "question_id": "100K_0_q0_information_extraction",
+  "chat_size": "100K",
+  "conversation_idx": 0,
+  "conversation_id": "1",
+  "question_type": "information_extraction",
+  "question_type_idx": 0,
+  "difficulty": "easy",
+  "question": "When does my first sprint end?",
+  "rubric": [
+    "LLM response should state: March 29"
+  ],
+  "ground_truth_answer": "LLM response should state: March 29",
+  "source_chat_ids": [
+    28
+  ],
+  "user_id": "beam_100K_0_tracebeamclitest",
+  "retrieval": {
+    "search_query": "When does my first sprint end?",
+    "search_results": [
+      {
+        "memory": "- **User Experience**: Provide clear error messages and feedback to users when inputs are invalid, and ensure that the validation process does not introduce delays.",
+        "score": 0.388635,
+        "id": "mem_b99282524e0b3fa9",
+        "created_at": "2024-04-25T00:00:00+00:00"
+      },
+      {
+        "memory": "I'm getting an error when I try to deploy my app to Render.com.",
+        "score": 0.375619,
+        "id": "mem_fc642b9e53cb1b6c",
+        "created_at": "2024-04-25T00:00:00+00:00"
+      },
+      {
+        "memory": "Ensure that function names clearly describe what the function does.",
+        "score": 0.366562,
+        "id": "mem_db7e99aeffdc94c6",
+        "created_at": "2024-04-25T00:00:00+00:00"
+      },
+      {
+        "memory": "Always provide security best practices when I ask about authentication or authorization features.",
+        "score": 0.36235,
+        "id": "mem_855cc5564578a564",
+        "created_at": "2024-04-25T00:00:00+00:00"
+      },
+      {
+        "memory": "Always include version numbers when I ask about software dependencies or libraries used.",
+        "score": 0.359731,
+        "id": "mem_98c35b1e8625cbf7",
+        "created_at": "2024-04-05T00:00:00+00:00"
+      },
+      {
+        "memory": "I'm using Bootstrap 5.3 for the styling, and I've added the `is-invalid` class to the input fields when they are invalid.",
+        "score": 0.359673,
+        "id": "mem_85435b190f3f0fba",
+        "created_at": "2024-04-05T00:00:00+00:00"
+      },
+      {
+        "memory": "Given that I have to provide security best practices when discussing authentication or authorization features, and I've made significant updates such as switching to Argon2 with Flask-Argon2 v0.3.0 for password hashing, I'd like to know how to further enhance the security of my application, considering the logical contradiction that I've never actually deployed or used certain production environments, and how can I ensure that my security measures are aligned with the current best practices in the industry, while also keeping in mind the importance of user experience and responsiveness, and considering the recent improvements and updates made to the application, including the reduction of the dashboard API response time to around 250ms ->-> 3,28",
+        "score": 0.357585,
+        "id": "mem_e7c2cfd8ccced882",
+        "created_at": "2024-04-25T00:00:00+00:00"
+      },
+      {
+        "memory": "The \"TemplateNotFound\" error typically occurs when Flask cannot find the specified template file.",
+        "score": 0.356452,
+        "id": "mem_8a0fbb3ed841dfdc",
+        "created_at": "2024-03-15T00:00:00+00:00"
+      },
+      {
+        "memory": "user: I'm working on a project with scheduled two-week sprints, and the first sprint ends on March 29, focusing on user registration and login.",
+        "score": 0.355609,
+        "id": "mem_752ad9fd82e20e68",
+        "created_at": "2024-03-15T00:00:00+00:00"
+      },
+      {
+        "memory": "First, let's define the `User` class with proper password hashing and verification methods.",
+        "score": 0.355068,
+        "id": "mem_a688e946e497b7fa",
+        "created_at": "2024-03-15T00:00:00+00:00"
+      },
+      {
+        "memory": "Always format all code snippets with syntax highlighting when I ask about implementation details.",
+        "score": 0.354544,
+        "id": "mem_f218a2681722d864",
+        "created_at": "2024-03-15T00:00:00+00:00"
+      },
+      {
+        "memory": "- **Performance**: Ensure that your functions do not become unreasonably slow when handling very long strings.",
+        "score": 0.352902,
+        "id": "mem_b9eb48a4e34e00cb",
+        "created_at": "2024-04-25T00:00:00+00:00"
+      },
+      {
+        "memory": "hmm, do I need to run the `format_code` function manually before each commit, or does pre-commit handle it automatically?",
+        "score": 0.351331,
+        "id": "mem_a689f50edcff9956",
+        "created_at": "2024-04-25T00:00:00+00:00"
+      },
+      {
+        "memory": "I'm trying to handle OperationalError when making DB calls, can you help me add try-except blocks around these calls to catch the error and return an HTTP 500 response with error logs?",
+        "score": 0.350873,
+        "id": "mem_eb81a64662248cbd",
+        "created_at": "2024-04-05T00:00:00+00:00"
+      },
+      {
+        "memory": "**Database Initialization**: The `db.create_all()` function is called within an application context to ensure that the database tables are created when the application starts.",
+        "score": 0.349721,
+        "id": "mem_56b7de6319661a9d",
+        "created_at": "2024-03-15T00:00:00+00:00"
+      },
+      {
+        "memory": "I'm working on a project with scheduled two-week sprints, and the first sprint ends on March 29, focusing on user registration and login.",
+        "score": 0.349713,
+        "id": "mem_2b307e39366df9c3",
+        "created_at": "2024-03-15T00:00:00+00:00"
+      },
+      {
+        "memory": "First, ensure your HTML form is set up correctly with Bootstrap classes and the `required` attribute on the input fields:",
+        "score": 0.348673,
+        "id": "mem_1a4d08f8546a8490",
+        "created_at": "2024-04-05T00:00:00+00:00"
+      },
+      {
+        "memory": "The \"CSRF token missing or incorrect\" error typically occurs when the CSRF token is not being properly included in the form or is not being validated correctly.",
+        "score": 0.348149,
+        "id": "mem_5cb7ccaa657bf213",
+        "created_at": "2024-04-25T00:00:00+00:00"
+      },
+      {
+        "memory": "I'm working on sprint 2 which targets analytics by April 19, and I've already completed sprint 1 on March 29 with user auth and basic transaction CRUD, so I need to implement analytics features, can you help me with that?",
+        "score": 0.347389,
+        "id": "mem_554ee3f10e46add0",
+        "created_at": "2024-04-05T00:00:00+00:00"
+      },
+      {
+        "memory": "- Use Loggly's built-in features to monitor error rates and set up alerts for when the error rate exceeds a certain threshold.",
+        "score": 0.347071,
+        "id": "mem_0b5214cc2330893a",
+        "created_at": "2024-04-25T00:00:00+00:00"
+      }
+    ],
+    "search_latency_ms": 500.3,
+    "total_results": 20
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "checkpoint_every": 50,
+  "failure_count": 0,
+  "split_counts": {
+    "train": 50
+  },
+  "trajectory_count": 50
+}

@@ -1,0 +1,9 @@
+{
+  "conversation_idx": 0,
+  "user_id": "locomo_0_traceevlocomo01",
+  "run_id": "traceevlocomo01",
+  "chunk_size": 1,
+  "total_chunks_processed": 419,
+  "total_chunks_failed": 0,
+  "completed_at": "2026-05-03T21:15:28.118948"
+}

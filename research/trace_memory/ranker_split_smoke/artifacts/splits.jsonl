@@ -1,0 +1,137 @@
+{"case_id": "case", "dataset": "LongMemEval", "domain": "chat", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "LongMemEval", "domain": "chat", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "LongMemEval", "domain": "chat", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "LongMemEval", "domain": "chat", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "LongMemEval", "domain": "chat", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "LongMemEval", "domain": "chat", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "LongMemEval", "domain": "chat", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "LongMemEval", "domain": "chat", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "LongMemEval", "domain": "chat", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "LongMemEval", "domain": "chat", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "LongMemEval", "domain": "chat", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "LongMemEval", "domain": "chat", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "LongMemEval", "domain": "chat", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "LongMemEval", "domain": "chat", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "LongMemEval", "domain": "chat", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "LongMemEval", "domain": "chat", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "LongMemEval", "domain": "chat", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "LongMemEval", "domain": "chat", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "LongMemEval", "domain": "chat", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "LongMemEval", "domain": "chat", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "MTRAG", "domain": "rag", "split": "train", "turn_count": 10}
+{"case_id": "case", "dataset": "MTRAG", "domain": "rag", "split": "train", "turn_count": 10}
+{"case_id": "case", "dataset": "MTRAG", "domain": "rag", "split": "train", "turn_count": 14}
+{"case_id": "case", "dataset": "MTRAG", "domain": "rag", "split": "train", "turn_count": 14}
+{"case_id": "case", "dataset": "MTRAG", "domain": "rag", "split": "train", "turn_count": 14}
+{"case_id": "case", "dataset": "MTRAG", "domain": "rag", "split": "train", "turn_count": 12}
+{"case_id": "case", "dataset": "MTRAG", "domain": "rag", "split": "train", "turn_count": 14}
+{"case_id": "case", "dataset": "MTRAG", "domain": "rag", "split": "train", "turn_count": 14}
+{"case_id": "case", "dataset": "MTRAG", "domain": "rag", "split": "train", "turn_count": 12}
+{"case_id": "case", "dataset": "MTRAG", "domain": "rag", "split": "train", "turn_count": 14}
+{"case_id": "case", "dataset": "MTRAG", "domain": "rag", "split": "train", "turn_count": 12}
+{"case_id": "case", "dataset": "MTRAG", "domain": "rag", "split": "train", "turn_count": 14}
+{"case_id": "case", "dataset": "MTRAG", "domain": "rag", "split": "train", "turn_count": 12}
+{"case_id": "case", "dataset": "MTRAG", "domain": "rag", "split": "train", "turn_count": 14}
+{"case_id": "case", "dataset": "MTRAG", "domain": "rag", "split": "train", "turn_count": 14}
+{"case_id": "case", "dataset": "MTRAG", "domain": "rag", "split": "train", "turn_count": 14}
+{"case_id": "0", "dataset": "RAGTruth", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "1", "dataset": "RAGTruth", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "2", "dataset": "RAGTruth", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "3", "dataset": "RAGTruth", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "4", "dataset": "RAGTruth", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "5", "dataset": "RAGTruth", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "6", "dataset": "RAGTruth", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "7", "dataset": "RAGTruth", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "8", "dataset": "RAGTruth", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "9", "dataset": "RAGTruth", "domain": "grounding", "split": "dev", "turn_count": 1}
+{"case_id": "10", "dataset": "RAGTruth", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "11", "dataset": "RAGTruth", "domain": "grounding", "split": "dev", "turn_count": 1}
+{"case_id": "12", "dataset": "RAGTruth", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "13", "dataset": "RAGTruth", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "14", "dataset": "RAGTruth", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "15", "dataset": "RAGTruth", "domain": "grounding", "split": "test", "turn_count": 1}
+{"case_id": "16", "dataset": "RAGTruth", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "17", "dataset": "RAGTruth", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "18", "dataset": "RAGTruth", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "19", "dataset": "RAGTruth", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "GaRAGe", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "GaRAGe", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "GaRAGe", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "GaRAGe", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "GaRAGe", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "GaRAGe", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "GaRAGe", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "GaRAGe", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "GaRAGe", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "GaRAGe", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "GaRAGe", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "GaRAGe", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "GaRAGe", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "GaRAGe", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "GaRAGe", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "GaRAGe", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "GaRAGe", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "GaRAGe", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "GaRAGe", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "GaRAGe", "domain": "grounding", "split": "train", "turn_count": 1}
+{"case_id": "AnalogJ__lexicon-336", "dataset": "SWE-agent trajectories", "domain": "code", "split": "train", "turn_count": 93}
+{"case_id": "AnalogJ__lexicon-336", "dataset": "SWE-agent trajectories", "domain": "code", "split": "train", "turn_count": 51}
+{"case_id": "AnalogJ__lexicon-336", "dataset": "SWE-agent trajectories", "domain": "code", "split": "train", "turn_count": 59}
+{"case_id": "AnalogJ__lexicon-336", "dataset": "SWE-agent trajectories", "domain": "code", "split": "train", "turn_count": 33}
+{"case_id": "AnalogJ__lexicon-336", "dataset": "SWE-agent trajectories", "domain": "code", "split": "train", "turn_count": 41}
+{"case_id": "AnalogJ__lexicon-336", "dataset": "SWE-agent trajectories", "domain": "code", "split": "train", "turn_count": 19}
+{"case_id": "AnalogJ__lexicon-336", "dataset": "SWE-agent trajectories", "domain": "code", "split": "train", "turn_count": 311}
+{"case_id": "AnalogJ__lexicon-336", "dataset": "SWE-agent trajectories", "domain": "code", "split": "train", "turn_count": 29}
+{"case_id": "AnalogJ__lexicon-336", "dataset": "SWE-agent trajectories", "domain": "code", "split": "train", "turn_count": 23}
+{"case_id": "AnalogJ__lexicon-336", "dataset": "SWE-agent trajectories", "domain": "code", "split": "train", "turn_count": 33}
+{"case_id": "AnalogJ__lexicon-336", "dataset": "SWE-agent trajectories", "domain": "code", "split": "train", "turn_count": 83}
+{"case_id": "Azure__azure-functions-python-worker-890", "dataset": "SWE-agent trajectories", "domain": "code", "split": "train", "turn_count": 17}
+{"case_id": "Azure__azure-functions-python-worker-890", "dataset": "SWE-agent trajectories", "domain": "code", "split": "train", "turn_count": 21}
+{"case_id": "Azure__azure-functions-python-worker-890", "dataset": "SWE-agent trajectories", "domain": "code", "split": "train", "turn_count": 13}
+{"case_id": "Azure__azure-functions-python-worker-890", "dataset": "SWE-agent trajectories", "domain": "code", "split": "train", "turn_count": 21}
+{"case_id": "Azure__azure-functions-python-worker-890", "dataset": "SWE-agent trajectories", "domain": "code", "split": "train", "turn_count": 23}
+{"case_id": "Azure__azure-functions-python-worker-890", "dataset": "SWE-agent trajectories", "domain": "code", "split": "train", "turn_count": 29}
+{"case_id": "Azure__azure-functions-python-worker-890", "dataset": "SWE-agent trajectories", "domain": "code", "split": "train", "turn_count": 31}
+{"case_id": "Azure__azure-functions-python-worker-890", "dataset": "SWE-agent trajectories", "domain": "code", "split": "train", "turn_count": 65}
+{"case_id": "Azure__azure-functions-python-worker-890", "dataset": "SWE-agent trajectories", "domain": "code", "split": "train", "turn_count": 17}
+{"case_id": "astropy__astropy-12907", "dataset": "SWE-bench Verified", "domain": "code", "split": "dev", "turn_count": 1}
+{"case_id": "astropy__astropy-13033", "dataset": "SWE-bench Verified", "domain": "code", "split": "train", "turn_count": 1}
+{"case_id": "astropy__astropy-13236", "dataset": "SWE-bench Verified", "domain": "code", "split": "train", "turn_count": 1}
+{"case_id": "astropy__astropy-13398", "dataset": "SWE-bench Verified", "domain": "code", "split": "train", "turn_count": 1}
+{"case_id": "astropy__astropy-13453", "dataset": "SWE-bench Verified", "domain": "code", "split": "train", "turn_count": 1}
+{"case_id": "astropy__astropy-13579", "dataset": "SWE-bench Verified", "domain": "code", "split": "train", "turn_count": 1}
+{"case_id": "astropy__astropy-13977", "dataset": "SWE-bench Verified", "domain": "code", "split": "train", "turn_count": 1}
+{"case_id": "astropy__astropy-14096", "dataset": "SWE-bench Verified", "domain": "code", "split": "train", "turn_count": 1}
+{"case_id": "astropy__astropy-14182", "dataset": "SWE-bench Verified", "domain": "code", "split": "train", "turn_count": 1}
+{"case_id": "astropy__astropy-14309", "dataset": "SWE-bench Verified", "domain": "code", "split": "train", "turn_count": 1}
+{"case_id": "astropy__astropy-14365", "dataset": "SWE-bench Verified", "domain": "code", "split": "train", "turn_count": 1}
+{"case_id": "astropy__astropy-14369", "dataset": "SWE-bench Verified", "domain": "code", "split": "train", "turn_count": 1}
+{"case_id": "astropy__astropy-14508", "dataset": "SWE-bench Verified", "domain": "code", "split": "train", "turn_count": 1}
+{"case_id": "astropy__astropy-14539", "dataset": "SWE-bench Verified", "domain": "code", "split": "train", "turn_count": 1}
+{"case_id": "astropy__astropy-14598", "dataset": "SWE-bench Verified", "domain": "code", "split": "train", "turn_count": 1}
+{"case_id": "astropy__astropy-14995", "dataset": "SWE-bench Verified", "domain": "code", "split": "train", "turn_count": 1}
+{"case_id": "astropy__astropy-7166", "dataset": "SWE-bench Verified", "domain": "code", "split": "train", "turn_count": 1}
+{"case_id": "astropy__astropy-7336", "dataset": "SWE-bench Verified", "domain": "code", "split": "train", "turn_count": 1}
+{"case_id": "astropy__astropy-7606", "dataset": "SWE-bench Verified", "domain": "code", "split": "train", "turn_count": 1}
+{"case_id": "astropy__astropy-7671", "dataset": "SWE-bench Verified", "domain": "code", "split": "train", "turn_count": 1}
+{"case_id": "case", "dataset": "tau-bench", "domain": "tool", "split": "train", "turn_count": 24}
+{"case_id": "case", "dataset": "tau-bench", "domain": "tool", "split": "train", "turn_count": 42}
+{"case_id": "case", "dataset": "tau-bench", "domain": "tool", "split": "train", "turn_count": 22}
+{"case_id": "case", "dataset": "tau-bench", "domain": "tool", "split": "train", "turn_count": 30}
+{"case_id": "case", "dataset": "tau-bench", "domain": "tool", "split": "train", "turn_count": 28}
+{"case_id": "case", "dataset": "tau-bench", "domain": "tool", "split": "train", "turn_count": 14}
+{"case_id": "case", "dataset": "tau-bench", "domain": "tool", "split": "train", "turn_count": 30}
+{"case_id": "case", "dataset": "tau-bench", "domain": "tool", "split": "train", "turn_count": 36}
+{"case_id": "case", "dataset": "tau-bench", "domain": "tool", "split": "train", "turn_count": 34}
+{"case_id": "case", "dataset": "tau-bench", "domain": "tool", "split": "train", "turn_count": 16}
+{"case_id": "case", "dataset": "tau-bench", "domain": "tool", "split": "train", "turn_count": 24}
+{"case_id": "case", "dataset": "tau-bench", "domain": "tool", "split": "train", "turn_count": 18}
+{"case_id": "case", "dataset": "tau-bench", "domain": "tool", "split": "train", "turn_count": 28}
+{"case_id": "case", "dataset": "tau-bench", "domain": "tool", "split": "train", "turn_count": 38}
+{"case_id": "case", "dataset": "tau-bench", "domain": "tool", "split": "train", "turn_count": 28}
+{"case_id": "case", "dataset": "tau-bench", "domain": "tool", "split": "train", "turn_count": 40}
+{"case_id": "case", "dataset": "tau-bench", "domain": "tool", "split": "train", "turn_count": 20}
+{"case_id": "case", "dataset": "tau-bench", "domain": "tool", "split": "train", "turn_count": 20}
+{"case_id": "case", "dataset": "tau-bench", "domain": "tool", "split": "train", "turn_count": 20}
+{"case_id": "case", "dataset": "tau-bench", "domain": "tool", "split": "train", "turn_count": 12}
+{"case_id": "swe_agent_stress_100", "dataset": "SWE-agent long-horizon stress", "domain": "code", "split": "train", "turn_count": 100}

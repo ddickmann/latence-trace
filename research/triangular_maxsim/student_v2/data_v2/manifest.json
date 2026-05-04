@@ -1,0 +1,27 @@
+{
+  "seed": 7,
+  "sources": {
+    "synthetic_enterprise": 24162,
+    "veracier": 133,
+    "ragtruth": 15090
+  },
+  "bands": {
+    "green": 16190,
+    "red": 22319,
+    "amber": 876
+  },
+  "split_sizes": {
+    "train": 26404,
+    "val": 3228,
+    "test": 3306,
+    "ood_eval": 6447
+  },
+  "inputs": {
+    "synthetic_train": "research/triangular_maxsim/student_v2/data/train.jsonl",
+    "synthetic_ood": "research/triangular_maxsim/student_v2/data/ood_eval.jsonl",
+    "teacher_jsonls": [
+      "research/triangular_maxsim/student_v2/data/teacher_ragtruth_train.jsonl",
+      "research/triangular_maxsim/student_v2/data/teacher_veracier.jsonl"
+    ]
+  }
+}

@@ -1,0 +1,140 @@
+{
+  "question_id": "conv0_q0",
+  "conversation_idx": 0,
+  "category": 2,
+  "category_name": "temporal",
+  "question": "When did Caroline go to the LGBTQ support group?",
+  "ground_truth_answer": "7 May 2023",
+  "evidence": [
+    "D1:3"
+  ],
+  "user_id": "locomo_0_5bfea39d",
+  "reference_date": "9:55 am on 22 October, 2023",
+  "retrieval": {
+    "search_query": "When did Caroline go to the LGBTQ support group?",
+    "search_results": [
+      {
+        "memory": "Caroline: I went to a LGBTQ support group yesterday and it was so powerful.",
+        "score": 0.460673,
+        "id": "mem_69acc70ba2bcd41c",
+        "created_at": "2023-05-08T13:56:00+00:00"
+      },
+      {
+        "memory": "user: Caroline: I went to a LGBTQ support group yesterday and it was so powerful.",
+        "score": 0.454156,
+        "id": "mem_9f901d283a6b0afe",
+        "created_at": "2023-05-08T13:56:00+00:00"
+      },
+      {
+        "memory": "Caroline: Yes, I did.",
+        "score": 0.430201,
+        "id": "mem_72e8c4980c599ea5",
+        "created_at": "2023-07-15T13:51:00+00:00"
+      },
+      {
+        "memory": "Caroline: Seeing my mentee's face light up when they saw the support was the best!",
+        "score": 0.428265,
+        "id": "mem_f4660b43b5e7c05d",
+        "created_at": "2023-07-17T14:31:00+00:00"
+      },
+      {
+        "memory": "user: Caroline: Seeing my mentee's face light up when they saw the support was the best!",
+        "score": 0.425943,
+        "id": "mem_217c9f8b623b6fc7",
+        "created_at": "2023-07-17T14:31:00+00:00"
+      },
+      {
+        "memory": "Caroline: The support group has made me feel accepted and given me courage to embrace myself.",
+        "score": 0.42206,
+        "id": "mem_e231e127d9225d51",
+        "created_at": "2023-05-08T13:56:00+00:00"
+      },
+      {
+        "memory": "user: Caroline: The support group has made me feel accepted and given me courage to embrace myself.",
+        "score": 0.420635,
+        "id": "mem_fcf50567a5fffc07",
+        "created_at": "2023-05-08T13:56:00+00:00"
+      },
+      {
+        "memory": "Caroline: The room was electric with energy and support!",
+        "score": 0.402213,
+        "id": "mem_b32e8bfdb6e42b5c",
+        "created_at": "2023-10-13T10:31:00+00:00"
+      },
+      {
+        "memory": "Caroline: Wow, Mel, family love and support is the best!",
+        "score": 0.400199,
+        "id": "mem_480bb2a2505c8b73",
+        "created_at": "2023-07-15T13:51:00+00:00"
+      },
+      {
+        "memory": "user: Caroline: The room was electric with energy and support!",
+        "score": 0.398799,
+        "id": "mem_3758ea57181df982",
+        "created_at": "2023-10-13T10:31:00+00:00"
+      },
+      {
+        "memory": "user: Caroline: Yes, I did.",
+        "score": 0.394831,
+        "id": "mem_a9b2a146064873c4",
+        "created_at": "2023-07-15T13:51:00+00:00"
+      },
+      {
+        "memory": "It's great to see the love and support for the LGBTQ+ community.",
+        "score": 0.394831,
+        "id": "mem_64ca42f427ac3ff1",
+        "created_at": "2023-07-03T13:36:00+00:00"
+      },
+      {
+        "memory": "Caroline: I'm inspired seeing my work make a difference for the LGBTQ+ community.",
+        "score": 0.390889,
+        "id": "mem_1c4dd80265e2f1d7",
+        "created_at": "2023-09-13T00:09:00+00:00"
+      },
+      {
+        "memory": "user: Caroline: I'm inspired seeing my work make a difference for the LGBTQ+ community.",
+        "score": 0.388775,
+        "id": "mem_0b1b4291842d6247",
+        "created_at": "2023-09-13T00:09:00+00:00"
+      },
+      {
+        "memory": "assistant: Melanie: I'll always remember our camping trip last year when we saw the Perseid meteor shower.",
+        "score": 0.387646,
+        "id": "mem_c55276a3f4eac25a",
+        "created_at": "2023-07-20T20:56:00+00:00"
+      },
+      {
+        "memory": "Caroline: The mentoring is going great!",
+        "score": 0.381045,
+        "id": "mem_f259bb464787e47e",
+        "created_at": "2023-07-17T14:31:00+00:00"
+      },
+      {
+        "memory": "Appreciate the support of those close to me.",
+        "score": 0.377624,
+        "id": "mem_7960c3d41db4d8e2",
+        "created_at": "2023-10-22T09:55:00+00:00"
+      },
+      {
+        "memory": "Loving the inclusivity and support.",
+        "score": 0.373664,
+        "id": "mem_c54fe25a002cf9e8",
+        "created_at": "2023-05-25T13:14:00+00:00"
+      },
+      {
+        "memory": "user: Caroline: The mentoring is going great!",
+        "score": 0.372803,
+        "id": "mem_fdcc159ccbf83c0f",
+        "created_at": "2023-07-17T14:31:00+00:00"
+      },
+      {
+        "memory": "Caroline: It must have been special at your wedding.",
+        "score": 0.372051,
+        "id": "mem_d050a9a49a4a4c78",
+        "created_at": "2023-07-15T13:51:00+00:00"
+      }
+    ],
+    "search_latency_ms": 112.2,
+    "total_results": 20
+  }
+}

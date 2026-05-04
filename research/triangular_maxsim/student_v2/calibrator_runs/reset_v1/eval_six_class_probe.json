@@ -1,0 +1,228 @@
+{
+  "model": "research/triangular_maxsim/student_v2/calibrator_runs/reset_v1/maxsim_calibrator_logistic.json",
+  "n_rows": 6,
+  "raw_maxsim_baseline": {
+    "n": 6,
+    "binary_grounded_accuracy": 0.5,
+    "ungrounded_precision": 1.0,
+    "ungrounded_recall": 0.25,
+    "ungrounded_f1": 0.4,
+    "paired_score_accuracy": null,
+    "paired_n": 0,
+    "by_task": {
+      "six_class_probe::rag.prose.enterprise": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.prose.short_factoid": {
+        "n": 1,
+        "binary_grounded_accuracy": 0.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.prose.multi_claim": {
+        "n": 1,
+        "binary_grounded_accuracy": 0.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.structured": {
+        "n": 1,
+        "binary_grounded_accuracy": 0.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.code_in_context": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::code.agentic_trace": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 1.0,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 1.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      }
+    }
+  },
+  "learned_token_calibrator": {
+    "n": 6,
+    "binary_grounded_accuracy": 1.0,
+    "ungrounded_precision": 1.0,
+    "ungrounded_recall": 1.0,
+    "ungrounded_f1": 1.0,
+    "paired_score_accuracy": null,
+    "paired_n": 0,
+    "by_task": {
+      "six_class_probe::rag.prose.enterprise": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.prose.short_factoid": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 1.0,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 1.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.prose.multi_claim": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 1.0,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 1.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.structured": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 1.0,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 1.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.code_in_context": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::code.agentic_trace": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 1.0,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 1.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      }
+    }
+  },
+  "v1_cache": {
+    "status": "not_supplied"
+  },
+  "v1_router": {
+    "n": 0,
+    "status": "not_supplied"
+  },
+  "v1_plus_calibrator": {
+    "n": 0,
+    "status": "requires_cached_v1_predictions"
+  },
+  "raw_plus_calibrator": {
+    "n": 6,
+    "binary_grounded_accuracy": 0.8333,
+    "ungrounded_precision": 1.0,
+    "ungrounded_recall": 0.75,
+    "ungrounded_f1": 0.8571,
+    "paired_score_accuracy": null,
+    "paired_n": 0,
+    "by_task": {
+      "six_class_probe::rag.prose.enterprise": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.prose.short_factoid": {
+        "n": 1,
+        "binary_grounded_accuracy": 0.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.prose.multi_claim": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 1.0,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 1.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.structured": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 1.0,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 1.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::rag.code_in_context": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 0.0,
+        "ungrounded_recall": 0.0,
+        "ungrounded_f1": 0.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "six_class_probe::code.agentic_trace": {
+        "n": 1,
+        "binary_grounded_accuracy": 1.0,
+        "ungrounded_precision": 1.0,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 1.0,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      }
+    }
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "checkpoint": "research/triangular_maxsim/student_v2/checkpoints_v2/student_final.pt",
+  "benchmark": "ragtruth",
+  "tasks": "qa,summarization,data2text,dialogue",
+  "n_rows": 2700,
+  "v1_status": "not_requested",
+  "student_only": {
+    "n": 2700,
+    "turn_band_3way_accuracy": 0.3419,
+    "binary_grounded_accuracy": 0.37,
+    "ungrounded_precision": 0.3565,
+    "ungrounded_recall": 0.9989,
+    "ungrounded_f1": 0.5255,
+    "paired_score_accuracy": null,
+    "paired_n": 0,
+    "by_task": {
+      "ragtruth::qa": {
+        "n": 900,
+        "turn_band_3way_accuracy": 0.2067,
+        "binary_grounded_accuracy": 0.2378,
+        "ungrounded_precision": 0.1884,
+        "ungrounded_recall": 0.9938,
+        "ungrounded_f1": 0.3167,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "ragtruth::summarization": {
+        "n": 900,
+        "turn_band_3way_accuracy": 0.2078,
+        "binary_grounded_accuracy": 0.2289,
+        "ungrounded_precision": 0.2272,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 0.3702,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "ragtruth::data2text": {
+        "n": 900,
+        "turn_band_3way_accuracy": 0.6111,
+        "binary_grounded_accuracy": 0.6433,
+        "ungrounded_precision": 0.6433,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 0.783,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      }
+    }
+  },
+  "v1_router": {
+    "n": 0,
+    "status": "not_requested"
+  },
+  "v1_plus_student": {
+    "n": 0,
+    "status": "not_requested"
+  }
+}

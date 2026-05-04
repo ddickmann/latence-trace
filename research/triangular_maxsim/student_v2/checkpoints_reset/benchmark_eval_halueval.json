@@ -1,0 +1,60 @@
+{
+  "checkpoint": "research/triangular_maxsim/student_v2/checkpoints_reset/student_final.pt",
+  "benchmark": "halueval",
+  "tasks": "qa,summarization,data2text,dialogue",
+  "n_rows": 60000,
+  "v1_status": "not_requested",
+  "student_only": {
+    "n": 60000,
+    "turn_band_3way_accuracy": 0.5382,
+    "binary_grounded_accuracy": 0.5383,
+    "ungrounded_precision": 0.5384,
+    "ungrounded_recall": 0.5362,
+    "ungrounded_f1": 0.5373,
+    "paired_score_accuracy": 0.5673,
+    "paired_n": 30000,
+    "by_task": {
+      "halueval::qa": {
+        "n": 20000,
+        "turn_band_3way_accuracy": 0.5564,
+        "binary_grounded_accuracy": 0.5565,
+        "ungrounded_precision": 0.5437,
+        "ungrounded_recall": 0.7029,
+        "ungrounded_f1": 0.6131,
+        "paired_score_accuracy": 0.5965,
+        "paired_n": 10000,
+        "by_task": {}
+      },
+      "halueval::summarization": {
+        "n": 20000,
+        "turn_band_3way_accuracy": 0.5071,
+        "binary_grounded_accuracy": 0.5071,
+        "ungrounded_precision": 0.5175,
+        "ungrounded_recall": 0.2104,
+        "ungrounded_f1": 0.2992,
+        "paired_score_accuracy": 0.5154,
+        "paired_n": 10000,
+        "by_task": {}
+      },
+      "halueval::dialogue": {
+        "n": 20000,
+        "turn_band_3way_accuracy": 0.5511,
+        "binary_grounded_accuracy": 0.5512,
+        "ungrounded_precision": 0.5397,
+        "ungrounded_recall": 0.6954,
+        "ungrounded_f1": 0.6077,
+        "paired_score_accuracy": 0.59,
+        "paired_n": 10000,
+        "by_task": {}
+      }
+    }
+  },
+  "v1_router": {
+    "n": 0,
+    "status": "not_requested"
+  },
+  "v1_plus_student": {
+    "n": 0,
+    "status": "not_requested"
+  }
+}

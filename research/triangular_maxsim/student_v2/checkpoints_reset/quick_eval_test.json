@@ -1,0 +1,31 @@
+{
+  "checkpoint": "research/triangular_maxsim/student_v2/checkpoints_reset/student_final.pt",
+  "split": "test",
+  "n_rows": 3306,
+  "hallucination": {
+    "turn_band_3way_accuracy": 0.6848,
+    "binary_grounded_accuracy": 0.6966
+  },
+  "token_support": {
+    "precision": 0.6739,
+    "recall": 0.6588,
+    "f1": 0.6663
+  },
+  "dead_weight": {
+    "precision": 0.9231,
+    "recall": 1.0,
+    "f1": 0.96
+  },
+  "coverage": {
+    "mae": 0.2497,
+    "units_scored": 6391.0
+  },
+  "per_role_band_accuracy": {
+    "grounded": 0.4912,
+    "hallucinated": 0.7242,
+    "numeric_flip": 0.9193,
+    "entity_swap": 0.9225,
+    "support_drop": 1.0,
+    "partial_support": 0.0115
+  }
+}

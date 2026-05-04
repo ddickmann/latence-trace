@@ -1,0 +1,330 @@
+{
+  "question_id": "18bc8abd",
+  "question_type": "knowledge-update",
+  "question": "What brand of BBQ sauce am I currently obsessed with?",
+  "ground_truth_answer": "Kansas City Masterpiece",
+  "question_date": "2023/07/15 (Sat) 07:37",
+  "is_abstention": false,
+  "user_id": "longmemeval_18bc8abd_traceevlme01",
+  "answer_session_ids": [
+    "answer_fff743f5_1",
+    "answer_fff743f5_2"
+  ],
+  "retrieval": {
+    "search_query": "What brand of BBQ sauce am I currently obsessed with?",
+    "search_results": [
+      {
+        "memory": "* 1/4 cup BBQ sauce (optional)",
+        "score": 0.468664,
+        "id": "mem_787018ea88db485a",
+        "created_at": "2023-04-16T02:28:00+00:00"
+      },
+      {
+        "memory": "**BBQ Sauce Recommendations:**",
+        "score": 0.431596,
+        "id": "mem_721ad53e30799412",
+        "created_at": "2023-06-30T05:15:00+00:00"
+      },
+      {
+        "memory": "Do you have any recommendations for a good BBQ sauce to serve with it?",
+        "score": 0.42251,
+        "id": "mem_8440948acc067b23",
+        "created_at": "2023-06-30T05:15:00+00:00"
+      },
+      {
+        "memory": "During the last 30 minutes of cooking, brush with BBQ sauce.",
+        "score": 0.421328,
+        "id": "mem_e4d7efbb00dd6ea8",
+        "created_at": "2023-04-16T02:28:00+00:00"
+      },
+      {
+        "memory": "By the way, I've been loving my new Weber gas grill for quick weeknight dinners, and I'm currently obsessed with Kansas City Masterpiece BBQ sauce on my ribs.",
+        "score": 0.420134,
+        "id": "mem_36cd6132920eec3d",
+        "created_at": "2023-06-30T05:15:00+00:00"
+      },
+      {
+        "memory": "* 1 cup BBQ sauce (optional)",
+        "score": 0.419051,
+        "id": "mem_8dde8be64d05df40",
+        "created_at": "2023-04-16T02:28:00+00:00"
+      },
+      {
+        "memory": "If desired, brush with BBQ sauce during the last 30 minutes of cooking.",
+        "score": 0.412018,
+        "id": "mem_32bb9b145185d14e",
+        "created_at": "2023-04-16T02:28:00+00:00"
+      },
+      {
+        "memory": "Currently, my favourite is Kansas City Masterpiece BBQ sauce, but I'm open to trying other options.",
+        "score": 0.411593,
+        "id": "mem_9daee24b39f776f6",
+        "created_at": "2023-06-30T05:15:00+00:00"
+      },
+      {
+        "memory": "**Franklin Barbecue BBQ Sauce**: A Texas-style BBQ sauce with a thinner, more vinegar-based consistency.",
+        "score": 0.40214,
+        "id": "mem_76d9d3193cae1fde",
+        "created_at": "2023-06-30T05:15:00+00:00"
+      },
+      {
+        "memory": "**Brand fit**: Assess whether the influencer has worked with similar brands or has a history of promoting products/services in your industry.",
+        "score": 0.397106,
+        "id": "mem_1f3300e9a243a840",
+        "created_at": "2023-06-19T09:08:00+00:00"
+      },
+      {
+        "memory": "**Bone Suckin' BBQ Sauce**: A sweet and smoky sauce with a thick, syrupy texture.",
+        "score": 0.39413,
+        "id": "mem_ee968dc60f32499c",
+        "created_at": "2023-06-30T05:15:00+00:00"
+      },
+      {
+        "memory": "**Dinosaur Bar-B-Que BBQ Sauce**: A sweet and tangy sauce with a thick, syrupy texture.",
+        "score": 0.39413,
+        "id": "mem_6f6d59e1b085a1e9",
+        "created_at": "2023-06-30T05:15:00+00:00"
+      },
+      {
+        "memory": "**Sweet Baby Ray's BBQ Sauce**: A sweet and tangy sauce with a thick, velvety texture.",
+        "score": 0.39413,
+        "id": "mem_64720bb6f52725b9",
+        "created_at": "2023-06-30T05:15:00+00:00"
+      },
+      {
+        "memory": "**Stubb's BBQ Sauce**: A Texas-style BBQ sauce with a thick, sweet, and smoky flavor profile.",
+        "score": 0.39413,
+        "id": "mem_5faf811e421565fa",
+        "created_at": "2023-06-30T05:15:00+00:00"
+      },
+      {
+        "memory": "**Starting with 30-minute sessions:**",
+        "score": 0.392156,
+        "id": "mem_8e85ea5b1d8daa43",
+        "created_at": "2023-05-01T07:27:00+00:00"
+      },
+      {
+        "memory": "**Tips for Choosing a BBQ Sauce:**",
+        "score": 0.39002,
+        "id": "mem_223cc4acd30927d8",
+        "created_at": "2023-06-30T05:15:00+00:00"
+      },
+      {
+        "memory": "**Experiment with different brands and flavors**: You might find that you prefer a particular brand or flavor that you never would have tried otherwise.",
+        "score": 0.389757,
+        "id": "mem_9dce5f5b2d582677",
+        "created_at": "2023-03-22T23:42:00+00:00"
+      },
+      {
+        "memory": "The petition must be filed with:",
+        "score": 0.38478,
+        "id": "mem_df5ba05828a0f4ec",
+        "created_at": "2023-06-08T18:31:00+00:00"
+      },
+      {
+        "memory": "Remember to taste and adjust the seasoning as you go, and don't be afraid to experiment with different ingredients and spices to make the sauce your own!",
+        "score": 0.382353,
+        "id": "mem_8adff7ad5f87e399",
+        "created_at": "2023-03-20T16:15:00+00:00"
+      },
+      {
+        "memory": "**Consider the flavor profile**: Think about the flavor profile you want to achieve with your BBQ sauce.",
+        "score": 0.38098,
+        "id": "mem_50814e92e8a97476",
+        "created_at": "2023-06-30T05:15:00+00:00"
+      },
+      {
+        "memory": "The petition must be filed with documentary evidence of:",
+        "score": 0.374966,
+        "id": "mem_cefe375d8eb74bd1",
+        "created_at": "2023-06-08T18:31:00+00:00"
+      },
+      {
+        "memory": "Therefore, sports leagues should prioritize finding brand partners that align with their values and mission while also providing significant revenue opportunities.",
+        "score": 0.374574,
+        "id": "mem_ad195f3449cfe7f5",
+        "created_at": "2023-03-25T13:37:00+00:00"
+      },
+      {
+        "memory": "I hope these recommendations and tips help you find the perfect BBQ sauce to serve with your pulled pork!",
+        "score": 0.371138,
+        "id": "mem_f3f1ffbd020de124",
+        "created_at": "2023-06-30T05:15:00+00:00"
+      },
+      {
+        "memory": "Speaking of which, I need to stock up on my favorite BBQ sauce, Sweet Baby Ray's, to serve with the ribs.",
+        "score": 0.369922,
+        "id": "mem_3876cc1034bc12e6",
+        "created_at": "2023-04-16T02:28:00+00:00"
+      },
+      {
+        "memory": "Don't think about what you're eating.",
+        "score": 0.368026,
+        "id": "mem_cf226b8b53ecde90",
+        "created_at": "2023-04-05T12:48:00+00:00"
+      },
+      {
+        "memory": "I've had some experience with woodworking, but I've never worked with metal before.",
+        "score": 0.362451,
+        "id": "mem_0395fac12ad127af",
+        "created_at": "2023-04-01T02:10:00+00:00"
+      },
+      {
+        "memory": "must file this supplement with the Form I-129 and the appropriate fee.",
+        "score": 0.361096,
+        "id": "mem_bbe0fa5b0e6c3bcb",
+        "created_at": "2023-06-08T18:31:00+00:00"
+      },
+      {
+        "memory": "user: I'm thinking of serving my BBQ pulled pork on a bun with some coleslaw and pickles.",
+        "score": 0.359695,
+        "id": "mem_b3d50634c6b2083e",
+        "created_at": "2023-06-30T05:15:00+00:00"
+      },
+      {
+        "memory": "**Experiment with layering**: Don't be afraid to layer multiple pieces.",
+        "score": 0.359537,
+        "id": "mem_5fbd08d0fcbd7962",
+        "created_at": "2023-04-21T16:54:00+00:00"
+      },
+      {
+        "memory": "I'm thinking of serving my BBQ pulled pork on a bun with some coleslaw and pickles.",
+        "score": 0.358456,
+        "id": "mem_a73acf8315e20694",
+        "created_at": "2023-06-30T05:15:00+00:00"
+      },
+      {
+        "memory": "**Pork tenderloin**: Marinate it in a protein-rich sauce like teriyaki or BBQ, and serve with roasted sweet potatoes and steamed broccoli.",
+        "score": 0.356567,
+        "id": "mem_e9470234a8d2412e",
+        "created_at": "2023-03-22T23:42:00+00:00"
+      },
+      {
+        "memory": "It's great for those who prefer a tangier BBQ sauce.",
+        "score": 0.356036,
+        "id": "mem_9d21ae61c5eb7262",
+        "created_at": "2023-06-30T05:15:00+00:00"
+      },
+      {
+        "memory": "It's great for those who prefer a sweeter BBQ sauce.",
+        "score": 0.356036,
+        "id": "mem_463f048917e33522",
+        "created_at": "2023-06-30T05:15:00+00:00"
+      },
+      {
+        "memory": "H-1B or L nonimmigrant currently working for another employer, must submit an additional $500 Fraud Prevention and",
+        "score": 0.354882,
+        "id": "mem_e65e83eebcadebd5",
+        "created_at": "2023-06-08T18:31:00+00:00"
+      },
+      {
+        "memory": "**Garlic powder**: When using garlic powder, start with a small amount (about 1/2 teaspoon) and adjust to taste.",
+        "score": 0.354882,
+        "id": "mem_587386a722246f4f",
+        "created_at": "2023-03-20T16:15:00+00:00"
+      },
+      {
+        "memory": "**Medical Benefits**: The insurance plan must provide medical benefits with a minimum of $100,000 per accident or illness.",
+        "score": 0.354882,
+        "id": "mem_0f54b27c7f1d5bd2",
+        "created_at": "2023-04-27T01:03:00+00:00"
+      },
+      {
+        "memory": "If desired, brush with Worcestershire sauce during the last 30 minutes of cooking.",
+        "score": 0.354647,
+        "id": "mem_6b165e788cc55af1",
+        "created_at": "2023-04-16T02:28:00+00:00"
+      },
+      {
+        "memory": "Experiment with different formats, topics, and styles to find what works best for you and your brand.",
+        "score": 0.3542,
+        "id": "mem_52009ef5ee57ee01",
+        "created_at": "2023-06-19T09:08:00+00:00"
+      },
+      {
+        "memory": "* Consider luggage with internal padding, compression systems, and TSA-approved locks.",
+        "score": 0.352766,
+        "id": "mem_2e277a6c0245a02e",
+        "created_at": "2023-03-27T07:24:00+00:00"
+      },
+      {
+        "memory": "assistant: I do not have personal preferences or recommendations, but can provide you with information.",
+        "score": 0.350637,
+        "id": "mem_edc959f14a93ca31",
+        "created_at": "2023-03-31T23:20:00+00:00"
+      },
+      {
+        "memory": "Remember to be patient with yourself, and don't hesitate to adjust your schedule as needed.",
+        "score": 0.350096,
+        "id": "mem_d7b34221612aa920",
+        "created_at": "2023-05-01T07:27:00+00:00"
+      },
+      {
+        "memory": "**Set a daily goal:** Commit to practicing meditation with Headspace for 10 minutes a day, 3-5 times a week.",
+        "score": 0.349932,
+        "id": "mem_d743f29fbf5c2e08",
+        "created_at": "2023-04-03T10:00:00+00:00"
+      },
+      {
+        "memory": "Always consult with your therapist or a healthcare professional before trying new strategies or techniques.",
+        "score": 0.349202,
+        "id": "mem_c4f9d989613f39f4",
+        "created_at": "2023-04-03T10:00:00+00:00"
+      },
+      {
+        "memory": "rag_exact_index 1/4 10 110 12 120 160 180 2. 225 250 3 hours 3. 30 4. 5 hours 5. 6. 7. 71 8. 82 Continue smoking for another 2-3 hours or until it reaches 180°F (82°C). During the last 30 minutes of cooking, brush with BBQ sauce. If desired, brush with BBQ sauce during the last 30 minutes of cooking.",
+        "score": 0.348921,
+        "id": "mem_9f0df66c8ccc29e3",
+        "created_at": "2023-04-16T02:28:00+00:00"
+      },
+      {
+        "memory": "I've always wondered what inspired Bradbury and Asimov to write about the future.",
+        "score": 0.348661,
+        "id": "mem_f945223bcac38152",
+        "created_at": "2023-06-15T22:14:00+00:00"
+      },
+      {
+        "memory": "rag_exact_index **BBQ Sauce Recommendations:**\n\nWhile Kansas City Masterpiece BBQ sauce is a great choice, I'd be happy to suggest some other options to consider:\n\n1. **Tips for Choosing a BBQ Sauce:**\n\n1. 1. 10 15 2. 3. 4. 5. consider=1.",
+        "score": 0.34861,
+        "id": "mem_b38786fb37645675",
+        "created_at": "2023-06-30T05:15:00+00:00"
+      },
+      {
+        "memory": "A metalworking class or workshop will provide you with a solid foundation in metalworking basics, which will enable you to:",
+        "score": 0.347767,
+        "id": "mem_ceeffc4bb5248b2d",
+        "created_at": "2023-04-01T02:10:00+00:00"
+      },
+      {
+        "memory": "* Look for luggage with a durable, thick shell (around 2-3 mm thick) made from high-quality polycarbonate.",
+        "score": 0.347362,
+        "id": "mem_5231866339f68b9a",
+        "created_at": "2023-03-27T07:24:00+00:00"
+      },
+      {
+        "memory": "If you're not a fan of strong garlic flavor, start with 1 clove and add more to taste.",
+        "score": 0.347362,
+        "id": "mem_11a45060be5c28d8",
+        "created_at": "2023-03-20T16:15:00+00:00"
+      },
+      {
+        "memory": "It's a popular choice for BBQ and pairs well with pulled pork.",
+        "score": 0.347046,
+        "id": "mem_e7ffa217218a911b",
+        "created_at": "2023-06-30T05:15:00+00:00"
+      }
+    ],
+    "search_latency_ms": 730.3,
+    "total_results": 50
+  },
+  "cutoff_results": {
+    "top_50": {
+      "judgment": "PASS",
+      "score": 1.0,
+      "generated_answer": "Kansas City Masterpiece BBQ sauce.",
+      "judge_raw": "<judge_thinking>\nCore claim: The user is currently obsessed with a specific brand of BBQ sauce. The correct answer is \"Kansas City Masterpiece.\"\nModel response: \"Kansas City Masterpiece BBQ sauce.\"\nAnalysis:\n- The response restates the correct brand, simply adding \"BBQ sauce\" for clarification.\n- The addition of \"BBQ sauce\" does not change the meaning—it simply specifies what \"Kansas City Masterpiece\" is, which matches the intent of the answer.\n- There is no contradiction, omission, or factual error.\n- The response is an equivalent or slightly more specific restatement of the correct answer.\n\nFinal verdict: Yes, the response fully addresses the core concept.\n</judge_thinking>\nyes",
+      "memories_evaluated": 50,
+      "reason": "Generated answer: Kansas City Masterpiece BBQ sauce."
+    }
+  }
+}

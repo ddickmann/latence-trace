@@ -1,0 +1,142 @@
+{
+  "checkpoint": "research/triangular_maxsim/student_v2/checkpoints_v2/student_final.pt",
+  "benchmark": "ragtruth",
+  "tasks": "qa,summarization,data2text,dialogue",
+  "n_rows": 30,
+  "v1_status": "ok",
+  "student_only": {
+    "n": 30,
+    "turn_band_3way_accuracy": 0.4,
+    "binary_grounded_accuracy": 0.4,
+    "ungrounded_precision": 0.3793,
+    "ungrounded_recall": 1.0,
+    "ungrounded_f1": 0.55,
+    "paired_score_accuracy": null,
+    "paired_n": 0,
+    "by_task": {
+      "ragtruth::qa": {
+        "n": 10,
+        "turn_band_3way_accuracy": 0.2,
+        "binary_grounded_accuracy": 0.2,
+        "ungrounded_precision": 0.1111,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 0.2,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "ragtruth::summarization": {
+        "n": 10,
+        "turn_band_3way_accuracy": 0.3,
+        "binary_grounded_accuracy": 0.3,
+        "ungrounded_precision": 0.3,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 0.4615,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "ragtruth::data2text": {
+        "n": 10,
+        "turn_band_3way_accuracy": 0.7,
+        "binary_grounded_accuracy": 0.7,
+        "ungrounded_precision": 0.7,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 0.8235,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      }
+    }
+  },
+  "v1_router": {
+    "n": 30,
+    "turn_band_3way_accuracy": 0.3,
+    "binary_grounded_accuracy": 0.5667,
+    "ungrounded_precision": 0.4583,
+    "ungrounded_recall": 1.0,
+    "ungrounded_f1": 0.6286,
+    "paired_score_accuracy": null,
+    "paired_n": 0,
+    "by_task": {
+      "ragtruth::qa": {
+        "n": 10,
+        "turn_band_3way_accuracy": 0.4,
+        "binary_grounded_accuracy": 0.4,
+        "ungrounded_precision": 0.1429,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 0.25,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "ragtruth::summarization": {
+        "n": 10,
+        "turn_band_3way_accuracy": 0.5,
+        "binary_grounded_accuracy": 0.6,
+        "ungrounded_precision": 0.4286,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 0.6,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "ragtruth::data2text": {
+        "n": 10,
+        "turn_band_3way_accuracy": 0.0,
+        "binary_grounded_accuracy": 0.7,
+        "ungrounded_precision": 0.7,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 0.8235,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      }
+    }
+  },
+  "v1_plus_student": {
+    "n": 30,
+    "turn_band_3way_accuracy": 0.7,
+    "binary_grounded_accuracy": 0.8,
+    "ungrounded_precision": 0.6667,
+    "ungrounded_recall": 0.9091,
+    "ungrounded_f1": 0.7692,
+    "paired_score_accuracy": null,
+    "paired_n": 0,
+    "by_task": {
+      "ragtruth::qa": {
+        "n": 10,
+        "turn_band_3way_accuracy": 0.7,
+        "binary_grounded_accuracy": 0.8,
+        "ungrounded_precision": 0.3333,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 0.5,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "ragtruth::summarization": {
+        "n": 10,
+        "turn_band_3way_accuracy": 0.7,
+        "binary_grounded_accuracy": 0.9,
+        "ungrounded_precision": 1.0,
+        "ungrounded_recall": 0.6667,
+        "ungrounded_f1": 0.8,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      },
+      "ragtruth::data2text": {
+        "n": 10,
+        "turn_band_3way_accuracy": 0.7,
+        "binary_grounded_accuracy": 0.7,
+        "ungrounded_precision": 0.7,
+        "ungrounded_recall": 1.0,
+        "ungrounded_f1": 0.8235,
+        "paired_score_accuracy": null,
+        "paired_n": 0,
+        "by_task": {}
+      }
+    }
+  }
+}

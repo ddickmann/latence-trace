@@ -1,0 +1,9 @@
+{
+  "question_id": "0a995998",
+  "user_id": "longmemeval_0a995998_tracecompatlme01",
+  "run_id": "tracecompatlme01",
+  "chunk_size": 2,
+  "total_pairs_processed": 242,
+  "total_pairs_failed": 0,
+  "completed_at": "2026-05-03T21:07:34.010277"
+}

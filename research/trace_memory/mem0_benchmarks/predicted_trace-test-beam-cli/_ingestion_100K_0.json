@@ -1,0 +1,11 @@
+{
+  "chat_size": "100K",
+  "conversation_idx": 0,
+  "conversation_id": "1",
+  "user_id": "beam_100K_0_tracebeamclitest",
+  "run_id": "tracebeamclitest",
+  "chunk_size": 2,
+  "total_chunks_processed": 94,
+  "total_chunks_failed": 0,
+  "completed_at": "2026-05-03T21:29:24.830225"
+}

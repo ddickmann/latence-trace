@@ -1,0 +1,544 @@
+{
+  "ablations": {
+    "exact_term_only_recall": 1.0,
+    "final_hybrid_recall": 1.0,
+    "no_repair_gate_recall": 0.0,
+    "no_source_pointers_recall": 0.5,
+    "no_vault_recall": 0.0
+  },
+  "artifact_hashes": {
+    "live_metrics.jsonl": "4d128025e31ff27b67189fd9ce3c14036f062a51970ea77fd2d0b722de764876",
+    "redacted_failure_cases.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "scorecard.md": "a485a02f125ed4ed5bcc70db16433d9bf4efbd0a2f4e47483261dd07b2c79bfa"
+  },
+  "case_count": 24,
+  "domains": [
+    "coding",
+    "finance",
+    "legal",
+    "mixed_agent",
+    "pharmacy",
+    "support"
+  ],
+  "promotion_gate": {
+    "all_induced_bad_steps_repaired_or_blocked": true,
+    "beats_ablations": true,
+    "bounded_repair_packets": true,
+    "max_token_budget": 160,
+    "no_raw_pii_leakage": true,
+    "passed": true,
+    "repair_recall": 1.0
+  },
+  "rows": [
+    {
+      "bounded": true,
+      "critical_terms": [
+        "LGL-042",
+        "14-day",
+        "mutual termination"
+      ],
+      "domain": "legal",
+      "excerpt_count": 2,
+      "pii_leak": false,
+      "recovered_terms": [
+        "LGL-042",
+        "14-day",
+        "mutual termination"
+      ],
+      "repair_recall": 1.0,
+      "steps": 100,
+      "suggested_action": "re_score",
+      "token_count": 30,
+      "triggered": true
+    },
+    {
+      "bounded": true,
+      "critical_terms": [
+        "FIN-778",
+        "$44,200",
+        "accrual_owner=Elena"
+      ],
+      "domain": "finance",
+      "excerpt_count": 2,
+      "pii_leak": false,
+      "recovered_terms": [
+        "FIN-778",
+        "$44,200",
+        "accrual_owner=Elena"
+      ],
+      "repair_recall": 1.0,
+      "steps": 100,
+      "suggested_action": "re_score",
+      "token_count": 12,
+      "triggered": true
+    },
+    {
+      "bounded": true,
+      "critical_terms": [
+        "T-771",
+        "refund_status=approved",
+        "R-90017"
+      ],
+      "domain": "support",
+      "excerpt_count": 4,
+      "pii_leak": false,
+      "recovered_terms": [
+        "T-771",
+        "refund_status=approved",
+        "R-90017"
+      ],
+      "repair_recall": 1.0,
+      "steps": 100,
+      "suggested_action": "re_score",
+      "token_count": 28,
+      "triggered": true
+    },
+    {
+      "bounded": true,
+      "critical_terms": [
+        "RUST-991",
+        "src/lib.rs",
+        "deploy_guard::verify_release"
+      ],
+      "domain": "coding",
+      "excerpt_count": 2,
+      "pii_leak": false,
+      "recovered_terms": [
+        "RUST-991",
+        "src/lib.rs",
+        "deploy_guard::verify_release"
+      ],
+      "repair_recall": 1.0,
+      "steps": 100,
+      "suggested_action": "re_score",
+      "token_count": 18,
+      "triggered": true
+    },
+    {
+      "bounded": true,
+      "critical_terms": [
+        "PHARM-515",
+        "clarithromycin",
+        "rhabdomyolysis"
+      ],
+      "domain": "pharmacy",
+      "excerpt_count": 2,
+      "pii_leak": false,
+      "recovered_terms": [
+        "PHARM-515",
+        "clarithromycin",
+        "rhabdomyolysis"
+      ],
+      "repair_recall": 1.0,
+      "steps": 100,
+      "suggested_action": "re_score",
+      "token_count": 28,
+      "triggered": true
+    },
+    {
+      "bounded": true,
+      "critical_terms": [
+        "GEN-303",
+        "block_until_regrounded",
+        "source-vault"
+      ],
+      "domain": "mixed_agent",
+      "excerpt_count": 2,
+      "pii_leak": false,
+      "recovered_terms": [
+        "GEN-303",
+        "block_until_regrounded",
+        "source-vault"
+      ],
+      "repair_recall": 1.0,
+      "steps": 100,
+      "suggested_action": "re_score",
+      "token_count": 20,
+      "triggered": true
+    },
+    {
+      "bounded": true,
+      "critical_terms": [
+        "LGL-042",
+        "14-day",
+        "mutual termination"
+      ],
+      "domain": "legal",
+      "excerpt_count": 2,
+      "pii_leak": false,
+      "recovered_terms": [
+        "LGL-042",
+        "14-day",
+        "mutual termination"
+      ],
+      "repair_recall": 1.0,
+      "steps": 250,
+      "suggested_action": "re_score",
+      "token_count": 30,
+      "triggered": true
+    },
+    {
+      "bounded": true,
+      "critical_terms": [
+        "FIN-778",
+        "$44,200",
+        "accrual_owner=Elena"
+      ],
+      "domain": "finance",
+      "excerpt_count": 2,
+      "pii_leak": false,
+      "recovered_terms": [
+        "FIN-778",
+        "$44,200",
+        "accrual_owner=Elena"
+      ],
+      "repair_recall": 1.0,
+      "steps": 250,
+      "suggested_action": "re_score",
+      "token_count": 12,
+      "triggered": true
+    },
+    {
+      "bounded": true,
+      "critical_terms": [
+        "T-771",
+        "refund_status=approved",
+        "R-90017"
+      ],
+      "domain": "support",
+      "excerpt_count": 4,
+      "pii_leak": false,
+      "recovered_terms": [
+        "T-771",
+        "refund_status=approved",
+        "R-90017"
+      ],
+      "repair_recall": 1.0,
+      "steps": 250,
+      "suggested_action": "re_score",
+      "token_count": 28,
+      "triggered": true
+    },
+    {
+      "bounded": true,
+      "critical_terms": [
+        "RUST-991",
+        "src/lib.rs",
+        "deploy_guard::verify_release"
+      ],
+      "domain": "coding",
+      "excerpt_count": 2,
+      "pii_leak": false,
+      "recovered_terms": [
+        "RUST-991",
+        "src/lib.rs",
+        "deploy_guard::verify_release"
+      ],
+      "repair_recall": 1.0,
+      "steps": 250,
+      "suggested_action": "re_score",
+      "token_count": 18,
+      "triggered": true
+    },
+    {
+      "bounded": true,
+      "critical_terms": [
+        "PHARM-515",
+        "clarithromycin",
+        "rhabdomyolysis"
+      ],
+      "domain": "pharmacy",
+      "excerpt_count": 2,
+      "pii_leak": false,
+      "recovered_terms": [
+        "PHARM-515",
+        "clarithromycin",
+        "rhabdomyolysis"
+      ],
+      "repair_recall": 1.0,
+      "steps": 250,
+      "suggested_action": "re_score",
+      "token_count": 28,
+      "triggered": true
+    },
+    {
+      "bounded": true,
+      "critical_terms": [
+        "GEN-303",
+        "block_until_regrounded",
+        "source-vault"
+      ],
+      "domain": "mixed_agent",
+      "excerpt_count": 2,
+      "pii_leak": false,
+      "recovered_terms": [
+        "GEN-303",
+        "block_until_regrounded",
+        "source-vault"
+      ],
+      "repair_recall": 1.0,
+      "steps": 250,
+      "suggested_action": "re_score",
+      "token_count": 20,
+      "triggered": true
+    },
+    {
+      "bounded": true,
+      "critical_terms": [
+        "LGL-042",
+        "14-day",
+        "mutual termination"
+      ],
+      "domain": "legal",
+      "excerpt_count": 2,
+      "pii_leak": false,
+      "recovered_terms": [
+        "LGL-042",
+        "14-day",
+        "mutual termination"
+      ],
+      "repair_recall": 1.0,
+      "steps": 500,
+      "suggested_action": "re_score",
+      "token_count": 30,
+      "triggered": true
+    },
+    {
+      "bounded": true,
+      "critical_terms": [
+        "FIN-778",
+        "$44,200",
+        "accrual_owner=Elena"
+      ],
+      "domain": "finance",
+      "excerpt_count": 2,
+      "pii_leak": false,
+      "recovered_terms": [
+        "FIN-778",
+        "$44,200",
+        "accrual_owner=Elena"
+      ],
+      "repair_recall": 1.0,
+      "steps": 500,
+      "suggested_action": "re_score",
+      "token_count": 12,
+      "triggered": true
+    },
+    {
+      "bounded": true,
+      "critical_terms": [
+        "T-771",
+        "refund_status=approved",
+        "R-90017"
+      ],
+      "domain": "support",
+      "excerpt_count": 4,
+      "pii_leak": false,
+      "recovered_terms": [
+        "T-771",
+        "refund_status=approved",
+        "R-90017"
+      ],
+      "repair_recall": 1.0,
+      "steps": 500,
+      "suggested_action": "re_score",
+      "token_count": 28,
+      "triggered": true
+    },
+    {
+      "bounded": true,
+      "critical_terms": [
+        "RUST-991",
+        "src/lib.rs",
+        "deploy_guard::verify_release"
+      ],
+      "domain": "coding",
+      "excerpt_count": 2,
+      "pii_leak": false,
+      "recovered_terms": [
+        "RUST-991",
+        "src/lib.rs",
+        "deploy_guard::verify_release"
+      ],
+      "repair_recall": 1.0,
+      "steps": 500,
+      "suggested_action": "re_score",
+      "token_count": 18,
+      "triggered": true
+    },
+    {
+      "bounded": true,
+      "critical_terms": [
+        "PHARM-515",
+        "clarithromycin",
+        "rhabdomyolysis"
+      ],
+      "domain": "pharmacy",
+      "excerpt_count": 2,
+      "pii_leak": false,
+      "recovered_terms": [
+        "PHARM-515",
+        "clarithromycin",
+        "rhabdomyolysis"
+      ],
+      "repair_recall": 1.0,
+      "steps": 500,
+      "suggested_action": "re_score",
+      "token_count": 28,
+      "triggered": true
+    },
+    {
+      "bounded": true,
+      "critical_terms": [
+        "GEN-303",
+        "block_until_regrounded",
+        "source-vault"
+      ],
+      "domain": "mixed_agent",
+      "excerpt_count": 4,
+      "pii_leak": false,
+      "recovered_terms": [
+        "GEN-303",
+        "block_until_regrounded",
+        "source-vault"
+      ],
+      "repair_recall": 1.0,
+      "steps": 500,
+      "suggested_action": "re_score",
+      "token_count": 44,
+      "triggered": true
+    },
+    {
+      "bounded": true,
+      "critical_terms": [
+        "LGL-042",
+        "14-day",
+        "mutual termination"
+      ],
+      "domain": "legal",
+      "excerpt_count": 2,
+      "pii_leak": false,
+      "recovered_terms": [
+        "LGL-042",
+        "14-day",
+        "mutual termination"
+      ],
+      "repair_recall": 1.0,
+      "steps": 1000,
+      "suggested_action": "re_score",
+      "token_count": 30,
+      "triggered": true
+    },
+    {
+      "bounded": true,
+      "critical_terms": [
+        "FIN-778",
+        "$44,200",
+        "accrual_owner=Elena"
+      ],
+      "domain": "finance",
+      "excerpt_count": 4,
+      "pii_leak": false,
+      "recovered_terms": [
+        "FIN-778",
+        "$44,200",
+        "accrual_owner=Elena"
+      ],
+      "repair_recall": 1.0,
+      "steps": 1000,
+      "suggested_action": "re_score",
+      "token_count": 32,
+      "triggered": true
+    },
+    {
+      "bounded": true,
+      "critical_terms": [
+        "T-771",
+        "refund_status=approved",
+        "R-90017"
+      ],
+      "domain": "support",
+      "excerpt_count": 4,
+      "pii_leak": false,
+      "recovered_terms": [
+        "T-771",
+        "refund_status=approved",
+        "R-90017"
+      ],
+      "repair_recall": 1.0,
+      "steps": 1000,
+      "suggested_action": "re_score",
+      "token_count": 28,
+      "triggered": true
+    },
+    {
+      "bounded": true,
+      "critical_terms": [
+        "RUST-991",
+        "src/lib.rs",
+        "deploy_guard::verify_release"
+      ],
+      "domain": "coding",
+      "excerpt_count": 4,
+      "pii_leak": false,
+      "recovered_terms": [
+        "RUST-991",
+        "src/lib.rs",
+        "deploy_guard::verify_release"
+      ],
+      "repair_recall": 1.0,
+      "steps": 1000,
+      "suggested_action": "re_score",
+      "token_count": 38,
+      "triggered": true
+    },
+    {
+      "bounded": true,
+      "critical_terms": [
+        "PHARM-515",
+        "clarithromycin",
+        "rhabdomyolysis"
+      ],
+      "domain": "pharmacy",
+      "excerpt_count": 4,
+      "pii_leak": false,
+      "recovered_terms": [
+        "PHARM-515",
+        "clarithromycin",
+        "rhabdomyolysis"
+      ],
+      "repair_recall": 1.0,
+      "steps": 1000,
+      "suggested_action": "re_score",
+      "token_count": 56,
+      "triggered": true
+    },
+    {
+      "bounded": true,
+      "critical_terms": [
+        "GEN-303",
+        "block_until_regrounded",
+        "source-vault"
+      ],
+      "domain": "mixed_agent",
+      "excerpt_count": 4,
+      "pii_leak": false,
+      "recovered_terms": [
+        "GEN-303",
+        "block_until_regrounded",
+        "source-vault"
+      ],
+      "repair_recall": 1.0,
+      "steps": 1000,
+      "suggested_action": "re_score",
+      "token_count": 44,
+      "triggered": true
+    }
+  ],
+  "step_counts": [
+    100,
+    250,
+    500,
+    1000
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "channel": "learned_calibrator",
+  "metadata": {
+    "channel": "learned_calibrator"
+  },
+  "default": {
+    "allow_threshold": 0.5,
+    "block_threshold": 0.5,
+    "allowed": 2,
+    "false_allow_rate": 0.0,
+    "allow_disabled": false,
+    "blocked": 4,
+    "false_block_rate": 0.0,
+    "block_disabled": false
+  },
+  "classes": {
+    "code.agentic_trace": {
+      "allow_threshold": 1.0,
+      "block_threshold": 0.5,
+      "n": 1,
+      "allowed": 0,
+      "false_allow_rate": 0.0,
+      "allow_disabled": true,
+      "blocked": 1,
+      "false_block_rate": 0.0,
+      "block_disabled": false
+    },
+    "rag.code_in_context": {
+      "allow_threshold": 0.5,
+      "block_threshold": 0.0,
+      "n": 1,
+      "allowed": 1,
+      "false_allow_rate": 0.0,
+      "allow_disabled": false,
+      "blocked": 0,
+      "false_block_rate": 0.0,
+      "block_disabled": true
+    },
+    "rag.prose.enterprise": {
+      "allow_threshold": 0.5,
+      "block_threshold": 0.0,
+      "n": 1,
+      "allowed": 1,
+      "false_allow_rate": 0.0,
+      "allow_disabled": false,
+      "blocked": 0,
+      "false_block_rate": 0.0,
+      "block_disabled": true
+    },
+    "rag.prose.multi_claim": {
+      "allow_threshold": 1.0,
+      "block_threshold": 0.5,
+      "n": 1,
+      "allowed": 0,
+      "false_allow_rate": 0.0,
+      "allow_disabled": true,
+      "blocked": 1,
+      "false_block_rate": 0.0,
+      "block_disabled": false
+    },
+    "rag.prose.short_factoid": {
+      "allow_threshold": 1.0,
+      "block_threshold": 0.5,
+      "n": 1,
+      "allowed": 0,
+      "false_allow_rate": 0.0,
+      "allow_disabled": true,
+      "blocked": 1,
+      "false_block_rate": 0.0,
+      "block_disabled": false
+    },
+    "rag.structured": {
+      "allow_threshold": 1.0,
+      "block_threshold": 0.5,
+      "n": 1,
+      "allowed": 0,
+      "false_allow_rate": 0.0,
+      "allow_disabled": true,
+      "blocked": 1,
+      "false_block_rate": 0.0,
+      "block_disabled": false
+    }
+  },
+  "high_risk_actions": [
+    "commit",
+    "deploy",
+    "file_edit",
+    "irreversible",
+    "money",
+    "security",
+    "tool_call"
+  ],
+  "high_risk_allow_threshold": 0.9,
+  "high_risk_block_threshold": 0.55,
+  "fallback_action": "auto_repair"
+}

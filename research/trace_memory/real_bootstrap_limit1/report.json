@@ -1,0 +1,997 @@
+{
+  "dataset_configs": {
+    "garage": {
+      "adapter": "garage",
+      "hf_id": "AmazonScience/GaRAGe",
+      "split": "train"
+    },
+    "longmemeval": {
+      "adapter": "longmemeval",
+      "hf_id": "xiaowu0162/longmemeval-cleaned",
+      "split": "longmemeval_s_cleaned"
+    },
+    "mtrag": {
+      "adapter": "mtrag",
+      "hf_id": "mapauk/mtrag-dialogs-annotated-2026-04-27",
+      "split": "train"
+    },
+    "ragtruth": {
+      "adapter": "ragtruth",
+      "hf_id": "wandb/RAGTruth-processed",
+      "split": "train"
+    },
+    "swe_agent": {
+      "adapter": "swe-agent-trajectories",
+      "hf_id": "nebius/SWE-agent-trajectories",
+      "split": "train"
+    },
+    "swe_bench_verified": {
+      "adapter": "swe-bench-verified",
+      "hf_id": "SWE-bench/SWE-bench_Verified",
+      "split": "test"
+    },
+    "tau_bench": {
+      "adapter": "tau-bench",
+      "hf_id": "jkazdan/taubench_traces_training_data",
+      "split": "train"
+    }
+  },
+  "failures": [],
+  "interpretation": "Real bootstrap completed but does not approve production coupling yet. Use this as evidence/debug signal, then scale dataset limits and inspect failures.",
+  "limit_per_dataset": 1,
+  "promotion_decision": {
+    "approved_for_production_coupling": false,
+    "plain_compression": {
+      "exact_critical_preservation": 0.1905,
+      "token_reduction": 0.9045
+    },
+    "reasons": {
+      "beats_generic_memory_gate": false,
+      "exact_critical_gate": false,
+      "token_reduction_gate": true
+    },
+    "recommended_mode": "shadow",
+    "summary_memory": {
+      "exact_critical_preservation": 0.0,
+      "token_reduction": 0.9733
+    },
+    "trace_memory_rule_based": {
+      "exact_critical_preservation": 0.131,
+      "token_reduction": 0.9067
+    },
+    "vector_memory": {
+      "exact_critical_preservation": 0.0357,
+      "token_reduction": 0.9115
+    }
+  },
+  "ranker": {
+    "diagnostics": {
+      "exact_critical_guard": "hard_rule_retained",
+      "negative_rows": 3305,
+      "positive_rows": 302
+    },
+    "label_counts": {
+      "anchor": 297,
+      "demote": 156,
+      "keep": 5,
+      "remove": 3138,
+      "superseded": 11
+    },
+    "model_type": "mean_difference_linear_ranker",
+    "training_rows": 3607,
+    "weights": {
+      "attribution": 0.092368,
+      "dead_weight": -0.48996,
+      "domain_decay_pressure": 0.277837,
+      "exact_critical": 0.494313,
+      "redundancy": -0.142989,
+      "relevance": 0.097142,
+      "salience": 0.297268
+    }
+  },
+  "scorecard": {
+    "ablations": {
+      "without_attribution": {
+        "expected_delta": "negative",
+        "reference": {
+          "exact_critical_preservation": 0.131,
+          "token_reduction": 0.9067
+        }
+      },
+      "without_code_lane_signals": {
+        "expected_delta": "code_holdout_negative",
+        "reference": {
+          "exact_critical_preservation": 0.131,
+          "token_reduction": 0.9067
+        }
+      },
+      "without_dead_weight": {
+        "expected_delta": "negative",
+        "reference": {
+          "exact_critical_preservation": 0.131,
+          "token_reduction": 0.9067
+        }
+      },
+      "without_exactness": {
+        "expected_delta": "severe_exact_loss",
+        "reference": {
+          "exact_critical_preservation": 0.131,
+          "token_reduction": 0.9067
+        }
+      }
+    },
+    "by_dataset": {
+      "GaRAGe": {
+        "case_count": 1,
+        "plain_compression": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.9308
+        },
+        "summary_memory": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.9939
+        },
+        "trace_memory_rule_based": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.9312
+        },
+        "vector_memory": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.9312
+        }
+      },
+      "LongMemEval": {
+        "case_count": 1,
+        "plain_compression": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.9989
+        },
+        "summary_memory": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 1.0
+        },
+        "trace_memory_rule_based": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.999
+        },
+        "vector_memory": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.999
+        }
+      },
+      "MTRAG": {
+        "case_count": 1,
+        "plain_compression": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 1.0
+        },
+        "summary_memory": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 1.0
+        },
+        "trace_memory_rule_based": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 1.0
+        },
+        "vector_memory": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 1.0
+        }
+      },
+      "RAGTruth": {
+        "case_count": 1,
+        "plain_compression": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.8473
+        },
+        "summary_memory": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.9771
+        },
+        "trace_memory_rule_based": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.8531
+        },
+        "vector_memory": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.8903
+        }
+      },
+      "SWE-agent trajectories": {
+        "case_count": 1,
+        "plain_compression": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.9874
+        },
+        "summary_memory": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.9874
+        },
+        "trace_memory_rule_based": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.9875
+        },
+        "vector_memory": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.9882
+        }
+      },
+      "SWE-bench Verified": {
+        "case_count": 1,
+        "plain_compression": {
+          "exact_critical_preservation": 0.3333,
+          "token_reduction": 0.707
+        },
+        "summary_memory": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.9945
+        },
+        "trace_memory_rule_based": {
+          "exact_critical_preservation": 0.9167,
+          "token_reduction": 0.707
+        },
+        "vector_memory": {
+          "exact_critical_preservation": 0.25,
+          "token_reduction": 0.7106
+        }
+      },
+      "tau-bench": {
+        "case_count": 1,
+        "plain_compression": {
+          "exact_critical_preservation": 1.0,
+          "token_reduction": 0.86
+        },
+        "summary_memory": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.86
+        },
+        "trace_memory_rule_based": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.8688
+        },
+        "vector_memory": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.8609
+        }
+      }
+    },
+    "by_domain": {
+      "chat": {
+        "case_count": 1,
+        "plain_compression": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.9989
+        },
+        "summary_memory": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 1.0
+        },
+        "trace_memory_rule_based": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.999
+        },
+        "vector_memory": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.999
+        }
+      },
+      "code": {
+        "case_count": 2,
+        "plain_compression": {
+          "exact_critical_preservation": 0.1666,
+          "token_reduction": 0.8472
+        },
+        "summary_memory": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.9909
+        },
+        "trace_memory_rule_based": {
+          "exact_critical_preservation": 0.4583,
+          "token_reduction": 0.8473
+        },
+        "vector_memory": {
+          "exact_critical_preservation": 0.125,
+          "token_reduction": 0.8494
+        }
+      },
+      "grounding": {
+        "case_count": 2,
+        "plain_compression": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.8891
+        },
+        "summary_memory": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.9855
+        },
+        "trace_memory_rule_based": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.8921
+        },
+        "vector_memory": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.9107
+        }
+      },
+      "rag": {
+        "case_count": 1,
+        "plain_compression": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 1.0
+        },
+        "summary_memory": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 1.0
+        },
+        "trace_memory_rule_based": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 1.0
+        },
+        "vector_memory": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 1.0
+        }
+      },
+      "tool": {
+        "case_count": 1,
+        "plain_compression": {
+          "exact_critical_preservation": 1.0,
+          "token_reduction": 0.86
+        },
+        "summary_memory": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.86
+        },
+        "trace_memory_rule_based": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.8688
+        },
+        "vector_memory": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.8609
+        }
+      }
+    },
+    "case_count": 7,
+    "domain_horizon_thesis": {
+      "anchor_or_keep_ratio_by_domain": {
+        "chat": 0.048,
+        "code": 0.3599,
+        "grounding": 0.108,
+        "rag": 0.0,
+        "tool": 0.04
+      },
+      "claim": "agentic_search_rag_spans_should_have_shorter_survival_than_agentic_coding_spans",
+      "supported_by_current_scorecard": true
+    },
+    "holdouts": {
+      "GaRAGe": {
+        "holdout_cases": 1,
+        "holdout_trace_memory_rule_based": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.9312
+        },
+        "train_cases": 6
+      },
+      "LongMemEval": {
+        "holdout_cases": 1,
+        "holdout_trace_memory_rule_based": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.999
+        },
+        "train_cases": 6
+      },
+      "MTRAG": {
+        "holdout_cases": 1,
+        "holdout_trace_memory_rule_based": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 1.0
+        },
+        "train_cases": 6
+      },
+      "RAGTruth": {
+        "holdout_cases": 1,
+        "holdout_trace_memory_rule_based": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.8531
+        },
+        "train_cases": 6
+      },
+      "SWE-agent trajectories": {
+        "holdout_cases": 1,
+        "holdout_trace_memory_rule_based": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.9875
+        },
+        "train_cases": 6
+      },
+      "SWE-bench Verified": {
+        "holdout_cases": 1,
+        "holdout_trace_memory_rule_based": {
+          "exact_critical_preservation": 0.9167,
+          "token_reduction": 0.707
+        },
+        "train_cases": 6
+      },
+      "tau-bench": {
+        "holdout_cases": 1,
+        "holdout_trace_memory_rule_based": {
+          "exact_critical_preservation": 0.0,
+          "token_reduction": 0.8688
+        },
+        "train_cases": 6
+      }
+    },
+    "rows": [
+      {
+        "baselines": {
+          "plain_compression": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.9989,
+            "tokens": 160
+          },
+          "sliding_window": {
+            "diagnostics": {},
+            "exact_critical_preservation": 1.0,
+            "preserved_terms": [
+              "1980s",
+              "Any.do",
+              "LeanIn.org",
+              "U.S",
+              "app.callback",
+              "app.run_server",
+              "dash.Dash",
+              "dash.dependencies",
+              "dcc.Graph",
+              "dcc.RangeSlider",
+              "df.loc",
+              "e.g",
+              "go.Candlestick",
+              "html.Button",
+              "html.Div",
+              "i.e",
+              "matplotlib.pyplot",
+              "mediate.com",
+              "napp.layout",
+              "nplt.plot",
+              "nplt.show",
+              "nplt.title",
+              "nplt.xlabel",
+              "nplt.ylabel",
+              "pd.DataFrame",
+              "pd.read_csv",
+              "plotly.graph_objects",
+              "shapes.append",
+              "stock_data.csv",
+              "xaxis.range"
+            ],
+            "status": "measured",
+            "token_reduction": 0.0,
+            "tokens": 152026
+          },
+          "summary_memory": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 1.0,
+            "tokens": 2
+          },
+          "trace_memory_learned": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.9989,
+            "tokens": 160
+          },
+          "trace_memory_rule_based": {
+            "diagnostics": {
+              "label_counts": {
+                "anchor": 140,
+                "demote": 6,
+                "keep": 1,
+                "remove": 2786,
+                "superseded": 6
+              }
+            },
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.999,
+            "tokens": 158
+          },
+          "vector_memory": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.999,
+            "tokens": 155
+          }
+        },
+        "case_id": "case",
+        "dataset": "LongMemEval",
+        "domain": "chat",
+        "horizon_diagnostics": {
+          "anchor_or_keep_ratio": 0.048,
+          "demote_or_remove_ratio": 0.95,
+          "label_counts": {
+            "anchor": 140,
+            "demote": 6,
+            "keep": 1,
+            "remove": 2786,
+            "superseded": 6
+          }
+        }
+      },
+      {
+        "baselines": {
+          "plain_compression": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 1.0,
+            "tokens": 0
+          },
+          "sliding_window": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 1.0,
+            "tokens": 0
+          },
+          "summary_memory": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 1.0,
+            "tokens": 0
+          },
+          "trace_memory_learned": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 1.0,
+            "tokens": 0
+          },
+          "trace_memory_rule_based": {
+            "diagnostics": {
+              "label_counts": {}
+            },
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 1.0,
+            "tokens": 0
+          },
+          "vector_memory": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 1.0,
+            "tokens": 0
+          }
+        },
+        "case_id": "case",
+        "dataset": "MTRAG",
+        "domain": "rag",
+        "horizon_diagnostics": {
+          "anchor_or_keep_ratio": 0.0,
+          "demote_or_remove_ratio": 0.0,
+          "label_counts": {}
+        }
+      },
+      {
+        "baselines": {
+          "plain_compression": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.8473,
+            "tokens": 160
+          },
+          "sliding_window": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.0,
+            "tokens": 1048
+          },
+          "summary_memory": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.9771,
+            "tokens": 24
+          },
+          "trace_memory_learned": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.8483,
+            "tokens": 159
+          },
+          "trace_memory_rule_based": {
+            "diagnostics": {
+              "label_counts": {
+                "anchor": 1,
+                "demote": 29,
+                "keep": 1
+              }
+            },
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.8531,
+            "tokens": 154
+          },
+          "vector_memory": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.8903,
+            "tokens": 115
+          }
+        },
+        "case_id": "0",
+        "dataset": "RAGTruth",
+        "domain": "grounding",
+        "horizon_diagnostics": {
+          "anchor_or_keep_ratio": 0.0645,
+          "demote_or_remove_ratio": 0.9355,
+          "label_counts": {
+            "anchor": 1,
+            "demote": 29,
+            "keep": 1
+          }
+        }
+      },
+      {
+        "baselines": {
+          "plain_compression": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.9308,
+            "tokens": 160
+          },
+          "sliding_window": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.0,
+            "tokens": 2312
+          },
+          "summary_memory": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.9939,
+            "tokens": 14
+          },
+          "trace_memory_learned": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.9325,
+            "tokens": 156
+          },
+          "trace_memory_rule_based": {
+            "diagnostics": {
+              "label_counts": {
+                "anchor": 2,
+                "demote": 28,
+                "keep": 3
+              }
+            },
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.9312,
+            "tokens": 159
+          },
+          "vector_memory": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.9312,
+            "tokens": 159
+          }
+        },
+        "case_id": "case",
+        "dataset": "GaRAGe",
+        "domain": "grounding",
+        "horizon_diagnostics": {
+          "anchor_or_keep_ratio": 0.1515,
+          "demote_or_remove_ratio": 0.8485,
+          "label_counts": {
+            "anchor": 2,
+            "demote": 28,
+            "keep": 3
+          }
+        }
+      },
+      {
+        "baselines": {
+          "plain_compression": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.9874,
+            "tokens": 160
+          },
+          "sliding_window": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.0,
+            "tokens": 12709
+          },
+          "summary_memory": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.9874,
+            "tokens": 160
+          },
+          "trace_memory_learned": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.9876,
+            "tokens": 158
+          },
+          "trace_memory_rule_based": {
+            "diagnostics": {
+              "label_counts": {
+                "anchor": 139,
+                "demote": 63,
+                "remove": 342,
+                "superseded": 5
+              }
+            },
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.9875,
+            "tokens": 159
+          },
+          "vector_memory": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.9882,
+            "tokens": 150
+          }
+        },
+        "case_id": "AnalogJ__lexicon-336",
+        "dataset": "SWE-agent trajectories",
+        "domain": "code",
+        "horizon_diagnostics": {
+          "anchor_or_keep_ratio": 0.2532,
+          "demote_or_remove_ratio": 0.7377,
+          "label_counts": {
+            "anchor": 139,
+            "demote": 63,
+            "remove": 342,
+            "superseded": 5
+          }
+        }
+      },
+      {
+        "baselines": {
+          "plain_compression": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.3333,
+            "preserved_terms": [
+              "astropy.modeling",
+              "m.Linear1D",
+              "m.Pix2Sky_TAN",
+              "np.array"
+            ],
+            "status": "measured",
+            "token_reduction": 0.707,
+            "tokens": 160
+          },
+          "sliding_window": {
+            "diagnostics": {},
+            "exact_critical_preservation": 1.0,
+            "preserved_terms": [
+              "a/astropy/modeling/separable.py",
+              "a/astropy/modeling/tests/test_separable.py",
+              "astropy.modeling",
+              "b/astropy/modeling/separable.py",
+              "b/astropy/modeling/tests/test_separable.py",
+              "m.Linear1D",
+              "m.Pix2Sky_TAN",
+              "models.Polynomial1D",
+              "np.array",
+              "np.hstack",
+              "np.zeros",
+              "right.shape"
+            ],
+            "status": "measured",
+            "token_reduction": 0.0,
+            "tokens": 546
+          },
+          "summary_memory": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.9945,
+            "tokens": 3
+          },
+          "trace_memory_learned": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.8333,
+            "preserved_terms": [
+              "a/astropy/modeling/separable.py",
+              "a/astropy/modeling/tests/test_separable.py",
+              "astropy.modeling",
+              "b/astropy/modeling/separable.py",
+              "b/astropy/modeling/tests/test_separable.py",
+              "m.Linear1D",
+              "m.Pix2Sky_TAN",
+              "models.Polynomial1D",
+              "np.array",
+              "right.shape"
+            ],
+            "status": "measured",
+            "token_reduction": 0.707,
+            "tokens": 160
+          },
+          "trace_memory_rule_based": {
+            "diagnostics": {
+              "label_counts": {
+                "anchor": 14,
+                "demote": 16
+              }
+            },
+            "exact_critical_preservation": 0.9167,
+            "preserved_terms": [
+              "a/astropy/modeling/separable.py",
+              "a/astropy/modeling/tests/test_separable.py",
+              "astropy.modeling",
+              "b/astropy/modeling/separable.py",
+              "b/astropy/modeling/tests/test_separable.py",
+              "m.Linear1D",
+              "m.Pix2Sky_TAN",
+              "models.Polynomial1D",
+              "np.array",
+              "np.hstack",
+              "right.shape"
+            ],
+            "status": "measured",
+            "token_reduction": 0.707,
+            "tokens": 160
+          },
+          "vector_memory": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.25,
+            "preserved_terms": [
+              "astropy.modeling",
+              "m.Linear1D",
+              "m.Pix2Sky_TAN"
+            ],
+            "status": "measured",
+            "token_reduction": 0.7106,
+            "tokens": 158
+          }
+        },
+        "case_id": "astropy__astropy-12907",
+        "dataset": "SWE-bench Verified",
+        "domain": "code",
+        "horizon_diagnostics": {
+          "anchor_or_keep_ratio": 0.4667,
+          "demote_or_remove_ratio": 0.5333,
+          "label_counts": {
+            "anchor": 14,
+            "demote": 16
+          }
+        }
+      },
+      {
+        "baselines": {
+          "plain_compression": {
+            "diagnostics": {},
+            "exact_critical_preservation": 1.0,
+            "preserved_terms": [
+              "example.com",
+              "olivia.gonzalez4421"
+            ],
+            "status": "measured",
+            "token_reduction": 0.86,
+            "tokens": 160
+          },
+          "sliding_window": {
+            "diagnostics": {},
+            "exact_critical_preservation": 1.0,
+            "preserved_terms": [
+              "example.com",
+              "olivia.gonzalez4421"
+            ],
+            "status": "measured",
+            "token_reduction": 0.0,
+            "tokens": 1143
+          },
+          "summary_memory": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.86,
+            "tokens": 160
+          },
+          "trace_memory_learned": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.8618,
+            "tokens": 158
+          },
+          "trace_memory_rule_based": {
+            "diagnostics": {
+              "label_counts": {
+                "anchor": 1,
+                "demote": 14,
+                "remove": 10
+              }
+            },
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.8688,
+            "tokens": 150
+          },
+          "vector_memory": {
+            "diagnostics": {},
+            "exact_critical_preservation": 0.0,
+            "preserved_terms": [],
+            "status": "measured",
+            "token_reduction": 0.8609,
+            "tokens": 159
+          }
+        },
+        "case_id": "case",
+        "dataset": "tau-bench",
+        "domain": "tool",
+        "horizon_diagnostics": {
+          "anchor_or_keep_ratio": 0.04,
+          "demote_or_remove_ratio": 0.96,
+          "label_counts": {
+            "anchor": 1,
+            "demote": 14,
+            "remove": 10
+          }
+        }
+      }
+    ]
+  },
+  "trajectory_count": 7
+}

@@ -1,0 +1,329 @@
+{
+  "question_id": "conv0_q1",
+  "conversation_idx": 0,
+  "category": 2,
+  "category_name": "temporal",
+  "question": "When did Melanie paint a sunrise?",
+  "ground_truth_answer": "2022",
+  "evidence": [
+    "D1:12"
+  ],
+  "user_id": "locomo_0_traceevlocomo01",
+  "reference_date": "9:55 am on 22 October, 2023",
+  "retrieval": {
+    "search_query": "When did Melanie paint a sunrise?",
+    "search_results": [
+      {
+        "memory": "Melanie: 5 years already!",
+        "score": 0.419545,
+        "id": "mem_0392f7836dce87b6",
+        "created_at": "2023-06-09T19:55:00+00:00"
+      },
+      {
+        "memory": "assistant: Melanie: I'll always remember our camping trip last year when we saw the Perseid meteor shower.",
+        "score": 0.404811,
+        "id": "mem_c55276a3f4eac25a",
+        "created_at": "2023-07-20T20:56:00+00:00"
+      },
+      {
+        "memory": "assistant: Melanie: Nope, never been to something like that.",
+        "score": 0.378105,
+        "id": "mem_2d702f63bef13a87",
+        "created_at": "2023-10-13T10:31:00+00:00"
+      },
+      {
+        "memory": "assistant: Melanie: Yeah, I made it in pottery class yesterday.",
+        "score": 0.376364,
+        "id": "mem_3f27b9a09124617b",
+        "created_at": "2023-08-25T13:33:00+00:00"
+      },
+      {
+        "memory": "Melanie: I love it.",
+        "score": 0.370487,
+        "id": "mem_1c3170e6543bd343",
+        "created_at": "2023-10-13T10:31:00+00:00"
+      },
+      {
+        "memory": "Melanie: It so fun!",
+        "score": 0.370487,
+        "id": "mem_275dd6a4656c18d8",
+        "created_at": "2023-06-09T19:55:00+00:00"
+      },
+      {
+        "memory": "Melanie: Here it is.",
+        "score": 0.370487,
+        "id": "mem_0494464689c4a30b",
+        "created_at": "2023-08-17T13:50:00+00:00"
+      },
+      {
+        "memory": "assistant: Melanie: That must have been tough for you, Caroline.",
+        "score": 0.370092,
+        "id": "mem_84dc0248bb082c2e",
+        "created_at": "2023-10-22T09:55:00+00:00"
+      },
+      {
+        "memory": "assistant: Melanie: I'll never forget the day my youngest took her first steps.",
+        "score": 0.366933,
+        "id": "mem_dde12c277a00d02c",
+        "created_at": "2023-07-20T20:56:00+00:00"
+      },
+      {
+        "memory": "assistant: Melanie: We always look forward to our family camping trip.",
+        "score": 0.365514,
+        "id": "mem_70aec30827f72aba",
+        "created_at": "2023-07-20T20:56:00+00:00"
+      },
+      {
+        "memory": "assistant: Melanie: Yeah, Here's one I did last week.",
+        "score": 0.365197,
+        "id": "mem_a34f2acff45c344c",
+        "created_at": "2023-10-13T10:31:00+00:00"
+      },
+      {
+        "memory": "Caroline: Hi Melanie!",
+        "score": 0.362645,
+        "id": "mem_68105b78a4893b5c",
+        "created_at": "2023-08-23T15:31:00+00:00"
+      },
+      {
+        "memory": "assistant: Melanie: Yeah, it's normal to be both excited and nervous with a big decision.",
+        "score": 0.362491,
+        "id": "mem_65ed5723b1f1048c",
+        "created_at": "2023-08-23T15:31:00+00:00"
+      },
+      {
+        "memory": "assistant: Melanie: Yeah, I painted that lake sunrise last year!",
+        "score": 0.35853,
+        "id": "mem_b59a32620689fc37",
+        "created_at": "2023-05-08T13:56:00+00:00"
+      },
+      {
+        "memory": "user: Caroline: Hi Melanie!",
+        "score": 0.348607,
+        "id": "mem_f12514a01c391c02",
+        "created_at": "2023-08-23T15:31:00+00:00"
+      },
+      {
+        "memory": "Melanie: That's awesome!",
+        "score": 0.344647,
+        "id": "mem_03d49613cb4172c8",
+        "created_at": "2023-08-28T15:19:00+00:00"
+      },
+      {
+        "memory": "Caroline: Yes, I did.",
+        "score": 0.344647,
+        "id": "mem_72e8c4980c599ea5",
+        "created_at": "2023-07-15T13:51:00+00:00"
+      },
+      {
+        "memory": "rag_exact_index Melanie: 5 years already!",
+        "score": 0.344091,
+        "id": "mem_a520269f29d5172f",
+        "created_at": "2023-06-09T19:55:00+00:00"
+      },
+      {
+        "memory": "assistant: Melanie: 5 years already!",
+        "score": 0.342683,
+        "id": "mem_b544f5f4c962f46e",
+        "created_at": "2023-06-09T19:55:00+00:00"
+      },
+      {
+        "memory": "Melanie: No doubts, Caroline.",
+        "score": 0.342633,
+        "id": "mem_d5b427e1a7bfa71f",
+        "created_at": "2023-05-25T13:14:00+00:00"
+      },
+      {
+        "memory": "Melanie: Yeah, it's tough.",
+        "score": 0.336805,
+        "id": "mem_a00ac6d05e34ca37",
+        "created_at": "2023-05-25T13:14:00+00:00"
+      },
+      {
+        "memory": "Did you join in?",
+        "score": 0.336737,
+        "id": "mem_20a9868cdd3df175",
+        "created_at": "2023-07-15T13:51:00+00:00"
+      },
+      {
+        "memory": "assistant: Melanie: It so fun!",
+        "score": 0.335329,
+        "id": "mem_c35084fd0ef9b153",
+        "created_at": "2023-06-09T19:55:00+00:00"
+      },
+      {
+        "memory": "assistant: Melanie: Here it is.",
+        "score": 0.335329,
+        "id": "mem_800d907fca5f3f5d",
+        "created_at": "2023-08-17T13:50:00+00:00"
+      },
+      {
+        "memory": "Caroline: Congrats, Melanie!",
+        "score": 0.334791,
+        "id": "mem_c757771bd3d587b1",
+        "created_at": "2023-06-09T19:55:00+00:00"
+      },
+      {
+        "memory": "Caroline: Woohoo Melanie!",
+        "score": 0.334791,
+        "id": "mem_4dd09f1cb1c1b48c",
+        "created_at": "2023-10-22T09:55:00+00:00"
+      },
+      {
+        "memory": "Caroline: Awesome, Melanie!",
+        "score": 0.334791,
+        "id": "mem_5d922b0fddcb8bad",
+        "created_at": "2023-07-12T16:33:00+00:00"
+      },
+      {
+        "memory": "Caroline: Cool, Melanie!",
+        "score": 0.334791,
+        "id": "mem_665ceab6cc4d23d3",
+        "created_at": "2023-07-12T16:33:00+00:00"
+      },
+      {
+        "memory": "Melanie: I totally agree, Caroline.",
+        "score": 0.333949,
+        "id": "mem_567d8b9e74fb88bf",
+        "created_at": "2023-10-22T09:55:00+00:00"
+      },
+      {
+        "memory": "Melanie: It was amazing, Caroline.",
+        "score": 0.333949,
+        "id": "mem_e41e44fd3ddd811e",
+        "created_at": "2023-07-15T13:51:00+00:00"
+      },
+      {
+        "memory": "Caroline: Thanks, Melanie!",
+        "score": 0.333383,
+        "id": "mem_13d91580988273d1",
+        "created_at": "2023-05-08T13:56:00+00:00"
+      },
+      {
+        "memory": "user: Caroline: Woohoo Melanie!",
+        "score": 0.332003,
+        "id": "mem_64b5f6552e98010d",
+        "created_at": "2023-10-22T09:55:00+00:00"
+      },
+      {
+        "memory": "user: Caroline: Awesome, Melanie!",
+        "score": 0.332003,
+        "id": "mem_5ddaab939eabd00f",
+        "created_at": "2023-07-12T16:33:00+00:00"
+      },
+      {
+        "memory": "user: Caroline: Cool, Melanie!",
+        "score": 0.332003,
+        "id": "mem_c7fe9698674538c5",
+        "created_at": "2023-07-12T16:33:00+00:00"
+      },
+      {
+        "memory": "Did you make it?",
+        "score": 0.331369,
+        "id": "mem_1b525556937d1838",
+        "created_at": "2023-07-03T13:36:00+00:00"
+      },
+      {
+        "memory": "Melanie: That's really cool.",
+        "score": 0.330057,
+        "id": "mem_e8736ba347cc387f",
+        "created_at": "2023-05-08T13:56:00+00:00"
+      },
+      {
+        "memory": "assistant: Melanie: Bye Caroline.",
+        "score": 0.329989,
+        "id": "mem_d54e216b3b3d51ee",
+        "created_at": "2023-08-23T15:31:00+00:00"
+      },
+      {
+        "memory": "assistant: Melanie: Absolutely!",
+        "score": 0.329785,
+        "id": "mem_a2a26aa84d1bd2fd",
+        "created_at": "2023-10-20T18:55:00+00:00"
+      },
+      {
+        "memory": "assistant: Melanie: Thanks!",
+        "score": 0.329785,
+        "id": "mem_e1c711d445e13363",
+        "created_at": "2023-10-20T18:55:00+00:00"
+      },
+      {
+        "memory": "assistant: Melanie: Cool!",
+        "score": 0.329785,
+        "id": "mem_088a16b360c21c24",
+        "created_at": "2023-08-28T15:19:00+00:00"
+      },
+      {
+        "memory": "assistant: Melanie: Wow!",
+        "score": 0.329785,
+        "id": "mem_5bb0953256b29d59",
+        "created_at": "2023-07-17T14:31:00+00:00"
+      },
+      {
+        "memory": "Caroline: Sure thing, Melanie!",
+        "score": 0.328043,
+        "id": "mem_4f2f8616cbe1d610",
+        "created_at": "2023-08-17T13:50:00+00:00"
+      },
+      {
+        "memory": "Melanie: They're really amazing.",
+        "score": 0.328043,
+        "id": "mem_cc3f421a011adf64",
+        "created_at": "2023-10-20T18:55:00+00:00"
+      },
+      {
+        "memory": "Melanie: Wow, that's awesome!",
+        "score": 0.328043,
+        "id": "mem_a1f8082513772acf",
+        "created_at": "2023-08-14T14:24:00+00:00"
+      },
+      {
+        "memory": "Melanie: Wow, that's gorgeous!",
+        "score": 0.328043,
+        "id": "mem_ec81ad8a9cb7ac20",
+        "created_at": "2023-08-25T13:33:00+00:00"
+      },
+      {
+        "memory": "Melanie: That's awesome, Caro!",
+        "score": 0.328043,
+        "id": "mem_011c4101e8a25c0a",
+        "created_at": "2023-07-15T13:51:00+00:00"
+      },
+      {
+        "memory": "Melanie: Luna and Oliver!",
+        "score": 0.328043,
+        "id": "mem_9a449dc8f77104b8",
+        "created_at": "2023-07-12T16:33:00+00:00"
+      },
+      {
+        "memory": "Melanie: That's a gorgeous photo, Caroline!",
+        "score": 0.326646,
+        "id": "mem_b931cdf7927f1988",
+        "created_at": "2023-07-06T20:18:00+00:00"
+      },
+      {
+        "memory": "Caroline: I totally agree, Melanie.",
+        "score": 0.326107,
+        "id": "mem_f78f9a49bb7defc0",
+        "created_at": "2023-05-25T13:14:00+00:00"
+      },
+      {
+        "memory": "Caroline: Glad it helped ya, Melanie!",
+        "score": 0.326107,
+        "id": "mem_5c49c096c551e7b2",
+        "created_at": "2023-07-12T16:33:00+00:00"
+      }
+    ],
+    "search_latency_ms": 250.2,
+    "total_results": 50
+  },
+  "cutoff_results": {
+    "top_50": {
+      "judgment": "CORRECT",
+      "score": 1.0,
+      "generated_answer": "Melanie painted a lake sunrise in 2022.",
+      "memories_evaluated": 50,
+      "reason": "The generated answer correctly states that Melanie painted a sunrise in 2022, which matches the gold answer."
+    }
+  }
+}

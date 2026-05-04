@@ -1,0 +1,331 @@
+{
+  "ablations": {
+    "without_attribution": {
+      "expected_delta": "negative",
+      "reference": {
+        "exact_critical_preservation": 1.0,
+        "token_reduction": 0.7107
+      }
+    },
+    "without_code_lane_signals": {
+      "expected_delta": "code_holdout_negative",
+      "reference": {
+        "exact_critical_preservation": 1.0,
+        "token_reduction": 0.7107
+      }
+    },
+    "without_dead_weight": {
+      "expected_delta": "negative",
+      "reference": {
+        "exact_critical_preservation": 1.0,
+        "token_reduction": 0.7107
+      }
+    },
+    "without_exactness": {
+      "expected_delta": "severe_exact_loss",
+      "reference": {
+        "exact_critical_preservation": 1.0,
+        "token_reduction": 0.7107
+      }
+    }
+  },
+  "by_dataset": {
+    "SWE-bench Verified": {
+      "case_count": 1,
+      "plain_compression": {
+        "exact_critical_preservation": 0.75,
+        "token_reduction": 0.7107
+      },
+      "summary_memory": {
+        "exact_critical_preservation": 0.0,
+        "token_reduction": 0.9946
+      },
+      "trace_memory_rule_based": {
+        "exact_critical_preservation": 1.0,
+        "token_reduction": 0.7107
+      },
+      "vector_memory": {
+        "exact_critical_preservation": 0.0,
+        "token_reduction": 0.7143
+      }
+    }
+  },
+  "by_domain": {
+    "code": {
+      "case_count": 1,
+      "plain_compression": {
+        "exact_critical_preservation": 0.75,
+        "token_reduction": 0.7107
+      },
+      "summary_memory": {
+        "exact_critical_preservation": 0.0,
+        "token_reduction": 0.9946
+      },
+      "trace_memory_rule_based": {
+        "exact_critical_preservation": 1.0,
+        "token_reduction": 0.7107
+      },
+      "vector_memory": {
+        "exact_critical_preservation": 0.0,
+        "token_reduction": 0.7143
+      }
+    }
+  },
+  "case_count": 1,
+  "domain_horizon_thesis": {
+    "anchor_or_keep_ratio_by_domain": {
+      "code": 0.3514
+    },
+    "claim": "agentic_search_rag_spans_should_have_shorter_survival_than_agentic_coding_spans",
+    "supported_by_current_scorecard": null
+  },
+  "holdouts": {
+    "SWE-bench Verified": {
+      "holdout_cases": 1,
+      "holdout_trace_memory_rule_based": {
+        "exact_critical_preservation": 1.0,
+        "token_reduction": 0.7107
+      },
+      "train_cases": 0
+    }
+  },
+  "long_horizon": {
+    "code_anchor_or_keep_ratio": 0.3514,
+    "code_case_count": 1,
+    "coding_anchor_advantage_holds": false,
+    "long_code_case_count": 0,
+    "non_code_anchor_or_keep_ratio": 0.0,
+    "non_code_case_count": 0
+  },
+  "matched_budget_baselines": {},
+  "rows": [
+    {
+      "baselines": {
+        "plain_compression": {
+          "diagnostics": {},
+          "exact_critical_preservation": 0.75,
+          "exact_critical_term_count": 4,
+          "preserved_terms": [
+            "astropy/modeling/tests/test_separable.py",
+            "test_separable",
+            "test_separable.py"
+          ],
+          "status": "measured",
+          "token_reduction": 0.7107,
+          "tokens": 160
+        },
+        "plain_compression_160": {
+          "diagnostics": {
+            "budget": 160
+          },
+          "exact_critical_preservation": 0.75,
+          "exact_critical_term_count": 4,
+          "preserved_terms": [
+            "astropy/modeling/tests/test_separable.py",
+            "test_separable",
+            "test_separable.py"
+          ],
+          "status": "measured",
+          "token_reduction": 0.7107,
+          "tokens": 160
+        },
+        "plain_compression_553": {
+          "diagnostics": {
+            "budget": 553
+          },
+          "exact_critical_preservation": 1.0,
+          "exact_critical_term_count": 4,
+          "preserved_terms": [
+            "astropy/modeling/separable.py",
+            "astropy/modeling/tests/test_separable.py",
+            "test_separable",
+            "test_separable.py"
+          ],
+          "status": "measured",
+          "token_reduction": 0.0,
+          "tokens": 553
+        },
+        "sliding_window": {
+          "diagnostics": {},
+          "exact_critical_preservation": 1.0,
+          "exact_critical_term_count": 4,
+          "preserved_terms": [
+            "astropy/modeling/separable.py",
+            "astropy/modeling/tests/test_separable.py",
+            "test_separable",
+            "test_separable.py"
+          ],
+          "status": "measured",
+          "token_reduction": 0.0,
+          "tokens": 553
+        },
+        "sliding_window_160": {
+          "diagnostics": {
+            "budget": 160
+          },
+          "exact_critical_preservation": 0.75,
+          "exact_critical_term_count": 4,
+          "preserved_terms": [
+            "astropy/modeling/tests/test_separable.py",
+            "test_separable",
+            "test_separable.py"
+          ],
+          "status": "measured",
+          "token_reduction": 0.7107,
+          "tokens": 160
+        },
+        "sliding_window_553": {
+          "diagnostics": {
+            "budget": 553
+          },
+          "exact_critical_preservation": 1.0,
+          "exact_critical_term_count": 4,
+          "preserved_terms": [
+            "astropy/modeling/separable.py",
+            "astropy/modeling/tests/test_separable.py",
+            "test_separable",
+            "test_separable.py"
+          ],
+          "status": "measured",
+          "token_reduction": 0.0,
+          "tokens": 553
+        },
+        "summary_memory": {
+          "diagnostics": {},
+          "exact_critical_preservation": 0.0,
+          "exact_critical_term_count": 4,
+          "preserved_terms": [],
+          "status": "measured",
+          "token_reduction": 0.9946,
+          "tokens": 3
+        },
+        "trace_memory_learned": {
+          "diagnostics": {},
+          "exact_critical_preservation": 1.0,
+          "exact_critical_term_count": 4,
+          "preserved_terms": [
+            "astropy/modeling/separable.py",
+            "astropy/modeling/tests/test_separable.py",
+            "test_separable",
+            "test_separable.py"
+          ],
+          "status": "measured",
+          "token_reduction": 0.7125,
+          "tokens": 159
+        },
+        "trace_memory_learned_160": {
+          "diagnostics": {
+            "budget": 160
+          },
+          "exact_critical_preservation": 1.0,
+          "exact_critical_term_count": 4,
+          "preserved_terms": [
+            "astropy/modeling/separable.py",
+            "astropy/modeling/tests/test_separable.py",
+            "test_separable",
+            "test_separable.py"
+          ],
+          "status": "measured",
+          "token_reduction": 0.7125,
+          "tokens": 159
+        },
+        "trace_memory_learned_553": {
+          "diagnostics": {
+            "budget": 553
+          },
+          "exact_critical_preservation": 1.0,
+          "exact_critical_term_count": 4,
+          "preserved_terms": [
+            "astropy/modeling/separable.py",
+            "astropy/modeling/tests/test_separable.py",
+            "test_separable",
+            "test_separable.py"
+          ],
+          "status": "measured",
+          "token_reduction": 0.4665,
+          "tokens": 295
+        },
+        "trace_memory_rule_based": {
+          "diagnostics": {
+            "label_counts": {
+              "anchor": 13,
+              "demote": 24
+            }
+          },
+          "exact_critical_preservation": 1.0,
+          "exact_critical_term_count": 4,
+          "preserved_terms": [
+            "astropy/modeling/separable.py",
+            "astropy/modeling/tests/test_separable.py",
+            "test_separable",
+            "test_separable.py"
+          ],
+          "status": "measured",
+          "token_reduction": 0.7107,
+          "tokens": 160
+        },
+        "trace_memory_rule_based_160": {
+          "diagnostics": {
+            "budget": 160,
+            "label_counts": {
+              "anchor": 13,
+              "demote": 24
+            }
+          },
+          "exact_critical_preservation": 1.0,
+          "exact_critical_term_count": 4,
+          "preserved_terms": [
+            "astropy/modeling/separable.py",
+            "astropy/modeling/tests/test_separable.py",
+            "test_separable",
+            "test_separable.py"
+          ],
+          "status": "measured",
+          "token_reduction": 0.7107,
+          "tokens": 160
+        },
+        "trace_memory_rule_based_553": {
+          "diagnostics": {
+            "budget": 553,
+            "label_counts": {
+              "anchor": 13,
+              "demote": 24
+            }
+          },
+          "exact_critical_preservation": 1.0,
+          "exact_critical_term_count": 4,
+          "preserved_terms": [
+            "astropy/modeling/separable.py",
+            "astropy/modeling/tests/test_separable.py",
+            "test_separable",
+            "test_separable.py"
+          ],
+          "status": "measured",
+          "token_reduction": 0.4665,
+          "tokens": 295
+        },
+        "vector_memory": {
+          "diagnostics": {},
+          "exact_critical_preservation": 0.0,
+          "exact_critical_term_count": 4,
+          "preserved_terms": [],
+          "status": "measured",
+          "token_reduction": 0.7143,
+          "tokens": 158
+        }
+      },
+      "case_id": "astropy__astropy-12907",
+      "dataset": "SWE-bench Verified",
+      "domain": "code",
+      "horizon_diagnostics": {
+        "anchor_or_keep_ratio": 0.3514,
+        "demote_or_remove_ratio": 0.6486,
+        "label_counts": {
+          "anchor": 13,
+          "demote": 24
+        }
+      },
+      "turn_count": 1
+    }
+  ]
+}
