@@ -60,6 +60,43 @@ def _resolve_inflight_limit() -> int:
     return max(1, value)
 
 
+def _context_trust_discovery_config() -> dict[str, object]:
+    enabled = os.environ.get("LATENCE_TRACE_CONTEXT_TRUST_ENABLED", "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
+    provider = os.environ.get("LATENCE_TRACE_CONTEXT_TRUST_PROVIDER", "heuristic").strip().lower()
+    compile_enabled = os.environ.get(
+        "LATENCE_TRACE_CONTEXT_TRUST_PROMPT_GUARD_COMPILE",
+        "1",
+    ).strip().lower() not in {"0", "false", "no", "off"}
+    return {
+        "enabled": enabled,
+        "request_default_enabled": True,
+        "request_field": "context_trust_enabled",
+        "request_aliases": ["guard_check_enabled"],
+        "provider": provider if enabled else "off",
+        "model": os.environ.get(
+            "LATENCE_TRACE_CONTEXT_TRUST_PROMPT_GUARD_MODEL",
+            "meta-llama/Llama-Prompt-Guard-2-86M",
+        ),
+        "compile_enabled": compile_enabled,
+        "compile_mode": os.environ.get(
+            "LATENCE_TRACE_CONTEXT_TRUST_PROMPT_GUARD_COMPILE_MODE",
+            "reduce-overhead",
+        ),
+        "response_fields": [
+            "context_trust_diagnostics",
+            "scores.context_trust_score",
+            "scores.context_trust_blocked_count",
+            "scores.context_trust_max_risk",
+            "support_units[*].context_trust_state",
+        ],
+    }
+
+
 def _raise_service_error(exc: ServiceError) -> None:
     """Raise a FastAPI ``HTTPException`` with the v1 structured envelope.
 
@@ -424,6 +461,9 @@ def create_router(service_provider: Callable[[], GroundednessService]) -> APIRou
                         "`latence-trace serve` / `latence-trace score`."
                     ),
                 },
+                "capabilities": {
+                    "context_trust": _context_trust_discovery_config(),
+                },
                 "error_envelope": {
                     "code": "machine-readable error code (e.g. 'validation_error')",
                     "message": "human-readable description of what went wrong",
@@ -483,6 +523,7 @@ def create_router(service_provider: Callable[[], GroundednessService]) -> APIRou
                             "surfaced as ``uncertain`` instead."
                         ),
                     },
+                    "context_trust": _context_trust_discovery_config(),
                 },
                 "docs_url": "https://latence.ai/trace/docs",
             },

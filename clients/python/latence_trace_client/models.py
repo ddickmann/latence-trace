@@ -107,6 +107,7 @@ class GroundednessRequest(BaseModel):
     chunk_token_budget: int | None = None
     chunk_token_overlap: int | None = None
     locale: str | None = None
+    context_trust_enabled: bool | None = None
     runtime_head_features: Mapping[str, float] | None = None
     trajectory_features: Mapping[str, float] | None = None
 

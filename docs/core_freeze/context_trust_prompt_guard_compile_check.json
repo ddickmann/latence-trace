@@ -1,0 +1,26 @@
+{
+  "model_id": "meta-llama/Llama-Prompt-Guard-2-86M",
+  "device": "cuda",
+  "batch_size": 4,
+  "max_tokens": 512,
+  "compile": {
+    "enabled": true,
+    "required": true,
+    "mode": "reduce-overhead",
+    "compiled": true,
+    "load_compile_ms": 6372.24,
+    "first_call_ms": 50982.54,
+    "second_call_ms": 89.63
+  },
+  "eager": {
+    "compiled": false,
+    "load_ms": 5818.12,
+    "first_call_ms": 566.36,
+    "second_call_ms": 177.0
+  },
+  "interpretation": {
+    "can_compile": true,
+    "steady_state_speedup_vs_eager_second_call": 1.97,
+    "default_recommendation": "torch.compile is the production default for Prompt Guard. Trigger the first compiled inference during container boot, in parallel with managed vLLM startup, so steady-state requests do not pay the compile tax."
+  }
+}

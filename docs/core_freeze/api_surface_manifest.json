@@ -47,6 +47,13 @@
       "agent_help_keys": ["score"],
       "runpod_actions": ["score"],
       "sdk": {"sync": ["grounding.rag", "score_groundedness"], "async": ["grounding.rag", "score_groundedness"]},
+      "request_flags": {
+        "context_trust_enabled": {
+          "default": true,
+          "aliases": ["guard_check_enabled"],
+          "description": "Enable or disable the context-trust / prompt-guard scan for retrieved support context per request."
+        }
+      },
       "examples": ["grounding_rag.request.json", "runpod_score_canonical.request.json"],
       "gates": ["grounding_local_core", "grounding_service_local", "trace_v2_readiness_local", "runpod_360_live"]
     },
@@ -58,6 +65,13 @@
       "agent_help_keys": ["score"],
       "runpod_actions": ["score"],
       "sdk": {"sync": ["grounding.code", "score_groundedness"], "async": ["grounding.code", "score_groundedness"]},
+      "request_flags": {
+        "context_trust_enabled": {
+          "default": true,
+          "aliases": ["guard_check_enabled"],
+          "description": "Shared score request flag. Currently applied to the RAG support-context guard lane."
+        }
+      },
       "examples": ["grounding_code.request.json"],
       "gates": ["code_local_core", "trace_v2_readiness_local", "runpod_360_live"]
     },
@@ -172,6 +186,15 @@
   ],
   "discovery": {
     "agent_help_keys": ["agent_help", "ai_plugin", "openapi", "docs", "healthz", "readyz"],
-    "fastapi_operation_ids": ["agent_help", "ai_plugin_descriptor", "healthz", "readyz"]
+    "fastapi_operation_ids": ["agent_help", "ai_plugin_descriptor", "healthz", "readyz"],
+    "capabilities": {
+      "context_trust": {
+        "request_field": "context_trust_enabled",
+        "request_default_enabled": true,
+        "request_aliases": ["guard_check_enabled"],
+        "provider_config": "operator_env",
+        "surfaced_in": ["/healthz", "/agent-help", "groundedness_response"]
+      }
+    }
   }
 }

@@ -300,6 +300,16 @@ class GroundednessRequest(BaseModel):
         default=True,
         description="When query_text is provided, include optional query-conditioned diagnostics such as triangular groundedness, echo, and grounded coverage.",
     )
+    context_trust_enabled: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("context_trust_enabled", "guard_check_enabled"),
+        description=(
+            "Enable the context-trust / prompt-guard scan for retrieved support "
+            "context. Defaults to true. Set false only for trusted internal "
+            "benchmarks or latency isolation tests; operator-level deployment "
+            "configuration still controls which provider is used."
+        ),
+    )
     model: Optional[str] = Field(
         default=None,
         description="Optional groundedness encoder override for response/query/raw-context encoding.",

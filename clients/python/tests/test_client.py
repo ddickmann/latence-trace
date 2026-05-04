@@ -93,6 +93,20 @@ def test_client_returns_typed_response_with_request_id() -> None:
     assert result.request_id == "req-123"
 
 
+def test_client_surfaces_context_trust_toggle() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        assert body["context_trust_enabled"] is False
+        return httpx.Response(200, json=SAMPLE_RESPONSE)
+
+    with LatenceTraceClient(transport=_mock_transport(handler)) as client:
+        client.score_groundedness(
+            response_text="Newton was born in 1643.",
+            raw_context=["Newton was born in 1643."],
+            context_trust_enabled=False,
+        )
+
+
 def test_client_retries_on_503_then_succeeds() -> None:
     counter = {"n": 0}
 

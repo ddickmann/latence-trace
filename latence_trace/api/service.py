@@ -41,6 +41,7 @@ import torch
 
 from latence_trace.api.compression_models import CompressionRequest
 from latence_trace.api.compression_service import CompressionService
+from latence_trace.api.heatmap import build_heatmap, render_heatmap_html
 from latence_trace.api.models import (
     AmberEscalationDiagnostics,
     AttributionMode,
@@ -66,16 +67,30 @@ from latence_trace.api.models import (
     RollupResponse,
     RuntimeDecisionRecord,
     ScoringMode,
-    SessionSignals as SessionSignalsPayload,
     SessionStatePayload,
     TraceRuntimeProfile,
 )
-from latence_trace.api.heatmap import build_heatmap, render_heatmap_html
+from latence_trace.api.models import (
+    SessionSignals as SessionSignalsPayload,
+)
 from latence_trace.api.rollup import aggregate_turns
-from latence_trace.middleware.amber_escalation import (
-    AmberEscalationConfig,
-    build_payload as build_amber_payload,
-    escalate as run_amber_escalate,
+from latence_trace.core.code_lane import (
+    SESSION_STATE_SCHEMA_VERSION,
+    AstSymbolExtractor,
+    CodeLaneConfig,
+    CodeLaneResult,
+    GPUScorer,
+    SupportUnitPack,
+    TurnMetrics,
+    file_attribution_to_turn_inputs,
+    score_code_groundedness,
+    update_session_state,
+)
+from latence_trace.core.code_lane import (
+    SessionSignals as SessionSignalsData,
+)
+from latence_trace.core.code_lane import (
+    SessionState as SessionStateData,
 )
 from latence_trace.core.groundedness import (
     SupportUnitInput,
@@ -90,42 +105,59 @@ from latence_trace.core.groundedness import (
     split_raw_context_by_file_headers,
     tokenize_text,
 )
-from latence_trace.core.code_lane import (
-    AstSymbolExtractor,
-    CodeLaneConfig,
-    CodeLaneResult,
-    GPUScorer,
-    SESSION_STATE_SCHEMA_VERSION,
-    SessionSignals as SessionSignalsData,
-    SessionState as SessionStateData,
-    SupportUnitPack,
-    TurnMetrics,
-    file_attribution_to_turn_inputs,
-    score_code_groundedness,
-    update_session_state,
-)
 from latence_trace.core.nli import (
     CrossEncoderPremiseReranker,
     HuggingFaceNLIProvider,
+)
+from latence_trace.core.nli import (
     default_max_batch as nli_default_max_batch,
+)
+from latence_trace.core.nli import (
     default_max_claims as nli_default_max_claims,
+)
+from latence_trace.core.nli import (
     default_max_latency_ms as nli_default_max_latency_ms,
+)
+from latence_trace.core.nli import (
     default_premise_concat_word_budget as nli_default_premise_concat_word_budget,
+)
+from latence_trace.core.nli import (
     default_top_k_premises as nli_default_top_k_premises,
+)
+from latence_trace.core.nli import (
     fusion_weights_from_env as nli_fusion_weights_from_env,
+)
+from latence_trace.core.nli import (
     is_atomic_enabled as nli_is_atomic_enabled,
+)
+from latence_trace.core.nli import (
     is_enabled as nli_is_enabled,
+)
+from latence_trace.core.nli import (
     is_premise_concat_enabled as nli_is_premise_concat_enabled,
+)
+from latence_trace.core.nli import (
     resolve_default_provider as nli_resolve_default_provider,
+)
+from latence_trace.core.nli import (
     resolve_default_reranker as nli_resolve_default_reranker,
 )
-from latence_trace.core.thresholds import RiskBandPolicy, load_risk_band_policy
 from latence_trace.core.runtime_decision import build_runtime_decision
 from latence_trace.core.runtime_feature_synthesizer import synthesize_runtime_features
+from latence_trace.core.thresholds import RiskBandPolicy, load_risk_band_policy
 from latence_trace.memory.models import MemoryPolicy, MemoryUpdateRequest
 from latence_trace.memory.service import update_memory
 from latence_trace.memory.signature import extract_exact_critical_terms
 from latence_trace.middleware import corpus_router as _corpus_router_middleware
+from latence_trace.middleware.amber_escalation import (
+    AmberEscalationConfig,
+)
+from latence_trace.middleware.amber_escalation import (
+    build_payload as build_amber_payload,
+)
+from latence_trace.middleware.amber_escalation import (
+    escalate as run_amber_escalate,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1751,6 +1783,7 @@ class GroundednessService:
             debug_dense_matrices=request.debug_dense_matrices,
             null_bank_embeddings=null_bank_embeddings or None,
             coverage_threshold=float(request.coverage_threshold),
+            context_trust_scan_enabled=bool(request.context_trust_enabled),
             **nli_kwargs,
         )
         if scored.get("_response_chunk_count", 1) > 1:

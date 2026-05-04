@@ -75,6 +75,7 @@ from latence_trace.api.service import (
     ValidationError,
     apply_profile,
 )
+from latence_trace.core.groundedness import warm_context_trust_runtime
 from latence_trace.kernels.warmup import warm_all, warm_code_lane
 from latence_trace.memory.models import MemoryUpdateRequest
 from latence_trace.memory.service import update_memory
@@ -527,6 +528,37 @@ def _ensure_kernel_warmup(profile: str) -> None:
         )
 
 
+def _prompt_guard_startup_enabled() -> bool:
+    if os.environ.get("LATENCE_TRACE_CONTEXT_TRUST_ENABLED", "1").strip().lower() in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }:
+        return False
+    provider = os.environ.get("LATENCE_TRACE_CONTEXT_TRUST_PROVIDER", "heuristic").strip().lower()
+    return provider in {"prompt_guard", "llama_prompt_guard", "llama_prompt_guard_2"}
+
+
+def _warm_prompt_guard_at_boot() -> dict[str, Any]:
+    os.environ.setdefault("LATENCE_TRACE_CONTEXT_TRUST_PROMPT_GUARD_COMPILE", "1")
+    os.environ.setdefault(
+        "LATENCE_TRACE_CONTEXT_TRUST_PROMPT_GUARD_COMPILE_MODE",
+        "reduce-overhead",
+    )
+    result = warm_context_trust_runtime()
+    logger.info(
+        "prompt_guard_boot_warmup_complete: model=%s device=%s compiled=%s mode=%s elapsed_ms=%.2f states=%s",
+        result.get("model_id"),
+        result.get("device"),
+        result.get("compiled"),
+        result.get("compile_mode"),
+        float(result.get("elapsed_ms") or 0.0),
+        result.get("states"),
+    )
+    return result
+
+
 def _prime_service_runtime(service: GroundednessService) -> None:
     requests = _build_startup_warmup_requests()
     for idx, request in enumerate(requests, start=1):
@@ -662,11 +694,20 @@ def initialize() -> None:
         servers = _build_servers(config)
 
         try:
+            prompt_guard_future = None
+            prompt_guard_boot_enabled = _prompt_guard_startup_enabled()
             if servers:
-                with ThreadPoolExecutor(max_workers=len(servers)) as pool:
+                worker_count = len(servers) + (1 if prompt_guard_boot_enabled else 0)
+                with ThreadPoolExecutor(max_workers=worker_count) as pool:
+                    if prompt_guard_boot_enabled:
+                        prompt_guard_future = pool.submit(_warm_prompt_guard_at_boot)
                     futures = [pool.submit(server.start) for server in servers.values()]
                     for future in futures:
                         future.result()
+                    if prompt_guard_future is not None:
+                        prompt_guard_future.result()
+            elif prompt_guard_boot_enabled:
+                _warm_prompt_guard_at_boot()
 
             colbert_server = servers.get("colbert")
             if colbert_server is not None:
@@ -891,6 +932,37 @@ def _runtime_model_config(config: WorkerConfig | None) -> dict[str, Any]:
             "force_preserve_digit": config.compression_force_preserve_digit,
             "fallback_mode": config.compression_fallback_mode,
         },
+        "context_trust": _context_trust_runtime_config(),
+    }
+
+
+def _context_trust_runtime_config() -> dict[str, Any]:
+    provider = os.environ.get("LATENCE_TRACE_CONTEXT_TRUST_PROVIDER", "heuristic").strip().lower()
+    enabled = os.environ.get("LATENCE_TRACE_CONTEXT_TRUST_ENABLED", "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
+    compile_enabled = os.environ.get(
+        "LATENCE_TRACE_CONTEXT_TRUST_PROMPT_GUARD_COMPILE",
+        "1",
+    ).strip().lower() not in {"0", "false", "no", "off"}
+    return {
+        "enabled": enabled,
+        "request_default_enabled": True,
+        "request_field": "context_trust_enabled",
+        "request_aliases": ["guard_check_enabled"],
+        "provider": provider if enabled else "off",
+        "model": os.environ.get(
+            "LATENCE_TRACE_CONTEXT_TRUST_PROMPT_GUARD_MODEL",
+            "meta-llama/Llama-Prompt-Guard-2-86M",
+        ),
+        "compile_enabled": compile_enabled,
+        "compile_mode": os.environ.get(
+            "LATENCE_TRACE_CONTEXT_TRUST_PROMPT_GUARD_COMPILE_MODE",
+            "reduce-overhead",
+        ),
     }
 
 
@@ -904,6 +976,7 @@ def _health_payload() -> dict[str, Any]:
         "startup_warmup_requests": _STARTUP_WARMUP_REQUEST_COUNT,
         "servers": {name: server.health() for name, server in _servers.items()},
         "model_runtime_config": _runtime_model_config(_config),
+        "context_trust": _context_trust_runtime_config(),
         "code_lane": _code_lane_health(),
     }
 
@@ -937,6 +1010,8 @@ def _build_request(input_data: dict[str, Any]) -> tuple[GroundednessRequest, boo
         "evidence_limit",
         "debug_dense_matrices",
         "include_triangular_diagnostics",
+        "context_trust_enabled",
+        "guard_check_enabled",
         "model",
         "query_prompt_name",
         "document_prompt_name",
@@ -977,6 +1052,22 @@ def _compact_response(response: GroundednessResponse, *, verbose: bool) -> dict[
         "groundedness_v2" if scores.groundedness_v2 is not None else scores.primary_name
     )
     score = scores.groundedness_v2 if scores.groundedness_v2 is not None else scores.primary_score
+    score_channels = {
+        "primary": scores.primary_score,
+        "reverse_context": scores.reverse_context,
+        "reverse_context_calibrated": scores.reverse_context_calibrated,
+        "literal_guarded": scores.literal_guarded,
+        "nli_aggregate": scores.nli_aggregate,
+        "semantic_entropy_aggregate": scores.semantic_entropy_aggregate,
+        "structured_source": scores.structured_source,
+        "structured_source_guarded": scores.structured_source_guarded,
+        "groundedness_v2": scores.groundedness_v2,
+        "consensus_hardened": scores.consensus_hardened,
+    }
+    if scores.context_trust_score is not None:
+        score_channels["context_trust"] = scores.context_trust_score
+    if scores.context_trust_max_risk is not None:
+        score_channels["context_trust_max_risk"] = scores.context_trust_max_risk
     result: dict[str, Any] = {
         "success": True,
         "score": float(score),
@@ -992,18 +1083,11 @@ def _compact_response(response: GroundednessResponse, *, verbose: bool) -> dict[
         "semantic_entropy_aggregate": scores.semantic_entropy_aggregate,
         "semantic_entropy_raw": scores.semantic_entropy_raw,
         "semantic_entropy_sample_count": scores.semantic_entropy_sample_count,
-        "score_channels": {
-            "primary": scores.primary_score,
-            "reverse_context": scores.reverse_context,
-            "reverse_context_calibrated": scores.reverse_context_calibrated,
-            "literal_guarded": scores.literal_guarded,
-            "nli_aggregate": scores.nli_aggregate,
-            "semantic_entropy_aggregate": scores.semantic_entropy_aggregate,
-            "structured_source": scores.structured_source,
-            "structured_source_guarded": scores.structured_source_guarded,
-            "groundedness_v2": scores.groundedness_v2,
-            "consensus_hardened": scores.consensus_hardened,
-        },
+        "context_trust_score": scores.context_trust_score,
+        "context_trust_suspicious_count": scores.context_trust_suspicious_count,
+        "context_trust_blocked_count": scores.context_trust_blocked_count,
+        "context_trust_max_risk": scores.context_trust_max_risk,
+        "score_channels": score_channels,
         "context_coverage_ratio": scores.context_coverage_ratio,
         "context_coverage_threshold": scores.context_coverage_threshold,
         "context_unused_ratio": scores.context_unused_ratio,
@@ -1022,6 +1106,14 @@ def _compact_response(response: GroundednessResponse, *, verbose: bool) -> dict[
                 "unused_confidence": unit.unused_confidence,
                 "coverage_score": unit.coverage_score,
                 "used": unit.used,
+                "context_trust_state": unit.context_trust_state,
+                "context_trust_score": unit.context_trust_score,
+                "context_trust_labels": [
+                    label.model_dump(mode="json") for label in unit.context_trust_labels
+                ],
+                "context_trust_spans": [
+                    span.model_dump(mode="json") for span in unit.context_trust_spans
+                ],
             }
             for unit in response.support_units
         ],
@@ -1036,6 +1128,8 @@ def _compact_response(response: GroundednessResponse, *, verbose: bool) -> dict[
     }
     if response.profile_diagnostics:
         result["profile_diagnostics"] = dict(response.profile_diagnostics)
+    if response.context_trust_diagnostics is not None:
+        result["context_trust_diagnostics"] = response.context_trust_diagnostics.model_dump(mode="json")
     if response.scoring_mode == ScoringMode.CODE:
         result["code_lane"] = {
             "composite_score": scores.composite_phantom_score,

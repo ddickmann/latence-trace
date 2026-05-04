@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import functools
 import hashlib
 import logging
+import os
 import re
 import string
 from dataclasses import dataclass, field
@@ -13,11 +15,14 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import torch
 
-from latence_trace.kernels.triton_triangular_maxsim import (
-    grounded_coverage,
-    naive_reverse_maxsim_qc,
-    triangular_maxsim,
-    weighted_groundedness,
+from latence_trace.core.attribution.file_attribution import (
+    FileAttributionResult,
+    attribute_files,
+)
+from latence_trace.core.context_trust import (
+    diagnostics_from_results,
+    get_context_trust_provider,
+    warm_prompt_guard_runtime,
 )
 from latence_trace.core.nli import (
     AtomicVerification,
@@ -37,15 +42,6 @@ from latence_trace.core.semantic_entropy import (
     compute_semantic_entropy,
     is_semantic_entropy_enabled,
 )
-from latence_trace.core.context_trust import (
-    diagnostics_from_results,
-    get_context_trust_provider,
-)
-from latence_trace.core.thresholds import (
-    RiskBandPolicy,
-    classify_risk_band,
-    get_risk_band_policy,
-)
 from latence_trace.core.structured import (
     default_penalty_per_mismatch,
     is_structured_enabled,
@@ -53,12 +49,37 @@ from latence_trace.core.structured import (
     verification_to_dict,
     verify_structured_source,
 )
-from latence_trace.core.attribution.file_attribution import (
-    FileAttributionResult,
-    attribute_files,
+from latence_trace.core.thresholds import (
+    RiskBandPolicy,
+    classify_risk_band,
+    get_risk_band_policy,
+)
+from latence_trace.kernels.triton_triangular_maxsim import (
+    grounded_coverage,
+    naive_reverse_maxsim_qc,
+    triangular_maxsim,
+    weighted_groundedness,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _context_trust_worker_count() -> int:
+    try:
+        return max(1, int(os.environ.get("LATENCE_TRACE_CONTEXT_TRUST_WORKERS", "1")))
+    except ValueError:
+        return 1
+
+
+_CONTEXT_TRUST_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
+    max_workers=_context_trust_worker_count(),
+)
+
+
+def warm_context_trust_runtime() -> dict[str, Any]:
+    """Warm model-backed context trust on its production executor thread."""
+
+    return _CONTEXT_TRUST_EXECUTOR.submit(warm_prompt_guard_runtime).result()
 
 _TOKEN_FALLBACK_RE = re.compile(r"\w+|[^\w\s]", re.UNICODE)
 _SENTENCE_RE = re.compile(r"[^.!?\n]+(?:[.!?]+|$)", re.UNICODE)
@@ -329,11 +350,11 @@ class SupportUnitInput:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
-def _apply_context_trust_scan(
+def _compute_context_trust_scan(
     *,
     support_units_payload: List[Dict[str, Any]],
     support_inputs: Sequence[SupportUnitInput],
-) -> Dict[str, Any]:
+) -> tuple[Dict[str, Any], list[Dict[str, Any]]]:
     provider = get_context_trust_provider()
     texts: List[str] = []
     source_levels: List[str] = []
@@ -352,11 +373,106 @@ def _apply_context_trust_scan(
             for idx, text in enumerate(texts)
         ]
     support_ids: List[str] = []
+    support_fields: list[Dict[str, Any]] = []
     for idx, payload in enumerate(support_units_payload):
         result = results[idx]
-        payload.update(result.support_unit_fields())
+        support_fields.append(result.support_unit_fields())
         support_ids.append(str(payload.get("support_id") or idx))
-    return diagnostics_from_results(results, support_ids=support_ids)
+    return diagnostics_from_results(results, support_ids=support_ids), support_fields
+
+
+def _apply_context_trust_result(
+    *,
+    support_units_payload: List[Dict[str, Any]],
+    scan_result: tuple[Dict[str, Any], list[Dict[str, Any]]],
+) -> Dict[str, Any]:
+    diagnostics, support_fields = scan_result
+    for idx, fields in enumerate(support_fields):
+        if idx < len(support_units_payload):
+            support_units_payload[idx].update(fields)
+    return diagnostics
+
+
+def _apply_context_trust_scan(
+    *,
+    support_units_payload: List[Dict[str, Any]],
+    support_inputs: Sequence[SupportUnitInput],
+) -> Dict[str, Any]:
+    return _apply_context_trust_result(
+        support_units_payload=support_units_payload,
+        scan_result=_compute_context_trust_scan(
+            support_units_payload=support_units_payload,
+            support_inputs=support_inputs,
+        ),
+    )
+
+
+def _start_context_trust_scan(
+    *,
+    support_units_payload: List[Dict[str, Any]],
+    support_inputs: Sequence[SupportUnitInput],
+) -> concurrent.futures.Future[tuple[Dict[str, Any], list[Dict[str, Any]]]]:
+    payload_snapshot = [dict(payload) for payload in support_units_payload]
+    input_snapshot = list(support_inputs)
+    return _CONTEXT_TRUST_EXECUTOR.submit(
+        _compute_context_trust_scan,
+        support_units_payload=payload_snapshot,
+        support_inputs=input_snapshot,
+    )
+
+
+def _finish_context_trust_scan(
+    *,
+    support_units_payload: List[Dict[str, Any]],
+    future: concurrent.futures.Future[tuple[Dict[str, Any], list[Dict[str, Any]]]],
+) -> Dict[str, Any]:
+    return _apply_context_trust_result(
+        support_units_payload=support_units_payload,
+        scan_result=future.result(),
+    )
+
+
+def _skipped_context_trust_diagnostics(
+    support_units_payload: Sequence[Dict[str, Any]],
+    *,
+    reason: str,
+) -> Dict[str, Any]:
+    return {
+        "enabled": False,
+        "provider": "skipped",
+        "support_unit_count": len(support_units_payload),
+        "trusted_count": 0,
+        "suspicious_count": 0,
+        "blocked_count": 0,
+        "score": 0.0,
+        "max_risk": 0.0,
+        "suspicious_support_ids": [],
+        "blocked_support_ids": [],
+        "labels": [],
+        "skipped_reason": reason,
+        "suspicious_threshold": 0.20,
+        "blocked_threshold": 0.60,
+    }
+
+
+def _copy_context_trust_fields_from_base(
+    *,
+    support_units_payload: List[Dict[str, Any]],
+    base_support_units: Sequence[Dict[str, Any]],
+) -> None:
+    keys = (
+        "context_trust_state",
+        "context_trust_score",
+        "context_trust_labels",
+        "context_trust_spans",
+    )
+    for idx, payload in enumerate(support_units_payload):
+        if idx >= len(base_support_units):
+            continue
+        base_unit = base_support_units[idx]
+        for key in keys:
+            if key in base_unit:
+                payload[key] = base_unit[key]
 
 
 def _normalize(x: torch.Tensor) -> torch.Tensor:
@@ -3095,6 +3211,8 @@ def score_groundedness(
     structured_verification: Optional[str] = None,
     structured_support_text: Optional[str] = None,
     coverage_threshold: float = _DEFAULT_COVERAGE_THRESHOLD,
+    context_trust_scan_enabled: bool = True,
+    context_trust_skipped_reason: str = "disabled_by_request",
     _emit_dedup_warning: bool = True,
 ) -> Dict[str, Any]:
     """Score response groundedness against support units.
@@ -3382,6 +3500,15 @@ def score_groundedness(
         if not debug_payload:
             debug_payload = None
 
+    context_trust_future = (
+        _start_context_trust_scan(
+            support_units_payload=support_units_payload,
+            support_inputs=support_units,
+        )
+        if context_trust_scan_enabled
+        else None
+    )
+
     response_literals, literal_mismatches, literal_matches = diff_literals(
         response_text or "",
         support_units,
@@ -3497,9 +3624,16 @@ def score_groundedness(
         response_tokens=response_tokens_aligned,
         query_tokens=query_tokens_aligned,
     )
-    context_trust_diagnostics = _apply_context_trust_scan(
-        support_units_payload=support_units_payload,
-        support_inputs=support_units,
+    context_trust_diagnostics = (
+        _finish_context_trust_scan(
+            support_units_payload=support_units_payload,
+            future=context_trust_future,
+        )
+        if context_trust_future is not None
+        else _skipped_context_trust_diagnostics(
+            support_units_payload,
+            reason=context_trust_skipped_reason,
+        )
     )
 
     groundedness_v2 = fuse_groundedness_v2(
@@ -4010,6 +4144,8 @@ def score_groundedness_chunked(
     structured_verification: Optional[str] = None,
     structured_support_text: Optional[str] = None,
     coverage_threshold: float = _DEFAULT_COVERAGE_THRESHOLD,
+    context_trust_scan_enabled: bool = True,
+    context_trust_skipped_reason: str = "disabled_by_request",
 ) -> Dict[str, Any]:
     """Score chunked support windows and merge them by per-token maxima.
 
@@ -4056,6 +4192,8 @@ def score_groundedness_chunked(
             structured_verification=structured_verification,
             structured_support_text=structured_support_text,
             coverage_threshold=coverage_threshold,
+            context_trust_scan_enabled=context_trust_scan_enabled,
+            context_trust_skipped_reason=context_trust_skipped_reason,
         )
 
     flat_support_units = [unit for batch in batches for unit in batch]
@@ -4419,6 +4557,15 @@ def score_groundedness_chunked(
         if not debug_payload:
             debug_payload = None
 
+    context_trust_future = (
+        _start_context_trust_scan(
+            support_units_payload=support_units_payload,
+            support_inputs=flat_support_units,
+        )
+        if context_trust_scan_enabled
+        else None
+    )
+
     response_literals, literal_mismatches, literal_matches = diff_literals(
         response_text or "",
         flat_support_units,
@@ -4492,9 +4639,16 @@ def score_groundedness_chunked(
         response_tokens=response_tokens_aligned,
         query_tokens=query_tokens,
     )
-    context_trust_diagnostics = _apply_context_trust_scan(
-        support_units_payload=support_units_payload,
-        support_inputs=flat_support_units,
+    context_trust_diagnostics = (
+        _finish_context_trust_scan(
+            support_units_payload=support_units_payload,
+            future=context_trust_future,
+        )
+        if context_trust_future is not None
+        else _skipped_context_trust_diagnostics(
+            support_units_payload,
+            reason=context_trust_skipped_reason,
+        )
     )
 
     semantic_entropy_payload = _maybe_run_semantic_entropy(
@@ -4872,6 +5026,7 @@ def score_groundedness_response_chunked(
     structured_verification: Optional[str] = None,
     structured_support_text: Optional[str] = None,
     coverage_threshold: float = _DEFAULT_COVERAGE_THRESHOLD,
+    context_trust_scan_enabled: bool = True,
 ) -> Dict[str, Any]:
     """Score response groundedness across one or more response chunks.
 
@@ -4949,6 +5104,8 @@ def score_groundedness_response_chunked(
             structured_verification=structured_verification,
             structured_support_text=structured_support_text,
             coverage_threshold=coverage_threshold,
+            context_trust_scan_enabled=context_trust_scan_enabled,
+            context_trust_skipped_reason="disabled_by_request",
         )
         spans = chunk_token_spans[0]
         for row in result["response_tokens"]:
@@ -5005,6 +5162,12 @@ def score_groundedness_response_chunked(
             structured_verification=structured_verification if is_first else None,
             structured_support_text=structured_support_text if is_first else None,
             coverage_threshold=coverage_threshold,
+            context_trust_scan_enabled=context_trust_scan_enabled and is_first,
+            context_trust_skipped_reason=(
+                "disabled_for_response_chunk_stitch"
+                if context_trust_scan_enabled
+                else "disabled_by_request"
+            ),
         )
         chunk_results.append(chunk_result)
         for warning_msg in chunk_result.get("warnings", []):
@@ -5356,9 +5519,15 @@ def score_groundedness_response_chunked(
         response_tokens=flat_response_tokens,
         query_tokens=query_tokens,
     )
-    context_trust_diagnostics = _apply_context_trust_scan(
+    _copy_context_trust_fields_from_base(
         support_units_payload=support_units_payload,
-        support_inputs=flat_support_units,
+        base_support_units=base.get("support_units") or [],
+    )
+    context_trust_diagnostics = base.get(
+        "context_trust_diagnostics",
+    ) or _skipped_context_trust_diagnostics(
+        support_units_payload,
+        reason="missing_base_context_trust_diagnostics",
     )
 
     evidence_candidates.sort(key=lambda item: item["_rank"], reverse=True)
