@@ -23,9 +23,10 @@ signals fan out on the scoring path:
 
 The compliance lane is exposed at `POST /v1/compliance/redact`. It uses
 GLiNER PII detection, token-aware chunking, deterministic validators, custom
-regex overrides, and mask/replacement redaction. Portal insights store only
-privacy-safe aggregate metadata: entity counts, label counts, chunk counts,
-redaction mode, latency, and error rates.
+regex overrides, masking, and synthetic replacement redaction via
+`redaction_mode="replace"`. Portal insights store only privacy-safe aggregate
+metadata: entity counts, label counts, chunk counts, redaction mode, latency,
+and error rates.
 
 Compliance requests and responses use stable canonical GDPR labels. The runtime
 translates those labels to benchmarked GLiNER-facing aliases only at inference

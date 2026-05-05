@@ -98,9 +98,10 @@ Request a repair packet explicitly:
 
 `POST /v1/compliance/redact` detects GDPR/enterprise PII with
 `knowledgator/gliner-pii-large-v1.0`, token-aware chunking, deterministic
-sanity checks, optional custom regex overrides, and mask or replacement
-redaction. The internal `/compliance/redact` route remains available for
-self-hosted deployments, but hosted customers should use the `/v1` alias.
+sanity checks, optional custom regex overrides, masking, and country-aware
+synthetic replacement redaction. The internal `/compliance/redact` route
+remains available for self-hosted deployments, but hosted customers should use
+the `/v1` alias.
 
 ```json
 {
@@ -108,7 +109,8 @@ self-hosted deployments, but hosted customers should use the `/v1` alias.
   "mode": "category",
   "labels": ["person", "email"],
   "redact": true,
-  "redaction_mode": "mask",
+  "redaction_mode": "replace",
+  "country": "USA",
   "include_original_text": false
 }
 ```
@@ -119,6 +121,11 @@ privacy-safe `usage` object. Do not log `text`, `entities[*].text`, or
 `redacted_text` in customer-facing analytics; the portal insights lane uses
 only aggregate usage metadata such as entity count, label count, chunk count,
 redaction mode, and latency.
+
+Use `redaction_mode="mask"` for deterministic label placeholders such as
+`[EMAIL]`. Use `redaction_mode="replace"` to swap model-detected PII with
+synthetic dataset values. Custom regex entities remain mask-only, and TRACE
+falls back to masking when no safe synthetic value is available.
 
 `GET /v1/compliance/schema` returns the supported GDPR categories, full label
 catalog, optimized model-label aliases, and modes (`open` or `category`). Use

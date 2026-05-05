@@ -32,6 +32,8 @@ class ComplianceRedactionRequest(BaseModel):
                     "text": "Employee EMP-123 has account DE89370400440532013000.",
                     "mode": "category",
                     "categories": ["financial", "employment_and_education"],
+                    "redact": True,
+                    "redaction_mode": "replace",
                 },
             ]
         }
@@ -102,4 +104,12 @@ def compliance_schema_metadata() -> dict[str, Any]:
         "labels": all_gdpr_labels(),
         "model_label_aliases": model_alias_metadata(),
         "modes": ["open", "category"],
+        "redaction_modes": ["mask", "replace"],
+        "synthetic_replacement": {
+            "enabled_by": "redact=true and redaction_mode='replace'",
+            "dataset_env": "LATENCE_TRACE_COMPLIANCE_DATASET_PATH",
+            "default_dataset": "doubledsbv/pii-replacement-dataset",
+            "custom_regex_behavior": "mask_only",
+            "fallback_behavior": "mask_when_replacement_unavailable",
+        },
     }

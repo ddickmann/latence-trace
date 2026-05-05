@@ -113,6 +113,7 @@ def create_compliance_router(
                     "max_inflight": inflight_limit,
                     "max_text_tokens": service.max_text_tokens,
                     "max_model_len": service.max_model_len,
+                    "replacement_dataset": service.replacement_dataset_stats(),
                 },
             )
         except Exception as exc:

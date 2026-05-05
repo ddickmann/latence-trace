@@ -98,6 +98,11 @@ class ComplianceRedactionService:
             max_chunk_concurrency=max_concurrency,
         )
 
+    def replacement_dataset_stats(self, *, load: bool = False) -> dict[str, Any]:
+        """Return privacy-safe synthetic replacement dataset health."""
+
+        return self._redaction_engine.stats(load=load)
+
     def _chunk_text(self, text: str) -> list[TextChunk]:
         return chunk_text_by_tokens(
             text,

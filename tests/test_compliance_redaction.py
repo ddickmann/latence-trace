@@ -24,6 +24,7 @@ from latence_trace.compliance.labels import (
     resolve_label_set,
     to_model_label_set,
 )
+from latence_trace.compliance.redaction import ComplianceRedactionEngine, ReplacementDataset
 from server.main import create_app
 
 
@@ -122,6 +123,14 @@ def _service(provider: _RegexProvider | None = None, *, max_text_tokens: int = 5
     )
 
 
+def _install_replacement_records(
+    service: ComplianceRedactionService,
+    records: list[dict[str, Any]],
+) -> None:
+    service._redaction_engine.dataset = ReplacementDataset.from_records(records)
+    service._redaction_engine.tabu_list.clear()
+
+
 def test_gdpr_label_catalog_is_ordered_and_category_resolution_is_stable():
     labels = all_gdpr_labels()
     assert labels[:3] == ["person", "date_of_birth", "age"]
@@ -161,6 +170,8 @@ def test_compliance_schema_surfaces_model_alias_metadata():
     assert schema["model_label_aliases"]["person"]["model_label"] == "name"
     assert schema["model_label_aliases"]["person"]["single_label_benchmark_f1"] == 1.0
     assert schema["model_label_aliases"]["postal_code"]["model_label"] == "zip code"
+    assert schema["redaction_modes"] == ["mask", "replace"]
+    assert schema["synthetic_replacement"]["custom_regex_behavior"] == "mask_only"
 
 
 def test_address_component_aliases_are_canonicalized_and_redacted():
@@ -236,6 +247,178 @@ def test_compliance_service_redacts_and_applies_sanity_checks():
     assert response.redacted_text == "Contact [EMAIL] but ignore not-an-email."
     assert response.timings_ms["vllm_request_ms"] >= 0
     assert response.chunks_processed == 1
+
+
+def test_replacement_mode_returns_synthetic_values_for_model_entities():
+    service = _service()
+    _install_replacement_records(
+        service,
+        [
+            {
+                "identity.full_name": "Alex Mercer",
+                "contact.email": "alex.mercer@example.test",
+                "address.country": "USA",
+            }
+        ],
+    )
+
+    response = service.redact(
+        ComplianceRedactionRequest(
+            text="Contact Jane Doe at jane@example.com.",
+            labels=["person", "email"],
+            redact=True,
+            redaction_mode="replace",
+            country="USA",
+            include_original_text=False,
+        )
+    )
+
+    assert response.redacted_text == "Contact Alex Mercer at alex.mercer@example.test."
+    assert response.entities[0].redacted_value == "Alex Mercer"
+    assert response.entities[0].redaction_mode == "replace"
+    assert response.entities[1].redacted_value == "alex.mercer@example.test"
+    assert response.entities[1].redaction_mode == "replace"
+
+
+def test_custom_regex_entities_still_mask_under_replace_mode():
+    service = _service()
+    _install_replacement_records(
+        service,
+        [{"identity.full_name": "Alex Mercer", "address.country": "USA"}],
+    )
+
+    response = service.redact(
+        ComplianceRedactionRequest(
+            text="Internal code CASE-1234 should not be sampled.",
+            custom_labels=[{"label_name": "custom.case_id", "extractor": r"CASE-\d+"}],
+            redact=True,
+            redaction_mode="replace",
+            country="USA",
+            include_original_text=False,
+        )
+    )
+
+    assert response.redacted_text == "Internal code [CUSTOM.CASE_ID] should not be sampled."
+    assert response.entities[0].source == "custom_regex"
+    assert response.entities[0].redaction_mode == "mask"
+
+
+def test_missing_replacement_label_falls_back_to_mask_and_records_actual_mode():
+    engine = ComplianceRedactionEngine()
+    engine.dataset = ReplacementDataset.from_records(
+        [{"identity.full_name": "Alex Mercer", "address.country": "USA"}]
+    )
+
+    redacted_text, entities = engine.redact_text(
+        "Card 4111111111111111",
+        [
+            {
+                "start": 5,
+                "end": 21,
+                "text": "4111111111111111",
+                "label": "credit_card_number",
+                "score": 0.99,
+                "source": "model",
+            }
+        ],
+        mode="replace",
+        country="USA",
+    )
+
+    assert redacted_text == "Card [CREDIT_CARD_NUMBER]"
+    assert entities[0]["redaction_mode"] == "mask"
+    assert entities[0]["redacted_value"] == "[CREDIT_CARD_NUMBER]"
+
+
+def test_explicit_country_filters_replacement_sampling():
+    engine = ComplianceRedactionEngine()
+    engine.dataset = ReplacementDataset.from_records(
+        [
+            {"identity.full_name": "Alex Mercer", "address.country": "USA"},
+            {"identity.full_name": "Maria Schmidt", "address.country": "Deutschland"},
+        ]
+    )
+
+    redacted_text, entities = engine.redact_text(
+        "Customer Jane Doe",
+        [
+            {
+                "start": 9,
+                "end": 17,
+                "text": "Jane Doe",
+                "label": "person",
+                "score": 0.99,
+                "source": "model",
+            }
+        ],
+        mode="replace",
+        country="Deutschland",
+    )
+
+    assert redacted_text == "Customer Maria Schmidt"
+    assert entities[0]["redaction_mode"] == "replace"
+
+
+def test_tabu_list_avoids_immediate_reuse_when_candidates_exist():
+    engine = ComplianceRedactionEngine()
+    engine.dataset = ReplacementDataset.from_records(
+        [
+            {"identity.full_name": "Alex Mercer", "address.country": "USA"},
+            {"identity.full_name": "Jordan Lee", "address.country": "USA"},
+        ]
+    )
+    text = "Jane Doe and Alice Johnson"
+
+    _, entities = engine.redact_text(
+        text,
+        [
+            {
+                "start": text.index("Jane Doe"),
+                "end": text.index("Jane Doe") + len("Jane Doe"),
+                "text": "Jane Doe",
+                "label": "person",
+                "score": 0.99,
+                "source": "model",
+            },
+            {
+                "start": text.index("Alice Johnson"),
+                "end": text.index("Alice Johnson") + len("Alice Johnson"),
+                "text": "Alice Johnson",
+                "label": "person",
+                "score": 0.99,
+                "source": "model",
+            },
+        ],
+        mode="replace",
+        country="USA",
+    )
+
+    replacements = [entity["redacted_value"] for entity in entities]
+    assert sorted(replacements) == ["Alex Mercer", "Jordan Lee"]
+    assert replacements[0] != replacements[1]
+
+
+def test_dataset_load_failure_degrades_to_mask_not_request_failure():
+    engine = ComplianceRedactionEngine(dataset_path="/tmp/latence-trace-missing-redaction-dataset")
+
+    redacted_text, entities = engine.redact_text(
+        "Contact Jane Doe",
+        [
+            {
+                "start": 8,
+                "end": 16,
+                "text": "Jane Doe",
+                "label": "person",
+                "score": 0.99,
+                "source": "model",
+            }
+        ],
+        mode="replace",
+        country="USA",
+    )
+
+    assert redacted_text == "Contact [PERSON]"
+    assert entities[0]["redaction_mode"] == "mask"
 
 
 def test_custom_regex_override_wins_overlap_dedupe():
