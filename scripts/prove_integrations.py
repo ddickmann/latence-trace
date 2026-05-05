@@ -8,8 +8,8 @@ and does not consume hosted quota.
 Coverage:
 
 1. Raw HTTP POST /v1/score/groundedness
-2. Python client (Latence)
-3. Python async client
+2. Python client (Latence product namespace)
+3. Python async client (AsyncLatence product namespace)
 4. OpenAI integration (score_openai_response, synthetic payload)
 5. LangChain callback (LatenceTraceCallback)
 6. LangGraph node (score_groundedness_node)
@@ -133,7 +133,7 @@ def check_python_sync() -> None:
     from latence import Latence
 
     client = Latence(api_key="test", base_url=SIDECAR)
-    res = client.score_groundedness(
+    res = client.grounding.rag(
         query=FIXTURE["question"],
         response_text=FIXTURE["response_text"],
         raw_context=FIXTURE["raw_context"],
@@ -151,7 +151,7 @@ def check_python_async() -> None:
         from latence import AsyncLatence
 
         async with AsyncLatence(api_key="test", base_url=SIDECAR) as client:
-            res = await client.score_groundedness(
+            res = await client.grounding.rag(
                 query=FIXTURE["question"],
                 response_text=FIXTURE["response_text"],
                 raw_context=FIXTURE["raw_context"],
