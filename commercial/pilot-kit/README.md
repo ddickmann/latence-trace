@@ -15,6 +15,7 @@
 | [`case-study-template.md`](case-study-template.md) | The case-study skeleton produced after a successful pilot. |
 | [`pilot-tracker.md`](pilot-tracker.md) | The pilot pipeline tracker (markdown table format). |
 | [`onboarding-checklist.md`](onboarding-checklist.md) | Day-1 to day-60 onboarding cadence. |
+| [`trace-design-partner-brief.md`](trace-design-partner-brief.md) | Waitlist-to-pilot one-pager, qualification questions, demo script, and security posture. |
 
 ## Recommended workflow
 

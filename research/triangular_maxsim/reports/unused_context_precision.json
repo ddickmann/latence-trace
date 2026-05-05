@@ -15,12 +15,18 @@
     "redundancy_overlap_min": 0.75,
     "redundancy_jaccard_min": 0.55,
     "redundancy_centroid_cosine_min": 0.92,
-    "redundancy_centroid_overlap_floor": 0.4
+    "redundancy_centroid_overlap_floor": 0.4,
+    "response_overlap_used_min": 0.12,
+    "response_overlap_unused_max": 0.04,
+    "query_overlap_unused_max": 0.04,
+    "response_owner_share_used_min": 0.08,
+    "response_owner_share_noise_max": 0.06,
+    "support_response_share_used_min": 0.55
   },
   "selected_thresholds_meets_target_on_calibration": true,
   "calibration": {
     "total_units": 40,
-    "accuracy": 0.85,
+    "accuracy": 0.925,
     "unused_precision": 1.0,
     "unused_precision_defined": true,
     "unused_recall": 0.85,
@@ -37,8 +43,7 @@
         "uncertain": 3
       },
       "uncertain": {
-        "uncertain": 5,
-        "used": 3
+        "uncertain": 8
       }
     },
     "emitted_unused_examples": [
@@ -131,7 +136,7 @@
   },
   "heldout": {
     "total_units": 40,
-    "accuracy": 0.9,
+    "accuracy": 0.975,
     "unused_precision": 1.0,
     "unused_precision_defined": true,
     "unused_recall": 1.0,
@@ -147,8 +152,8 @@
         "unused": 20
       },
       "uncertain": {
-        "used": 4,
-        "uncertain": 4
+        "uncertain": 7,
+        "used": 1
       }
     },
     "emitted_unused_examples": [
@@ -240,7 +245,7 @@
   },
   "heldout_default_thresholds": {
     "total_units": 40,
-    "accuracy": 0.9,
+    "accuracy": 0.975,
     "unused_precision": 1.0,
     "unused_precision_defined": true,
     "unused_recall": 1.0,
@@ -256,8 +261,8 @@
         "unused": 20
       },
       "uncertain": {
-        "used": 4,
-        "uncertain": 4
+        "uncertain": 7,
+        "used": 1
       }
     },
     "emitted_unused_examples": [
