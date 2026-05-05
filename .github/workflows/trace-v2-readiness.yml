@@ -13,9 +13,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install CPU torch for CI
-        run: python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.2"
       - name: Install package
-        run: python -m pip install -e ".[dev]"
+        run: |
+          printf 'torch==2.3.1+cpu\n' > /tmp/trace-ci-constraints.txt
+          python -m pip install \
+            --extra-index-url https://download.pytorch.org/whl/cpu \
+            -c /tmp/trace-ci-constraints.txt \
+            -e ".[dev]"
       - name: Verify TRACE v2 readiness
         run: python scripts/verify_trace_v2_readiness.py
