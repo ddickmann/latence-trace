@@ -112,6 +112,25 @@ class _RegexProvider:
         return None
 
 
+class _ShapeFailingProvider(_RegexProvider):
+    def __init__(self, *, max_words: int) -> None:
+        super().__init__()
+        self.max_words = max_words
+        self.failures = 0
+
+    def detect(self, *, text: str, labels, threshold=0.5, flat_ner=True, multi_label=False):
+        if len(text.split()) > self.max_words:
+            self.failures += 1
+            raise RuntimeError("shape '[1, 280, 3, 3]' is invalid for input of size 2529")
+        return super().detect(
+            text=text,
+            labels=labels,
+            threshold=threshold,
+            flat_ner=flat_ner,
+            multi_label=multi_label,
+        )
+
+
 def _service(provider: _RegexProvider | None = None, *, max_text_tokens: int = 512):
     return ComplianceRedactionService(
         provider=provider or _RegexProvider(),
@@ -452,6 +471,51 @@ def test_chunk_detection_runs_concurrently_not_sequentially():
     assert provider.calls == 4
     assert provider.peak_inflight > 1
     assert elapsed < 0.3, f"chunk inference appears serialized: elapsed={elapsed:.3f}s"
+
+
+def test_chunk_budget_accounts_for_gliner_label_prompt_overhead():
+    service = ComplianceRedactionService(
+        provider=_RegexProvider(),
+        model_name="knowledgator/gliner-pii-large-v1.0",
+        tokenizer=_WhitespaceTokenizer(),
+        max_text_tokens=1024,
+        max_model_len=20,
+        max_chunk_concurrency=8,
+    )
+
+    chunks = service._chunk_text(
+        " ".join(f"word{i}" for i in range(30)),
+        labels=["name", "email", "phone_number"],
+    )
+
+    assert len(chunks) == 3
+    assert max(chunk.token_count for chunk in chunks) == 12
+
+
+def test_gliner_shape_failures_retry_with_smaller_chunks_before_redaction():
+    provider = _ShapeFailingProvider(max_words=34)
+    service = _service(provider, max_text_tokens=512)
+    prefix = " ".join(f"word{i}" for i in range(36))
+    suffix = " ".join(f"tail{i}" for i in range(36))
+    text = f"{prefix} Jane Doe uses jane@example.com. {suffix}"
+
+    response = service.redact(
+        ComplianceRedactionRequest(
+            text=text,
+            labels=["person", "email"],
+            redact=True,
+            redaction_mode="mask",
+            include_original_text=False,
+        )
+    )
+
+    assert provider.failures > 0
+    assert response.chunks_processed > 1
+    assert response.timings_ms["vllm_retry_splits"] > 0
+    assert "Jane Doe" not in response.redacted_text
+    assert "jane@example.com" not in response.redacted_text
+    assert "[PERSON]" in response.redacted_text
+    assert "[EMAIL]" in response.redacted_text
 
 
 def test_compliance_route_offloads_redaction_and_keeps_health_unblocked():
