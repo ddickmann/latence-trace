@@ -21,8 +21,29 @@ from typing import Any
 import httpx
 
 ROOT = Path(__file__).resolve().parents[1]
+SDK_REPO_ROOT = Path(os.environ.get("LATENCE_TRACE_SDK_REPO", ROOT.parent / "latence-trace-python")).resolve()
 MANIFEST_PATH = ROOT / "docs" / "core_freeze" / "api_surface_manifest.json"
 EXAMPLES_DIR = ROOT / "docs" / "core_freeze" / "examples"
+
+
+def _ensure_front_of_path(path: Path) -> None:
+    value = str(path)
+    while value in sys.path:
+        sys.path.remove(value)
+    sys.path.insert(0, value)
+
+
+def _clear_shadowed_server_module() -> None:
+    module = sys.modules.get("server")
+    if module is None:
+        return
+    module_paths = {Path(path).resolve() for path in getattr(module, "__path__", [])}
+    expected = (ROOT / "server").resolve()
+    if expected in module_paths:
+        return
+    for name in list(sys.modules):
+        if name == "server" or name.startswith("server."):
+            sys.modules.pop(name, None)
 
 
 def _load_manifest(path: Path) -> dict[str, Any]:
@@ -33,8 +54,8 @@ def _full_app_openapi() -> dict[str, Any]:
     os.environ.setdefault("LATENCE_TRACE_DISABLE_WARMUP", "1")
     os.environ.setdefault("LATENCE_TRACE_LICENSE_REQUIRE", "false")
     os.environ.setdefault("VOYAGER_GROUNDEDNESS_NLI_ENABLED", "0")
-    if str(ROOT) not in sys.path:
-        sys.path.insert(0, str(ROOT))
+    _ensure_front_of_path(ROOT)
+    _clear_shadowed_server_module()
     from server.main import create_app  # noqa: PLC0415
 
     return create_app(profile="fast").openapi()
@@ -44,8 +65,8 @@ async def _agent_help() -> dict[str, Any]:
     os.environ.setdefault("LATENCE_TRACE_DISABLE_WARMUP", "1")
     os.environ.setdefault("LATENCE_TRACE_LICENSE_REQUIRE", "false")
     os.environ.setdefault("VOYAGER_GROUNDEDNESS_NLI_ENABLED", "0")
-    if str(ROOT) not in sys.path:
-        sys.path.insert(0, str(ROOT))
+    _ensure_front_of_path(ROOT)
+    _clear_shadowed_server_module()
     from server.main import create_app  # noqa: PLC0415
 
     app = create_app(profile="fast")
@@ -145,8 +166,7 @@ def _check_examples(manifest: Mapping[str, Any], errors: list[str]) -> None:
 
 
 def _check_gates(manifest: Mapping[str, Any], errors: list[str]) -> None:
-    if str(ROOT) not in sys.path:
-        sys.path.insert(0, str(ROOT))
+    _ensure_front_of_path(ROOT)
     from scripts.trace_core_freeze_gate import GATES  # noqa: PLC0415
 
     gate_names = {gate.name for gate in GATES}
@@ -166,23 +186,23 @@ def _has_sdk_path(root: Any, path: str) -> bool:
 
 
 def _check_sdk(manifest: Mapping[str, Any], errors: list[str]) -> None:
-    if str(ROOT / "clients" / "python") not in sys.path:
-        sys.path.insert(0, str(ROOT / "clients" / "python"))
-    from latence_trace_client import (  # noqa: PLC0415
-        AsyncLatenceTraceClient,
+    sdk_src = SDK_REPO_ROOT / "src"
+    _ensure_front_of_path(sdk_src)
+    from latence import (  # noqa: PLC0415
+        AsyncLatence,
         AsyncTraceSession,
-        LatenceTraceClient,
+        Latence,
         TraceSession,
     )
 
     def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={})
 
-    sync_client = LatenceTraceClient(
+    sync_client = Latence(
         base_url="http://contract-check",
         transport=httpx.MockTransport(handler),
     )
-    async_client = AsyncLatenceTraceClient(
+    async_client = AsyncLatence(
         base_url="http://contract-check",
         transport=httpx.MockTransport(handler),
     )

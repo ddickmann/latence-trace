@@ -40,7 +40,7 @@ Isolated (single request) p50 / p95 per profile — see
 
 - Python SDK (`latence-python`)
 - Hosted `api.latence.ai` with tenant API key
-- LangChain / LlamaIndex / LangGraph / CrewAI adapters (`clients/python/`)
+- LangChain / LlamaIndex / LangGraph / CrewAI adapters (`latence-trace-python`)
 - n8n community node + MCP endpoint for agent frameworks
 - TypeScript SDK (see `clients/typescript/`)
 

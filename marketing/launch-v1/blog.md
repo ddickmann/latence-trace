@@ -92,10 +92,10 @@ decision:
 ## How to actually use it
 
 ```python
-from latence_trace_client import LatenceTraceClient
+from latence import Latence
 
-trace = LatenceTraceClient(api_key="...")
-result = trace.score_groundedness(
+trace = Latence(api_key="...")
+result = trace.grounding.rag(
     query="What was the Eiffel Tower completion year?",
     response_text="The Eiffel Tower was completed in 1889.",
     raw_context="The Eiffel Tower in Paris was completed in 1889 for the World's Fair.",

@@ -10,19 +10,20 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+SDK_REPO_ROOT = Path(os.environ.get("LATENCE_TRACE_SDK_REPO", ROOT.parent / "latence-trace-python")).resolve()
+SDK_PACKAGE_ROOT = SDK_REPO_ROOT / "src" / "latence"
 MANIFEST_PATH = ROOT / "docs/core_freeze/api_surface_manifest.json"
 DEFAULT_OUTPUT = ROOT / "docs/core_freeze/trace_feature_inventory.json"
 PY_FILE_GLOBS = (
     "latence_trace/**/*.py",
     "runpod/**/*.py",
-    "clients/python/latence_trace_client/**/*.py",
-    "clients/python/tests/**/*.py",
     "scripts/*.py",
 )
 ENV_RE = re.compile(r"\b(?:LATENCE_TRACE|VOYAGER|RUNPOD)_[A-Z0-9_]+\b")
@@ -42,6 +43,16 @@ def _rel(path: Path) -> str:
     return path.relative_to(ROOT).as_posix()
 
 
+def _display_path(path: Path) -> str:
+    try:
+        return path.relative_to(ROOT).as_posix()
+    except ValueError:
+        try:
+            return f"../latence-trace-python/{path.relative_to(SDK_REPO_ROOT).as_posix()}"
+        except ValueError:
+            return path.as_posix()
+
+
 def _python_files() -> list[Path]:
     files: set[Path] = set()
     for pattern in PY_FILE_GLOBS:
@@ -52,7 +63,7 @@ def _python_files() -> list[Path]:
 def _parse(path: Path) -> ast.Module | None:
     try:
         return ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    except SyntaxError:
+    except (OSError, SyntaxError):
         return None
 
 
@@ -302,16 +313,18 @@ def _class_methods(path: Path) -> dict[str, list[str]]:
 
 
 def discover_sdk_methods() -> dict[str, Any]:
-    sync_classes = _class_methods(ROOT / "clients/python/latence_trace_client/client.py")
-    async_classes = _class_methods(ROOT / "clients/python/latence_trace_client/async_client.py")
+    sync_classes = _class_methods(SDK_PACKAGE_ROOT / "client.py")
+    async_classes = _class_methods(SDK_PACKAGE_ROOT / "async_client.py")
     sync_methods = _sdk_surface(sync_classes, async_mode=False)
     async_methods = _sdk_surface(async_classes, async_mode=True)
     integrations = sorted(
-        _rel(path)
-        for path in (ROOT / "clients/python/latence_trace_client/integrations").glob("*.py")
+        _display_path(path)
+        for path in (SDK_PACKAGE_ROOT / "integrations").glob("*.py")
         if path.name != "__init__.py"
     )
     return {
+        "repo": str(SDK_REPO_ROOT),
+        "import_package": "latence",
         "sync_classes": sync_classes,
         "async_classes": async_classes,
         "sync_methods": sorted(sync_methods),
@@ -327,7 +340,7 @@ def _sdk_surface(classes: dict[str, list[str]], *, async_mode: bool) -> set[str]
             "AsyncGroundingClient": "grounding",
             "AsyncCompressionClient": "compression",
             "AsyncMemoryClient": "memory",
-            "AsyncLatenceTraceClient": "",
+            "AsyncLatence": "",
             "AsyncTraceSession": "AsyncTraceSession",
         }
         if async_mode
@@ -336,7 +349,7 @@ def _sdk_surface(classes: dict[str, list[str]], *, async_mode: bool) -> set[str]
             "GroundingClient": "grounding",
             "CompressionClient": "compression",
             "MemoryClient": "memory",
-            "LatenceTraceClient": "",
+            "Latence": "",
             "TraceSession": "TraceSession",
         }
     )

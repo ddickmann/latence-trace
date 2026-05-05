@@ -1,14 +1,15 @@
-"""Run the 360-degree bench through the ``latence-python`` SDK.
+"""Run the 360-degree bench through the standalone ``latence`` SDK.
 
 Monkey-patches ``Transport.submit`` in :mod:`scripts.bench_runpod_360` so that
 every dimension (RAG / unused / code / session / rag_attribution / heatmap /
-rollup / burst) goes through ``client.experimental.trace.{rag,code,rollup}``
+rollup / burst) goes through ``client.grounding.{rag,code}`` or
+``client.rollup``
 instead of raw ``httpx`` to RunPod. The bench's pass/fail gates stay identical;
 this just swaps the wire path.
 
 Usage (same flags as the parent bench)::
 
-    export LATENCE_API_KEY=lat_...
+    export LATENCE_TRACE_API_KEY=lat_...
     python scripts/bench_runpod_360_via_sdk.py --skip concurrency --concurrency 2
 
 The SDK client points at ``$LATENCE_BASE_URL`` (default
@@ -20,12 +21,11 @@ backwards compatibility but unused when routing through the SDK.
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import httpx
 
@@ -35,9 +35,12 @@ if str(_REPO) not in sys.path:
 
 from scripts import bench_runpod_360 as bench  # noqa: E402
 
-from latence import AsyncLatence  # noqa: E402
-from latence._exceptions import APIError as LatenceAPIError  # noqa: E402
+_SDK_REPO = Path(os.environ.get("LATENCE_TRACE_SDK_REPO", _REPO.parent / "latence-trace-python")).resolve()
+if str(_SDK_REPO / "src") not in sys.path:
+    sys.path.insert(0, str(_SDK_REPO / "src"))
 
+from latence import AsyncLatence  # noqa: E402
+from latence.errors import LatenceTraceAPIError  # noqa: E402
 
 _GATEWAY_KEY_REWRITES = bench._GATEWAY_KEY_REWRITES  # query→query_text, etc.
 
@@ -56,11 +59,27 @@ _CODE_KEYS = _RAG_KEYS | {
     "response_language_hint", "emit_chunk_ownership", "session_state",
 }
 _ROLLUP_KEYS = {"turns", "session_id", "heatmap_format"}
+_GROUNDING_DIRECT_KEYS = {
+    "response_text",
+    "query",
+    "chunk_ids",
+    "raw_context",
+    "support_units",
+    "attribution_mode",
+    "primary_metric",
+    "coverage_threshold",
+    "raw_context_chunk_tokens",
+    "response_chunk_tokens",
+    "locale",
+    "context_trust_enabled",
+    "runtime_head_features",
+    "trajectory_features",
+}
 
 
-def _translate_flat(flat: Dict[str, Any]) -> Dict[str, Any]:
+def _translate_flat(flat: dict[str, Any]) -> dict[str, Any]:
     """Apply query/context/response -> canonical gateway field names."""
-    out: Dict[str, Any] = {}
+    out: dict[str, Any] = {}
     for key, value in flat.items():
         out[_GATEWAY_KEY_REWRITES.get(key, key)] = value
     return out
@@ -83,11 +102,22 @@ def _dump_model(obj: Any) -> Any:
     return obj
 
 
+def _grounding_kwargs(flat: dict[str, Any], allowed: set[str]) -> dict[str, Any]:
+    normalised = dict(flat)
+    if "query_text" in normalised and "query" not in normalised:
+        normalised["query"] = normalised.pop("query_text")
+    direct = {k: v for k, v in normalised.items() if k in allowed and v is not None}
+    extra = {k: v for k, v in normalised.items() if k not in allowed and v is not None}
+    if extra:
+        direct["extra"] = extra
+    return direct
+
+
 async def _sdk_submit(
     self: bench.Transport,  # noqa: ARG001
     _client: httpx.AsyncClient,  # unused — the SDK owns its own httpx
-    payload: Dict[str, Any],
-) -> Dict[str, Any]:
+    payload: dict[str, Any],
+) -> dict[str, Any]:
     """Route a bench payload through the Latence SDK.
 
     Re-wraps the flat gateway response in ``{"status", "output", "id"}``
@@ -102,18 +132,27 @@ async def _sdk_submit(
     scoring_mode = (raw_input.pop("scoring_mode", None) or "rag").lower()
 
     flat = _translate_flat(raw_input)
+    if _SDK is None:
+        raise RuntimeError("SDK client is not initialized")
 
     try:
         if action == "rollup":
             kwargs = {k: v for k, v in flat.items() if k in _ROLLUP_KEYS and v is not None}
-            resp = await _SDK.experimental.trace.rollup(**kwargs)
+            turns = kwargs.pop("turns", [])
+            resp = await _SDK.rollup(turns=turns, **kwargs)
         elif scoring_mode == "code":
-            kwargs = {k: v for k, v in flat.items() if k in _CODE_KEYS and v is not None}
-            resp = await _SDK.experimental.trace.code(**kwargs)
+            kwargs = _grounding_kwargs(
+                {k: v for k, v in flat.items() if k in _CODE_KEYS and v is not None},
+                _GROUNDING_DIRECT_KEYS,
+            )
+            resp = await _SDK.grounding.code(**kwargs)
         else:
-            kwargs = {k: v for k, v in flat.items() if k in _RAG_KEYS and v is not None}
-            resp = await _SDK.experimental.trace.rag(**kwargs)
-    except LatenceAPIError as exc:
+            kwargs = _grounding_kwargs(
+                {k: v for k, v in flat.items() if k in _RAG_KEYS and v is not None},
+                _GROUNDING_DIRECT_KEYS,
+            )
+            resp = await _SDK.grounding.rag(**kwargs)
+    except LatenceTraceAPIError as exc:
         # Map API errors into the bench's FAILED-job envelope so the
         # per-dimension error tables render something useful.
         wall_ms = (time.perf_counter() - wall_start) * 1000.0
@@ -131,14 +170,18 @@ async def _sdk_submit(
     return {"status": "COMPLETED", "output": output, "id": "sdk", "_wall_ms": wall_ms}
 
 
-_SDK: AsyncLatence  # set in ``main()`` before the bench's _async_main runs
+_SDK: AsyncLatence | None = None
 
 
 def main() -> int:
-    api_key = os.environ.get("LATENCE_API_KEY") or os.environ.get("LATENCE_GATEWAY_KEY")
+    api_key = (
+        os.environ.get("LATENCE_TRACE_API_KEY")
+        or os.environ.get("LATENCE_API_KEY")
+        or os.environ.get("LATENCE_GATEWAY_KEY")
+    )
     if not api_key:
         print(
-            "error: set LATENCE_API_KEY (or LATENCE_GATEWAY_KEY) to the bearer "
+            "error: set LATENCE_TRACE_API_KEY (or LATENCE_API_KEY) to the bearer "
             "token the SDK should present to the gateway",
             file=sys.stderr,
         )
@@ -158,7 +201,7 @@ def main() -> int:
     # Monkey-patch Transport.submit so every dimension goes through the SDK.
     bench.Transport.submit = _sdk_submit  # type: ignore[method-assign]
 
-    print(f"=> routing bench through latence-python SDK (base_url={base_url})\n", flush=True)
+    print(f"=> routing bench through latence SDK (base_url={base_url})\n", flush=True)
 
     # Allow callers to bump the per-request timeout via env; the SDK's
     # default (30s) is far too short for cold starts on heavy lanes.
@@ -175,8 +218,7 @@ def main() -> int:
             timeout=sdk_timeout,
         ) as sdk:
             _SDK = sdk
-            rc = await bench._async_main(args)
-        return rc
+            return await bench._async_main(args)
 
     return asyncio.run(_runner())
 

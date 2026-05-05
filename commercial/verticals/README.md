@@ -15,6 +15,6 @@ Each brief is backed by:
 
 - A concrete benchmark row in the Veracier proof bundle
   (`data/veracier-industries/proof_bundle_v1/proof_report.md`),
-- Integration shape documentation in `clients/python/integrations/`
+- Integration shape documentation in the sibling `latence-trace-python` SDK repo
   and `clients/typescript/`,
 - A corresponding vertical section in `commercial/bold-claims-v1.md`.

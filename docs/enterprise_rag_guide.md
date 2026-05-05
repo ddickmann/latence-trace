@@ -106,14 +106,14 @@ dump per profile.
 ## Python SDK (sync)
 
 ```python
-from latence_trace_client import Client
+from latence import Latence
 
-client = Client("http://latence-trace.internal:8090")
-result = client.groundedness(
+client = Latence(base_url="http://latence-trace.internal:8090")
+result = client.grounding.rag(
     raw_context=retrieved_passages,
-    query_text=user_question,
+    query=user_question,
     response_text=llm_answer,
-    enable_atomic_claims=True,
+    extra={"enable_atomic_claims": True},
 )
 
 if result.risk_band == "red":
@@ -127,21 +127,20 @@ if result.risk_band == "red":
 ## Python SDK (async)
 
 ```python
-from latence_trace_client import AsyncClient
+from latence import AsyncLatence
 
-async with AsyncClient("http://latence-trace.internal:8090") as client:
-    result = await client.groundedness(
+async with AsyncLatence(base_url="http://latence-trace.internal:8090") as client:
+    result = await client.grounding.rag(
         raw_context=retrieved_passages,
-        query_text=user_question,
+        query=user_question,
         response_text=llm_answer,
     )
 ```
 
 ## LangChain / LlamaIndex adapters
 
-See [`clients/python/latence_trace_client/integrations/`](../clients/python/latence_trace_client/integrations/)
-for drop-in callbacks that attach groundedness scoring to your
-existing chain / query-engine.
+See the sibling `latence-trace-python` SDK repository for drop-in callbacks
+that attach groundedness scoring to your existing chain / query-engine.
 
 ## Retrieval observability loop
 

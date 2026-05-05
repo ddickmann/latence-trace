@@ -8,7 +8,7 @@ and does not consume hosted quota.
 Coverage:
 
 1. Raw HTTP POST /v1/score/groundedness
-2. Python client (LatenceTraceClient)
+2. Python client (Latence)
 3. Python async client
 4. OpenAI integration (score_openai_response, synthetic payload)
 5. LangChain callback (LatenceTraceCallback)
@@ -40,7 +40,8 @@ import urllib.request
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO / "clients/python"))
+SDK_REPO = Path(os.environ.get("LATENCE_TRACE_SDK_REPO", REPO.parent / "latence-trace-python")).resolve()
+sys.path.insert(0, str(SDK_REPO / "src"))
 sys.path.insert(0, str(REPO))
 
 SIDECAR = os.environ.get("TRACE_PROOF_URL", "http://127.0.0.1:8092")
@@ -129,9 +130,9 @@ def check_raw_http() -> None:
 
 # 2. Python sync client
 def check_python_sync() -> None:
-    from latence_trace_client import LatenceTraceClient
+    from latence import Latence
 
-    client = LatenceTraceClient(api_key="test", base_url=SIDECAR)
+    client = Latence(api_key="test", base_url=SIDECAR)
     res = client.score_groundedness(
         query=FIXTURE["question"],
         response_text=FIXTURE["response_text"],
@@ -147,9 +148,9 @@ def check_python_sync() -> None:
 # 3. Python async client
 def check_python_async() -> None:
     async def run() -> None:
-        from latence_trace_client import AsyncLatenceTraceClient
+        from latence import AsyncLatence
 
-        async with AsyncLatenceTraceClient(api_key="test", base_url=SIDECAR) as client:
+        async with AsyncLatence(api_key="test", base_url=SIDECAR) as client:
             res = await client.score_groundedness(
                 query=FIXTURE["question"],
                 response_text=FIXTURE["response_text"],
@@ -163,11 +164,11 @@ def check_python_async() -> None:
 
 # 4. LangGraph node
 def check_langgraph() -> None:
-    from latence_trace_client import LatenceTraceClient
-    from latence_trace_client.integrations.langgraph import score_groundedness_node
+    from latence import Latence
+    from latence.integrations.langgraph import score_groundedness_node
 
     node = score_groundedness_node(
-        LatenceTraceClient(api_key="test", base_url=SIDECAR)
+        Latence(api_key="test", base_url=SIDECAR)
     )
     state = {
         "question": FIXTURE["question"],
@@ -184,8 +185,8 @@ def check_langgraph() -> None:
 
 # 5. CrewAI callback
 def check_crewai() -> None:
-    from latence_trace_client import LatenceTraceClient
-    from latence_trace_client.integrations.crewai import LatenceTraceCallback
+    from latence import Latence
+    from latence.integrations.crewai import LatenceTraceCallback
 
     class FakeTask:
         description = FIXTURE["question"]
@@ -196,7 +197,7 @@ def check_crewai() -> None:
         task = FakeTask()
 
     cb = LatenceTraceCallback(
-        client=LatenceTraceClient(api_key="test", base_url=SIDECAR),
+        client=Latence(api_key="test", base_url=SIDECAR),
         context_getter=lambda t: t.context,
         question_getter=lambda t: t.description,
     )
@@ -211,8 +212,8 @@ def check_crewai() -> None:
 
 # 6. AutoGen hook
 def check_autogen() -> None:
-    from latence_trace_client import LatenceTraceClient
-    from latence_trace_client.integrations.autogen import register_trace_hook
+    from latence import Latence
+    from latence.integrations.autogen import register_trace_hook
 
     class FakeAgent:
         def __init__(self) -> None:
@@ -225,7 +226,7 @@ def check_autogen() -> None:
     agent = FakeAgent()
     register_trace_hook(
         agent,
-        client=LatenceTraceClient(api_key="test", base_url=SIDECAR),
+        client=Latence(api_key="test", base_url=SIDECAR),
         context_getter=lambda _msgs: FIXTURE["raw_context"],
         question_getter=lambda _msgs: FIXTURE["question"],
     )
@@ -241,12 +242,12 @@ def check_autogen() -> None:
 def check_pydantic_ai() -> None:
     from types import SimpleNamespace
 
-    from latence_trace_client import LatenceTraceClient
-    from latence_trace_client.integrations.pydantic_ai import trace_result_validator
+    from latence import Latence
+    from latence.integrations.pydantic_ai import trace_result_validator
 
     ctx = SimpleNamespace(deps={"raw_context": FIXTURE["raw_context"]}, latest_trace=None)
     validator = trace_result_validator(
-        client=LatenceTraceClient(api_key="test", base_url=SIDECAR),
+        client=Latence(api_key="test", base_url=SIDECAR),
         context_getter=lambda c: c.deps["raw_context"],
         question_getter=lambda _c: FIXTURE["question"],
         reject_bands=("red",),
@@ -551,10 +552,10 @@ def check_haystack() -> None:
         checks.record("11. Haystack 2 scorer", True, "skipped: haystack not installed")
         return
     from haystack import Document as HDoc
-    from latence_trace_client import LatenceTraceClient
-    from latence_trace_client.integrations.haystack import LatenceTraceScorer
+    from latence import Latence
+    from latence.integrations.haystack import LatenceTraceScorer
 
-    comp = LatenceTraceScorer(client=LatenceTraceClient(api_key="test", base_url=SIDECAR))
+    comp = LatenceTraceScorer(client=Latence(api_key="test", base_url=SIDECAR))
     out = comp.run(
         responses=[FIXTURE["response_text"]],
         documents=[HDoc(content=FIXTURE["raw_context"])],
@@ -572,11 +573,11 @@ def check_langchain() -> None:
     except ImportError:
         checks.record("12. LangChain callback", True, "skipped: langchain_core not installed")
         return
-    from latence_trace_client import LatenceTraceClient
-    from latence_trace_client.integrations.langchain import LatenceTraceCallback
+    from latence import Latence
+    from latence.integrations.langchain import LatenceTraceCallback
 
     cb = LatenceTraceCallback(
-        client=LatenceTraceClient(api_key="test", base_url=SIDECAR),
+        client=Latence(api_key="test", base_url=SIDECAR),
         question_key="question",
         context_key="context",
     )
@@ -607,11 +608,11 @@ def check_llama_index() -> None:
     except ImportError:
         checks.record("13. LlamaIndex postprocessor", True, "skipped: llama_index not installed")
         return
-    from latence_trace_client import LatenceTraceClient
-    from latence_trace_client.integrations.llama_index import LatenceTracePostProcessor
+    from latence import Latence
+    from latence.integrations.llama_index import LatenceTracePostProcessor
 
     pp = LatenceTracePostProcessor(
-        client=LatenceTraceClient(api_key="test", base_url=SIDECAR)
+        client=Latence(api_key="test", base_url=SIDECAR)
     )
     nodes = [
         NodeWithScore(node=TextNode(text=FIXTURE["raw_context"]), score=1.0),
@@ -630,7 +631,7 @@ def check_llama_index() -> None:
 # 14. OpenAI wrapper (importability; live OpenAI API not called)
 def check_openai() -> None:
     try:
-        from latence_trace_client.integrations.openai import (  # noqa: F401
+        from latence.integrations.openai import (  # noqa: F401
             score_openai_response,
             wrap_openai_chat,
         )

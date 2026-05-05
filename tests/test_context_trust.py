@@ -7,9 +7,6 @@ import threading
 from types import SimpleNamespace
 
 import pytest
-from latence_trace_client.models import (
-    GroundednessResponse as ClientGroundednessResponse,
-)
 
 import latence_trace.core.context_trust as context_trust_module
 import latence_trace.core.groundedness as groundedness_module
@@ -571,35 +568,3 @@ def test_context_trust_scan_starts_before_nli_finishes(
     assert result["support_units"][0]["context_trust_state"] == "trusted"
 
 
-def test_sdk_model_parses_context_trust_fields() -> None:
-    parsed = ClientGroundednessResponse.model_validate(
-        {
-            "risk_band": "green",
-            "scores": {
-                "groundedness_v2": 0.99,
-                "context_trust_score": 0.31,
-                "context_trust_suspicious_count": 1,
-                "context_trust_blocked_count": 0,
-                "context_trust_max_risk": 0.31,
-            },
-            "support_units": [
-                {
-                    "support_id": "unit-0",
-                    "context_trust_state": "suspicious",
-                    "context_trust_score": 0.31,
-                }
-            ],
-            "context_trust_diagnostics": {
-                "enabled": True,
-                "provider": "heuristic",
-                "support_unit_count": 1,
-                "suspicious_count": 1,
-                "blocked_count": 0,
-                "max_risk": 0.31,
-            },
-        }
-    )
-
-    assert parsed.scores.context_trust_max_risk == pytest.approx(0.31)
-    assert parsed.context_trust_diagnostics is not None
-    assert parsed.support_units[0]["context_trust_state"] == "suspicious"

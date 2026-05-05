@@ -13,7 +13,7 @@ The core freeze must reproduce existing proof work before adding new benchmarks.
 Main local command:
 
 ```bash
-PYTHONPATH=/workspace/latence-trace/clients/python:/workspace/latence-trace \
+PYTHONPATH=/workspace/latence-trace \
 python -m pytest tests/test_compliance_redaction.py tests/test_runpod_handler.py
 ```
 
@@ -110,7 +110,7 @@ python scripts/canary_compliance_runtime.py
 | `scripts/bench_runpod_live.py` | Small live RunPod benchmark over handcrafted groundedness cases. | Live |
 | `scripts/bench_runpod_360.py` | RAG, unused context, code, session state, concurrency, attribution, heatmaps, rollup. | Live |
 | `scripts/bench_runpod_360_via_sdk.py` | 360-degree suite routed through Python SDK/gateway. | Live |
-| `clients/python/tests/test_client.py` | Python SDK sync/async, retries, auth, typed parsing. | Local |
+| sibling repo `latence-trace-python/tests/test_client.py` | Python SDK sync/async, retries, auth, typed parsing. | Local |
 | `clients/typescript/src/index.test.ts` | TypeScript client score and retry behavior. | Local |
 | `scripts/prove_integrations.py` | Raw HTTP, Python client, LangChain/LangGraph/CrewAI/etc., MCP. | Local live service |
 | `scripts/bench_latency.py` | Isolated and sustained p50/p95/p99 latency. | Local/live |

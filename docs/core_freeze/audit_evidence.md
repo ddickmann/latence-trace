@@ -63,7 +63,7 @@ These scripts are now represented in the freeze manifest, but their current runt
 
 - native GLiNER/vLLM parity: missing `LATENCE_TRACE_COMPLIANCE_GLINER_ENDPOINT`
 - RunPod 360: missing `RUNPOD_ENDPOINT_ID`
-- SDK/gateway 360: missing `LATENCE_API_KEY`
+- SDK/gateway 360: missing `LATENCE_TRACE_API_KEY`
 - RunPod compliance canary: missing `RUNPOD_ENDPOINT_ID`
 - gateway compliance canary: missing `LATENCE_TRACE_API_KEY` and `LATENCE_TRACE_COMPLIANCE_GATEWAY_URL`
 
@@ -71,11 +71,10 @@ These scripts are now represented in the freeze manifest, but their current runt
 
 Commands completed successfully after fixes:
 
-- `python -m ruff check clients/python/latence_trace_client clients/python/tests/test_client.py latence_trace/api/routes.py latence_trace/sessions/routes.py runpod/handler.py scripts/trace_core_freeze_gate.py tests/test_runpod_handler.py`
-- `PYTHONPATH=/workspace/latence-trace/clients/python:/workspace/latence-trace python -m mypy clients/python/latence_trace_client`
-- `PYTHONPATH=/workspace/latence-trace/clients/python:/workspace/latence-trace python -m pytest clients/python/tests/test_client.py tests/test_runpod_handler.py`
-- `PYTHONPATH=/workspace/latence-trace/clients/python:/workspace/latence-trace python scripts/trace_core_contract_check.py`
-- `PYTHONPATH=/workspace/latence-trace/clients/python:/workspace/latence-trace python -m compileall -q clients/python/latence_trace_client scripts/trace_core_freeze_gate.py`
+- `python -m ruff check latence_trace/api/routes.py latence_trace/sessions/routes.py runpod/handler.py scripts/trace_core_freeze_gate.py tests/test_runpod_handler.py`
+- `cd /workspace/latence-trace-python && python -m pytest && python -m ruff check .`
+- `PYTHONPATH=/workspace/latence-trace-python/src:/workspace/latence-trace python scripts/trace_core_contract_check.py`
+- `PYTHONPATH=/workspace/latence-trace python -m compileall -q scripts/trace_core_freeze_gate.py`
 
 ## Conclusion
 

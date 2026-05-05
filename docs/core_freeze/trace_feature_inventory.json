@@ -144,9 +144,10 @@
       "LATENCE_TRACE_RUNTIME_DECISION_ENABLED",
       "LATENCE_TRACE_RUNTIME_HEAD_REGISTRY_PATH",
       "LATENCE_TRACE_RUNTIME_POLICY_PATH",
+      "LATENCE_TRACE_RUNTIME_REPO",
+      "LATENCE_TRACE_SDK_REPO",
       "LATENCE_TRACE_SERVICE_DEVICE",
       "LATENCE_TRACE_TENANT_THRESHOLDS_DIR",
-      "LATENCE_TRACE_URL",
       "LATENCE_TRACE_WORKERS"
     ],
     "manifest_examples_missing": [],
@@ -195,7 +196,7 @@
       "runpod/handler.py"
     ],
     "LATENCE_TRACE_API_KEY": [
-      "clients/python/latence_trace_client/_transport.py",
+      "scripts/bench_runpod_360_via_sdk.py",
       "scripts/canary_compliance_runtime.py",
       "scripts/trace_core_freeze_gate.py"
     ],
@@ -618,6 +619,16 @@
     "LATENCE_TRACE_RUNTIME_POLICY_PATH": [
       "latence_trace/core/runtime_decision.py"
     ],
+    "LATENCE_TRACE_RUNTIME_REPO": [
+      "scripts/trace_core_freeze_gate.py"
+    ],
+    "LATENCE_TRACE_SDK_REPO": [
+      "scripts/bench_runpod_360_via_sdk.py",
+      "scripts/prove_integrations.py",
+      "scripts/trace_core_contract_check.py",
+      "scripts/trace_core_freeze_gate.py",
+      "scripts/trace_feature_inventory.py"
+    ],
     "LATENCE_TRACE_SERVICE_DEVICE": [
       "latence_trace/core/code_lane/gpu_scorer.py",
       "runpod/handler.py"
@@ -628,9 +639,6 @@
     ],
     "LATENCE_TRACE_TENANT_THRESHOLDS_DIR": [
       "latence_trace/core/thresholds.py"
-    ],
-    "LATENCE_TRACE_URL": [
-      "clients/python/latence_trace_client/_transport.py"
     ],
     "LATENCE_TRACE_WORKERS": [
       "latence_trace/cli/main.py"
@@ -6108,7 +6116,7 @@
         "code",
         "rag"
       ],
-      "AsyncLatenceTraceClient": [
+      "AsyncLatence": [
         "aclose",
         "agent_help",
         "health",
@@ -6159,17 +6167,19 @@
       "score_groundedness",
       "session"
     ],
+    "import_package": "latence",
     "integrations": [
-      "clients/python/latence_trace_client/integrations/_band_utils.py",
-      "clients/python/latence_trace_client/integrations/autogen.py",
-      "clients/python/latence_trace_client/integrations/crewai.py",
-      "clients/python/latence_trace_client/integrations/haystack.py",
-      "clients/python/latence_trace_client/integrations/langchain.py",
-      "clients/python/latence_trace_client/integrations/langgraph.py",
-      "clients/python/latence_trace_client/integrations/llama_index.py",
-      "clients/python/latence_trace_client/integrations/openai.py",
-      "clients/python/latence_trace_client/integrations/pydantic_ai.py"
+      "../latence-trace-python/src/latence/integrations/_band_utils.py",
+      "../latence-trace-python/src/latence/integrations/autogen.py",
+      "../latence-trace-python/src/latence/integrations/crewai.py",
+      "../latence-trace-python/src/latence/integrations/haystack.py",
+      "../latence-trace-python/src/latence/integrations/langchain.py",
+      "../latence-trace-python/src/latence/integrations/langgraph.py",
+      "../latence-trace-python/src/latence/integrations/llama_index.py",
+      "../latence-trace-python/src/latence/integrations/openai.py",
+      "../latence-trace-python/src/latence/integrations/pydantic_ai.py"
     ],
+    "repo": "/workspace/latence-trace-python",
     "sync_classes": {
       "CompressionClient": [
         "messages",
@@ -6179,7 +6189,7 @@
         "code",
         "rag"
       ],
-      "LatenceTraceClient": [
+      "Latence": [
         "agent_help",
         "close",
         "health",

@@ -27,8 +27,8 @@ multilingual ColBERT/NLI) are called out where they differ.
 
 ```bash
 pip install -e .                     # editable install for local dev
-# or, in production:
-pip install latence-trace             # PyPI
+# or, for Python application integration:
+pip install latence                   # PyPI SDK
 ```
 
 ---

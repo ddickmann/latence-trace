@@ -26,8 +26,9 @@
 - `python scripts/trace_feature_inventory.py --write docs/core_freeze/trace_feature_inventory.json`
 - `python scripts/trace_feature_inventory.py --check`
 - `python scripts/trace_core_contract_check.py`
-- `PYTHONPATH=/workspace/latence-trace/clients/python:/workspace/latence-trace python -m pytest tests/test_context_trust.py tests/test_runpod_handler.py tests/test_generic_api_server.py clients/python/tests/test_client.py -q`
-- `python -m ruff check scripts/trace_feature_inventory.py runpod/api_server.py clients/python/latence_trace_client clients/python/tests/test_client.py tests/test_generic_api_server.py`
+- `PYTHONPATH=/workspace/latence-trace python -m pytest tests/test_context_trust.py tests/test_runpod_handler.py tests/test_generic_api_server.py -q`
+- `cd /workspace/latence-trace-python && python -m pytest && python -m ruff check .`
+- `python -m ruff check scripts/trace_feature_inventory.py scripts/trace_core_contract_check.py runpod/api_server.py tests/test_generic_api_server.py`
 - `python -m build`
 - `python -m twine check dist/*`
 - Clean-wheel install in `/tmp/latence-trace-sdk-smoke`, with dependency audit proving no base `torch`, `transformers`, `triton`, `fastapi`, or `vllm` dependency.
@@ -47,7 +48,7 @@
 ## Residual Risks
 
 - `env_settings_to_review` intentionally remains a non-blocking inventory section because many `LATENCE_TRACE_*` flags are deployment tuning controls rather than public SDK contract fields.
-- The SDK package name `latence-trace` intentionally differs from the imported package `latence_trace_client`; clean-wheel testing must run outside the repo root to avoid local compute-engine metadata shadowing.
+- The SDK now lives in `latence-trace-python`, publishes the existing `latence` PyPI package, and imports as `latence`; runtime gates consume it as a sibling checkout instead of in-repo source.
 
 ## Verdict
 

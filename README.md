@@ -432,9 +432,9 @@ languages.
   structured JSON logging.
 - `latence_trace/providers/` - encoder providers (pylate local, vLLM-factory
   remote ModernColBERT pooling).
-- `clients/python/` - the `latence-trace-client` SDK (sync + async,
-  retries, OTel, Pydantic types) plus LangChain / LlamaIndex / OpenAI
-  adapters.
+- `clients/` - non-Python integration clients and manifests. The public Python
+  SDK lives in the sibling `latence-trace-python` repository and publishes the
+  `latence` PyPI package.
 - `deploy/helm/latence-trace/` - production Helm chart (Deployment +
   Service + ConfigMap + Secret + HPA + PDB + NetworkPolicy +
   ServiceMonitor + Ingress).
@@ -461,7 +461,7 @@ For Fortune-500 ops teams there is now a complete operator surface:
 | Ed25519-signed JWT license enforcement | [`latence_trace/auth/`](latence_trace/auth/), CLI `latence-trace license inspect|verify|fingerprint` |
 | Prometheus `/metrics`, OpenTelemetry tracing, structured JSON logs, request-ID propagation | [`latence_trace/observability/`](latence_trace/observability/) |
 | Token-bucket rate limiter (per-license / per-IP, burst-capable, `Retry-After` aware) | [`latence_trace/middleware/`](latence_trace/middleware/) |
-| Python SDK (sync + async + retries + OTel + framework adapters) | [`clients/python/`](clients/python/) |
+| Python SDK (sync + async + retries + OTel + framework adapters) | sibling repo `latence-trace-python`, PyPI package `latence` |
 | Per-customer threshold / weight refit playbook | [`docs/operations/calibration-runbook.md`](docs/operations/calibration-runbook.md) |
 | Procurement + buying artefacts (security one-pager, MSA, DPA, SOC 2 mapping, Trust Center, pilot kit) | [`commercial/`](commercial/) |
 

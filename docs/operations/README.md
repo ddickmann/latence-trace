@@ -15,7 +15,7 @@ Operator surface map:
 ```
 HTTP API   /groundedness  /metrics  /healthz  /readyz  /agent-help
 CLI        latence-trace  serve | score | calibrate | warm | bench | license | mcp-server
-SDK        latence-trace-client  (Python, sync + async)
+SDK        latence  (Python, sync + async; sibling repo latence-trace-python)
 Helm       deploy/helm/latence-trace/  (chart 1.0.0)
 Container  ghcr.io/latence-ai/latence-trace:1.0.0  (uid 65532, RO root)
 ```
@@ -28,4 +28,4 @@ Container  ghcr.io/latence-ai/latence-trace:1.0.0  (uid 65532, RO root)
 | Procurement / TPRM artefacts (security one-pager, SOC 2 mapping, MSA, DPA, Trust Center) | [`../../commercial/`](../../commercial/) |
 | Pilot agreement, success criteria, ROI calculator, case-study template | [`../../commercial/pilot-kit/`](../../commercial/pilot-kit/) |
 | Helm chart values + templates | [`../../deploy/helm/latence-trace/`](../../deploy/helm/latence-trace/) |
-| Python SDK | [`../../clients/python/`](../../clients/python/) |
+| Python SDK | sibling repo `latence-trace-python`, PyPI package `latence` |

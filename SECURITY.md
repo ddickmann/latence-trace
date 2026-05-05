@@ -35,7 +35,7 @@ window and the scope below.
 
 - The published Docker image (`ghcr.io/latence-ai/latence-trace:*`).
 - The published Helm chart (`deploy/helm/latence-trace`).
-- The published Python SDK (`latence-trace-client`).
+- The published Python SDK (`latence`, maintained in `latence-trace-python`).
 - The HTTP API surface (`/groundedness`, `/healthz`, `/readyz`,
   `/metrics`, `/agent-help`, `/.well-known/ai-plugin.json`).
 - The license enforcement, rate limiter, and request middleware.

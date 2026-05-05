@@ -60,22 +60,22 @@ Expected output: `"green"`.
 ## 3. Python (sync)
 
 ```bash
-pip install latence-trace-client
+pip install latence
 ```
 
 ```python
 import os
-from latence_trace_client import LatenceTraceClient
+from latence import Latence
 
-trace = LatenceTraceClient(api_key=os.environ["LATENCE_API_KEY"])
+trace = Latence(api_key=os.environ["LATENCE_TRACE_API_KEY"])
 
-res = trace.score_groundedness(
+res = trace.grounding.rag(
     query="What was our 2023 ARR?",
     response_text="ARR reached 12.4M USD in 2023.",
     raw_context="FY23 shareholder letter: ARR ended 2023 at 12.4M USD.",
-    profile="standard",
+    extra={"profile": "standard"},
 )
-print(res.band, res.groundedness)
+print(res.risk_band, res.scores.groundedness_v2)
 ```
 
 ## 4. TypeScript
@@ -99,13 +99,12 @@ console.log(res.band);
 ## 5. OpenAI SDK drop-in
 
 ```python
-import os
 from openai import OpenAI
-from latence_trace_client import LatenceTraceClient
-from latence_trace_client.integrations.openai import wrap_openai_chat
+from latence import Latence
+from latence.integrations.openai import wrap_openai_chat
 
 oai = OpenAI()
-trace = LatenceTraceClient(api_key=os.environ["LATENCE_API_KEY"])
+trace = Latence(api_key=os.environ["LATENCE_TRACE_API_KEY"])
 
 create_with_score = wrap_openai_chat(oai.chat.completions.create, trace)
 resp = create_with_score(

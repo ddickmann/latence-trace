@@ -27,7 +27,7 @@
 ## Day 3-5 -- integration
 
 - [ ] Python SDK installed in Customer's RAG service
-      (`pip install latence-trace-client`).
+      (`pip install latence`).
 - [ ] First request scored end-to-end via SDK.
 - [ ] OpenTelemetry traces visible in Customer's collector (if
       enabled).
