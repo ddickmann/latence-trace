@@ -53,7 +53,7 @@ _RAG_KEYS = {
     "verification_samples", "content_type", "risk_band_stratum", "model",
     "query_prompt_name", "document_prompt_name", "debug_dense_matrices",
     "session_id", "verbose", "profile", "runtime_head_features",
-    "trajectory_features",
+    "trajectory_features", "context_trust_enabled", "guard_check_enabled",
 }
 _CODE_KEYS = _RAG_KEYS | {
     "response_language_hint", "emit_chunk_ownership", "session_state",
@@ -106,6 +106,8 @@ def _grounding_kwargs(flat: dict[str, Any], allowed: set[str]) -> dict[str, Any]
     normalised = dict(flat)
     if "query_text" in normalised and "query" not in normalised:
         normalised["query"] = normalised.pop("query_text")
+    if "guard_check_enabled" in normalised and "context_trust_enabled" not in normalised:
+        normalised["context_trust_enabled"] = normalised.pop("guard_check_enabled")
     direct = {k: v for k, v in normalised.items() if k in allowed and v is not None}
     extra = {k: v for k, v in normalised.items() if k not in allowed and v is not None}
     if extra:
