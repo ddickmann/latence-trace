@@ -12,7 +12,7 @@ from collections.abc import Mapping, Sequence
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class RiskBand(str, Enum):
@@ -86,6 +86,7 @@ class GroundednessScores(BaseModel):
     context_trust_suspicious_count: int | None = None
     context_trust_blocked_count: int | None = None
     context_trust_max_risk: float | None = None
+    risk_band: str | None = None
 
 
 class GroundednessRequest(BaseModel):
@@ -96,16 +97,16 @@ class GroundednessRequest(BaseModel):
     """
 
     model_config = ConfigDict(extra="allow")
-    query: str | None = None
+    query_text: str | None = None
     response_text: str
     chunk_ids: list[str] | None = None
-    raw_context: list[str] | None = None
+    raw_context: str | None = None
     support_units: list[SupportUnit] | None = None
     attribution_mode: AttributionMode = AttributionMode.CLOSED_BOOK
     primary_metric: str | None = None
     coverage_threshold: float | None = None
-    chunk_token_budget: int | None = None
-    chunk_token_overlap: int | None = None
+    raw_context_chunk_tokens: int | None = None
+    response_chunk_tokens: int | None = None
     locale: str | None = None
     context_trust_enabled: bool | None = None
     runtime_head_features: Mapping[str, float] | None = None
@@ -129,7 +130,7 @@ class GroundednessResponse(BaseModel):
     """Wire-compatible response body."""
 
     model_config = ConfigDict(extra="allow")
-    risk_band: RiskBand
+    risk_band: RiskBand | None = None
     risk_reason: str | None = None
     scores: GroundednessScores = Field(default_factory=GroundednessScores)
     response_tokens: Sequence[TokenScore] = Field(default_factory=list)
@@ -140,6 +141,24 @@ class GroundednessResponse(BaseModel):
     runtime_head_features: Mapping[str, float] | None = None
     request_id: str | None = None
     raw: Mapping[str, Any] | None = None
+
+    @model_validator(mode="after")
+    def fill_native_risk_band(self) -> GroundednessResponse:
+        """Accept both native FastAPI and compact/gateway response shapes."""
+
+        if self.risk_band is not None:
+            return self
+        raw_band = self.scores.risk_band
+        if raw_band is None:
+            return self
+        normalized = {
+            "low": "green",
+            "medium": "amber",
+            "high": "red",
+        }.get(str(raw_band).lower(), str(raw_band).lower())
+        if normalized in {item.value for item in RiskBand}:
+            self.risk_band = RiskBand(normalized)
+        return self
 
 
 class ComplianceCustomLabel(BaseModel):
@@ -203,3 +222,39 @@ class ComplianceRedactionResponse(BaseModel):
     processing_time_ms: float
     timings_ms: Mapping[str, float] = Field(default_factory=dict)
     usage: ComplianceUsage
+
+
+class CompressionSpan(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    start: int
+    end: int
+    text: str
+    keep_score: float
+
+
+class CompressionResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    compressed_text: str
+    original_tokens: int | None = None
+    compressed_tokens: int | None = None
+    compression_ratio: float | None = None
+    compression_percentage: float = 0.0
+    tokens_saved: int = 0
+    preserved_terms: list[str] = Field(default_factory=list)
+    compressed_messages: list[dict[str, Any]] | None = None
+    spans: list[CompressionSpan] = Field(default_factory=list)
+    provider: str | None = None
+    diagnostics: Mapping[str, Any] = Field(default_factory=dict)
+    request_id: str | None = None
+    raw: Mapping[str, Any] | None = None
+
+
+class MemoryUpdateResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    next_memory_state: Mapping[str, Any]
+    hot_context: str | None = None
+    hot_context_preview: str | None = None
+    actions: list[Mapping[str, Any]] = Field(default_factory=list)
+    diagnostics: Mapping[str, Any] = Field(default_factory=dict)
+    request_id: str | None = None
+    raw: Mapping[str, Any] | None = None

@@ -3,12 +3,12 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "latence-trace-client"
+name = "latence-trace"
 version = "1.0.0"
-description = "Official Python SDK for the latence-trace Groundedness Tracker."
+description = "Thin Python SDK for Latence TRACE."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
 authors = [{ name = "latence.ai", email = "support@latence.ai" }]
 keywords = [
   "groundedness",

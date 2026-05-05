@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -11,11 +13,19 @@ from latence_trace_client import (
     AsyncLatenceTraceClient,
     AttributionMode,
     ComplianceRedactionMode,
+    FileSessionStorage,
+    InMemorySessionStorage,
     LatenceTraceAuthError,
     LatenceTraceClient,
     LatenceTraceRateLimited,
     LatenceTraceValidationError,
     SupportUnit,
+)
+from latence_trace_client._contract import (
+    collect_async_sdk_methods,
+    collect_sync_sdk_methods,
+    manifest_sdk_methods,
+    missing_methods,
 )
 from latence_trace_client._transport import RetryPolicy
 
@@ -32,6 +42,31 @@ SAMPLE_RESPONSE = {
     ],
     "nli": [],
     "support_units": [],
+}
+
+NATIVE_GROUNDEDNESS_RESPONSE = {
+    "collection": "latence-trace",
+    "mode": "raw_context",
+    "model": "test-model",
+    "scores": {
+        "primary_name": "reverse_context",
+        "primary_score": 0.91,
+        "reverse_context": 0.91,
+        "risk_band": "green",
+    },
+    "response_tokens": [],
+    "support_units": [],
+    "top_evidence": [],
+    "eligibility": {
+        "collection_kind": "late_interaction",
+        "vector_source": "encoded_raw_context",
+        "dequantized": True,
+        "user_facing_supported": True,
+        "warnings": [],
+    },
+    "time_ms": 3.0,
+    "scoring_mode": "rag",
+    "attribution_mode": "closed_book",
 }
 
 SAMPLE_COMPLIANCE_RESPONSE = {
@@ -65,6 +100,7 @@ SAMPLE_COMPLIANCE_RESPONSE = {
         "categories": [],
     },
 }
+MANIFEST_PATH = Path(__file__).resolve().parents[3] / "docs/core_freeze/api_surface_manifest.json"
 
 
 def _mock_transport(handler):
@@ -76,7 +112,7 @@ def test_client_returns_typed_response_with_request_id() -> None:
         assert request.url.path == "/groundedness"
         body = json.loads(request.content)
         assert body["response_text"] == "Newton was born in 1643."
-        assert body["raw_context"] == ["Newton was born in 1643."]
+        assert body["raw_context"] == "Newton was born in 1643."
         return httpx.Response(
             200,
             json=SAMPLE_RESPONSE,
@@ -105,6 +141,21 @@ def test_client_surfaces_context_trust_toggle() -> None:
             raw_context=["Newton was born in 1643."],
             context_trust_enabled=False,
         )
+
+
+def test_client_accepts_native_groundedness_response_shape() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        assert body["query_text"] == "q"
+        assert body["raw_context"] == "ctx"
+        return httpx.Response(200, json=NATIVE_GROUNDEDNESS_RESPONSE)
+
+    with LatenceTraceClient(transport=_mock_transport(handler)) as client:
+        result = client.grounding.rag(query="q", response_text="answer", raw_context="ctx")
+
+    assert result.risk_band is not None
+    assert result.risk_band.value == "green"
+    assert result.scores.risk_band == "green"
 
 
 def test_client_retries_on_503_then_succeeds() -> None:
@@ -250,8 +301,9 @@ def test_product_namespaces_route_to_canonical_paths() -> None:
 
     assert seen[0][0] == "/groundedness"
     assert seen[0][1]["response_text"] == "x"
-    assert seen[0][1]["raw_context"] == ["y"]
+    assert seen[0][1]["raw_context"] == "y"
     assert seen[0][1]["scoring_mode"] == "code"
+    assert seen[0][1]["context_trust_enabled"] is True
     assert seen[1][0] == "/v1/compression"
     assert seen[1][1]["compression_rate"] == 0.4
     assert seen[2][0] == "/v1/compression"
@@ -277,7 +329,7 @@ def test_sdk_managed_session_round_trips_memory_state() -> None:
         session = client.session(session_id="sess-1")
         result = session.memory_step(turn_text="User wants manual approvals preserved.")
 
-    assert result["next_memory_state"]["turn_index"] == 1
+    assert result.next_memory_state["turn_index"] == 1
     assert session.memory_state == {"version": "infinimem.v1", "turn_index": 1}
 
 
@@ -303,6 +355,53 @@ def test_sdk_managed_session_injects_state_into_grounding_calls() -> None:
     assert seen[0]["memory_state"]["turn_index"] == 4
     assert seen[1]["scoring_mode"] == "code"
     assert seen[1]["session_id"] == "sess-1"
+    assert seen[1]["memory_state"]["turn_index"] == 4
+
+
+def test_sdk_session_storage_reload_and_rollup() -> None:
+    storage = InMemorySessionStorage()
+    seen: list[tuple[str, dict[str, Any]]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        seen.append((request.url.path, body))
+        if request.url.path == "/v1/memory/update":
+            assert request.headers.get("Idempotency-Key") == "mem-1"
+            return httpx.Response(200, json={"next_memory_state": {"turn_index": 7}})
+        if request.url.path == "/groundedness/rollup":
+            return httpx.Response(200, json={"turn_count": len(body["turns"])})
+        raise AssertionError(f"unexpected path {request.url.path}")
+
+    with LatenceTraceClient(transport=_mock_transport(handler)) as client:
+        session = client.session(session_id="sess-store", storage=storage)
+        session.event("tool", "loaded invoice", idempotency_key="evt-1")
+        session.memory_step(turn_text="remember this", idempotency_key="mem-1")
+
+        reloaded = client.session(session_id="sess-store", storage=storage)
+        assert reloaded.memory_state == {"turn_index": 7}
+        assert reloaded.idempotency_keys == ["evt-1", "mem-1"]
+        result = reloaded.rollup(session_id="sess-store")
+
+    assert result["turn_count"] == 1
+    assert seen[-1][1]["turns"][0]["idempotency_key"] == "evt-1"
+
+
+def test_file_session_storage_round_trip(tmp_path: Path) -> None:
+    storage = FileSessionStorage(tmp_path)
+    with LatenceTraceClient(transport=_mock_transport(lambda _: httpx.Response(200, json={}))) as client:
+        session = client.session(
+            session_id="sess-file",
+            storage=storage,
+            memory_state={"turn_index": 3},
+            metadata={"tenant": "demo"},
+        )
+        session.event("note", "preserve this", idempotency_key="evt-file")
+
+        reloaded = client.session(session_id="sess-file", storage=storage)
+
+    assert reloaded.memory_state == {"turn_index": 3}
+    assert reloaded.metadata["tenant"] == "demo"
+    assert reloaded.events[0]["content"] == "preserve this"
 
 
 def test_client_agent_help_pass_through() -> None:
@@ -328,6 +427,27 @@ def test_client_validation_error_is_caught_locally() -> None:
         pytest.raises(LatenceTraceValidationError),
     ):
         client.score_groundedness(response_text=None, raw_context=["x"])  # type: ignore[arg-type]
+
+
+def test_sdk_contract_matches_manifest() -> None:
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    with LatenceTraceClient(transport=_mock_transport(lambda _: httpx.Response(200, json={}))) as sync:
+        assert missing_methods(
+            manifest_sdk_methods(manifest, async_mode=False),
+            collect_sync_sdk_methods(sync),
+        ) == []
+
+    async_client = AsyncLatenceTraceClient(
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json={}))
+    )
+    try:
+        assert missing_methods(
+            manifest_sdk_methods(manifest, async_mode=True),
+            collect_async_sdk_methods(async_client),
+        ) == []
+    finally:
+        # The contract helper is structural only; no network calls are made.
+        asyncio.run(async_client.aclose())
 
 
 @pytest.mark.asyncio
@@ -359,21 +479,30 @@ async def test_async_client_redact_compliance_round_trip() -> None:
 
 @pytest.mark.asyncio
 async def test_async_product_namespace_round_trip() -> None:
+    seen: list[tuple[str, dict[str, Any]]] = []
+
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
+        seen.append((request.url.path, body))
         if request.url.path == "/groundedness":
             assert body["scoring_mode"] == "rag"
             return httpx.Response(200, json=SAMPLE_RESPONSE)
         if request.url.path == "/v1/memory/update":
             return httpx.Response(200, json={"next_memory_state": {"turn_index": 2}})
+        if request.url.path == "/groundedness/rollup":
+            return httpx.Response(200, json={"turn_count": len(body["turns"])})
         raise AssertionError(f"unexpected path {request.url.path}")
 
     async with AsyncLatenceTraceClient(transport=httpx.MockTransport(handler)) as client:
         await client.grounding.rag(response_text="x", raw_context=["y"])
         session = client.session(session_id="sess-async")
+        session.event("tool", "async event", idempotency_key="evt-async")
         await session.memory_step(turn_text="remember this")
+        rollup = await session.rollup(session_id="sess-async")
 
     assert session.memory_state == {"turn_index": 2}
+    assert rollup["turn_count"] == 1
+    assert seen[0][1]["raw_context"] == "y"
 
 
 @pytest.mark.asyncio

@@ -9,7 +9,7 @@ from latence_trace_client import AsyncLatenceTraceClient
 
 
 async def score_one(client: AsyncLatenceTraceClient, sample: dict) -> dict:
-    result = await client.score_groundedness(**sample)
+    result = await client.grounding.rag(**sample)
     return {
         "id": sample.get("id"),
         "risk_band": result.risk_band.value,
@@ -34,7 +34,7 @@ if __name__ == "__main__":
             "id": i,
             "query": "What is the speed of light in vacuum?",
             "response_text": "The speed of light is 299,792,458 m/s.",
-            "raw_context": ["The speed of light in vacuum is exactly 299,792,458 m/s."],
+            "raw_context": "The speed of light in vacuum is exactly 299,792,458 m/s.",
         }
         for i in range(10)
     ]

@@ -17,8 +17,20 @@
     {
       "id": "mcp_http",
       "status": "optional_integration",
-      "paths": ["/mcp/*"],
+      "paths": ["/mcp", "/mcp/*"],
       "note": "Mounted only when LATENCE_TRACE_ENABLE_MCP_HTTP is enabled."
+    },
+    {
+      "id": "runpod_compatibility_envelope",
+      "status": "compatibility",
+      "paths": ["/run", "/runsync", "/healthz/runpod-runtime"],
+      "note": "RunPod-shaped compatibility envelope. Product-path contracts are mapped through action names, not documented as canonical REST endpoints."
+    },
+    {
+      "id": "proof_sidecar",
+      "status": "internal_proof",
+      "paths": ["/v1/health", "/v1/score/groundedness"],
+      "note": "Local proof sidecar surface used for benchmark/runtime smoke tests, not a public product API."
     },
     {
       "id": "metrics",
@@ -179,7 +191,7 @@
       "fastapi": [],
       "agent_help_keys": [],
       "runpod_actions": [],
-      "sdk": {"sync": ["session", "TraceSession.event", "TraceSession.memory_step", "TraceSession.rag", "TraceSession.code"], "async": ["session", "AsyncTraceSession.event", "AsyncTraceSession.memory_step", "AsyncTraceSession.rag", "AsyncTraceSession.code"]},
+      "sdk": {"sync": ["session", "TraceSession.event", "TraceSession.memory_step", "TraceSession.rag", "TraceSession.code", "TraceSession.rollup", "TraceSession.snapshot", "TraceSession.save", "TraceSession.close"], "async": ["session", "AsyncTraceSession.event", "AsyncTraceSession.memory_step", "AsyncTraceSession.rag", "AsyncTraceSession.code", "AsyncTraceSession.rollup", "AsyncTraceSession.snapshot", "AsyncTraceSession.save", "AsyncTraceSession.close"]},
       "examples": ["sdk_trace_session_facade.request.json"],
       "gates": ["sdk_local_core"]
     }

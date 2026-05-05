@@ -38,13 +38,31 @@ from latence_trace_client.models import (
     ComplianceRedactionMode,
     ComplianceRedactionRequest,
     ComplianceRedactionResponse,
+    CompressionResponse,
     GroundednessRequest,
     GroundednessResponse,
+    MemoryUpdateResponse,
     SupportUnit,
+)
+from latence_trace_client.sessions import (
+    SessionStorage,
+    TraceEvent,
+    TraceSessionSnapshot,
+    new_idempotency_key,
+    normalize_events,
 )
 
 PremiseSupportUnits = Sequence[SupportUnit | Mapping[str, Any]]
+RawContextInput = str | Sequence[str]
 ComplianceCustomLabels = Sequence[ComplianceCustomLabel | Mapping[str, Any]]
+
+
+def _coerce_raw_context(raw_context: RawContextInput | None) -> str | None:
+    if raw_context is None:
+        return None
+    if isinstance(raw_context, str):
+        return raw_context
+    return "\n\n".join(str(item) for item in raw_context)
 
 
 class PrivacyClient:
@@ -59,39 +77,57 @@ class GroundingClient:
     def __init__(self, owner: LatenceTraceClient) -> None:
         self._owner = owner
 
-    def rag(self, **kwargs: Any) -> GroundednessResponse:
+    def rag(
+        self,
+        *,
+        context_trust_enabled: bool = True,
+        **kwargs: Any,
+    ) -> GroundednessResponse:
         extra = dict(kwargs.pop("extra", {}) or {})
         extra.setdefault("scoring_mode", "rag")
-        return self._owner.score_groundedness(extra=extra, **kwargs)
+        return self._owner.score_groundedness(
+            extra=extra,
+            context_trust_enabled=context_trust_enabled,
+            **kwargs,
+        )
 
-    def code(self, **kwargs: Any) -> GroundednessResponse:
+    def code(
+        self,
+        *,
+        context_trust_enabled: bool = True,
+        **kwargs: Any,
+    ) -> GroundednessResponse:
         extra = dict(kwargs.pop("extra", {}) or {})
         extra.setdefault("scoring_mode", "code")
-        return self._owner.score_groundedness(extra=extra, **kwargs)
+        return self._owner.score_groundedness(
+            extra=extra,
+            context_trust_enabled=context_trust_enabled,
+            **kwargs,
+        )
 
 
 class CompressionClient:
     def __init__(self, owner: LatenceTraceClient) -> None:
         self._owner = owner
 
-    def text(self, text: str, **options: Any) -> Mapping[str, Any]:
+    def text(self, text: str, **options: Any) -> CompressionResponse:
         return self._owner._request(
             "POST",
             "/v1/compression",
             json={"text": text, **options},
-            expected_model=None,
+            expected_model=CompressionResponse,
         )
 
     def messages(
         self,
         messages: Sequence[Mapping[str, Any]],
         **options: Any,
-    ) -> Mapping[str, Any]:
+    ) -> CompressionResponse:
         return self._owner._request(
             "POST",
             "/v1/compression",
             json={"action": "compress_messages", "messages": list(messages), **options},
-            expected_model=None,
+            expected_model=CompressionResponse,
         )
 
 
@@ -103,15 +139,18 @@ class MemoryClient:
         self,
         *,
         prior_memory_state: Mapping[str, Any] | None = None,
+        idempotency_key: str | None = None,
         **payload: Any,
-    ) -> Mapping[str, Any]:
+    ) -> MemoryUpdateResponse:
         body = dict(payload)
         body["prior_memory_state"] = prior_memory_state
+        headers = {"Idempotency-Key": idempotency_key} if idempotency_key else None
         return self._owner._request(
             "POST",
             "/v1/memory/update",
             json=body,
-            expected_model=None,
+            headers=headers,
+            expected_model=MemoryUpdateResponse,
         )
 
 
@@ -125,45 +164,119 @@ class TraceSession:
         session_id: str | None = None,
         memory_state: Mapping[str, Any] | None = None,
         metadata: Mapping[str, Any] | None = None,
+        storage: SessionStorage | None = None,
+        context_trust_enabled: bool = True,
     ) -> None:
         self._owner = owner
         self.session_id = session_id
         self.memory_state = dict(memory_state) if memory_state else None
         self.metadata = dict(metadata or {})
-        self.events: list[Mapping[str, Any]] = []
+        self.events: list[dict[str, Any]] = []
+        self.idempotency_keys: list[str] = []
+        self.context_trust_enabled = context_trust_enabled
+        self._storage = storage
+        if storage and session_id:
+            snapshot = storage.load(session_id)
+            if snapshot:
+                self.memory_state = snapshot.memory_state
+                self.metadata.update(snapshot.metadata)
+                self.events = list(snapshot.events)
+                self.idempotency_keys = list(snapshot.idempotency_keys)
 
     def event(self, event_type: str, content: str, **metadata: Any) -> Mapping[str, Any]:
-        event = {
-            "event_type": event_type,
-            "content": content,
-            "metadata": metadata,
-        }
+        key = str(metadata.pop("idempotency_key", "") or new_idempotency_key("event"))
+        event = TraceEvent(
+            event_type=event_type,
+            content=content,
+            metadata=metadata,
+            idempotency_key=key,
+        ).model_dump(mode="json", exclude_none=True)
         self.events.append(event)
+        self.idempotency_keys.append(key)
+        self.save()
         return event
 
-    def memory_step(self, **payload: Any) -> Mapping[str, Any]:
+    def memory_step(self, **payload: Any) -> MemoryUpdateResponse:
+        key = str(payload.pop("idempotency_key", "") or new_idempotency_key("memory"))
         result = self._owner.memory.step(
             prior_memory_state=self.memory_state,
+            idempotency_key=key,
             **payload,
         )
-        next_state = result.get("next_memory_state")
+        next_state = result.next_memory_state
         if isinstance(next_state, Mapping):
             self.memory_state = dict(next_state)
+        self.idempotency_keys.append(key)
+        self.save()
         return result
 
-    def rag(self, **kwargs: Any) -> GroundednessResponse:
+    def rag(
+        self,
+        *,
+        context_trust_enabled: bool | None = None,
+        **kwargs: Any,
+    ) -> GroundednessResponse:
         extra = dict(kwargs.pop("extra", {}) or {})
         if self.session_id:
             extra.setdefault("session_id", self.session_id)
         if self.memory_state:
             extra.setdefault("memory_state", self.memory_state)
-        return self._owner.grounding.rag(extra=extra, **kwargs)
+        extra.setdefault("metadata", dict(self.metadata))
+        return self._owner.grounding.rag(
+            extra=extra,
+            context_trust_enabled=(
+                self.context_trust_enabled
+                if context_trust_enabled is None
+                else context_trust_enabled
+            ),
+            **kwargs,
+        )
 
-    def code(self, **kwargs: Any) -> GroundednessResponse:
+    def code(
+        self,
+        *,
+        context_trust_enabled: bool | None = None,
+        **kwargs: Any,
+    ) -> GroundednessResponse:
         extra = dict(kwargs.pop("extra", {}) or {})
         if self.session_id:
             extra.setdefault("session_id", self.session_id)
-        return self._owner.grounding.code(extra=extra, **kwargs)
+        if self.memory_state:
+            extra.setdefault("memory_state", self.memory_state)
+        extra.setdefault("metadata", dict(self.metadata))
+        return self._owner.grounding.code(
+            extra=extra,
+            context_trust_enabled=(
+                self.context_trust_enabled
+                if context_trust_enabled is None
+                else context_trust_enabled
+            ),
+            **kwargs,
+        )
+
+    def rollup(self, **options: Any) -> Mapping[str, Any]:
+        return self._owner.rollup(normalize_events(self.events), **options)
+
+    def snapshot(self) -> TraceSessionSnapshot:
+        return TraceSessionSnapshot(
+            session_id=self.session_id,
+            memory_state=self.memory_state,
+            events=list(self.events),
+            idempotency_keys=list(self.idempotency_keys),
+            metadata=dict(self.metadata),
+        )
+
+    def save(self) -> TraceSessionSnapshot:
+        snapshot = self.snapshot()
+        if self._storage and self.session_id:
+            self._storage.save(snapshot)
+        return snapshot
+
+    def close(self, *, delete_storage: bool = False) -> TraceSessionSnapshot:
+        snapshot = self.save()
+        if delete_storage and self._storage and self.session_id:
+            self._storage.delete(self.session_id)
+        return snapshot
 
 
 class LatenceTraceClient:
@@ -222,15 +335,15 @@ class LatenceTraceClient:
         response_text: str,
         query: str | None = None,
         chunk_ids: Sequence[str] | None = None,
-        raw_context: Sequence[str] | None = None,
+        raw_context: RawContextInput | None = None,
         support_units: PremiseSupportUnits | None = None,
         attribution_mode: AttributionMode = AttributionMode.CLOSED_BOOK,
         primary_metric: str | None = None,
         coverage_threshold: float | None = None,
-        chunk_token_budget: int | None = None,
-        chunk_token_overlap: int | None = None,
+        raw_context_chunk_tokens: int | None = None,
+        response_chunk_tokens: int | None = None,
         locale: str | None = None,
-        context_trust_enabled: bool | None = None,
+        context_trust_enabled: bool = True,
         runtime_head_features: Mapping[str, float] | None = None,
         trajectory_features: Mapping[str, float] | None = None,
         extra: Mapping[str, Any] | None = None,
@@ -253,8 +366,8 @@ class LatenceTraceClient:
             attribution_mode=attribution_mode,
             primary_metric=primary_metric,
             coverage_threshold=coverage_threshold,
-            chunk_token_budget=chunk_token_budget,
-            chunk_token_overlap=chunk_token_overlap,
+            raw_context_chunk_tokens=raw_context_chunk_tokens,
+            response_chunk_tokens=response_chunk_tokens,
             locale=locale,
             context_trust_enabled=context_trust_enabled,
             runtime_head_features=runtime_head_features,
@@ -335,12 +448,16 @@ class LatenceTraceClient:
         session_id: str | None = None,
         memory_state: Mapping[str, Any] | None = None,
         metadata: Mapping[str, Any] | None = None,
+        storage: SessionStorage | None = None,
+        context_trust_enabled: bool = True,
     ) -> TraceSession:
         return TraceSession(
             self,
             session_id=session_id,
             memory_state=memory_state,
             metadata=metadata,
+            storage=storage,
+            context_trust_enabled=context_trust_enabled,
         )
 
     # --- internal --------------------------------------------------------
@@ -351,15 +468,15 @@ class LatenceTraceClient:
         response_text: str,
         query: str | None,
         chunk_ids: Sequence[str] | None,
-        raw_context: Sequence[str] | None,
+        raw_context: RawContextInput | None,
         support_units: PremiseSupportUnits | None,
         attribution_mode: AttributionMode,
         primary_metric: str | None,
         coverage_threshold: float | None,
-        chunk_token_budget: int | None,
-        chunk_token_overlap: int | None,
+        raw_context_chunk_tokens: int | None,
+        response_chunk_tokens: int | None,
         locale: str | None,
-        context_trust_enabled: bool | None,
+        context_trust_enabled: bool,
         runtime_head_features: Mapping[str, float] | None,
         trajectory_features: Mapping[str, float] | None,
         extra: Mapping[str, Any] | None,
@@ -372,16 +489,16 @@ class LatenceTraceClient:
             ]
         try:
             req = GroundednessRequest(
-                query=query,
+                query_text=query,
                 response_text=response_text,
                 chunk_ids=list(chunk_ids) if chunk_ids else None,
-                raw_context=list(raw_context) if raw_context else None,
+                raw_context=_coerce_raw_context(raw_context),
                 support_units=[SupportUnit(**u) for u in normalised_units] if normalised_units else None,
                 attribution_mode=attribution_mode,
                 primary_metric=primary_metric,
                 coverage_threshold=coverage_threshold,
-                chunk_token_budget=chunk_token_budget,
-                chunk_token_overlap=chunk_token_overlap,
+                raw_context_chunk_tokens=raw_context_chunk_tokens,
+                response_chunk_tokens=response_chunk_tokens,
                 locale=locale,
                 context_trust_enabled=context_trust_enabled,
                 runtime_head_features=runtime_head_features,
@@ -403,13 +520,14 @@ class LatenceTraceClient:
         path: str,
         *,
         json: dict | None = None,
+        headers: Mapping[str, str] | None = None,
         expected_model: type[BaseModel] | None = None,
     ) -> Any:
         attempt = 0
         last_error: Exception | None = None
         while True:
             try:
-                response = self._client.request(method, path, json=json)
+                response = self._client.request(method, path, json=json, headers=headers)
             except httpx.TimeoutException as exc:
                 last_error = LatenceTraceTimeout(str(exc))
                 if attempt >= self._retry.max_retries:
