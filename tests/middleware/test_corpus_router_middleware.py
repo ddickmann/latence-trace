@@ -27,6 +27,7 @@ def _request(
     raw_context="c",
     corpus_type=None,
     scoring_mode="rag",
+    language=None,
 ) -> SimpleNamespace:
     return SimpleNamespace(
         query_text=query,
@@ -34,6 +35,7 @@ def _request(
         raw_context=raw_context,
         corpus_type=corpus_type,
         scoring_mode=scoring_mode,
+        language=language,
     )
 
 
@@ -200,3 +202,73 @@ def test_bare_text_qualitative_routes_to_expected_class(name, expected, req) -> 
 
     assert decision.corpus_type == expected, (name, decision)
     assert decision.bundle is not None
+
+
+# --------------------------------------------------------------------------- #
+# Code classes are forced onto the English path: bundle + diagnostics +
+# language_source must all reflect that the German signal was overridden.
+# --------------------------------------------------------------------------- #
+
+
+def test_code_class_explicit_with_german_request_forced_to_en() -> None:
+    """Explicit code corpus_type + language='de' must score as English."""
+    req = _request(
+        corpus_type="code.agentic_trace",
+        language="de",
+        query="Reparieren Sie die fehlerhafte Funktion",
+        response="def add(a, b):\n    return a + b",
+        raw_context="def add(a, b):\n    return a - b",
+    )
+    decision = _router.route(req)
+
+    assert decision.source == "explicit"
+    assert decision.corpus_type == "code.agentic_trace"
+    assert decision.language == "en", (
+        "Code classes must always load the English bundle, even when the "
+        "request explicitly asked for German."
+    )
+    assert decision.language_source == "forced_en_code", (
+        "language_source must record the override so observability can "
+        "tell organic English requests apart from forced ones."
+    )
+
+
+def test_code_class_via_classifier_german_prose_forced_to_en() -> None:
+    """Even when the German prose lands a code class via classifier path."""
+    req = _request(
+        language="de",
+        query="Bitte korrigieren Sie diese Funktion",
+        response=(
+            "```python\ndef add(a: int, b: int) -> int:\n    return a + b\n```"
+        ),
+        raw_context=(
+            "```python\ndef add(a: int, b: int) -> int:\n    return a - b\n```"
+        ),
+    )
+    decision = _router.route(req)
+
+    if decision.corpus_type in _bundles.CODE_CLASSES:
+        assert decision.language == "en"
+        assert decision.language_source == "forced_en_code"
+    else:
+        # Classifier may route this into a prose class on small text;
+        # in that case the override does not apply and German is kept.
+        assert decision.language == "de"
+
+
+def test_prose_class_german_request_keeps_de() -> None:
+    """Prose classes must not be touched by the code-class override."""
+    req = _request(
+        corpus_type="rag.prose.multi_claim",
+        language="de",
+        query="Wer war Karl Roßmann?",
+        response="Karl Roßmann ist der Held des Romanfragments Der Verschollene.",
+        raw_context="Karl Roßmann ist der Held des Romanfragments.",
+    )
+    decision = _router.route(req)
+
+    assert decision.corpus_type == "rag.prose.multi_claim"
+    assert decision.language == "de"
+    # Either request (caller specified) or auto (detector confirmed) is
+    # acceptable; the key point is that no override fired.
+    assert decision.language_source != "forced_en_code"

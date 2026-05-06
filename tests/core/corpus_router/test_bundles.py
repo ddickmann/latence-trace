@@ -104,11 +104,20 @@ def test_load_bundle_with_explicit_en_matches_default() -> None:
 def test_load_bundle_de_falls_back_to_en_with_warning(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    # No German bundle ships in this branch yet (Phase C deliverable);
-    # the loader must fall back to the English one and emit
-    # ``bundle_language_fallback`` exactly once per (class, lang) pair.
+    # ``rag.prose.short_factoid`` is one of the two classes Phase C held
+    # back from German shipping (its German train metric trailed English
+    # by more than the 0.05 gate). The loader must fall back to the
+    # English bundle and emit ``bundle_language_fallback`` exactly once
+    # per (class, lang) pair so a steady stream of German requests does
+    # not flood the log.
+    held_back_class = "rag.prose.short_factoid"
+    assert not _bundles._calibration_path(held_back_class, "de").exists(), (
+        f"{held_back_class} now ships a German bundle - pick another "
+        "held-back class for this fallback test."
+    )
+
     caplog.set_level("WARNING")
-    de_bundle = _bundles.load_bundle("rag.prose.multi_claim", "de")
+    de_bundle = _bundles.load_bundle(held_back_class, "de")
     assert de_bundle is not None, (
         "German request must fall back to the English bundle, not return None."
     )
@@ -121,7 +130,7 @@ def test_load_bundle_de_falls_back_to_en_with_warning(
     # warning by (class, language) so a steady stream of de requests
     # does not flood the log.
     caplog.clear()
-    _bundles.load_bundle("rag.prose.multi_claim", "de")
+    _bundles.load_bundle(held_back_class, "de")
     fallback_warnings = [
         r for r in caplog.records if "bundle_language_fallback" in r.getMessage()
     ]
@@ -179,3 +188,44 @@ def test_supported_languages_includes_de_and_en() -> None:
     langs = _bundles.supported_languages()
     assert "en" in langs
     assert "de" in langs
+
+
+# --------------------------------------------------------------------------- #
+# Code classes are language-universal: identifiers / keywords / tool names
+# are English by convention regardless of any surrounding prose. The
+# ``effective_language`` helper enforces that everywhere the runtime pairs
+# a class_key with a language so we never try to score code against a
+# German bundle.
+# --------------------------------------------------------------------------- #
+
+
+def test_code_classes_constant_lists_both_code_corpora() -> None:
+    assert _bundles.CODE_CLASSES == frozenset(
+        {"rag.code_in_context", "code.agentic_trace"}
+    )
+
+
+def test_is_code_class_recognises_code_corpora() -> None:
+    assert _bundles.is_code_class("rag.code_in_context") is True
+    assert _bundles.is_code_class("code.agentic_trace") is True
+    assert _bundles.is_code_class("rag.prose.multi_claim") is False
+    assert _bundles.is_code_class("rag.prose.enterprise") is False
+    assert _bundles.is_code_class(None) is False
+    assert _bundles.is_code_class("") is False
+
+
+def test_effective_language_forces_en_for_code_classes() -> None:
+    # German routing decision on a code class must collapse to English.
+    assert _bundles.effective_language("rag.code_in_context", "de") == "en"
+    assert _bundles.effective_language("code.agentic_trace", "de") == "en"
+
+
+def test_effective_language_passes_through_for_prose_classes() -> None:
+    # Non-code classes keep whatever language the detector resolved.
+    assert _bundles.effective_language("rag.prose.multi_claim", "de") == "de"
+    assert _bundles.effective_language("rag.prose.enterprise", "en") == "en"
+
+
+def test_effective_language_normalises_empty_to_default() -> None:
+    assert _bundles.effective_language("rag.prose.enterprise", "") == "en"
+    assert _bundles.effective_language(None, "") == "en"

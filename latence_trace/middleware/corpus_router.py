@@ -82,6 +82,26 @@ def _request_text(request: Any, field: str) -> str:
     return str(value)
 
 
+def _effective_language(
+    class_key: Optional[str], language: str, source: str
+) -> tuple[str, str]:
+    """Return ``(language, source)`` after applying class-level overrides.
+
+    Code corpora are always scored against the English bundle and the
+    English NLI defaults regardless of what the detector resolved (see
+    :data:`latence_trace.core.corpus_router.bundles.CODE_CLASSES`).
+    When the override fires we tag ``source`` with ``forced_en_code`` so
+    observability can spot the difference between an organic English
+    request and a German request that was steered onto the English path
+    by the code-class rule.
+    """
+
+    eff = _bundles.effective_language(class_key, language)
+    if eff != language and _bundles.is_code_class(class_key):
+        return eff, "forced_en_code"
+    return eff, source
+
+
 def _resolve_request_language(request: Any) -> tuple[str, str]:
     """Resolve ``(language, language_source)`` from a routing request.
 
@@ -120,18 +140,21 @@ def route(request: Any) -> CorpusRouteDecision:
     # bare string so MCP / HTTP callers without the enum are honoured.
     explicit = _request_field(request, "corpus_type")
     if explicit is not None:
-        class_key = getattr(explicit, "value", explicit)
-        bundle = _bundles.load_bundle(str(class_key), language)
+        class_key = str(getattr(explicit, "value", explicit))
+        eff_language, eff_source = _effective_language(
+            class_key, language, language_source
+        )
+        bundle = _bundles.load_bundle(class_key, eff_language)
         if bundle is not None:
             return CorpusRouteDecision(
-                corpus_type=str(class_key),
+                corpus_type=class_key,
                 source="explicit",
                 confidence=None,
                 classifier_latency_ms=0.0,
                 artefact_sha256=None,
                 bundle=bundle,
-                language=language,
-                language_source=language_source,
+                language=eff_language,
+                language_source=eff_source,
             )
         logger.warning(
             "corpus_router: explicit corpus_type=%s has no bundle; falling back",
@@ -156,7 +179,10 @@ def route(request: Any) -> CorpusRouteDecision:
         rule_decision.corpus_type is not None
         and rule_decision.confidence >= _rules.MIN_RULE_CONFIDENCE
     ):
-        bundle = _bundles.load_bundle(rule_decision.corpus_type, language)
+        eff_language, eff_source = _effective_language(
+            rule_decision.corpus_type, language, language_source
+        )
+        bundle = _bundles.load_bundle(rule_decision.corpus_type, eff_language)
         if bundle is not None:
             total_ms = (time.perf_counter() - t0) * 1000.0
             return CorpusRouteDecision(
@@ -167,8 +193,8 @@ def route(request: Any) -> CorpusRouteDecision:
                 artefact_sha256=None,
                 bundle=bundle,
                 rule_reason=rule_decision.reason,
-                language=language,
-                language_source=language_source,
+                language=eff_language,
+                language_source=eff_source,
             )
 
     clf_result = _classifier.classify(
@@ -182,7 +208,10 @@ def route(request: Any) -> CorpusRouteDecision:
         if _is_ambiguous_prose_result(clf_result):
             selected_class = _bundles.DEFAULT_FALLBACK_CLASS
             source = "classifier_ambiguous"
-        bundle = _bundles.load_bundle(selected_class, language)
+        eff_language, eff_source = _effective_language(
+            selected_class, language, language_source
+        )
+        bundle = _bundles.load_bundle(selected_class, eff_language)
         if bundle is not None:
             return CorpusRouteDecision(
                 corpus_type=selected_class,
@@ -193,8 +222,8 @@ def route(request: Any) -> CorpusRouteDecision:
                 bundle=bundle,
                 classifier_top_classes=clf_result.top_classes,
                 classifier_probabilities=clf_result.probabilities,
-                language=language,
-                language_source=language_source,
+                language=eff_language,
+                language_source=eff_source,
             )
         logger.warning(
             "corpus_router: classifier chose %s but no bundle is loaded; falling back",
@@ -203,7 +232,10 @@ def route(request: Any) -> CorpusRouteDecision:
 
     # Fallback path — always return the enterprise bundle when available
     # so scoring proceeds with a sane, production-tested configuration.
-    fallback = _bundles.load_bundle(_bundles.DEFAULT_FALLBACK_CLASS, language)
+    eff_language, eff_source = _effective_language(
+        _bundles.DEFAULT_FALLBACK_CLASS, language, language_source
+    )
+    fallback = _bundles.load_bundle(_bundles.DEFAULT_FALLBACK_CLASS, eff_language)
     total_ms = (time.perf_counter() - t0) * 1000.0
     return CorpusRouteDecision(
         corpus_type=_bundles.DEFAULT_FALLBACK_CLASS if fallback else None,
@@ -212,8 +244,8 @@ def route(request: Any) -> CorpusRouteDecision:
         classifier_latency_ms=total_ms,
         artefact_sha256=None,
         bundle=fallback,
-        language=language,
-        language_source=language_source,
+        language=eff_language,
+        language_source=eff_source,
     )
 
 

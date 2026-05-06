@@ -70,6 +70,42 @@ DEFAULT_FALLBACK_CLASS = "rag.prose.enterprise"
 SUPPORTED_LANGUAGES: Tuple[str, ...] = ("en", "de")
 DEFAULT_LANGUAGE: str = "en"
 
+# Code corpora are language-universal: identifiers, keywords and tool
+# names are English by convention regardless of the surrounding prose.
+# Forcing the English calibration + NLI defaults for these classes
+# avoids two real failure modes:
+#   1) a German prose comment misrouting a code request onto an
+#      under-calibrated German bundle;
+#   2) the German NLI defaults (``top_k=2``, ``premise_concat=False``,
+#      ``aggregate="max"``) being applied to identifier-heavy premises
+#      where they hurt grounding.
+# Adding a new code-style class here is enough to turn on the override
+# everywhere ``effective_language`` is consulted.
+CODE_CLASSES: frozenset[str] = frozenset(
+    {"rag.code_in_context", "code.agentic_trace"}
+)
+
+
+def is_code_class(class_key: Optional[str]) -> bool:
+    return bool(class_key) and class_key in CODE_CLASSES
+
+
+def effective_language(class_key: Optional[str], language: str) -> str:
+    """Return the language to use for ``(class_key, language)``.
+
+    For code classes (`CODE_CLASSES`) we always return the default
+    (English) regardless of what the caller / detector resolved, so the
+    bundle loader and the language-aware NLI defaults both stay on the
+    English path. For all other classes the input ``language`` is
+    returned unchanged (with an empty string normalised to the default).
+    """
+
+    if not language:
+        return DEFAULT_LANGUAGE
+    if is_code_class(class_key):
+        return DEFAULT_LANGUAGE
+    return language
+
 
 def _key_to_slug(key: str) -> str:
     return key.replace(".", "_")
