@@ -26,6 +26,7 @@ import argparse
 import concurrent.futures
 import json
 import logging
+import os
 import random
 import sys
 import time
@@ -90,6 +91,7 @@ def _score_one(
     timeout: float,
     response_language_hint: Optional[str],
     language: str = DEFAULT_LANGUAGE,
+    auth_bearer: Optional[str] = None,
 ) -> Tuple[Dict[str, Any], float]:
     payload_input: Dict[str, Any] = {
         "action": "score",
@@ -111,14 +113,17 @@ def _score_one(
     if scoring_mode == "code" and response_language_hint:
         payload_input["response_language_hint"] = response_language_hint
     body = {"input": payload_input}
+    headers = {
+        "content-type": "application/json",
+        "accept": "application/json",
+        "x-latence-tenant-id": "corpus-classifier-cache",
+    }
+    if auth_bearer:
+        headers["authorization"] = f"Bearer {auth_bearer}"
     req = urllib.request.Request(
         url,
         data=json.dumps(body).encode("utf-8"),
-        headers={
-            "content-type": "application/json",
-            "accept": "application/json",
-            "x-latence-tenant-id": "corpus-classifier-cache",
-        },
+        headers=headers,
     )
     t0 = time.perf_counter()
     with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -267,6 +272,7 @@ def cache_split(
     seed: int,
     force: bool,
     language: str = DEFAULT_LANGUAGE,
+    auth_bearer: Optional[str] = None,
 ) -> Dict[str, Dict[str, Any]]:
     logging.info(
         "caching channel scores for split=%s cap=%s language=%s",
@@ -307,6 +313,7 @@ def cache_split(
                         timeout=timeout,
                         response_language_hint=_response_lang_hint(row, class_key),
                         language=language,
+                        auth_bearer=auth_bearer,
                     )
                     info = _extract_channels(out)
                     return row, info, dt, None
@@ -381,9 +388,24 @@ def main() -> None:
             "stomping the English one."
         ),
     )
+    parser.add_argument(
+        "--auth-bearer-env",
+        default="LATENCE_TRACE_API_KEY",
+        help=(
+            "Environment variable to read a bearer token from. When set, "
+            "every request gets ``Authorization: Bearer <value>``. Required "
+            "when ``--url`` points at RunPod (``api.runpod.ai/...``)."
+        ),
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    auth_bearer = os.environ.get(args.auth_bearer_env) if args.auth_bearer_env else None
+    if "api.runpod.ai" in args.url and not auth_bearer:
+        parser.error(
+            f"--url targets RunPod but env var {args.auth_bearer_env} is empty. "
+            "Export the RunPod API key before running."
+        )
     total_summary: Dict[str, Dict[str, Dict[str, Any]]] = {}
     for split in args.splits:
         total_summary[split] = cache_split(
@@ -396,6 +418,7 @@ def main() -> None:
             seed=args.seed,
             force=args.force,
             language=args.language,
+            auth_bearer=auth_bearer,
         )
     summary_suffix = f".{args.language}" if args.language != DEFAULT_LANGUAGE else ""
     (OUT_DIR / f"cache_summary{summary_suffix}.json").write_text(
