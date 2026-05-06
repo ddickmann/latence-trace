@@ -1037,6 +1037,16 @@ def _build_request(input_data: dict[str, Any]) -> tuple[GroundednessRequest, boo
         # Corpus router: tenant-declared override for the per-class
         # calibration bundle. Ignored when absent (classifier infers).
         "corpus_type",
+        # Per-request language + NLI premise-selection overrides. The
+        # service.py layer resolves ``language`` against langdetect when
+        # absent / "auto" and applies German balanced defaults
+        # (top_k=2, concat=False, max-aggregate). The runpod handler is
+        # a transport shim and does not interpret these; they flow
+        # straight into ``GroundednessRequest``.
+        "language",
+        "nli_top_k_premises",
+        "nli_premise_concat",
+        "nli_premise_aggregate",
     )
     for key in passthrough_keys:
         if key in input_data:

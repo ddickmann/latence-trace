@@ -491,3 +491,377 @@ def test_german_stopword_set_has_no_duplicates() -> None:
     # And the runtime set still carries the German closed-class words.
     for must_have in ("der", "die", "das", "und", "ist", "nicht"):
         assert must_have in _STOPWORDS
+
+
+# ---------------------------------------------------------------------------
+# 7. Phase B: per-request language overrides + balanced German NLI defaults
+# ---------------------------------------------------------------------------
+
+# These tests validate the new GroundednessRequest knobs introduced for the
+# German release: ``language``, ``nli_top_k_premises``, ``nli_premise_concat``,
+# and ``nli_premise_aggregate``. They cover three angles:
+#
+# 1. ``_apply_language_defaults`` resolves the effective language and rewrites
+#    the nli_kwargs dict according to the German balanced defaults.
+# 2. ``verify_claims`` with the German defaults (``top_k=2, concat=False``)
+#    raises entailment on a verbatim-supported German claim that the
+#    English defaults (``top_k=3, concat=True``) underrate due to premise
+#    dilution -- the exact failure mode observed on the Kafka A/B run.
+# 3. The same per-request overrides also strengthen the contradiction
+#    signal on a hallucinated German claim by isolating the actually
+#    contradicting premise instead of mixing it with off-topic units.
+
+
+class _DilutionAwareNLI:
+    """Deterministic NLI fake that penalises off-topic premise content.
+
+    Returns entailment proportional to ``|hyp ∩ prem| / |prem|`` so that
+    concatenating off-topic premises drives the entailment score down --
+    mirroring the dilution failure mode observed on mDeBERTa-xnli with
+    long German composite premises. The fake is intentionally simple:
+    no random draws, no per-language pathways, no NLI semantics. The
+    point is to expose the ``concat=True`` vs ``concat=False`` orchestration
+    difference deterministically.
+    """
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str]] = []
+
+    @staticmethod
+    def _content(text: str) -> set[str]:
+        return {
+            token.lower()
+            for token in re.findall(r"\w+", text or "")
+            if len(token) > 2
+        }
+
+    def entail(self, premises, hypotheses):
+        triples: list[tuple[float, float, float]] = []
+        for premise, hypothesis in zip(premises, hypotheses):
+            self.calls.append((premise, hypothesis))
+            hyp = self._content(hypothesis)
+            prem = self._content(premise)
+            if not hyp or not prem:
+                triples.append((0.0, 1.0, 0.0))
+                continue
+            overlap = hyp & prem
+            # ratio = how much of the *premise* is talking about the
+            # hypothesis. Dilution by off-topic content drives this down.
+            # Multiplier is intentionally low (1.5x) so a high-quality
+            # focused premise lands around ~0.6-0.85 entailment and a
+            # diluted composite premise drops to ~0.20-0.30. The clamp
+            # at 0.95 prevents top-end ceiling effects from hiding the
+            # gap we're trying to assert.
+            ratio = len(overlap) / len(prem)
+            entail = max(0.05, min(0.95, ratio * 1.5))
+            contradiction = 0.05
+            neutral = max(0.05, 1.0 - entail - contradiction)
+            triples.append((entail, neutral, contradiction))
+        return triples
+
+
+_DE_SUPPORT_RELEVANT = (
+    "Karl Roßmann ist der Held des Romanfragments Der Verschollene von Franz "
+    "Kafka. Roßmann reist nach Amerika und tritt im Naturtheater von Oklahoma "
+    "auf."
+)
+_DE_SUPPORT_OFFTOPIC_1 = (
+    "Die Gerichtsgebäude in Der Process bestehen aus einem weit verzweigten "
+    "Gewirr unübersichtlicher Räume und Treppen. Romanfragments wie Der "
+    "Process oder Das Schloss erzeugen Zweifel an der Stellung des "
+    "Protagonisten Josef K. als Landvermesser oder Bankprokurist."
+)
+_DE_SUPPORT_OFFTOPIC_2 = (
+    "Die Deutsche Post AG gab 2008 zu seinem 125. Geburtstag eine "
+    "Briefmarke mit einer Zeichnung Kafkas heraus. Franz Kafka kann als "
+    "Vertreter der literarischen Moderne und Held der Prager deutsch-"
+    "jüdischen Schule gesehen werden, neben Rilke, Joyce oder Döblin."
+)
+
+
+def _build_de_support_units() -> list:
+    """Build three German support units for the dilution A/B tests.
+
+    The first unit is the verbatim-relevant Romanfragmente paragraph. The
+    other two are off-topic Process/Schloss + Briefmarke prose, exactly
+    like the layout in ``de-kafka-rossmann/corpus.md``.
+    """
+
+    return [
+        SupportUnitInput(
+            support_id="romanfragmente",
+            chunk_id=None,
+            source_mode="raw_context",
+            text=_DE_SUPPORT_RELEVANT,
+            embeddings=torch.zeros((1, 3)),
+            tokens=re.findall(r"\w+", _DE_SUPPORT_RELEVANT),
+        ),
+        SupportUnitInput(
+            support_id="process_schloss",
+            chunk_id=None,
+            source_mode="raw_context",
+            text=_DE_SUPPORT_OFFTOPIC_1,
+            embeddings=torch.zeros((1, 3)),
+            tokens=re.findall(r"\w+", _DE_SUPPORT_OFFTOPIC_1),
+        ),
+        SupportUnitInput(
+            support_id="briefmarke",
+            chunk_id=None,
+            source_mode="raw_context",
+            text=_DE_SUPPORT_OFFTOPIC_2,
+            embeddings=torch.zeros((1, 3)),
+            tokens=re.findall(r"\w+", _DE_SUPPORT_OFFTOPIC_2),
+        ),
+    ]
+
+
+def test_apply_language_defaults_for_german_request_overrides_top_k_and_concat() -> None:
+    """German request with no overrides should land on (top_k=2, concat=False)."""
+
+    from latence_trace.api.service import _apply_language_defaults
+    from latence_trace.api.models import GroundednessRequest
+
+    nli_kwargs = {
+        "nli_top_k_premises": 3,
+        "nli_concat_premises": True,
+    }
+    request = GroundednessRequest(
+        response_text=_DE_SUPPORT_RELEVANT,
+        raw_context="Some context",
+    )
+    language, source, top_k_used, concat_used, aggregate_used = _apply_language_defaults(
+        request=request, nli_kwargs=nli_kwargs
+    )
+    assert language == "de"
+    assert source == "auto"
+    assert top_k_used == 2
+    assert concat_used is False
+    assert aggregate_used == "max"
+    assert nli_kwargs["nli_top_k_premises"] == 2
+    assert nli_kwargs["nli_concat_premises"] is False
+
+
+def test_apply_language_defaults_explicit_request_override_wins_over_de_default() -> None:
+    """Even when language=de, an explicit request override must take effect."""
+
+    from latence_trace.api.service import _apply_language_defaults
+    from latence_trace.api.models import GroundednessRequest
+
+    nli_kwargs = {
+        "nli_top_k_premises": 3,
+        "nli_concat_premises": True,
+    }
+    request = GroundednessRequest(
+        response_text=_DE_SUPPORT_RELEVANT,
+        raw_context="Some context",
+        nli_top_k_premises=5,
+        nli_premise_concat=True,
+    )
+    language, source, top_k_used, concat_used, aggregate_used = _apply_language_defaults(
+        request=request, nli_kwargs=nli_kwargs
+    )
+    assert language == "de"
+    assert top_k_used == 5
+    assert concat_used is True
+
+
+def test_apply_language_defaults_english_request_does_not_mutate_kwargs() -> None:
+    """English requests must keep the existing English defaults untouched."""
+
+    from latence_trace.api.service import _apply_language_defaults
+    from latence_trace.api.models import GroundednessRequest
+
+    nli_kwargs = {
+        "nli_top_k_premises": 3,
+        "nli_concat_premises": True,
+    }
+    snapshot = dict(nli_kwargs)
+    request = GroundednessRequest(
+        response_text=(
+            "Karl Rossmann is the protagonist of the novel fragment The Missing One "
+            "by Franz Kafka, which was published by Brod under the title America."
+        ),
+        raw_context="Some context",
+    )
+    language, source, top_k_used, concat_used, aggregate_used = _apply_language_defaults(
+        request=request, nli_kwargs=nli_kwargs
+    )
+    assert language == "en"
+    assert source == "auto"
+    assert nli_kwargs == snapshot, (
+        "English request must not mutate the nli_kwargs from the runtime profile defaults."
+    )
+    assert top_k_used == 3
+    assert concat_used is True
+
+
+def test_german_balanced_defaults_lift_entailment_on_verbatim_supported_claim() -> None:
+    """Per-request override (``top_k=2, concat=False``) raises entailment.
+
+    On the verbatim-supported German Roßmann claim, the English default
+    (``top_k=3, concat=True``) collapses the three top-reranked premises
+    into one composite NLI call, which dilutes the relevant unit with two
+    off-topic ones (Process/Schloss + Briefmarke). The German default
+    keeps premises separate and aggregates with max, so the relevant
+    unit's entailment dominates. We assert the German defaults give
+    *strictly higher* entailment.
+    """
+
+    hypothesis = (
+        "Karl Roßmann ist der Held des Romanfragments Der Verschollene von "
+        "Franz Kafka."
+    )
+    units = _build_de_support_units()
+
+    # English defaults: top_k=3, concat=True. One NLI call against a
+    # composite of all three premises.
+    en_provider = _DilutionAwareNLI()
+    en_verifications, _ = nli_module.verify_claims(
+        response_text=hypothesis,
+        support_units=units,
+        nli_provider=en_provider,
+        max_claims=4,
+        top_k_premises=3,
+        max_batch=8,
+        max_latency_ms=2000.0,
+        concat_premises=True,
+        use_atomic_claims=False,
+    )
+
+    # German balanced defaults: top_k=2, concat=False. Two NLI calls, one
+    # per top-reranked premise; per-premise scores are aggregated by
+    # ``_aggregate_premise_scores`` (max-of-entail).
+    de_provider = _DilutionAwareNLI()
+    de_verifications, _ = nli_module.verify_claims(
+        response_text=hypothesis,
+        support_units=units,
+        nli_provider=de_provider,
+        max_claims=4,
+        top_k_premises=2,
+        max_batch=8,
+        max_latency_ms=2000.0,
+        concat_premises=False,
+        use_atomic_claims=False,
+    )
+
+    assert en_verifications, "English path produced no verifications"
+    assert de_verifications, "German path produced no verifications"
+
+    en_entail = en_verifications[0].entailment
+    de_entail = de_verifications[0].entailment
+
+    # Hard assertion: the German defaults must beat the English defaults
+    # on this verbatim-supported claim. The actual gap depends on the
+    # fake's overlap heuristic, but it should be unambiguous (>= 0.1).
+    assert de_entail > en_entail + 0.1, (
+        f"German balanced defaults did not lift entailment as expected: "
+        f"de={de_entail:.3f} vs en={en_entail:.3f}"
+    )
+
+
+def test_german_balanced_defaults_keep_unsupported_claim_unentailed() -> None:
+    """Per-premise mode must not invent entailment from incidental words.
+
+    Even when the off-topic premises share *some* token with the
+    hypothesis, neither the English concat nor the German per-premise
+    path should treat a wholly-unsupported claim as entailed. We assert
+    the entailment stays well below 0.5 in both modes so we can prove
+    the per-request override does not introduce a new false-positive
+    failure mode on top of the dilution fix.
+    """
+
+    hypothesis = (
+        "Die Brüder Karamasow sind ein Roman von Franz Kafka, der 1881 "
+        "in Prag erschien und mit dem Pulitzer-Preis ausgezeichnet wurde."
+    )
+    units = _build_de_support_units()
+
+    en_provider = _DilutionAwareNLI()
+    en_verifications, _ = nli_module.verify_claims(
+        response_text=hypothesis,
+        support_units=units,
+        nli_provider=en_provider,
+        max_claims=4,
+        top_k_premises=3,
+        max_batch=8,
+        max_latency_ms=2000.0,
+        concat_premises=True,
+        use_atomic_claims=False,
+    )
+
+    de_provider = _DilutionAwareNLI()
+    de_verifications, _ = nli_module.verify_claims(
+        response_text=hypothesis,
+        support_units=units,
+        nli_provider=de_provider,
+        max_claims=4,
+        top_k_premises=2,
+        max_batch=8,
+        max_latency_ms=2000.0,
+        concat_premises=False,
+        use_atomic_claims=False,
+    )
+
+    assert en_verifications and de_verifications
+
+    # Neither mode is allowed to hallucinate entailment on a wholly
+    # unsupported claim. We hold both modes to the same conservative
+    # band: entailment must stay clearly below the 0.5 boundary so the
+    # downstream classifier sees the claim as not-entailed regardless of
+    # which premise-selection strategy was used. The per-premise (max-
+    # aggregate) mode is intentionally more permissive than concat on
+    # incidental lexical anchors; we accept a moderate gap as long as it
+    # does not cross into "entailed" territory.
+    en_entail = en_verifications[0].entailment
+    de_entail = de_verifications[0].entailment
+    assert en_entail < 0.5, (
+        f"English concat baseline already over-entailed: {en_entail:.3f}"
+    )
+    assert de_entail < 0.5, (
+        f"German per-premise crossed into entailed territory on an "
+        f"unsupported claim: {de_entail:.3f}"
+    )
+
+
+def test_german_balanced_defaults_make_one_extra_nli_call_per_atom() -> None:
+    """concat=False, top_k=2 means *two* NLI calls per claim instead of one.
+
+    This is the cost we pay for the dilution-free behaviour. The test
+    pins the call count so a future regression that silently flips the
+    default back to concat=True would be caught here, not in production
+    latency dashboards.
+    """
+
+    hypothesis = "Karl Roßmann ist der Held des Romanfragments Der Verschollene."
+    units = _build_de_support_units()
+
+    en_provider = _DilutionAwareNLI()
+    nli_module.verify_claims(
+        response_text=hypothesis,
+        support_units=units,
+        nli_provider=en_provider,
+        max_claims=4,
+        top_k_premises=3,
+        max_batch=8,
+        max_latency_ms=2000.0,
+        concat_premises=True,
+        use_atomic_claims=False,
+    )
+
+    de_provider = _DilutionAwareNLI()
+    nli_module.verify_claims(
+        response_text=hypothesis,
+        support_units=units,
+        nli_provider=de_provider,
+        max_claims=4,
+        top_k_premises=2,
+        max_batch=8,
+        max_latency_ms=2000.0,
+        concat_premises=False,
+        use_atomic_claims=False,
+    )
+
+    # English concat: 1 NLI call per claim.
+    # German per-premise: top_k=2 calls per claim.
+    assert len(en_provider.calls) == 1
+    assert len(de_provider.calls) == 2

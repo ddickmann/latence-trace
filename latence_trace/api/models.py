@@ -448,6 +448,68 @@ class GroundednessRequest(BaseModel):
             "<= 3 ms on CPU."
         ),
     )
+    language: Optional[Literal["en", "de", "auto"]] = Field(
+        default=None,
+        description=(
+            "Optional caller-declared content language. Drives two things: "
+            "(1) which per-language calibration bundle the corpus router "
+            "loads (``calibration.<class>.<lang>.json`` falling back to "
+            "the English bundle when a German bundle is missing), and "
+            "(2) the default NLI premise-selection strategy for the claim "
+            "verification step. ``\"de\"`` switches to balanced German "
+            "defaults (``top_k_premises=2, premise_concat=False, "
+            "premise_aggregate=\"max\"``) which avoid the multi-premise "
+            "concatenation dilution observed on long German contexts with "
+            "mDeBERTa-xnli. ``\"en\"`` keeps the historical English "
+            "defaults (``top_k=3, concat=True``) untouched. ``\"auto\"`` "
+            "or ``None`` (default) runs the lightweight ``langdetect`` "
+            "probe over the response / query / context (in that order, "
+            "200 chars each) and picks ``de`` only when the probe is "
+            "high-confidence German. Anything else collapses to ``en``."
+        ),
+    )
+    nli_top_k_premises: Optional[int] = Field(
+        default=None,
+        ge=1,
+        le=16,
+        description=(
+            "Optional per-request override for the number of top-reranked "
+            "support units passed to NLI per claim. Defaults to 3 for "
+            "English, 2 for German. Lower values reduce premise dilution "
+            "on long contexts; higher values preserve correctness on "
+            "claims that legitimately span multiple support units. "
+            "Bounded to ``[1, 16]``."
+        ),
+    )
+    nli_premise_concat: Optional[bool] = Field(
+        default=None,
+        description=(
+            "Optional per-request override for premise concatenation. "
+            "When ``True`` (English default) the top-k reranked premises "
+            "are joined into one composite premise per atom and a single "
+            "NLI call is made. When ``False`` (German default) each "
+            "premise is scored independently and the per-premise NLI "
+            "scores are aggregated. Forcing ``False`` on languages where "
+            "the multilingual NLI model is sensitive to long mixed "
+            "premises (notably German with mDeBERTa-xnli) avoids the "
+            "dilution failure mode where a verbatim-supported claim is "
+            "contradicted because the composite premise mixed in "
+            "off-topic units."
+        ),
+    )
+    nli_premise_aggregate: Optional[Literal["mean", "max", "min"]] = Field(
+        default=None,
+        description=(
+            "Optional per-request override for the per-premise NLI "
+            "aggregation mode used when ``nli_premise_concat=False``. "
+            "Defaults to ``\"max\"`` for both English and German (the "
+            "shipped ``_aggregate_premise_scores`` aggregator), which "
+            "lets a single supporting / refuting premise carry the "
+            "claim. ``\"mean\"`` and ``\"min\"`` are reserved for "
+            "future tuning experiments and currently fall back to "
+            "``\"max\"`` until additional aggregators ship."
+        ),
+    )
     emit_chunk_ownership: bool = Field(
         default=False,
         description=(

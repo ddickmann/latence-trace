@@ -77,3 +77,105 @@ def test_green_amber_properties() -> None:
     )
     assert bundle.green_threshold == pytest.approx(0.9)
     assert bundle.amber_threshold == pytest.approx(0.7)
+
+
+# --------------------------------------------------------------------------- #
+# Phase C: language-aware bundle loading
+# --------------------------------------------------------------------------- #
+
+
+def test_default_language_is_en_and_returns_existing_bundle() -> None:
+    bundle = _bundles.load_bundle("rag.prose.multi_claim")
+    assert bundle is not None
+    assert bundle.language == _bundles.DEFAULT_LANGUAGE
+    assert bundle.language == "en"
+
+
+def test_load_bundle_with_explicit_en_matches_default() -> None:
+    a = _bundles.load_bundle("rag.prose.multi_claim")
+    b = _bundles.load_bundle("rag.prose.multi_claim", "en")
+    # Same file → same content; cache may or may not return identical
+    # object refs but values must match.
+    assert a is not None and b is not None
+    assert a.thresholds == b.thresholds
+    assert a.fusion_weights == b.fusion_weights
+
+
+def test_load_bundle_de_falls_back_to_en_with_warning(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # No German bundle ships in this branch yet (Phase C deliverable);
+    # the loader must fall back to the English one and emit
+    # ``bundle_language_fallback`` exactly once per (class, lang) pair.
+    caplog.set_level("WARNING")
+    de_bundle = _bundles.load_bundle("rag.prose.multi_claim", "de")
+    assert de_bundle is not None, (
+        "German request must fall back to the English bundle, not return None."
+    )
+    # The bundle is the English fallback — language tag stays English so
+    # the runtime can record `bundle_language_fallback` honestly while
+    # still scoring the request.
+    assert de_bundle.language == "en"
+
+    # Second call must NOT emit the warning again — the loader keys the
+    # warning by (class, language) so a steady stream of de requests
+    # does not flood the log.
+    caplog.clear()
+    _bundles.load_bundle("rag.prose.multi_claim", "de")
+    fallback_warnings = [
+        r for r in caplog.records if "bundle_language_fallback" in r.getMessage()
+    ]
+    assert fallback_warnings == [], (
+        "bundle_language_fallback must be one-shot per (class, language)."
+    )
+
+
+def test_calibration_path_uses_language_suffix_for_non_default() -> None:
+    en_path = _bundles._calibration_path("rag.prose.multi_claim", "en")
+    de_path = _bundles._calibration_path("rag.prose.multi_claim", "de")
+    assert en_path.name == "calibration.rag_prose_multi_claim.json"
+    assert de_path.name == "calibration.rag_prose_multi_claim.de.json"
+
+
+def test_load_bundle_picks_up_de_artefact_when_present(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Drop a fake German bundle under the data directory and assert the
+    loader picks it up over the English fallback. Mirrors the flow that
+    Phase C will follow when ``scripts/calibrate_per_class.py --language de``
+    writes the per-class artefacts."""
+
+    fake_de = {
+        "scoring_mode": "rag",
+        "fusion_weights": {
+            "calibrated": 0.4,
+            "literal": 0.2,
+            "nli": 0.4,
+            "semantic_entropy": 0.0,
+            "structured": 0.0,
+        },
+        "thresholds": {"green": 0.85, "amber": 0.55},
+        "metric": "f1_at_best_threshold",
+        "metric_value": 0.62,
+        "nli_model_hint": "de",
+        "trained_on": "data/corpus_classifier/german_translation/rag_prose_multi_claim.jsonl",
+    }
+    target = _bundles._DATA_DIR / "calibration.rag_prose_multi_claim.de.json"
+    target.write_text(json.dumps(fake_de), encoding="utf-8")
+    try:
+        _bundles.reset_singleton_for_tests()
+        bundle = _bundles.load_bundle("rag.prose.multi_claim", "de")
+        assert bundle is not None
+        assert bundle.language == "de"
+        assert bundle.green_threshold == pytest.approx(0.85)
+        assert bundle.amber_threshold == pytest.approx(0.55)
+        assert bundle.nli_model_hint == "de"
+    finally:
+        target.unlink(missing_ok=True)
+        _bundles.reset_singleton_for_tests()
+
+
+def test_supported_languages_includes_de_and_en() -> None:
+    langs = _bundles.supported_languages()
+    assert "en" in langs
+    assert "de" in langs

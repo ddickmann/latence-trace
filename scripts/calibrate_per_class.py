@@ -46,6 +46,16 @@ CACHE_DIR = DATA_DIR / "channel_scores"
 CALIBRATION_DIR = REPO_ROOT / "latence_trace/data"
 REPORT_PATH = DATA_DIR / "calibration_sweep_report.md"
 
+# Supported languages mirror ``cache_channel_scores.py`` and
+# ``latence_trace.core.corpus_router.bundles``. ``en`` keeps the
+# historical artefact names (``calibration.<class>.json``,
+# ``calibration_sweep_report.md``) so the runtime loader's English
+# fallback path stays intact. ``de`` writes ``calibration.<class>.de.json``
+# and the report is suffixed too so an operator can run both passes
+# back-to-back without overwriting either output.
+SUPPORTED_LANGUAGES = ("en", "de")
+DEFAULT_LANGUAGE = "en"
+
 CLASS_KEYS = (
     "rag.prose.enterprise",
     "rag.prose.short_factoid",
@@ -68,8 +78,24 @@ logger = logging.getLogger(__name__)
 # Dataset loading
 # ---------------------------------------------------------------------------
 
-def _load_cache(class_key: str, split: str) -> List[Dict[str, Any]]:
-    path = CACHE_DIR / f"{class_key}.{split}.jsonl"
+def _cache_path(class_key: str, split: str, language: str) -> Path:
+    """Resolve the cache file produced by ``scripts/cache_channel_scores.py``.
+
+    English caches keep the historical name (``<class>.<split>.jsonl``)
+    so they remain bit-compatible with the existing artefacts. German
+    caches add a language suffix (``<class>.de.<split>.jsonl``) so a
+    single run of ``cache_channel_scores --language de`` writes
+    side-by-side with the English cache without overwriting it.
+    """
+
+    suffix = f".{language}" if language != DEFAULT_LANGUAGE else ""
+    return CACHE_DIR / f"{class_key}{suffix}.{split}.jsonl"
+
+
+def _load_cache(
+    class_key: str, split: str, language: str = DEFAULT_LANGUAGE
+) -> List[Dict[str, Any]]:
+    path = _cache_path(class_key, split, language)
     if not path.exists():
         return []
     rows: List[Dict[str, Any]] = []
@@ -296,10 +322,18 @@ def _normalise(w: np.ndarray) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 def calibrate_binary_class(
-    class_key: str, *, objective_label: str
+    class_key: str, *, objective_label: str, language: str = DEFAULT_LANGUAGE
 ) -> Dict[str, Any]:
-    train = [r for r in _load_cache(class_key, "train") if r.get("is_grounded") is not None]
-    test = [r for r in _load_cache(class_key, "test") if r.get("is_grounded") is not None]
+    train = [
+        r
+        for r in _load_cache(class_key, "train", language)
+        if r.get("is_grounded") is not None
+    ]
+    test = [
+        r
+        for r in _load_cache(class_key, "test", language)
+        if r.get("is_grounded") is not None
+    ]
     if not train:
         raise SystemExit(f"no labelled train rows cached for {class_key}")
     mat_train = _channels_to_matrix(train)
@@ -363,7 +397,8 @@ def calibrate_binary_class(
         "fusion_weights": {name: float(norm[i]) for i, name in enumerate(CHANNELS)},
         "fusion_weights_raw": {name: float(best["fusion_weights_raw"][i]) for i, name in enumerate(CHANNELS)},
         "thresholds": {"green": green_th, "amber": amber_th},
-        "nli_model_hint": "en",
+        "nli_model_hint": language,
+        "language": language,
         "metric": objective_label,
         "metric_value": float(best["metric_value"]),
         "train_support": {"precision": best["precision"], "recall": best["recall"], "n_rows": int(y_train.size)},
@@ -374,10 +409,10 @@ def calibrate_binary_class(
     }
 
 
-def calibrate_veracier() -> Dict[str, Any]:
+def calibrate_veracier(language: str = DEFAULT_LANGUAGE) -> Dict[str, Any]:
     class_key = "rag.prose.enterprise"
-    train = _load_cache(class_key, "train")
-    test = _load_cache(class_key, "test")
+    train = _load_cache(class_key, "train", language)
+    test = _load_cache(class_key, "test", language)
     if not train:
         raise SystemExit("no train rows cached for veracier")
 
@@ -436,7 +471,8 @@ def calibrate_veracier() -> Dict[str, Any]:
         "fusion_weights": {name: float(norm[i]) for i, name in enumerate(CHANNELS)},
         "fusion_weights_raw": {name: float(best["fusion_weights_raw"][i]) for i, name in enumerate(CHANNELS)},
         "thresholds": best["thresholds"],
-        "nli_model_hint": "en",
+        "nli_model_hint": language,
+        "language": language,
         "metric": "veracier_composite",
         "metric_value": float(best["metric_value"]),
         "train_components": best["components"],
@@ -444,10 +480,10 @@ def calibrate_veracier() -> Dict[str, Any]:
     }
 
 
-def calibrate_code_agentic() -> Dict[str, Any]:
+def calibrate_code_agentic(language: str = DEFAULT_LANGUAGE) -> Dict[str, Any]:
     class_key = "code.agentic_trace"
-    train = _load_cache(class_key, "train")
-    test = _load_cache(class_key, "test")
+    train = _load_cache(class_key, "train", language)
+    test = _load_cache(class_key, "test", language)
     if not train:
         raise SystemExit("no train rows cached for code.agentic_trace")
     meta_train = _load_metadata_for_split("train")
@@ -477,7 +513,8 @@ def calibrate_code_agentic() -> Dict[str, Any]:
         "fusion_weights": {name: 0.0 for name in CHANNELS},
         "fusion_weights_raw": {name: 0.0 for name in CHANNELS},
         "thresholds": {"green": green_th, "amber": amber_th},
-        "nli_model_hint": "en",
+        "nli_model_hint": language,
+        "language": language,
         "metric": "paired_accuracy",
         "metric_value": float(paired_train),
         "train_support": {
@@ -500,6 +537,22 @@ def calibrate_code_agentic() -> Dict[str, Any]:
 
 def _class_key_slug(class_key: str) -> str:
     return class_key.replace(".", "_")
+
+
+def _calibration_path(class_key: str, language: str) -> Path:
+    """Mirror ``latence_trace.core.corpus_router.bundles._calibration_path``.
+
+    English keeps the historical name; German appends ``.de``. Keeping
+    the file naming aligned with the runtime loader avoids a separate
+    indirection and makes the loader's fallback path observable: if the
+    sweep produces ``calibration.<class>.de.json`` and the loader logs
+    ``bundle_language_fallback`` for that class, the operator knows the
+    sweep silently failed for that class.
+    """
+
+    base = f"calibration.{_class_key_slug(class_key)}"
+    suffix = f".{language}" if language != DEFAULT_LANGUAGE else ""
+    return CALIBRATION_DIR / f"{base}{suffix}.json"
 
 
 def _manifest_sha() -> Optional[str]:
@@ -535,32 +588,110 @@ def _render_report(results: Dict[str, Dict[str, Any]]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _english_metric_value(class_key: str) -> Optional[float]:
+    """Best-effort load of the English bundle's ``metric_value`` for
+    sanity-gating the German sweep (Phase C step 3 in the plan)."""
+
+    path = _calibration_path(class_key, DEFAULT_LANGUAGE)
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    value = payload.get("metric_value")
+    return float(value) if isinstance(value, (int, float)) else None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--classes", nargs="+", default=list(CLASS_KEYS))
+    parser.add_argument(
+        "--language",
+        choices=SUPPORTED_LANGUAGES,
+        default=DEFAULT_LANGUAGE,
+        help=(
+            "Language whose cache to sweep. ``en`` reads the historical "
+            "``<class>.<split>.jsonl`` cache and writes "
+            "``calibration.<class>.json``; ``de`` reads the German "
+            "translation cache (``<class>.de.<split>.jsonl``) and writes "
+            "``calibration.<class>.de.json`` so the runtime loader's "
+            "language-aware path picks it up."
+        ),
+    )
+    parser.add_argument(
+        "--max-en-gap",
+        type=float,
+        default=0.05,
+        help=(
+            "Gate the German bundle: if its train metric is more than "
+            "this far below the matching English bundle's metric_value, "
+            "log an error so the operator can escalate the per-class row "
+            "count before shipping. 0 disables the gate."
+        ),
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
+    language = args.language
     results: Dict[str, Dict[str, Any]] = {}
     manifest_sha = _manifest_sha()
 
     for class_key in args.classes:
-        logger.info("calibrating class=%s", class_key)
+        logger.info("calibrating class=%s language=%s", class_key, language)
         if class_key == "rag.prose.enterprise":
-            r = calibrate_veracier()
+            r = calibrate_veracier(language=language)
         elif class_key == "code.agentic_trace":
-            r = calibrate_code_agentic()
+            r = calibrate_code_agentic(language=language)
         else:
-            r = calibrate_binary_class(class_key, objective_label="f1_at_best_threshold")
+            r = calibrate_binary_class(
+                class_key, objective_label="f1_at_best_threshold", language=language
+            )
         r["trained_on"] = manifest_sha
         results[class_key] = r
         CALIBRATION_DIR.mkdir(parents=True, exist_ok=True)
-        out_path = CALIBRATION_DIR / f"calibration.{_class_key_slug(class_key)}.json"
+        out_path = _calibration_path(class_key, language)
         out_path.write_text(json.dumps(r, indent=2, sort_keys=True), encoding="utf-8")
         logger.info("wrote %s", out_path)
 
-    REPORT_PATH.write_text(_render_report(results), encoding="utf-8")
-    logger.info("wrote report %s", REPORT_PATH)
+        # Sanity-gate German bundles vs. their English counterpart so a
+        # silent regression (translator artefacts, undersampled rows,
+        # stale cache) is loud rather than shipped.
+        if language == DEFAULT_LANGUAGE or args.max_en_gap <= 0:
+            continue
+        en_metric = _english_metric_value(class_key)
+        if en_metric is None:
+            logger.warning(
+                "class=%s no English baseline at %s; skipping cross-lang gate",
+                class_key,
+                _calibration_path(class_key, DEFAULT_LANGUAGE),
+            )
+            continue
+        gap = en_metric - float(r["metric_value"])
+        if gap > args.max_en_gap:
+            logger.error(
+                "class=%s German metric=%.4f trails English baseline=%.4f by %.4f "
+                "(gate=%.2f). Hold this bundle back or escalate per-class rows.",
+                class_key,
+                r["metric_value"],
+                en_metric,
+                gap,
+                args.max_en_gap,
+            )
+        else:
+            logger.info(
+                "class=%s German metric=%.4f vs English baseline=%.4f (gap=%.4f, gate=%.2f)",
+                class_key,
+                r["metric_value"],
+                en_metric,
+                gap,
+                args.max_en_gap,
+            )
+
+    report_suffix = f".{language}" if language != DEFAULT_LANGUAGE else ""
+    report_path = REPORT_PATH.with_name(REPORT_PATH.stem + report_suffix + REPORT_PATH.suffix)
+    report_path.write_text(_render_report(results), encoding="utf-8")
+    logger.info("wrote report %s", report_path)
     print(_render_report(results))
 
 

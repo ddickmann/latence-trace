@@ -42,6 +42,13 @@ if str(REPO_ROOT) not in sys.path:
 
 DATA_DIR = REPO_ROOT / "data/corpus_classifier"
 OUT_DIR = DATA_DIR / "channel_scores"
+GERMAN_TRANSLATION_DIR = DATA_DIR / "german_translation"
+
+# Supported source languages. ``en`` reads the historical ``<split>.parquet``
+# corpus; ``de`` reads the per-class JSONL produced by
+# ``scripts/translate_bench_to_german.py``.
+SUPPORTED_LANGUAGES = ("en", "de")
+DEFAULT_LANGUAGE = "en"
 
 CLASS_KEYS = (
     "rag.prose.enterprise",
@@ -82,6 +89,7 @@ def _score_one(
     scoring_mode: str,
     timeout: float,
     response_language_hint: Optional[str],
+    language: str = DEFAULT_LANGUAGE,
 ) -> Tuple[Dict[str, Any], float]:
     payload_input: Dict[str, Any] = {
         "action": "score",
@@ -92,6 +100,14 @@ def _score_one(
         "scoring_mode": scoring_mode,
         "verbose": True,
     }
+    # When scoring the German bench, force ``language="de"`` so the
+    # service applies the balanced German NLI defaults (top_k=2,
+    # premise_concat=False, max-aggregate) and -- once Phase C bundles
+    # ship -- loads the matching ``calibration.<class>.de.json``.
+    # English keeps the historical "no language field" behaviour so the
+    # cache is bit-for-bit compatible with the existing English caches.
+    if language == "de":
+        payload_input["language"] = "de"
     if scoring_mode == "code" and response_language_hint:
         payload_input["response_language_hint"] = response_language_hint
     body = {"input": payload_input}
@@ -160,6 +176,48 @@ def _load_rows(split: str) -> List[Dict[str, Any]]:
     ]
 
 
+def _load_rows_de(split: str, classes: List[str]) -> List[Dict[str, Any]]:
+    """Load the GPT-4.1 German translations produced by
+    ``scripts/translate_bench_to_german.py``.
+
+    The translator writes one JSONL per class (rows from all splits
+    interleaved, each row tagged with ``split``). We re-key the row to
+    the same shape ``cache_split`` expects from parquet (``row_id,
+    class_key, query, response, raw_context, is_grounded``) and filter
+    by the requested split. Missing class files are simply skipped --
+    the operator may translate one class at a time.
+    """
+
+    rows: List[Dict[str, Any]] = []
+    for class_key in classes:
+        path = GERMAN_TRANSLATION_DIR / f"{class_key}.jsonl"
+        if not path.exists():
+            logging.warning("german_translation missing for class=%s at %s", class_key, path)
+            continue
+        with path.open("r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if rec.get("split") != split:
+                    continue
+                rows.append(
+                    {
+                        "row_id": rec["row_id"],
+                        "class_key": rec.get("class_key", class_key),
+                        "is_grounded": rec.get("is_grounded"),
+                        "query": rec.get("query", ""),
+                        "response": rec.get("response", ""),
+                        "raw_context": rec.get("raw_context", ""),
+                    }
+                )
+    return rows
+
+
 def _sample_per_class(
     rows: List[Dict[str, Any]], cap: int, seed: int
 ) -> Dict[str, List[Dict[str, Any]]]:
@@ -208,9 +266,18 @@ def cache_split(
     timeout: float,
     seed: int,
     force: bool,
+    language: str = DEFAULT_LANGUAGE,
 ) -> Dict[str, Dict[str, Any]]:
-    logging.info("caching channel scores for split=%s cap=%s", split, cap)
-    all_rows = _load_rows(split)
+    logging.info(
+        "caching channel scores for split=%s cap=%s language=%s",
+        split,
+        cap,
+        language,
+    )
+    if language == "de":
+        all_rows = _load_rows_de(split, classes)
+    else:
+        all_rows = _load_rows(split)
     sampled = _sample_per_class(all_rows, cap=cap, seed=seed)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     summary: Dict[str, Dict[str, Any]] = {}
@@ -219,7 +286,8 @@ def cache_split(
         if not rows:
             summary[class_key] = {"scored": 0, "skipped": 0, "failed": 0, "cap": cap}
             continue
-        out_path = OUT_DIR / f"{class_key}.{split}.jsonl"
+        suffix = f".{language}" if language != DEFAULT_LANGUAGE else ""
+        out_path = OUT_DIR / f"{class_key}{suffix}.{split}.jsonl"
         if force and out_path.exists():
             out_path.unlink()
         already = _load_existing(out_path)
@@ -238,6 +306,7 @@ def cache_split(
                         scoring_mode=scoring_mode,
                         timeout=timeout,
                         response_language_hint=_response_lang_hint(row, class_key),
+                        language=language,
                     )
                     info = _extract_channels(out)
                     return row, info, dt, None
@@ -299,6 +368,19 @@ def main() -> None:
     parser.add_argument("--timeout", type=float, default=120.0)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--force", action="store_true", help="Delete existing class.split jsonl before scoring.")
+    parser.add_argument(
+        "--language",
+        choices=SUPPORTED_LANGUAGES,
+        default=DEFAULT_LANGUAGE,
+        help=(
+            "Source language to score. ``en`` reads ``<split>.parquet`` (the "
+            "historical English bench); ``de`` reads the GPT-4.1 "
+            "translations under ``german_translation/<class>.jsonl`` and "
+            "writes the cache under ``<class>.de.<split>.jsonl`` so the "
+            "calibration sweep can target the German bundle without "
+            "stomping the English one."
+        ),
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -313,8 +395,10 @@ def main() -> None:
             timeout=args.timeout,
             seed=args.seed,
             force=args.force,
+            language=args.language,
         )
-    (OUT_DIR / "cache_summary.json").write_text(
+    summary_suffix = f".{args.language}" if args.language != DEFAULT_LANGUAGE else ""
+    (OUT_DIR / f"cache_summary{summary_suffix}.json").write_text(
         json.dumps(total_summary, indent=2, sort_keys=True), encoding="utf-8"
     )
     print(json.dumps(total_summary, indent=2, sort_keys=True))

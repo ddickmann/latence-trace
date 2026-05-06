@@ -49,6 +49,10 @@ dependencies = [
   "tree-sitter-javascript>=0.23",
   "tree-sitter-go>=0.23",
   "tree-sitter-rust>=0.23",
+  # Language detection drives per-request bundle / NLI defaults
+  # (de vs en). Pure-Python n-gram, ~3 ms per 200-char probe, no
+  # model download. Used by latence_trace.core.language_detector.
+  "langdetect>=1.0.9",
 ]
 
 [project.optional-dependencies]

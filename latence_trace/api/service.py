@@ -35,7 +35,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Final, List, Mapping, Optional, Sequence, Tuple
 
 import torch
 
@@ -142,6 +142,7 @@ from latence_trace.core.nli import (
 from latence_trace.core.nli import (
     resolve_default_reranker as nli_resolve_default_reranker,
 )
+from latence_trace.core.language_detector import resolve_language as detect_language
 from latence_trace.core.runtime_decision import build_runtime_decision
 from latence_trace.core.runtime_feature_synthesizer import synthesize_runtime_features
 from latence_trace.core.thresholds import RiskBandPolicy, load_risk_band_policy
@@ -607,11 +608,16 @@ def _profile_diagnostics(
     nli_provider: Any,
     nli_reranker: Any,
     verification_samples: Optional[Sequence[str]],
+    language: Optional[str] = None,
+    language_source: Optional[str] = None,
+    nli_top_k_premises_used: Optional[int] = None,
+    nli_premise_concat_used: Optional[bool] = None,
+    nli_premise_aggregate_used: Optional[str] = None,
 ) -> Dict[str, Any]:
     semantic_entropy_skipped_reason = None
     if runtime_profile.is_quality and not verification_samples:
         semantic_entropy_skipped_reason = "semantic_entropy_skipped_no_samples"
-    return {
+    diagnostics: Dict[str, Any] = {
         "requested_profile": (
             runtime_profile.requested_profile.value
             if runtime_profile.requested_profile
@@ -635,6 +641,147 @@ def _profile_diagnostics(
         "verification_sample_count": len(verification_samples or []),
         "semantic_entropy_skipped_reason": semantic_entropy_skipped_reason,
     }
+    if language is not None:
+        # Surfaced for observability so the UI / event log can render a
+        # "Calibration: <lang>" chip and so we can audit cases where
+        # langdetect picked a different language than the operator
+        # expected. Only the resolved value lives here; the caller's raw
+        # request.language is upstream of this function.
+        diagnostics["language"] = language
+        diagnostics["language_source"] = language_source
+    # ``bundle_language`` records what the corpus router actually loaded
+    # (which may differ from ``language`` when the per-language bundle is
+    # missing and ``load_bundle`` fell back to the English artefact).
+    # Operators use the (language, bundle_language) pair to spot
+    # ``bundle_language_fallback`` cases without having to scrape logs.
+    route_decision = _ACTIVE_ROUTE_DECISION.get()
+    if route_decision is not None and route_decision.bundle is not None:
+        diagnostics["bundle_language"] = route_decision.bundle.language
+        diagnostics["bundle_class_key"] = route_decision.bundle.class_key
+    if nli_top_k_premises_used is not None:
+        diagnostics["nli_top_k_premises_used"] = int(nli_top_k_premises_used)
+    if nli_premise_concat_used is not None:
+        diagnostics["nli_premise_concat_used"] = bool(nli_premise_concat_used)
+    if nli_premise_aggregate_used is not None:
+        diagnostics["nli_premise_aggregate_used"] = str(nli_premise_aggregate_used)
+    return diagnostics
+
+
+# --------------------------------------------------------------------------- #
+# Per-request language resolution + balanced German NLI defaults.
+#
+# Goal: when a German request arrives, the runtime should automatically
+# behave the way our calibration analysis says is correct -- two top
+# reranked premises per atom (instead of three concatenated), per-premise
+# NLI scoring with max aggregation (instead of single-call composite NLI).
+# The defaults are overridable per request via the optional
+# ``nli_top_k_premises`` / ``nli_premise_concat`` / ``nli_premise_aggregate``
+# fields on ``GroundednessRequest`` so we can A/B-test from the client
+# without redeploying the runtime.
+#
+# The English path is unchanged: when language resolves to ``"en"`` we
+# leave nli_kwargs at the existing profile-derived values.
+# --------------------------------------------------------------------------- #
+
+# Default top-k for German requests. Two premises preserve correctness on
+# claims that legitimately span two paragraphs (e.g. a Roßmann claim
+# referencing both the Romanfragmente and Naturtheater paragraphs in the
+# Kafka scenario) while avoiding the three-way premise dilution that
+# tipped mDeBERTa-xnli into contradiction on verbatim-supported content.
+_DE_DEFAULT_TOP_K_PREMISES: Final[int] = 2
+
+# Default premise concatenation for German requests. Off so that each
+# top-reranked premise is scored independently and the per-premise scores
+# are aggregated by ``_aggregate_premise_scores`` (max-of-entail,
+# max-of-contradict). Concatenation collapses k premises into one
+# composite NLI call; that's the failure mode we observed.
+_DE_DEFAULT_PREMISE_CONCAT: Final[bool] = False
+
+# Default per-premise aggregator for German requests. ``"max"`` maps onto
+# the existing ``_aggregate_premise_scores`` aggregator (the only mode
+# implemented today). ``"mean"`` and ``"min"`` are accepted at the schema
+# layer for forward compatibility but currently fall back to ``"max"``
+# inside the NLI pipeline.
+_DE_DEFAULT_PREMISE_AGGREGATE: Final[str] = "max"
+
+# English defaults are sentinel ``None`` -- the runtime profile / env
+# preset already supplies the active values, so we want the per-request
+# overrides to be additive only. ``_apply_language_defaults`` mutates
+# nli_kwargs in place and returns the resolved (top_k, concat, aggregate)
+# triple so the caller can record them in profile_diagnostics.
+
+
+def _apply_language_defaults(
+    *,
+    request: GroundednessRequest,
+    nli_kwargs: Dict[str, Any],
+) -> tuple[str, str, Optional[int], Optional[bool], str]:
+    """Resolve the request's effective language and apply NLI defaults.
+
+    Returns ``(language, language_source, top_k_used, concat_used,
+    aggregate_used)`` so the caller can surface them in
+    ``profile_diagnostics``. ``top_k_used`` and ``concat_used`` are
+    ``None`` when no override was applied (English path with no explicit
+    request override) so the caller can distinguish "explicitly set" from
+    "left to runtime profile defaults".
+
+    When the corpus router has already resolved a language for this
+    request (via :func:`_corpus_router_middleware._resolve_request_language`)
+    we reuse its decision so the bundle and the NLI defaults agree on the
+    same language. The router runs first; reusing its answer avoids two
+    independent langdetect calls per request.
+    """
+
+    route_decision = _ACTIVE_ROUTE_DECISION.get()
+    if route_decision is not None and route_decision.language in {"de", "en"}:
+        language = route_decision.language
+        source = route_decision.language_source or "auto"
+    else:
+        explicit_language = request.language if request.language in {"de", "en"} else None
+        language, source = detect_language(
+            explicit=explicit_language,
+            response_text=request.response_text,
+            query_text=request.query_text,
+            raw_context=request.raw_context,
+        )
+
+    request_top_k = request.nli_top_k_premises
+    request_concat = request.nli_premise_concat
+    request_aggregate = request.nli_premise_aggregate
+
+    if language == "de":
+        # Apply German balanced defaults only when the caller did not
+        # supply an explicit override. This keeps power-users in control
+        # while making the common case do the right thing.
+        if request_top_k is None and "nli_top_k_premises" in nli_kwargs:
+            nli_kwargs["nli_top_k_premises"] = _DE_DEFAULT_TOP_K_PREMISES
+        if request_concat is None and "nli_concat_premises" in nli_kwargs:
+            nli_kwargs["nli_concat_premises"] = _DE_DEFAULT_PREMISE_CONCAT
+
+    if request_top_k is not None and "nli_top_k_premises" in nli_kwargs:
+        nli_kwargs["nli_top_k_premises"] = int(request_top_k)
+    if request_concat is not None and "nli_concat_premises" in nli_kwargs:
+        nli_kwargs["nli_concat_premises"] = bool(request_concat)
+
+    top_k_used = (
+        int(nli_kwargs["nli_top_k_premises"])
+        if "nli_top_k_premises" in nli_kwargs
+        else None
+    )
+    concat_used = (
+        bool(nli_kwargs["nli_concat_premises"])
+        if "nli_concat_premises" in nli_kwargs
+        else None
+    )
+
+    if request_aggregate is not None:
+        aggregate_used = str(request_aggregate)
+    elif language == "de":
+        aggregate_used = _DE_DEFAULT_PREMISE_AGGREGATE
+    else:
+        aggregate_used = "max"
+
+    return language, source, top_k_used, concat_used, aggregate_used
 
 
 def _auto_decide_requested(request: GroundednessRequest) -> bool:
@@ -1749,6 +1896,18 @@ class GroundednessService:
             nli_kwargs["structured_support_text"] = request.raw_context
         nli_kwargs.setdefault("risk_band_policy", runtime_profile.risk_band_policy)
 
+        # Per-request language resolution + balanced German NLI defaults.
+        # Mutates nli_kwargs in place; returns the resolved (lang, source,
+        # top_k_used, concat_used, aggregate_used) tuple so we can record
+        # them in profile_diagnostics for observability.
+        (
+            language_used,
+            language_source,
+            top_k_used,
+            concat_used,
+            aggregate_used,
+        ) = _apply_language_defaults(request=request, nli_kwargs=nli_kwargs)
+
         if request.chunk_ids:
             # chunk_ids path: single support batch (caller-supplied
             # embeddings), routed through the response-chunked orchestrator
@@ -1860,6 +2019,11 @@ class GroundednessService:
                 nli_provider=nli_provider,
                 nli_reranker=nli_reranker,
                 verification_samples=request.verification_samples,
+                language=language_used,
+                language_source=language_source,
+                nli_top_k_premises_used=top_k_used,
+                nli_premise_concat_used=concat_used,
+                nli_premise_aggregate_used=aggregate_used,
             ),
             session_id=request.session_id,
             attribution_mode=request.attribution_mode,
@@ -2056,6 +2220,18 @@ class GroundednessService:
             session_signals=session_signals_payload,
         )
 
+        # Code lane: resolve language for observability + bundle loader.
+        # The cascade-internal NLI does not honour the per-request top_k
+        # / concat / aggregate overrides today; plumbing those into
+        # ``nli_cascade`` is a separate change tracked under Phase E.
+        code_lane_language, code_lane_language_source = detect_language(
+            explicit=(
+                request.language if request.language in {"de", "en"} else None
+            ),
+            response_text=request.response_text,
+            query_text=request.query_text,
+            raw_context=request.raw_context,
+        )
         return GroundednessResponse(
             collection=self._collection_label,
             mode=mode,
@@ -2085,6 +2261,8 @@ class GroundednessService:
                 nli_provider=nli_provider,
                 nli_reranker=None,
                 verification_samples=request.verification_samples,
+                language=code_lane_language,
+                language_source=code_lane_language_source,
             ),
             session_id=request.session_id,
             attribution_mode=request.attribution_mode,
@@ -2329,6 +2507,14 @@ class GroundednessService:
                 nli_provider=None,
                 nli_reranker=None,
                 verification_samples=request.verification_samples,
+                language=(
+                    request.language
+                    if request.language in {"de", "en"}
+                    else "en"
+                ),
+                language_source=(
+                    "request" if request.language in {"de", "en"} else "fallback_en"
+                ),
             ),
             session_id=request.session_id,
             attribution_mode=request.attribution_mode,
