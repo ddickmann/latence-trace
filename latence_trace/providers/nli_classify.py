@@ -92,9 +92,9 @@ class VllmClassifyNLIProvider:
         self.not_entail_index = int(not_entail_index)
         self._http_client: Any = None
         self._client_lock = threading.Lock()
-        self._async_client: Any = None
-        self._async_client_loop: Optional[asyncio.AbstractEventLoop] = None
-        self._async_client_lock = threading.Lock()
+        # Async transport is process-shared via
+        # :func:`latence_trace.providers.get_shared_async_client`; no
+        # per-provider AsyncClient state is needed here.
         # Set on first response when the server tells us the actual
         # label ordering; we trust the wire over the env var because the
         # server is the single source of truth.
@@ -125,35 +125,17 @@ class VllmClassifyNLIProvider:
         return self._http_client
 
     def _get_async_client(self) -> Any:
-        try:
-            import httpx
-        except ImportError as exc:  # pragma: no cover
-            raise ImportError(
-                "httpx is required for VllmClassifyNLIProvider."
-            ) from exc
+        """Return the process-shared async transport.
 
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:  # pragma: no cover - sync caller
-            loop = None
+        See :func:`latence_trace.providers.get_shared_async_client` —
+        a single client across NLI x2 + reranker keeps the connection
+        pool tight and amortises TLS/TCP handshakes across the
+        concurrent verify_claims + semantic_entropy fan-out.
+        """
 
-        with self._async_client_lock:
-            if (
-                self._async_client is not None
-                and self._async_client_loop is loop
-            ):
-                return self._async_client
-            limits = httpx.Limits(
-                max_connections=max(self.max_concurrency * 2, 8),
-                max_keepalive_connections=max(self.max_concurrency, 4),
-            )
-            self._async_client = httpx.AsyncClient(
-                base_url=self.endpoint,
-                timeout=self.timeout,
-                limits=limits,
-            )
-            self._async_client_loop = loop
-            return self._async_client
+        from latence_trace.providers import get_shared_async_client
+
+        return get_shared_async_client()
 
     def healthcheck(self) -> dict[str, Any]:
         client = self._get_http_client()
@@ -171,23 +153,8 @@ class VllmClassifyNLIProvider:
                     self._http_client.close()
                 finally:
                     self._http_client = None
-        with self._async_client_lock:
-            async_client = self._async_client
-            self._async_client = None
-            self._async_client_loop = None
-        if async_client is not None:
-            try:
-                coro = async_client.aclose()
-                try:
-                    loop = asyncio.get_event_loop()
-                except RuntimeError:
-                    loop = None
-                if loop is not None and loop.is_running():
-                    asyncio.ensure_future(coro, loop=loop)
-                else:
-                    asyncio.run(coro)
-            except Exception:  # pragma: no cover
-                pass
+        # Shared async client is owned by the providers package; not
+        # closed per-provider.
 
     def _maybe_refresh_labels(self, payload: Any) -> None:
         """Update entail/not-entail indices from a response if labels are present."""
@@ -300,9 +267,11 @@ class VllmClassifyNLIProvider:
 
         client = self._get_async_client()
         inputs = [_xlm_r_pair(p or "", h or "") for p, h in zip(premises, hypotheses)]
+        # Shared client carries no base_url; pass the absolute URL.
         response = await client.post(
-            "/classify",
+            f"{self.endpoint}/classify",
             json={"model": self.model, "input": inputs},
+            timeout=self.timeout,
         )
         response.raise_for_status()
         payload = response.json()

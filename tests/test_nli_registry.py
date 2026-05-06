@@ -252,8 +252,17 @@ def handler_module():
     sys.modules.pop("_handler_under_test", None)
 
 
-def test_build_servers_legacy_topology_unchanged(handler_module) -> None:
-    """When no opt-in flags are set, the server set is identical to before."""
+def test_build_servers_default_topology_drops_legacy_nli(handler_module) -> None:
+    """The default topology MUST drop the legacy mDeBERTa ``nli`` server
+    and boot the SOTA trio (``nli_en`` + ``nli_multi`` + ``reranker``)
+    without any opt-in env vars. This is the regression gate for
+    Phase 1 of the SOTA stack rollout — flipping back to the legacy
+    single-NLI topology should require an explicit env override
+    (``LATENCE_TRACE_NLI_EN_ENABLED=0`` etc), not the absence of an
+    opt-in.
+    """
+
+    import unittest.mock as mock
 
     backup = {
         key: os.environ.get(key)
@@ -267,20 +276,117 @@ def test_build_servers_legacy_topology_unchanged(handler_module) -> None:
     }
     try:
         os.environ["LATENCE_TRACE_START_MANAGED_VLLM"] = "1"
+        # Pop any opt-in flags so we exercise the bare defaults.
         os.environ.pop("LATENCE_TRACE_NLI_EN_ENABLED", None)
         os.environ.pop("LATENCE_TRACE_NLI_MULTI_ENABLED", None)
         os.environ.pop("LATENCE_TRACE_RERANKER_ENABLED", None)
+        # Keep compression off in the unit test to avoid pulling in the
+        # external LLMLingua2 weight check (covered by separate tests).
         os.environ["LATENCE_TRACE_ENABLE_COMPRESSION_SERVER"] = "0"
 
-        config = handler_module.create_config()
-        servers = handler_module._build_servers(config)
-        assert set(servers.keys()) == {"colbert", "nli", "compliance_gliner"}
+        with mock.patch.object(
+            handler_module, "_minicheck_plugin_available", return_value=True
+        ):
+            config = handler_module.create_config()
+            servers = handler_module._build_servers(config)
+        # Legacy mDeBERTa server is permanently dropped from the default
+        # topology — this is the Phase 1 contract.
+        assert "nli" not in servers
+        assert set(servers.keys()) == {
+            "colbert",
+            "compliance_gliner",
+            "nli_en",
+            "nli_multi",
+            "reranker",
+        }
     finally:
         for key, value in backup.items():
             if value is None:
                 os.environ.pop(key, None)
             else:
                 os.environ[key] = value
+
+
+def test_build_servers_never_boots_legacy_mdeberta_even_with_opt_in(handler_module) -> None:
+    """Belt-and-braces: even when callers set legacy ``LATENCE_TRACE_NLI_*``
+    env vars, the legacy ``nli`` server must NOT be booted. The fields
+    survive on ``WorkerConfig`` only as deprecated diagnostic carriers.
+    """
+
+    import unittest.mock as mock
+
+    backup = {
+        key: os.environ.get(key)
+        for key in (
+            "LATENCE_TRACE_START_MANAGED_VLLM",
+            "LATENCE_TRACE_ENABLE_COMPRESSION_SERVER",
+            "LATENCE_TRACE_NLI_GPU_MEM",
+            "LATENCE_TRACE_NLI_PORT",
+        )
+    }
+    try:
+        os.environ["LATENCE_TRACE_START_MANAGED_VLLM"] = "1"
+        os.environ["LATENCE_TRACE_ENABLE_COMPRESSION_SERVER"] = "0"
+        os.environ["LATENCE_TRACE_NLI_GPU_MEM"] = "0.2"
+        os.environ["LATENCE_TRACE_NLI_PORT"] = "8002"
+
+        with mock.patch.object(
+            handler_module, "_minicheck_plugin_available", return_value=True
+        ):
+            config = handler_module.create_config()
+            servers = handler_module._build_servers(config)
+        assert "nli" not in servers
+    finally:
+        for key, value in backup.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
+def test_default_vllm_gpu_mem_knob_shifts_all_servers_in_lockstep(handler_module) -> None:
+    """``LATENCE_TRACE_VLLM_GPU_MEM_DEFAULT`` is the OOM-fallback knob:
+    setting it to ``0.135`` must shift the default per-server budget
+    for *every* lane that doesn't carry an explicit override. We test
+    by re-importing the handler module with the env var set, then
+    asserting the new ``_DEFAULT_VLLM_GPU_MEM`` constant + each
+    per-server default propagated."""
+
+    import importlib
+
+    backup = os.environ.get("LATENCE_TRACE_VLLM_GPU_MEM_DEFAULT")
+    saved_module = sys.modules.pop("_handler_under_test", None)
+    try:
+        os.environ["LATENCE_TRACE_VLLM_GPU_MEM_DEFAULT"] = "0.135"
+        # Pop any per-server overrides so we exercise the shared default.
+        for key in (
+            "LATENCE_TRACE_COLBERT_GPU_MEM",
+            "LATENCE_TRACE_COMPLIANCE_GLINER_GPU_MEM",
+            "LATENCE_TRACE_COMPRESSION_GPU_MEM",
+            "LATENCE_TRACE_NLI_EN_GPU_MEM",
+            "LATENCE_TRACE_NLI_MULTI_GPU_MEM",
+            "LATENCE_TRACE_RERANKER_GPU_MEM",
+        ):
+            os.environ.pop(key, None)
+
+        module = _load_handler()
+        assert module._DEFAULT_VLLM_GPU_MEM == pytest.approx(0.135)
+        config = module.create_config()
+        # All six co-resident lanes track the shared default.
+        assert config.colbert_gpu_mem == pytest.approx(0.135)
+        assert config.compliance_gpu_mem == pytest.approx(0.135)
+        assert config.compression_gpu_mem == pytest.approx(0.135)
+        assert config.nli_en_gpu_mem == pytest.approx(0.135)
+        assert config.nli_multi_gpu_mem == pytest.approx(0.135)
+        assert config.reranker_gpu_mem == pytest.approx(0.135)
+    finally:
+        if backup is None:
+            os.environ.pop("LATENCE_TRACE_VLLM_GPU_MEM_DEFAULT", None)
+        else:
+            os.environ["LATENCE_TRACE_VLLM_GPU_MEM_DEFAULT"] = backup
+        sys.modules.pop("_handler_under_test", None)
+        if saved_module is not None:
+            sys.modules["_handler_under_test"] = saved_module
 
 
 def _opt_in_three_servers_env() -> dict[str, str | None]:
@@ -330,6 +436,8 @@ def test_build_servers_skips_nli_en_when_plugin_missing(handler_module) -> None:
         assert "nli_en" not in servers
         assert "nli_multi" in servers
         assert "reranker" in servers
+        # Legacy mDeBERTa never co-exists with the SOTA trio.
+        assert "nli" not in servers
 
         # vLLM 0.19.x renamed ``--task`` to ``--convert``; both
         # nli_multi (XLM-R classify head) and reranker (single-logit
@@ -365,6 +473,8 @@ def test_build_servers_boots_nli_en_when_plugin_available(handler_module) -> Non
         assert "nli_en" in servers
         assert "nli_multi" in servers
         assert "reranker" in servers
+        # Legacy mDeBERTa stays dropped under all enabled-flag matrices.
+        assert "nli" not in servers
 
         nli_en = servers["nli_en"]
         assert nli_en.model == "lytang/MiniCheck-Flan-T5-Large"

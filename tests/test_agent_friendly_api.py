@@ -214,6 +214,14 @@ async def test_service_error_envelope_includes_code_and_hint():
                 "encoder unavailable in test environment",
             )
 
+        async def groundedness_async(self, _request):
+            # routes.py now awaits the async-native entry point; mirror
+            # the sync raise so the structured-error envelope path is
+            # still exercised.
+            raise SvcValidationError(
+                "encoder unavailable in test environment",
+            )
+
     app = FastAPI()
     app.include_router(create_router(lambda: _ExplodingService()))
 

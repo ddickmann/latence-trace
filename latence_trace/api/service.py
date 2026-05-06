@@ -1443,6 +1443,36 @@ class GroundednessService:
 
     # --- main entry point -----------------------------------------------------
 
+    async def groundedness_async(
+        self, request: GroundednessRequest
+    ) -> GroundednessResponse:
+        """Async entry point for ``/groundedness``.
+
+        Mirrors the sync :meth:`groundedness` step-for-step and dispatches
+        the heavy synchronous work (corpus router → ``_score_rag`` /
+        ``_score_code`` → diagnostics attach) onto a worker thread via
+        :func:`asyncio.to_thread` so the FastAPI event loop is never
+        blocked on transformer / kernel / NLI work.
+
+        The async-aware optimisations introduced in Phase 2 of the SOTA
+        stack rollout are owned by lower-level helpers:
+
+        * :func:`latence_trace.core.groundedness._run_nli_lane_concurrent`
+          dispatches verify_claims and semantic_entropy concurrently
+          when the caller has wired the async path (Phase 2.3).
+        * :func:`latence_trace.core.groundedness.score_groundedness_response_chunked`
+          fans out per-chunk scoring via ``asyncio.gather`` so a 4-chunk
+          response goes from 4× per-chunk wall-time to ~1× per-chunk
+          (Phase 2.6).
+
+        Result is bit-identical to :meth:`groundedness` for the same
+        request (gated by ``tests/test_async_score_parity.py``).
+        """
+
+        import asyncio
+
+        return await asyncio.to_thread(self.groundedness, request)
+
     def groundedness(self, request: GroundednessRequest) -> GroundednessResponse:
         """Score one groundedness request.
 

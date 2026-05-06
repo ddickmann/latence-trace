@@ -9,6 +9,8 @@ import time
 from contextlib import suppress
 from pathlib import Path
 
+import pytest
+
 from latence_trace.api.compliance_models import (
     ComplianceEntity,
     ComplianceRedactionResponse,
@@ -269,12 +271,19 @@ def test_create_config_pins_vllm_runtime_defaults(monkeypatch) -> None:
     assert config.compliance_max_model_len == 768
     assert config.compliance_max_num_seqs == 128
     assert config.compliance_max_batched_tokens == 8192
-    assert config.colbert_gpu_mem == 0.2
-    assert config.nli_gpu_mem == 0.2
-    assert config.compliance_gpu_mem == 0.2
+    # Phase 1 / SOTA topology: per-server GPU memory now defaults to
+    # ``LATENCE_TRACE_VLLM_GPU_MEM_DEFAULT`` (0.145) so 6 vLLM servers
+    # co-host on one 24 GiB GPU at 0.87 total utilisation. Per-server
+    # env overrides still trump the shared default.
+    assert config.colbert_gpu_mem == pytest.approx(0.145)
+    assert config.nli_gpu_mem == pytest.approx(0.145)
+    assert config.compliance_gpu_mem == pytest.approx(0.145)
+    assert config.nli_en_gpu_mem == pytest.approx(0.145)
+    assert config.nli_multi_gpu_mem == pytest.approx(0.145)
+    assert config.reranker_gpu_mem == pytest.approx(0.145)
     assert config.compression_model == "latence/compression-v0.1"
     assert config.compression_server_enabled is True
-    assert config.compression_gpu_mem == 0.2
+    assert config.compression_gpu_mem == pytest.approx(0.145)
     assert config.compression_max_model_len == 8192
     assert config.compression_max_batched_tokens == 8192
     assert config.compression_dtype == "auto"
@@ -356,11 +365,10 @@ def test_build_servers_pin_requested_vllm_settings() -> None:
     assert servers["colbert"].gpu_memory_utilization == 0.2
     assert servers["colbert"].enforce_eager is True
     assert servers["colbert"].quantization is None
-    assert servers["nli"].max_num_seqs == 128
-    assert servers["nli"].max_num_batched_tokens == 8192
-    assert servers["nli"].gpu_memory_utilization == 0.2
-    assert servers["nli"].enforce_eager is True
-    assert servers["nli"].quantization is None
+    # Legacy mDeBERTa nli server is permanently dropped. The SOTA trio
+    # below (nli_en/nli_multi/reranker) replaces it and is asserted in
+    # ``test_build_servers_default_topology_drops_legacy_nli``.
+    assert "nli" not in servers
     assert servers["compliance_gliner"].model == "knowledgator/gliner-pii-large-v1.0"
     assert servers["compliance_gliner"].io_processor_plugin == "deberta_gliner_io"
     assert servers["compliance_gliner"].plugins == ["deberta_gliner", "deberta_gliner_io"]
@@ -383,7 +391,9 @@ def test_build_servers_only_adds_compression_when_enabled() -> None:
     assert enabled["compression"].quantization is None
     assert enabled["compression"].enforce_eager is True
     assert enabled["compression"].trust_remote_code is False
-    assert enabled["compression"].gpu_memory_utilization == 0.2
+    # Default GPU utilisation tracks ``LATENCE_TRACE_VLLM_GPU_MEM_DEFAULT``
+    # (0.145) — see Phase 1 topology change in handler.py.
+    assert enabled["compression"].gpu_memory_utilization == pytest.approx(0.145)
     assert enabled["compression"].max_model_len == 8192
     assert enabled["compression"].max_num_batched_tokens == 8192
 
@@ -404,17 +414,37 @@ def test_health_payload_surfaces_selected_model_runtime_config(monkeypatch) -> N
 
     compression = payload["model_runtime_config"]["compression"]
     colbert = payload["model_runtime_config"]["colbert"]
-    nli = payload["model_runtime_config"]["nli"]
+    # Legacy ``nli`` block is gone — ``model_runtime_config`` now
+    # mirrors the live SOTA trio (``nli_en`` + ``nli_multi`` +
+    # ``reranker``). Asserting the absence of the legacy key locks the
+    # diagnostics surface to the new contract.
+    assert "nli" not in payload["model_runtime_config"]
+    nli_en = payload["model_runtime_config"]["nli_en"]
+    nli_multi = payload["model_runtime_config"]["nli_multi"]
+    reranker = payload["model_runtime_config"]["reranker"]
     compliance = payload["model_runtime_config"]["compliance_gliner"]
 
     assert colbert["model"] == "lightonai/LateOn"
     assert colbert["io_processor_plugin"] == "moderncolbert_batched_io"
+    # ``_config`` factory pins the legacy lane budgets (colbert,
+    # compliance) to 0.2 explicitly. The SOTA trio + compression rely
+    # on dataclass defaults, which now track ``_DEFAULT_VLLM_GPU_MEM``
+    # (0.145) — the Phase 1 shared knob.
     assert colbert["gpu_memory_utilization"] == 0.2
     assert colbert["quantization"] is None
     assert colbert["enforce_eager"] is True
-    assert nli["gpu_memory_utilization"] == 0.2
-    assert nli["quantization"] is None
-    assert nli["enforce_eager"] is True
+    assert nli_en["model"] == "lytang/MiniCheck-Flan-T5-Large"
+    assert nli_en["io_processor_plugin"] == "minicheck_t5_io"
+    assert nli_en["enabled"] is True
+    assert nli_en["gpu_memory_utilization"] == pytest.approx(0.145)
+    assert nli_multi["model"] == "MoritzLaurer/bge-m3-zeroshot-v2.0"
+    assert nli_multi["enabled"] is True
+    assert nli_multi["extra_args"] == ["--convert", "classify"]
+    assert nli_multi["gpu_memory_utilization"] == pytest.approx(0.145)
+    assert reranker["model"] == "BAAI/bge-reranker-v2-m3"
+    assert reranker["enabled"] is True
+    assert reranker["extra_args"] == ["--convert", "classify"]
+    assert reranker["gpu_memory_utilization"] == pytest.approx(0.145)
     assert compliance["gpu_memory_utilization"] == 0.2
     assert compliance["quantization"] is None
     assert compliance["enforce_eager"] is True
@@ -425,7 +455,7 @@ def test_health_payload_surfaces_selected_model_runtime_config(monkeypatch) -> N
     assert compression["force_preserve_digit"] is True
     assert compression["max_model_len"] == 8192
     assert compression["max_num_batched_tokens"] == 8192
-    assert compression["gpu_memory_utilization"] == 0.2
+    assert compression["gpu_memory_utilization"] == pytest.approx(0.145)
     assert compression["quantization"] is None
     assert compression["enforce_eager"] is True
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import concurrent.futures
 import functools
 import hashlib
@@ -65,10 +66,20 @@ logger = logging.getLogger(__name__)
 
 
 def _context_trust_worker_count() -> int:
+    """Sized for cross-request concurrency under the 6-server topology.
+
+    Bumped from 1 → 4 so the prompt-guard scan can run in parallel for
+    independent in-flight requests without queuing on a single worker.
+    Per-request behaviour is unchanged: a single trust scan still
+    completes start-to-finish on one worker, and the scan itself is
+    CPU-light (heuristic) or GPU-bound (Llama-Prompt-Guard) depending
+    on provider — neither benefits from intra-request worker scaling.
+    """
+
     try:
-        return max(1, int(os.environ.get("LATENCE_TRACE_CONTEXT_TRUST_WORKERS", "1")))
+        return max(1, int(os.environ.get("LATENCE_TRACE_CONTEXT_TRUST_WORKERS", "4")))
     except ValueError:
-        return 1
+        return 4
 
 
 _CONTEXT_TRUST_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
@@ -80,6 +91,34 @@ def warm_context_trust_runtime() -> dict[str, Any]:
     """Warm model-backed context trust on its production executor thread."""
 
     return _CONTEXT_TRUST_EXECUTOR.submit(warm_prompt_guard_runtime).result()
+
+
+def _response_chunk_worker_count() -> int:
+    """Sized for the multi-chunk hot path.
+
+    Defaults to 4 so the typical Kafka-scale 4-chunk response fans out
+    fully and saturates vLLM's ``max_num_seqs=128`` budget across
+    embedding + NLI + reranker. Per-request semantics are unchanged
+    (chunks are independent by construction; merge step is keyed by
+    ``(chunk_idx, span_idx)`` so concatenation is order-independent).
+    Override via ``LATENCE_TRACE_RESPONSE_CHUNK_WORKERS``.
+    """
+
+    try:
+        return max(1, int(os.environ.get("LATENCE_TRACE_RESPONSE_CHUNK_WORKERS", "4")))
+    except ValueError:
+        return 4
+
+
+# Dedicated executor so chunk scoring doesn't contend with the
+# context-trust executor for worker capacity. Each chunk runs the full
+# ``score_groundedness_chunked`` pipeline (embedding similarity +
+# optional NLI / SE / structured / context-trust on chunk 0) so the
+# per-chunk wall time is dominated by GPU work, not Python.
+_RESPONSE_CHUNK_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
+    max_workers=_response_chunk_worker_count(),
+    thread_name_prefix="latence-trace-chunk",
+)
 
 _TOKEN_FALLBACK_RE = re.compile(r"\w+|[^\w\s]", re.UNICODE)
 
@@ -4129,6 +4168,54 @@ def _maybe_run_nli(
     }
 
 
+async def _run_nli_lane_concurrent(
+    *,
+    nli_kwargs: Dict[str, Any],
+    semantic_kwargs: Dict[str, Any],
+) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    """Dispatch verify_claims NLI and semantic_entropy NLI concurrently.
+
+    Both lanes hit the same NLI provider but have independent inputs
+    (verify_claims feeds claim/premise pairs from the response, while
+    semantic_entropy feeds sample-vs-sample pairs from
+    ``verification_samples``) and produce independent outputs. The
+    server's ``max_num_seqs=128`` lets vLLM coalesce both fan-outs into
+    the same engine step automatically; the win on the client side is
+    that we no longer wait for verify_claims to finish before sending
+    semantic_entropy's first request.
+
+    We run both helpers via :func:`asyncio.to_thread` so the existing
+    sync implementations (``_maybe_run_nli`` and
+    ``_maybe_run_semantic_entropy``) keep their bit-identical
+    semantics — only the dispatch is concurrent. The semantic_entropy
+    helper mutates a ``warnings: List[str]`` arg directly (legacy API)
+    so we hand it a private list and merge the result back into the
+    caller's warnings list AFTER the gather completes; this avoids any
+    cross-thread mutation of the shared list.
+
+    Returns ``(nli_payload, semantic_entropy_payload)`` in the same
+    shape the sync code path produces. Mutation of the caller's
+    ``semantic_kwargs["warnings"]`` is deferred to the caller after
+    this coroutine returns.
+    """
+
+    sem_warnings: List[str] = []
+    semantic_kwargs_isolated = dict(semantic_kwargs)
+    caller_warnings = semantic_kwargs_isolated.pop("warnings", None)
+    semantic_kwargs_isolated["warnings"] = sem_warnings
+
+    nli_task = asyncio.to_thread(_maybe_run_nli, **nli_kwargs)
+    sem_task = asyncio.to_thread(
+        _maybe_run_semantic_entropy, **semantic_kwargs_isolated
+    )
+    nli_payload, sem_payload = await asyncio.gather(nli_task, sem_task)
+
+    if isinstance(caller_warnings, list) and sem_warnings:
+        caller_warnings.extend(sem_warnings)
+
+    return nli_payload, sem_payload
+
+
 def _atom_to_dict(av: AtomicVerification) -> Dict[str, Any]:
     return {
         "atom_index": int(av.atom.atom_index),
@@ -5182,11 +5269,27 @@ def score_groundedness_response_chunked(
 
     # Multi-chunk path. Score each response chunk against the full support
     # set; then stitch per-token rows and recompute global aggregates.
-    chunk_results: List[Dict[str, Any]] = []
-    warnings: List[str] = []
-    for chunk_idx, chunk in enumerate(response_chunks):
+    #
+    # Chunks are independent by construction: the embedding-level
+    # similarity for chunk N depends only on chunk N's tokens vs the
+    # full support set, not on chunk N-1's results. Text-level lanes
+    # (NLI, literal, SE, structured, context_trust) ride exclusively on
+    # chunk 0 (``is_first`` gating below) so concurrency never
+    # double-fires them. We submit every chunk to the dedicated chunk
+    # executor and wait for all to complete; the merge step further
+    # down is keyed by ``(chunk_idx, span_idx)`` so result-collection
+    # order doesn't matter.
+    #
+    # Aggregate scores, heatmap, and support_ids are bit-identical to
+    # the previous sequential implementation — verified by
+    # ``tests/test_async_score_parity.py``. Only log/metric stream
+    # ordering between concurrent chunks may interleave (acceptable
+    # observability change, not algorithmic change).
+    def _score_one_chunk(
+        chunk_idx: int, chunk: ResponseChunkInput
+    ) -> Dict[str, Any]:
         is_first = chunk_idx == 0
-        chunk_result = score_groundedness_chunked(
+        return score_groundedness_chunked(
             support_batches=support_batches,
             response_embeddings=chunk.embeddings,
             response_tokens=chunk.tokens,
@@ -5196,9 +5299,9 @@ def score_groundedness_response_chunked(
             primary_metric=primary_metric,
             debug_dense_matrices=debug_dense_matrices,
             null_bank_embeddings=null_bank_embeddings,
-            # Text-level channels (NLI / literal / SE / structured) only on
-            # the first chunk so the global response_text is scored exactly
-            # once and not re-scored per chunk.
+            # Text-level channels (NLI / literal / SE / structured)
+            # only on the first chunk so the global response_text is
+            # scored exactly once and not re-scored per chunk.
             response_text=response_text if is_first else None,
             query_text=query_text if is_first else None,
             nli_provider=nli_provider if is_first else None,
@@ -5213,7 +5316,9 @@ def score_groundedness_response_chunked(
             ),
             nli_use_atomic_claims=nli_use_atomic_claims if is_first else None,
             verification_samples=verification_samples if is_first else None,
-            semantic_entropy_enabled=semantic_entropy_enabled if is_first else None,
+            semantic_entropy_enabled=(
+                semantic_entropy_enabled if is_first else None
+            ),
             fusion_weights=fusion_weights,
             fusion_substitute_missing_channels_threshold=(
                 fusion_substitute_missing_channels_threshold
@@ -5222,8 +5327,12 @@ def score_groundedness_response_chunked(
             risk_band_policy=risk_band_policy,
             content_type=content_type,
             structured_enabled=structured_enabled if is_first else None,
-            structured_verification=structured_verification if is_first else None,
-            structured_support_text=structured_support_text if is_first else None,
+            structured_verification=(
+                structured_verification if is_first else None
+            ),
+            structured_support_text=(
+                structured_support_text if is_first else None
+            ),
             coverage_threshold=coverage_threshold,
             context_trust_scan_enabled=context_trust_scan_enabled and is_first,
             context_trust_skipped_reason=(
@@ -5232,7 +5341,24 @@ def score_groundedness_response_chunked(
                 else "disabled_by_request"
             ),
         )
-        chunk_results.append(chunk_result)
+
+    chunk_results: List[Dict[str, Any]] = [None] * len(response_chunks)  # type: ignore[list-item]
+    warnings: List[str] = []
+    if len(response_chunks) == 1:
+        # Defensive — Phase 2.6 only matters for >=2 chunks. (The single
+        # chunk fast-path above already returns before this code runs,
+        # but we keep this branch in case future refactors add a 1-chunk
+        # entry into the multi-chunk merge logic.)
+        chunk_results[0] = _score_one_chunk(0, response_chunks[0])
+    else:
+        futures: dict[concurrent.futures.Future[Dict[str, Any]], int] = {
+            _RESPONSE_CHUNK_EXECUTOR.submit(_score_one_chunk, idx, chunk): idx
+            for idx, chunk in enumerate(response_chunks)
+        }
+        for future in concurrent.futures.as_completed(futures):
+            idx = futures[future]
+            chunk_results[idx] = future.result()
+    for chunk_result in chunk_results:
         for warning_msg in chunk_result.get("warnings", []):
             warnings.append(warning_msg)
 

@@ -46,14 +46,11 @@ class VllmFactoryNLIProvider:
         self.max_concurrency = max(1, int(max_concurrency))
         self._http_client: Any = None
         self._client_lock = threading.Lock()
-        # The async client is bound to a specific event loop. If the
-        # provider is reused across loops (rare, but happens in test
-        # suites) we rebuild it. Keeping the field typed as ``Any``
-        # lets callers with ``httpx`` stubbed out still use the sync
-        # path.
-        self._async_client: Any = None
-        self._async_client_loop: asyncio.AbstractEventLoop | None = None
-        self._async_client_lock = threading.Lock()
+        # NOTE: The async client is process-shared (see
+        # :func:`latence_trace.providers.get_shared_async_client`).
+        # No per-provider async-client state is held here; the sync
+        # ``httpx.Client`` above is still per-provider so legacy sync
+        # callers don't get blocked on shared-pool capacity.
 
     def _get_http_client(self):
         if self._http_client is not None:
@@ -78,39 +75,17 @@ class VllmFactoryNLIProvider:
         return self._http_client
 
     def _get_async_client(self):
-        """Lazily build the :class:`httpx.AsyncClient` for the active loop.
+        """Return the process-shared :class:`httpx.AsyncClient`.
 
-        httpx.AsyncClient is cheap but expects a live event loop. We
-        build it once per loop; a loop swap triggers a rebuild so
-        tests and reconnections stay safe.
+        See :func:`latence_trace.providers.get_shared_async_client` for
+        pooling rationale: one client per process means concurrent NLI
+        + reranker fan-outs reuse the same TCP keepalive sessions and
+        don't fight for sockets in the per-loop pool.
         """
-        try:
-            import httpx
-        except ImportError as exc:  # pragma: no cover - optional install shape
-            raise ImportError("httpx is required for VllmFactoryNLIProvider.") from exc
 
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:  # pragma: no cover - guarded by callers
-            loop = None
+        from latence_trace.providers import get_shared_async_client
 
-        with self._async_client_lock:
-            if (
-                self._async_client is not None
-                and self._async_client_loop is loop
-            ):
-                return self._async_client
-            limits = httpx.Limits(
-                max_connections=max(self.max_concurrency * 2, 8),
-                max_keepalive_connections=max(self.max_concurrency, 4),
-            )
-            self._async_client = httpx.AsyncClient(
-                base_url=self.endpoint,
-                timeout=self.timeout,
-                limits=limits,
-            )
-            self._async_client_loop = loop
-            return self._async_client
+        return get_shared_async_client()
 
     def close(self) -> None:
         with self._client_lock:
@@ -119,35 +94,20 @@ class VllmFactoryNLIProvider:
                     self._http_client.close()
                 finally:
                     self._http_client = None
-        with self._async_client_lock:
-            async_client = self._async_client
-            self._async_client = None
-            self._async_client_loop = None
-        if async_client is not None:
-            try:
-                coro = async_client.aclose()
-                try:
-                    loop = asyncio.get_event_loop()
-                except RuntimeError:
-                    loop = None
-                if loop is not None and loop.is_running():
-                    asyncio.ensure_future(coro, loop=loop)
-                else:
-                    asyncio.run(coro)
-            except Exception:  # pragma: no cover - best-effort close
-                pass
+        # The async client is process-shared (see
+        # :func:`latence_trace.providers.get_shared_async_client`) — we
+        # MUST NOT close it from a per-provider lifecycle hook because
+        # other providers / requests are still using it.
 
     async def aclose(self) -> None:
-        """Async-aware close; safe to call from an asyncio coroutine."""
-        with self._async_client_lock:
-            async_client = self._async_client
-            self._async_client = None
-            self._async_client_loop = None
-        if async_client is not None:
-            try:
-                await async_client.aclose()
-            except Exception:  # pragma: no cover - best-effort close
-                pass
+        """Async-aware close; safe to call from an asyncio coroutine.
+
+        Closes only this provider's *sync* httpx.Client. The shared
+        async client is owned by the providers package and closed via
+        :func:`latence_trace.providers.close_shared_async_client` at
+        process shutdown, not per-provider.
+        """
+
         with self._client_lock:
             if self._http_client is not None:
                 try:
@@ -233,8 +193,9 @@ class VllmFactoryNLIProvider:
             return []
 
         client = self._get_async_client()
+        # Shared client carries no base_url; pass the absolute URL.
         response = await client.post(
-            "/pooling",
+            f"{self.endpoint}/pooling",
             json={
                 "model": self.model,
                 "task": "plugin",
@@ -243,6 +204,7 @@ class VllmFactoryNLIProvider:
                     "hypothesis": list(hypotheses),
                 },
             },
+            timeout=self.timeout,
         )
         response.raise_for_status()
 
@@ -256,7 +218,10 @@ class VllmFactoryNLIProvider:
 
     async def healthcheck_async(self) -> dict[str, Any]:
         client = self._get_async_client()
-        response = await client.get("/health", timeout=self.health_timeout)
+        response = await client.get(
+            f"{self.endpoint}/health",
+            timeout=self.health_timeout,
+        )
         response.raise_for_status()
         try:
             return response.json()

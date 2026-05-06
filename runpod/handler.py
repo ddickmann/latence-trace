@@ -173,6 +173,37 @@ def _env_bool(name: str) -> bool | None:
     return str(raw).strip().lower() not in {"0", "false", "no", "off"}
 
 
+def _env_bool_with_default(name: str, default: bool) -> bool:
+    """Like :func:`_env_bool` but returns ``default`` when the env var
+    is unset or blank, instead of ``None``.
+
+    Used for the SOTA NLI / reranker enabled flags which now default to
+    ``True`` — the previous ``bool(_env_bool(...))`` pattern silently
+    coerced ``None`` to ``False`` and made it impossible to express
+    "default on, can be turned off via env=0".
+    """
+
+    raw = _env_bool(name)
+    if raw is None:
+        return default
+    return raw
+
+
+# ---------------------------------------------------------------------------
+# vLLM GPU memory budget — single knob for the whole 6-server topology.
+# ---------------------------------------------------------------------------
+# We co-host 6 vLLM servers (colbert + compliance_gliner + compression +
+# nli_en + nli_multi + reranker) on one 24 GiB GPU. Six × 0.145 = 0.87
+# total utilisation, leaving ~13% headroom for the MaxSim Triton kernel,
+# transient PyTorch allocations, and CUDA context overhead.
+#
+# Set ``LATENCE_TRACE_VLLM_GPU_MEM_DEFAULT=0.135`` (or lower) if vLLM
+# crashes with OOM at boot — that knob shifts every per-server default
+# in lock-step. Per-server overrides (e.g. ``LATENCE_TRACE_COLBERT_GPU_MEM``)
+# still trump the shared default.
+_DEFAULT_VLLM_GPU_MEM = _env_float("LATENCE_TRACE_VLLM_GPU_MEM_DEFAULT", 0.145)
+
+
 def _local_compression_model_available(model_dir: Path) -> bool:
     if not model_dir.is_dir():
         return False
@@ -257,7 +288,7 @@ class WorkerConfig:
     compression_model: str = ""
     compression_server_enabled: bool = False
     compression_port: int = 8004
-    compression_gpu_mem: float = 0.2
+    compression_gpu_mem: float = _DEFAULT_VLLM_GPU_MEM
     compression_max_model_len: int = 8192
     compression_max_num_seqs: int = 128
     compression_max_batched_tokens: int = 8192
@@ -270,42 +301,47 @@ class WorkerConfig:
     compression_force_preserve_digit: bool = True
     compression_fallback_mode: bool = True
     # ----------------------------------------------------------------
-    # SOTA dual-NLI + vLLM-served reranker plumbing. All gated behind
-    # ``*_enabled`` flags; legacy single-NLI ``nli_*`` topology stays
-    # the default until each new server is opted into per deployment.
+    # SOTA dual-NLI + vLLM-served reranker — DEFAULT ON.
     #
-    # The MiniCheck server requires a BYOP encoder-decoder plugin
-    # (``runpod/vllm_plugins/minicheck_t5/``, future work). It boots
-    # only when both the plugin module is importable and the operator
-    # sets ``LATENCE_TRACE_NLI_EN_ENABLED=1``.
+    # Topology now boots six vLLM servers in lock-step at
+    # ``_DEFAULT_VLLM_GPU_MEM=0.145`` each:
+    #   colbert + compliance_gliner + compression + nli_en + nli_multi
+    #   + reranker = 6 × 0.145 = 0.87 total utilisation, ~13% headroom.
     #
-    # bge-m3-zeroshot serves natively via vLLM ``--task classify``
-    # (no plugin needed); the in-process MiniCheck/bge-m3-zs
-    # transformers fallbacks in ``latence_trace.providers.nli_transformers``
-    # mean the system runs SOTA today even when these servers are off
-    # — opt-in here is purely about latency, not quality.
+    # Legacy single-NLI ``nli`` (mDeBERTa) server is dropped from the
+    # topology — replaced by the dual SOTA path (MiniCheck for English,
+    # bge-m3-zeroshot-v2.0 for German + multilingual). The in-process
+    # ``HuggingFaceNLIProvider`` fallback in
+    # :mod:`latence_trace.api.service` still loads mDeBERTa lazily as a
+    # defensive safety net for the language=None lane, but the GPU no
+    # longer carries it as a vLLM process.
     #
-    # The reranker server replaces the in-process transformers
-    # cross-encoder with a vLLM ``--task score`` lane.
+    # ``nli_en`` requires the BYOP MiniCheck plugin
+    # (``runpod/vllm_plugins/minicheck_t5/``); when the plugin is
+    # missing the server is skipped and per-language EN traffic falls
+    # back to the in-process MiniCheckNLIProvider in
+    # :mod:`latence_trace.providers.nli_transformers`.
+    # ``nli_multi`` and ``reranker`` boot vLLM-native via
+    # ``--convert classify``.
     # ----------------------------------------------------------------
-    nli_en_enabled: bool = False
+    nli_en_enabled: bool = True
     nli_en_model: str = "lytang/MiniCheck-Flan-T5-Large"
     nli_en_port: int = 8005
-    nli_en_gpu_mem: float = 0.13
+    nli_en_gpu_mem: float = _DEFAULT_VLLM_GPU_MEM
     nli_en_max_model_len: int = 1024
     nli_en_max_num_seqs: int = 128
     nli_en_max_batched_tokens: int = 8192
-    nli_multi_enabled: bool = False
+    nli_multi_enabled: bool = True
     nli_multi_model: str = "MoritzLaurer/bge-m3-zeroshot-v2.0"
     nli_multi_port: int = 8006
-    nli_multi_gpu_mem: float = 0.13
+    nli_multi_gpu_mem: float = _DEFAULT_VLLM_GPU_MEM
     nli_multi_max_model_len: int = 512
     nli_multi_max_num_seqs: int = 128
     nli_multi_max_batched_tokens: int = 8192
-    reranker_enabled: bool = False
+    reranker_enabled: bool = True
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
     reranker_port: int = 8007
-    reranker_gpu_mem: float = 0.13
+    reranker_gpu_mem: float = _DEFAULT_VLLM_GPU_MEM
     reranker_max_model_len: int = 512
     reranker_max_num_seqs: int = 128
     reranker_max_batched_tokens: int = 8192
@@ -352,19 +388,23 @@ def create_config() -> WorkerConfig:
         not in {"0", "false", "no", "off"},
         colbert_model=colbert_model,
         colbert_port=_env_int("LATENCE_TRACE_COLBERT_PORT", 8001),
-        colbert_gpu_mem=_env_float("LATENCE_TRACE_COLBERT_GPU_MEM", 0.2),
+        colbert_gpu_mem=_env_float("LATENCE_TRACE_COLBERT_GPU_MEM", _DEFAULT_VLLM_GPU_MEM),
         colbert_max_model_len=_env_int("LATENCE_TRACE_COLBERT_MAX_MODEL_LEN", 8192),
         colbert_max_num_seqs=_env_int("LATENCE_TRACE_COLBERT_MAX_NUM_SEQS", 128),
         colbert_max_batched_tokens=_env_int("LATENCE_TRACE_COLBERT_MAX_BATCHED_TOKENS", 8192),
         nli_model=nli_model,
         nli_port=_env_int("LATENCE_TRACE_NLI_PORT", 8002),
-        nli_gpu_mem=_env_float("LATENCE_TRACE_NLI_GPU_MEM", 0.2),
+        # Legacy mDeBERTa NLI server is no longer booted (replaced by
+        # the dual SOTA path). Field kept on WorkerConfig for env-var
+        # backwards compatibility (e.g. consumers reading via
+        # diagnostics) but ignored by ``_build_servers``.
+        nli_gpu_mem=_env_float("LATENCE_TRACE_NLI_GPU_MEM", _DEFAULT_VLLM_GPU_MEM),
         nli_max_model_len=_env_int("LATENCE_TRACE_NLI_MAX_MODEL_LEN", 512),
         nli_max_num_seqs=_env_int("LATENCE_TRACE_NLI_MAX_NUM_SEQS", 128),
         nli_max_batched_tokens=_env_int("LATENCE_TRACE_NLI_MAX_BATCHED_TOKENS", 8192),
         compliance_model=compliance_model,
         compliance_port=_env_int("LATENCE_TRACE_COMPLIANCE_GLINER_PORT", 8003),
-        compliance_gpu_mem=_env_float("LATENCE_TRACE_COMPLIANCE_GLINER_GPU_MEM", 0.2),
+        compliance_gpu_mem=_env_float("LATENCE_TRACE_COMPLIANCE_GLINER_GPU_MEM", _DEFAULT_VLLM_GPU_MEM),
         compliance_max_model_len=_env_int("LATENCE_TRACE_COMPLIANCE_MAX_MODEL_LEN", 768),
         compliance_max_num_seqs=_env_int("LATENCE_TRACE_COMPLIANCE_MAX_NUM_SEQS", 128),
         compliance_max_batched_tokens=_env_int("LATENCE_TRACE_COMPLIANCE_MAX_BATCHED_TOKENS", 8192),
@@ -377,7 +417,7 @@ def create_config() -> WorkerConfig:
         compression_model=compression_model,
         compression_server_enabled=compression_server_enabled,
         compression_port=_env_int("LATENCE_TRACE_COMPRESSION_PORT", 8004),
-        compression_gpu_mem=_env_float("LATENCE_TRACE_COMPRESSION_GPU_MEM", 0.2),
+        compression_gpu_mem=_env_float("LATENCE_TRACE_COMPRESSION_GPU_MEM", _DEFAULT_VLLM_GPU_MEM),
         compression_max_model_len=_env_int("LATENCE_TRACE_COMPRESSION_MAX_MODEL_LEN", 8192),
         compression_max_num_seqs=_env_int("LATENCE_TRACE_COMPRESSION_MAX_NUM_SEQS", 128),
         compression_max_batched_tokens=_env_int(
@@ -405,28 +445,28 @@ def create_config() -> WorkerConfig:
         not in {"0", "false", "no"},
         compression_fallback_mode=os.environ.get("LATENCE_TRACE_COMPRESSION_FALLBACK_MODE", "1").lower()
         not in {"0", "false", "no"},
-        # SOTA dual-NLI + reranker plumbing — opt-in. The plumbing
-        # registers env vars + WorkerConfig fields today so flipping
-        # ``*_ENABLED=1`` (and, for MiniCheck, landing the BYOP plugin)
-        # boots the server without any code change.
-        nli_en_enabled=bool(_env_bool("LATENCE_TRACE_NLI_EN_ENABLED")),
+        # SOTA dual-NLI + reranker stack — DEFAULT ON. Set the matching
+        # ``LATENCE_TRACE_*_ENABLED=0`` env var to disable any of the
+        # three on a deployment-by-deployment basis (e.g. to free GPU
+        # for one of the legacy lanes during incident response).
+        nli_en_enabled=_env_bool_with_default("LATENCE_TRACE_NLI_EN_ENABLED", True),
         nli_en_model=os.environ.get(
             "LATENCE_TRACE_NLI_EN_MODEL", "lytang/MiniCheck-Flan-T5-Large"
         ),
         nli_en_port=_env_int("LATENCE_TRACE_NLI_EN_PORT", 8005),
-        nli_en_gpu_mem=_env_float("LATENCE_TRACE_NLI_EN_GPU_MEM", 0.13),
+        nli_en_gpu_mem=_env_float("LATENCE_TRACE_NLI_EN_GPU_MEM", _DEFAULT_VLLM_GPU_MEM),
         nli_en_max_model_len=_env_int("LATENCE_TRACE_NLI_EN_MAX_MODEL_LEN", 1024),
         nli_en_max_num_seqs=_env_int("LATENCE_TRACE_NLI_EN_MAX_NUM_SEQS", 128),
         nli_en_max_batched_tokens=_env_int(
             "LATENCE_TRACE_NLI_EN_MAX_BATCHED_TOKENS", 8192
         ),
-        nli_multi_enabled=bool(_env_bool("LATENCE_TRACE_NLI_MULTI_ENABLED")),
+        nli_multi_enabled=_env_bool_with_default("LATENCE_TRACE_NLI_MULTI_ENABLED", True),
         nli_multi_model=os.environ.get(
             "LATENCE_TRACE_NLI_MULTI_MODEL",
             "MoritzLaurer/bge-m3-zeroshot-v2.0",
         ),
         nli_multi_port=_env_int("LATENCE_TRACE_NLI_MULTI_PORT", 8006),
-        nli_multi_gpu_mem=_env_float("LATENCE_TRACE_NLI_MULTI_GPU_MEM", 0.13),
+        nli_multi_gpu_mem=_env_float("LATENCE_TRACE_NLI_MULTI_GPU_MEM", _DEFAULT_VLLM_GPU_MEM),
         nli_multi_max_model_len=_env_int(
             "LATENCE_TRACE_NLI_MULTI_MAX_MODEL_LEN", 512
         ),
@@ -436,12 +476,12 @@ def create_config() -> WorkerConfig:
         nli_multi_max_batched_tokens=_env_int(
             "LATENCE_TRACE_NLI_MULTI_MAX_BATCHED_TOKENS", 8192
         ),
-        reranker_enabled=bool(_env_bool("LATENCE_TRACE_RERANKER_ENABLED")),
+        reranker_enabled=_env_bool_with_default("LATENCE_TRACE_RERANKER_ENABLED", True),
         reranker_model=os.environ.get(
             "LATENCE_TRACE_RERANKER_MODEL", "BAAI/bge-reranker-v2-m3"
         ),
         reranker_port=_env_int("LATENCE_TRACE_RERANKER_PORT", 8007),
-        reranker_gpu_mem=_env_float("LATENCE_TRACE_RERANKER_GPU_MEM", 0.13),
+        reranker_gpu_mem=_env_float("LATENCE_TRACE_RERANKER_GPU_MEM", _DEFAULT_VLLM_GPU_MEM),
         reranker_max_model_len=_env_int(
             "LATENCE_TRACE_RERANKER_MAX_MODEL_LEN", 512
         ),
@@ -753,18 +793,13 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
             plugins=["moderncolbert", "moderncolbert_batched_io"],
             enforce_eager=True,
         ),
-        "nli": ManagedVllmServer(
-            name="nli",
-            model=config.nli_model,
-            port=config.nli_port,
-            io_processor_plugin="nli_mdeberta",
-            gpu_memory_utilization=config.nli_gpu_mem,
-            max_model_len=config.nli_max_model_len,
-            max_num_seqs=config.nli_max_num_seqs,
-            max_num_batched_tokens=config.nli_max_batched_tokens,
-            plugins=["nli_mdeberta"],
-            enforce_eager=True,
-        ),
+        # NOTE: legacy mDeBERTa ``nli`` server (single multilingual NLI
+        # backend) was dropped from the always-on topology. The dual
+        # SOTA path (``nli_en`` MiniCheck for English + ``nli_multi``
+        # bge-m3-zeroshot for German/multilingual) below replaces it,
+        # and the in-process :class:`HuggingFaceNLIProvider` fallback
+        # in :mod:`latence_trace.api.service` keeps the language=None
+        # lane working defensively without a vLLM server slot.
         "compliance_gliner": ManagedVllmServer(
             name="compliance_gliner",
             model=config.compliance_model,
@@ -912,9 +947,15 @@ def initialize() -> None:
                 os.environ["VOYAGER_GROUNDEDNESS_VLLM_ENDPOINT"] = colbert_server.base_url
             os.environ["VOYAGER_GROUNDEDNESS_VLLM_MODEL"] = config.colbert_model
             os.environ["VOYAGER_GROUNDEDNESS_VLLM_MAX_CONCURRENCY"] = str(config.max_concurrency)
-            nli_server = servers.get("nli")
-            if nli_server is not None:
-                os.environ["LATENCE_TRACE_NLI_VLLM_ENDPOINT"] = nli_server.base_url
+            # Legacy ``nli`` (mDeBERTa) vLLM server is no longer booted.
+            # We still publish the model id under the legacy env names
+            # so the in-process ``HuggingFaceNLIProvider`` defensive
+            # fallback (used only when language=None and no vLLM
+            # endpoint is set) and any diagnostic readers see the
+            # historical default. ``LATENCE_TRACE_NLI_VLLM_ENDPOINT``
+            # is intentionally left unset so the legacy lane skips the
+            # vLLM-client constructor and goes straight to the in-
+            # process provider.
             os.environ["LATENCE_TRACE_NLI_VLLM_MODEL"] = config.nli_model
             os.environ["LATENCE_TRACE_NLI_VLLM_MAX_CONCURRENCY"] = str(config.max_concurrency)
             os.environ["VOYAGER_GROUNDEDNESS_NLI_MODEL"] = config.nli_model
@@ -1005,10 +1046,15 @@ def initialize() -> None:
             _session_service = session_service
             _initialized = True
             logger.info(
-                "latence-trace RunPod worker ready: profile=%s colbert=%s nli=%s compliance=%s compression=%s",
+                (
+                    "latence-trace RunPod worker ready: profile=%s colbert=%s "
+                    "nli_en=%s nli_multi=%s reranker=%s compliance=%s compression=%s"
+                ),
                 config.profile,
                 colbert_server.base_url if colbert_server is not None else "external",
-                nli_server.base_url if nli_server is not None else "external",
+                nli_en_server.base_url if nli_en_server is not None else "fallback",
+                nli_multi_server.base_url if nli_multi_server is not None else "fallback",
+                reranker_server.base_url if reranker_server is not None else "fallback",
                 compliance_server.base_url if compliance_server is not None else "external",
                 compression_server.base_url if compression_server is not None else "fallback",
             )
@@ -1106,20 +1152,58 @@ def _runtime_model_config(config: WorkerConfig | None) -> dict[str, Any]:
             "enable_prefix_caching": False,
             "enable_chunked_prefill": False,
         },
-        "nli": {
-            "model": config.nli_model,
-            "port": config.nli_port,
+        # SOTA dual-NLI + reranker stack — these blocks replace the
+        # legacy ``nli`` (mDeBERTa) entry. The diagnostics surface
+        # mirrors the live topology booted by ``_build_servers``.
+        "nli_en": {
+            "model": config.nli_en_model,
+            "port": config.nli_en_port,
+            "enabled": config.nli_en_enabled,
             "runner": "pooling",
-            "io_processor_plugin": "nli_mdeberta",
-            "plugins": ["nli_mdeberta"],
-            "gpu_memory_utilization": config.nli_gpu_mem,
-            "max_model_len": config.nli_max_model_len,
-            "max_num_seqs": config.nli_max_num_seqs,
-            "max_num_batched_tokens": config.nli_max_batched_tokens,
+            "io_processor_plugin": "minicheck_t5_io",
+            "plugins": ["minicheck_t5", "minicheck_t5_io"],
+            "gpu_memory_utilization": config.nli_en_gpu_mem,
+            "max_model_len": config.nli_en_max_model_len,
+            "max_num_seqs": config.nli_en_max_num_seqs,
+            "max_num_batched_tokens": config.nli_en_max_batched_tokens,
             "dtype": "bfloat16",
             "quantization": None,
             "enforce_eager": True,
             "trust_remote_code": True,
+            "enable_prefix_caching": False,
+            "enable_chunked_prefill": False,
+        },
+        "nli_multi": {
+            "model": config.nli_multi_model,
+            "port": config.nli_multi_port,
+            "enabled": config.nli_multi_enabled,
+            "runner": "classify",
+            "extra_args": ["--convert", "classify"],
+            "gpu_memory_utilization": config.nli_multi_gpu_mem,
+            "max_model_len": config.nli_multi_max_model_len,
+            "max_num_seqs": config.nli_multi_max_num_seqs,
+            "max_num_batched_tokens": config.nli_multi_max_batched_tokens,
+            "dtype": "bfloat16",
+            "quantization": None,
+            "enforce_eager": True,
+            "trust_remote_code": False,
+            "enable_prefix_caching": False,
+            "enable_chunked_prefill": False,
+        },
+        "reranker": {
+            "model": config.reranker_model,
+            "port": config.reranker_port,
+            "enabled": config.reranker_enabled,
+            "runner": "classify",
+            "extra_args": ["--convert", "classify"],
+            "gpu_memory_utilization": config.reranker_gpu_mem,
+            "max_model_len": config.reranker_max_model_len,
+            "max_num_seqs": config.reranker_max_num_seqs,
+            "max_num_batched_tokens": config.reranker_max_batched_tokens,
+            "dtype": "bfloat16",
+            "quantization": None,
+            "enforce_eager": True,
+            "trust_remote_code": False,
             "enable_prefix_caching": False,
             "enable_chunked_prefill": False,
         },

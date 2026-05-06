@@ -165,14 +165,16 @@ def create_router(service_provider: Callable[[], GroundednessService]) -> APIRou
         request: GroundednessRequest,
         service: GroundednessService = Depends(get_service),
     ) -> GroundednessResponse:
-        # PA4: route the synchronous, CPU/GPU-bound service call through
-        # FastAPI's threadpool so other async handlers (healthz, readyz,
-        # metrics) and concurrent /groundedness calls keep making
-        # progress, gated by an inflight semaphore so the GPU/encoder
-        # batch queues stay inside their documented limit.
+        # Route through ``GroundednessService.groundedness_async`` so the
+        # service layer owns its own threadpool offload + future async-
+        # native rewrites (verify_claims ⊥ semantic_entropy concurrent
+        # NLI, parallel multi-chunk scoring) flow through without
+        # requiring a routes-side migration. The inflight semaphore
+        # still bounds GPU/encoder batch concurrency to the documented
+        # limit.
         async with _inflight_semaphore():
             try:
-                return await run_in_threadpool(service.groundedness, request)
+                return await service.groundedness_async(request)
             except (ValidationError, NotFoundError, ServiceError) as exc:
                 _raise_service_error(exc)
                 raise  # pragma: no cover - _raise_service_error always raises
