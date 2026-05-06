@@ -142,6 +142,9 @@ from latence_trace.core.nli import (
 from latence_trace.core.nli import (
     resolve_default_reranker as nli_resolve_default_reranker,
 )
+from latence_trace.core.nli import (
+    resolve_provider_for_language as nli_resolve_provider_for_language,
+)
 from latence_trace.core.language_detector import resolve_language as detect_language
 from latence_trace.core.runtime_decision import build_runtime_decision
 from latence_trace.core.runtime_feature_synthesizer import synthesize_runtime_features
@@ -711,6 +714,39 @@ _DE_DEFAULT_PREMISE_AGGREGATE: Final[str] = "max"
 # triple so the caller can record them in profile_diagnostics.
 
 
+def _resolve_active_language(
+    request: GroundednessRequest,
+) -> tuple[str, str]:
+    """Resolve the effective request language without mutating any state.
+
+    Used (a) early in the request to pick the right NLI provider before
+    ``nli_kwargs`` is built and (b) inside ``_apply_language_defaults``
+    so the bundle, the NLI provider, and the German balanced defaults
+    all agree on the same language for a given request.
+
+    When the corpus router middleware has already resolved a language
+    (via :func:`_corpus_router_middleware._resolve_request_language`)
+    we re-use its answer. Otherwise we run langdetect over a small
+    text probe — this is a < 3 ms call that the language detector
+    caches per-process, so the cost on the second use within the same
+    request is effectively zero.
+    """
+
+    route_decision = _ACTIVE_ROUTE_DECISION.get()
+    if route_decision is not None and route_decision.language in {"de", "en"}:
+        return route_decision.language, route_decision.language_source or "auto"
+
+    explicit_language = (
+        request.language if request.language in {"de", "en"} else None
+    )
+    return detect_language(
+        explicit=explicit_language,
+        response_text=request.response_text,
+        query_text=request.query_text,
+        raw_context=request.raw_context,
+    )
+
+
 def _apply_language_defaults(
     *,
     request: GroundednessRequest,
@@ -732,18 +768,7 @@ def _apply_language_defaults(
     independent langdetect calls per request.
     """
 
-    route_decision = _ACTIVE_ROUTE_DECISION.get()
-    if route_decision is not None and route_decision.language in {"de", "en"}:
-        language = route_decision.language
-        source = route_decision.language_source or "auto"
-    else:
-        explicit_language = request.language if request.language in {"de", "en"} else None
-        language, source = detect_language(
-            explicit=explicit_language,
-            response_text=request.response_text,
-            query_text=request.query_text,
-            raw_context=request.raw_context,
-        )
+    language, source = _resolve_active_language(request)
 
     request_top_k = request.nli_top_k_premises
     request_concat = request.nli_premise_concat
@@ -1045,6 +1070,13 @@ class GroundednessService:
         self._cached_groundedness_null_packs: Dict[str, Any] = {}
         self._nli_provider: Any = None
         self._nli_provider_resolved = False
+        # Per-language cache for the SOTA dual-NLI setup. Keys are the
+        # normalised language strings the registry uses ("en", "de") and
+        # ``""`` for the legacy single-provider lane. Concurrent cold
+        # requests for different languages each resolve their own
+        # provider exactly once; the lock guards both maps.
+        self._nli_providers_by_language: Dict[str, Any] = {}
+        self._nli_providers_resolved_by_language: Dict[str, bool] = {}
         self._nli_reranker: Any = None
         self._nli_reranker_resolved = False
         self._nli_rerankers_by_model: Dict[str, Any] = {}
@@ -1074,15 +1106,37 @@ class GroundednessService:
             )
         return provider
 
-    def _resolve_nli_provider_unchecked(self):
-        """Resolve the default NLI provider even for request-level quality.
+    def _resolve_nli_provider_unchecked(self, language: Optional[str] = None):
+        """Resolve the NLI provider for ``language`` ignoring the process flag.
 
-        ``latence_trace.core.nli.resolve_default_provider`` intentionally gates
-        on the process-level env flag. Request-level quality must be able to use
-        the same provider without flipping that global flag for concurrent
-        standard requests.
+        ``latence_trace.core.nli.resolve_default_provider`` intentionally
+        gates on the process-level env flag. Request-level quality must
+        be able to use the same provider without flipping that global
+        flag for concurrent standard requests, so we route through the
+        registry directly with the ``is_enabled`` check bypassed.
+
+        When ``language`` is ``None`` we fall back to the legacy
+        single-NLI lane (mDeBERTa via /pooling, or its HF fallback).
         """
 
+        # Per-language SOTA setup. The registry returns the right
+        # provider (vLLM-served if endpoint set, else in-process
+        # MiniCheck / bge-m3-zs) and only falls through to the legacy
+        # lane when the operator hasn't opted in.
+        if language is not None:
+            try:
+                provider = nli_resolve_provider_for_language(language)
+                if provider is not None:
+                    return provider
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "language_nli_resolve_failed_fallback_to_legacy",
+                    extra={"language": language, "error": str(exc)},
+                )
+
+        # Legacy single-provider lane (mDeBERTa) — preserved verbatim
+        # so deployments that haven't enabled the per-language stack
+        # behave exactly as before.
         model_id = os.environ.get(
             "VOYAGER_GROUNDEDNESS_NLI_MODEL",
             "MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7",
@@ -1127,25 +1181,70 @@ class GroundednessService:
             logger.warning("nli_provider_init_failed", extra={"error": str(exc)})
             return None
 
-    def _get_nli_provider(self, *, force_enabled: bool = False):
+    def _get_nli_provider(
+        self,
+        *,
+        language: Optional[str] = None,
+        force_enabled: bool = False,
+    ):
+        """Return the NLI provider for ``language`` (cached per language).
+
+        ``language`` controls which model lane the registry picks. The
+        cache is keyed by the normalised language string so a request
+        with ``language="en"`` and a follow-up with ``language="de"``
+        each resolve their own provider exactly once and re-use it for
+        the rest of the process lifetime.
+
+        Backwards-compatible: ``language=None`` keeps the original
+        single-provider behaviour for existing callers.
+        """
+
         if not (force_enabled or nli_is_enabled()):
             return None
-        if self._nli_provider_resolved:
+
+        cache_key = ""
+        if language is not None:
+            normalised = str(language).lower().strip()
+            if normalised in {"en", "de"}:
+                cache_key = normalised
+
+        # Fast path: per-language cache lookup.
+        if self._nli_providers_resolved_by_language.get(cache_key, False):
+            return self._nli_providers_by_language.get(cache_key)
+        # Legacy alias for the no-language lane: keep ``self._nli_provider``
+        # in sync so any unmigrated reader still sees the right value.
+        if cache_key == "" and self._nli_provider_resolved:
             return self._nli_provider
+
         with self._nli_provider_lock:
-            if self._nli_provider_resolved:
+            if self._nli_providers_resolved_by_language.get(cache_key, False):
+                return self._nli_providers_by_language.get(cache_key)
+            if cache_key == "" and self._nli_provider_resolved:
                 return self._nli_provider
             try:
-                self._nli_provider = (
-                    self._resolve_nli_provider_unchecked()
-                    if force_enabled and not nli_is_enabled()
-                    else nli_resolve_default_provider()
+                if cache_key:
+                    provider = self._resolve_nli_provider_unchecked(language=cache_key)
+                else:
+                    # No language hint = legacy lane. Honour the
+                    # ``is_enabled`` distinction the original code
+                    # made between ``force_enabled`` and the env flag.
+                    provider = (
+                        self._resolve_nli_provider_unchecked(language=None)
+                        if force_enabled and not nli_is_enabled()
+                        else nli_resolve_default_provider()
+                    )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "nli_resolve_failed",
+                    extra={"language": cache_key or None, "error": str(exc)},
                 )
-            except Exception as exc:
-                logger.warning("nli_resolve_failed", extra={"error": str(exc)})
-                self._nli_provider = None
-            self._nli_provider_resolved = True
-            return self._nli_provider
+                provider = None
+            self._nli_providers_by_language[cache_key] = provider
+            self._nli_providers_resolved_by_language[cache_key] = True
+            if cache_key == "":
+                self._nli_provider = provider
+                self._nli_provider_resolved = True
+            return provider
 
     def _get_nli_reranker(self, *, model_id: Optional[str] = None, force_enabled: bool = False):
         if not (force_enabled or nli_is_enabled()):
@@ -1833,8 +1932,15 @@ class GroundednessService:
                 provider,
                 prompt_name=request.document_prompt_name,
             )
+        # Resolve language BEFORE picking the NLI provider so the
+        # registry can dispatch to the right per-language model
+        # (MiniCheck for English, bge-m3-zs for German). We re-use the
+        # answer below in ``_apply_language_defaults`` — the language
+        # detector is process-cached so the second call is a no-op.
+        request_language, _ = _resolve_active_language(request)
         nli_provider = self._get_nli_provider(
-            force_enabled=runtime_profile.nli_enabled
+            language=request_language,
+            force_enabled=runtime_profile.nli_enabled,
         )
         nli_reranker = (
             self._get_nli_reranker(
@@ -2140,8 +2246,15 @@ class GroundednessService:
         ast_extractor = (
             self._get_code_ast_extractor() if code_config.enable_ast else None
         )
+        # Code lane is always English (the corpus router pins it
+        # explicitly via the ``code.*`` corpus classes; we forward "en"
+        # to the NLI registry so the SOTA English path picks MiniCheck
+        # rather than the multilingual fallback).
         nli_provider = (
-            self._get_nli_provider(force_enabled=runtime_profile.nli_enabled)
+            self._get_nli_provider(
+                language="en",
+                force_enabled=runtime_profile.nli_enabled,
+            )
             if code_config.enable_nli_cascade
             else None
         )

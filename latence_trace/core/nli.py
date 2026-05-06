@@ -55,7 +55,14 @@ _DEFAULT_FUSION_WEIGHTS: Dict[str, float] = {
 # analysed rather than truncated to the first 16 sentences.
 _DEFAULT_MAX_CLAIMS = 0
 _DEFAULT_TOP_K_PREMISES = 3
-_DEFAULT_NLI_MAX_BATCH = 16
+# Cap on how many (premise, hypothesis) pairs go into a single vLLM
+# /pooling POST. The NLI servers (mDeBERTa today, MiniCheck-Flan-T5-Large
+# and bge-m3-zeroshot tomorrow) all run with ``--max-num-seqs 128
+# --max-num-batched-tokens 8192``; we now match the server-side ceiling
+# so a 47-claim x 3-premise (= 141 pairs) request finishes in two engine
+# steps instead of nine. Operators can lower it via
+# ``VOYAGER_GROUNDEDNESS_NLI_BATCH`` for memory-tight deploys.
+_DEFAULT_NLI_MAX_BATCH = 128
 _DEFAULT_NLI_MAX_LATENCY_MS = 2000.0
 _DEFAULT_PREMISE_CONCAT_BUDGET = 384  # tokens approximated as words
 
@@ -355,6 +362,7 @@ def _select_premises_for_claim(
     top_k: int,
     fallback_join: bool,
     reranker: Optional[PremiseReranker] = None,
+    precomputed_reranker_scores: Optional[Sequence[float]] = None,
 ) -> List[SelectedPremise]:
     """Pick the top-k support unit texts most likely to entail the claim.
 
@@ -367,6 +375,12 @@ def _select_premises_for_claim(
 
     The function accepts either ``Claim`` or ``AtomicClaim`` so callers can
     reuse the same selector for atomic-fact decomposition.
+
+    ``precomputed_reranker_scores`` is the hot-path optimisation: when
+    ``verify_claims`` has already batched the reranker across every
+    (atom, candidate) pair in the request, it passes the per-atom slice
+    here so we skip the per-claim ``reranker.score`` call entirely.
+    Order must align 1:1 with ``_candidate_premises(support_units)``.
     """
 
     claim_text = getattr(claim, "text", "") or ""
@@ -376,6 +390,20 @@ def _select_premises_for_claim(
     candidates = _candidate_premises(support_units)
     if not candidates:
         return []
+
+    if (
+        precomputed_reranker_scores is not None
+        and len(precomputed_reranker_scores) == len(candidates)
+    ):
+        indexed = sorted(
+            (
+                (-float(score), idx)
+                for idx, score in enumerate(precomputed_reranker_scores)
+            ),
+            key=lambda item: (item[0], item[1]),
+        )
+        ranked = [candidates[idx] for _score, idx in indexed]
+        return ranked[: max(1, top_k)]
 
     if reranker is not None:
         try:
@@ -678,6 +706,46 @@ def verify_claims(
     selected_premises: Dict[Tuple[int, int], List[SelectedPremise]] = {}
     skipped: Dict[Tuple[int, int], str] = {}
 
+    # ---- Hot-path optimisation: cross-claim reranker pre-batch ---- #
+    #
+    # Without this pass the reranker is called once per atom (e.g. 47
+    # claims x 2 atoms = 94 sequential GPU forwards on a long
+    # legal-document answer, each running a 560M cross-encoder). On an
+    # A5000 that is ~6-9 s of pure reranker latency. Here we collect
+    # every (atom_text, candidate.text) pair across all atoms once,
+    # call ``reranker.score_pairs`` so the GPU sees them as one big
+    # matmul, then slice the flat scores back per atom and pass them
+    # into ``_select_premises_for_claim`` as a precomputed cache. The
+    # premise selection result is identical to the per-claim path; only
+    # the scheduling changes.
+    candidates_for_atoms = _candidate_premises(support_units)
+    precomputed_scores: Dict[Tuple[int, int], List[float]] = {}
+    if reranker is not None and candidates_for_atoms:
+        flat_pairs: List[Tuple[str, str]] = []
+        flat_keys: List[Tuple[int, int]] = []
+        for claim in claims:
+            for atom in atoms_per_claim[claim.index]:
+                atom_text = atom.text or ""
+                if not atom_text:
+                    continue
+                for candidate in candidates_for_atoms:
+                    flat_pairs.append((atom_text, candidate.text))
+                flat_keys.append((claim.index, atom.atom_index))
+        if flat_pairs:
+            try:
+                flat_scores = reranker.score_pairs(flat_pairs)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "premise_reranker_batch_failed",
+                    extra={"error": str(exc), "pair_count": len(flat_pairs)},
+                )
+                flat_scores = []
+            stride = len(candidates_for_atoms)
+            if flat_scores and len(flat_scores) == len(flat_keys) * stride:
+                for idx, key in enumerate(flat_keys):
+                    start = idx * stride
+                    precomputed_scores[key] = list(flat_scores[start : start + stride])
+
     for claim in claims:
         for atom in atoms_per_claim[claim.index]:
             premises = _select_premises_for_claim(
@@ -686,6 +754,9 @@ def verify_claims(
                 top_k=top_k_premises,
                 fallback_join=True,
                 reranker=reranker,
+                precomputed_reranker_scores=precomputed_scores.get(
+                    (claim.index, atom.atom_index)
+                ),
             )
             if not premises:
                 skipped[(claim.index, atom.atom_index)] = "no_premises"
@@ -1313,16 +1384,39 @@ class CrossEncoderPremiseReranker:
     def score(self, claim: str, candidate_premises: Sequence[str]) -> List[float]:
         if not candidate_premises:
             return []
+        pairs = [(claim, premise) for premise in candidate_premises]
+        return self.score_pairs(pairs)
+
+    def score_pairs(
+        self, pairs: Sequence[Tuple[str, str]]
+    ) -> List[float]:
+        """Score a flat list of ``(claim, premise)`` pairs in one go.
+
+        This is the hot path for ``verify_claims`` when there are many
+        sentences to verify. The previous code path called ``score`` once
+        per claim/atom, producing N sequential GPU forward passes. By
+        flattening across claims we exploit the GPU's matmul throughput:
+        a batch of 128 pairs runs in one ``model.forward`` instead of
+        128 separate calls. On the EU-AI-Act 47-claim case this drops
+        the reranker phase from ~6-9 s to ~500 ms on an A5000.
+
+        Pairs are processed in chunks of ``self.batch_size`` so a
+        runaway batch never OOMs the GPU. Returns scores in the same
+        order as ``pairs``.
+        """
+
+        if not pairs:
+            return []
         if not self._ensure_loaded():
             return []
         import torch  # noqa: WPS433
 
         scores: List[float] = []
-        for batch_start in range(0, len(candidate_premises), self.batch_size):
-            batch = candidate_premises[batch_start : batch_start + self.batch_size]
-            pairs = [[claim, premise] for premise in batch]
+        for batch_start in range(0, len(pairs), self.batch_size):
+            batch = pairs[batch_start : batch_start + self.batch_size]
+            tokenizer_pairs = [[c, p] for c, p in batch]
             encoded = self._tokenizer(
-                pairs,
+                tokenizer_pairs,
                 padding=True,
                 truncation=True,
                 return_tensors="pt",
@@ -1375,11 +1469,16 @@ def env_float(name: str, default: float) -> float:
 
 
 def resolve_default_provider() -> Optional[NLIProvider]:
-    """Build the default HuggingFace NLI provider when enabled.
+    """Build the legacy single-NLI provider (mDeBERTa).
 
-    When ``LATENCE_TRACE_NLI_VLLM_ENDPOINT`` is set, prefer the live vLLM lane
-    and keep the in-process HuggingFace implementation as a fallback. Returns
-    ``None`` if the feature flag is off.
+    This is the fall-through lane the
+    :func:`latence_trace.providers.nli_registry.resolve_nli_provider`
+    factory routes to when no per-language SOTA setup is configured. It
+    keeps backwards-compatibility for deployments that haven't migrated
+    to the dual-NLI architecture: same env vars
+    (``LATENCE_TRACE_NLI_VLLM_ENDPOINT``, ``VOYAGER_GROUNDEDNESS_NLI_MODEL``),
+    same HuggingFace fallback, same return type. Returns ``None`` when
+    the feature flag is off.
     """
 
     if not is_enabled():
@@ -1421,6 +1520,29 @@ def resolve_default_provider() -> Optional[NLIProvider]:
         return None
 
 
+def resolve_provider_for_language(language: Optional[str] = None) -> Optional[NLIProvider]:
+    """Pick the right NLI provider for ``language`` via the language-aware registry.
+
+    Thin pass-through to
+    :func:`latence_trace.providers.nli_registry.resolve_nli_provider`
+    so callers in this module (and downstream) don't need to know about
+    the registry directly. The registry is responsible for caching and
+    falling through to :func:`resolve_default_provider` when no
+    per-language SOTA stack is configured.
+    """
+
+    try:
+        from latence_trace.providers.nli_registry import resolve_nli_provider
+
+        return resolve_nli_provider(language)
+    except Exception as exc:  # pragma: no cover - import shouldn't fail
+        logger.warning(
+            "language_nli_resolve_failed_fallback_to_default",
+            extra={"language": language, "error": str(exc)},
+        )
+        return resolve_default_provider()
+
+
 def fusion_weights_from_env() -> Dict[str, float]:
     """Read fusion weights from the environment with safe defaults."""
 
@@ -1440,24 +1562,58 @@ def fusion_weights_from_env() -> Dict[str, float]:
 
 
 def resolve_default_reranker() -> Optional[PremiseReranker]:
-    """Build the default cross-encoder reranker when configured.
+    """Build the default cross-encoder reranker.
 
-    Returns ``None`` if no model is configured. The model is loaded lazily
-    on the first ``score`` call so unused services pay no cost.
+    Selection priority:
+
+    1. ``LATENCE_TRACE_RERANKER_ENDPOINT`` set →
+       :class:`latence_trace.providers.reranker.VllmRerankerProvider`
+       (HTTP /v1/score against a vLLM-served bge-reranker-v2-m3). The
+       healthcheck runs once at construction; on failure we fall
+       through to the in-process path so an unhealthy vLLM does not
+       silently degrade groundedness.
+    2. ``VOYAGER_GROUNDEDNESS_NLI_PREMISE_RERANKER_MODEL`` set →
+       in-process :class:`CrossEncoderPremiseReranker`. The model is
+       loaded lazily on the first ``score`` call so unused services
+       pay no cost.
+    3. ``None`` — premise selection falls back to lexical overlap.
     """
 
+    fallback: Optional[PremiseReranker] = None
     model_id = os.environ.get("VOYAGER_GROUNDEDNESS_NLI_PREMISE_RERANKER_MODEL")
-    if not model_id:
-        return None
+    if model_id:
+        try:
+            fallback = CrossEncoderPremiseReranker(
+                model_id=model_id,
+                max_length=env_int(
+                    "VOYAGER_GROUNDEDNESS_NLI_PREMISE_RERANKER_MAX_TOKENS", 512
+                ),
+                # Bumped from 32 to 128 to take advantage of the GPU when
+                # ``score_pairs`` flattens reranker work across all atoms in
+                # a request. ``bge-reranker-v2-m3`` is a 560M cross-encoder
+                # that comfortably fits a 128-pair x 512-token batch in
+                # bfloat16 on a 24 GB A5000 (~3 GB peak); on bigger GPUs
+                # operators can raise this further via the env var.
+                batch_size=env_int(
+                    "VOYAGER_GROUNDEDNESS_NLI_PREMISE_RERANKER_BATCH", 128
+                ),
+            )
+        except Exception as exc:
+            logger.warning(
+                "premise_reranker_resolve_failed", extra={"error": str(exc)}
+            )
+            fallback = None
+
     try:
-        return CrossEncoderPremiseReranker(
-            model_id=model_id,
-            max_length=env_int("VOYAGER_GROUNDEDNESS_NLI_PREMISE_RERANKER_MAX_TOKENS", 512),
-            batch_size=env_int("VOYAGER_GROUNDEDNESS_NLI_PREMISE_RERANKER_BATCH", 32),
+        from latence_trace.providers.reranker import resolve_reranker
+
+        return resolve_reranker(fallback=fallback)
+    except Exception as exc:  # pragma: no cover - import shouldn't fail
+        logger.warning(
+            "vllm_reranker_resolve_failed_fallback_to_inproc",
+            extra={"error": str(exc)},
         )
-    except Exception as exc:
-        logger.warning("premise_reranker_resolve_failed", extra={"error": str(exc)})
-        return None
+        return fallback
 
 
 def default_premise_concat_word_budget() -> int:
@@ -1512,6 +1668,7 @@ __all__ = [
     "project_claim_scores_to_tokens",
     "resolve_default_provider",
     "resolve_default_reranker",
+    "resolve_provider_for_language",
     "split_claims",
     "verify_claims",
 ]
