@@ -71,7 +71,8 @@ def create_compliance_router(
         summary="Detect and redact GDPR PII",
         description=(
             "Detect GDPR/enterprise PII with GLiNER, optional custom regex labels, "
-            "deterministic sanity checks, and mask or replacement redaction. "
+            "recall-preserving boundary cleanup, advisory format metadata, and "
+            "mask or replacement redaction. "
             "The service returns spans, labels, timings, and privacy-safe usage "
             "metadata without logging raw PII."
         ),

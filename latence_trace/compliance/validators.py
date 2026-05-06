@@ -7,7 +7,7 @@ import re
 from typing import Any
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-_PHONE_RE = re.compile(r"^\+?[\d\s().-]{7,}$")
+_PHONE_RE = re.compile(r"^\+?[\d\s()./-]{7,}$")
 _MAC_RE = re.compile(r"^(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$")
 _SWIFT_RE = re.compile(r"^[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}(?:[A-Z0-9]{3})?$")
 _DATE_RE = re.compile(
@@ -15,7 +15,9 @@ _DATE_RE = re.compile(
 )
 _GPS_RE = re.compile(r"^-?\d{1,2}(?:\.\d+)?\s*,\s*-?\d{1,3}(?:\.\d+)?$")
 _VIN_RE = re.compile(r"^[A-HJ-NPR-Z0-9]{11,17}$", re.IGNORECASE)
-_CRYPTO_RE = re.compile(r"^(?:0x[a-fA-F0-9]{40}|[13][a-km-zA-HJ-NP-Z1-9]{25,34}|bc1[ac-hj-np-z02-9]{11,71})$")
+_CRYPTO_RE = re.compile(
+    r"^(?:0x[a-fA-F0-9]{40}|[13][a-km-zA-HJ-NP-Z1-9]{25,34}|bc1[ac-hj-np-z02-9]{11,71})$"
+)
 
 _TRIM_CHARS = " \t\r\n\"'`.,;:()[]{}<>"
 
@@ -61,40 +63,58 @@ def _is_valid_ip(value: str) -> bool:
         return False
 
 
-def passes_sanity_check(entity: dict[str, Any]) -> bool:
-    """Return False only for obvious format errors."""
-
+def _sanity_check_result(entity: dict[str, Any]) -> tuple[bool, str | None]:
     label = str(entity.get("label", ""))
     value = str(entity.get("text", "")).strip()
     if not value:
-        return False
+        return False, "empty_value"
     if label == "email":
-        return bool(_EMAIL_RE.match(value))
+        return (True, None) if _EMAIL_RE.match(value) else (False, "email_format")
     if label == "phone_number":
-        return bool(_PHONE_RE.match(value)) and sum(ch.isdigit() for ch in value) >= 7
+        valid = bool(_PHONE_RE.match(value)) and sum(ch.isdigit() for ch in value) >= 7
+        return (True, None) if valid else (False, "phone_number_format")
     if label == "ip_address":
-        return _is_valid_ip(value)
+        return (True, None) if _is_valid_ip(value) else (False, "ip_address_format")
     if label == "mac_address":
-        return bool(_MAC_RE.match(value))
+        return (True, None) if _MAC_RE.match(value) else (False, "mac_address_format")
     if label == "credit_card_number":
-        return _luhn_ok(value)
+        return (True, None) if _luhn_ok(value) else (False, "credit_card_luhn")
     if label == "swift_code":
-        return bool(_SWIFT_RE.match(value.upper()))
+        return (True, None) if _SWIFT_RE.match(value.upper()) else (False, "swift_code_format")
     if label == "gps_coordinates":
-        return bool(_GPS_RE.match(value))
+        return (True, None) if _GPS_RE.match(value) else (False, "gps_coordinates_format")
     if label == "date_of_birth":
-        return bool(_DATE_RE.match(value))
+        return (True, None) if _DATE_RE.match(value) else (False, "date_format")
     if label == "vehicle_registration_number":
-        return 2 <= len(value) <= 16
+        return (True, None) if 2 <= len(value) <= 16 else (False, "vehicle_registration_length")
     if label == "crypto_wallet_address":
-        return bool(_CRYPTO_RE.match(value))
-    return True
+        return (True, None) if _CRYPTO_RE.match(value) else (False, "crypto_wallet_format")
+    return True, None
+
+
+def passes_sanity_check(entity: dict[str, Any]) -> bool:
+    """Return whether a structured-format validator recognized the value.
+
+    This is intentionally advisory. The compliance runtime is recall-first:
+    validators must never delete GLiNER detections because global PII formats
+    vary by country, language, tenant, and formatting convention.
+    """
+
+    passed, _reason = _sanity_check_result(entity)
+    return passed
 
 
 def apply_sanity_checks(text: str, entities: list[dict[str, Any]]) -> list[dict[str, Any]]:
     cleaned: list[dict[str, Any]] = []
     for entity in entities:
         bounded = clean_entity_boundaries(text, entity)
-        if bounded is not None and passes_sanity_check(bounded):
-            cleaned.append(bounded)
+        if bounded is None:
+            continue
+        passed, reason = _sanity_check_result(bounded)
+        if not passed:
+            metadata = dict(bounded.get("metadata") or {})
+            metadata["sanity_check_passed"] = False
+            metadata["sanity_check_reason"] = reason
+            bounded["metadata"] = metadata
+        cleaned.append(bounded)
     return cleaned

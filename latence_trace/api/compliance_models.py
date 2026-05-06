@@ -105,6 +105,14 @@ def compliance_schema_metadata() -> dict[str, Any]:
         "model_label_aliases": model_alias_metadata(),
         "modes": ["open", "category"],
         "redaction_modes": ["mask", "replace"],
+        "sanity_checks": {
+            "mode": "advisory",
+            "behavior": (
+                "Structured-format validators clean span boundaries and annotate "
+                "suspicious values in entity metadata, but do not drop non-empty "
+                "model detections."
+            ),
+        },
         "synthetic_replacement": {
             "enabled_by": "redact=true and redaction_mode='replace'",
             "dataset_env": "LATENCE_TRACE_COMPLIANCE_DATASET_PATH",

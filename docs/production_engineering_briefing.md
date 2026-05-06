@@ -142,8 +142,9 @@ The request supports:
 - `include_original_text=false` for safer response handling.
 
 The service resolves canonical labels, maps to GLiNER-facing aliases, runs
-token-aware chunking, calls the GLiNER provider, applies sanity checks, merges
-custom regex entities, deduplicates overlaps, and optionally redacts text.
+token-aware chunking, calls the GLiNER provider, applies recall-preserving
+boundary cleanup plus advisory format metadata, merges custom regex entities,
+deduplicates overlaps, and optionally redacts text.
 
 ### 3.3 Compression
 
@@ -634,7 +635,7 @@ to be optimized.
 5. Run GLiNER provider per chunk in a bounded thread pool.
 6. Offset chunk-local spans back to global positions.
 7. Canonicalize labels.
-8. Apply sanity checks.
+8. Clean boundaries and annotate advisory sanity-check failures.
 9. Add custom regex entities.
 10. Deduplicate overlapping spans by source, score, and length.
 11. Mask or replace text when requested.

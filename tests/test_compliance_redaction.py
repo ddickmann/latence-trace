@@ -25,6 +25,7 @@ from latence_trace.compliance.labels import (
     to_model_label_set,
 )
 from latence_trace.compliance.redaction import ComplianceRedactionEngine, ReplacementDataset
+from latence_trace.compliance.validators import apply_sanity_checks
 from server.main import create_app
 
 
@@ -74,7 +75,7 @@ class _RegexProvider:
                 "country": r"\bUnited States\b",
                 "email": r"\b\S+@\S+\.\S+\b",
                 "employee_id": r"\bEMP-\d+\b",
-                "phone_number": r"\b555-\d{4}\b",
+                "phone_number": r"\b(?:555-\d{4}|0174/923790234)\b",
             }.items():
                 if label not in labels:
                     continue
@@ -261,11 +262,68 @@ def test_compliance_service_redacts_and_applies_sanity_checks():
         )
     )
 
-    assert response.entity_count == 1
+    assert response.entity_count == 2
     assert response.entities[0].text == "jane@example.com"
-    assert response.redacted_text == "Contact [EMAIL] but ignore not-an-email."
+    assert response.entities[1].text == "not-an-email"
+    assert response.entities[1].metadata == {
+        "sanity_check_passed": False,
+        "sanity_check_reason": "email_format",
+    }
+    assert response.redacted_text == "Contact [EMAIL] but ignore [EMAIL]."
     assert response.timings_ms["vllm_request_ms"] >= 0
     assert response.chunks_processed == 1
+
+
+def test_sanity_checks_are_advisory_and_do_not_drop_model_entities():
+    text = "The model says card 1234567890123456 and ip 999.999.999.999 are sensitive."
+    entities = [
+        {
+            "start": text.index("1234567890123456"),
+            "end": text.index("1234567890123456") + len("1234567890123456"),
+            "text": "1234567890123456",
+            "label": "credit_card_number",
+            "score": 0.91,
+        },
+        {
+            "start": text.index("999.999.999.999"),
+            "end": text.index("999.999.999.999") + len("999.999.999.999"),
+            "text": "999.999.999.999",
+            "label": "ip_address",
+            "score": 0.89,
+        },
+    ]
+
+    checked = apply_sanity_checks(text, entities)
+
+    assert [entity["text"] for entity in checked] == [
+        "1234567890123456",
+        "999.999.999.999",
+    ]
+    assert checked[0]["metadata"] == {
+        "sanity_check_passed": False,
+        "sanity_check_reason": "credit_card_luhn",
+    }
+    assert checked[1]["metadata"] == {
+        "sanity_check_passed": False,
+        "sanity_check_reason": "ip_address_format",
+    }
+
+
+def test_compliance_service_keeps_slash_separated_phone_numbers():
+    service = _service()
+    response = service.redact(
+        ComplianceRedactionRequest(
+            text="Joyce' Telefonnummer war 0174/923790234.",
+            labels=["phone_number"],
+            redact=True,
+            redaction_mode="mask",
+        )
+    )
+
+    assert response.entity_count == 1
+    assert response.entities[0].text == "0174/923790234"
+    assert response.entities[0].label == "phone_number"
+    assert response.redacted_text == "Joyce' Telefonnummer war [PHONE_NUMBER]."
 
 
 def test_replacement_mode_returns_synthetic_values_for_model_entities():

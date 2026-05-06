@@ -97,9 +97,10 @@ Request a repair packet explicitly:
 ## Compliance Redaction
 
 `POST /v1/compliance/redact` detects GDPR/enterprise PII with
-`knowledgator/gliner-pii-large-v1.0`, token-aware chunking, deterministic
-sanity checks, optional custom regex overrides, masking, and country-aware
-synthetic replacement redaction. The internal `/compliance/redact` route
+`knowledgator/gliner-pii-large-v1.0`, token-aware chunking,
+recall-preserving boundary cleanup, advisory structured-format metadata,
+optional custom regex overrides, masking, and country-aware synthetic
+replacement redaction. The internal `/compliance/redact` route
 remains available for self-hosted deployments, but hosted customers should use
 the `/v1` alias.
 
