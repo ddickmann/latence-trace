@@ -47,17 +47,23 @@ RUN python -m pip install /workspace/latence-trace
 RUN python -m spacy download en_core_web_sm \
     && python -m spacy download de_core_news_sm
 
-# Pre-download the WTPSplit SaT segmentation model so the first
-# scoring request does not block on a HuggingFace round-trip. The
-# model is ~50 MB (sat-3l-sm), tokeniser-free, multilingual
-# (85 languages) and powers the universal sentence splitter in
-# ``latence_trace.core.text_segmentation``. PySBD is pure Python and
-# requires no model download. See:
+# Pre-download the WTPSplit SaT segmentation weights into the HF cache
+# so the first scoring request does not block on a HuggingFace
+# round-trip. We deliberately use ``snapshot_download`` instead of
+# ``SaT("sat-3l-sm")`` here: the SaT constructor eagerly initialises
+# torch + (optionally) ONNX runtime and tries to probe a CUDA device,
+# which aborts (SIGABRT, exit 134) on a build host with no NVIDIA
+# driver mounted. ``snapshot_download`` is a pure file download into
+# ``HF_HOME``; the SaT class then resolves the cache hit at worker
+# boot in ``runpod/handler.py::_ensure_kernel_warmup``. The model is
+# ~50 MB (sat-3l-sm), tokeniser-free, multilingual (85 languages) and
+# powers the universal splitter in ``latence_trace.core.text_segmentation``.
+# PySBD is pure Python and requires no model download. See:
 #   https://github.com/segment-any-text/wtpsplit
 RUN python - <<'PY'
-from wtpsplit import SaT
-SaT("sat-3l-sm")
-print("wtpsplit_sat_pretrained_ok model=sat-3l-sm")
+from huggingface_hub import snapshot_download
+path = snapshot_download(repo_id="segment-any-text/sat-3l-sm")
+print(f"wtpsplit_sat_weights_cached repo=segment-any-text/sat-3l-sm path={path}")
 PY
 
 # Install vLLM LAST so its strict pin (torch==2.10.0, torchvision==0.25.0,
