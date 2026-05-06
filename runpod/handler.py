@@ -269,6 +269,46 @@ class WorkerConfig:
     compression_default_compression_rate: float = 0.4
     compression_force_preserve_digit: bool = True
     compression_fallback_mode: bool = True
+    # ----------------------------------------------------------------
+    # SOTA dual-NLI + vLLM-served reranker plumbing. All gated behind
+    # ``*_enabled`` flags; legacy single-NLI ``nli_*`` topology stays
+    # the default until each new server is opted into per deployment.
+    #
+    # The MiniCheck server requires a BYOP encoder-decoder plugin
+    # (``runpod/vllm_plugins/minicheck_t5/``, future work). It boots
+    # only when both the plugin module is importable and the operator
+    # sets ``LATENCE_TRACE_NLI_EN_ENABLED=1``.
+    #
+    # bge-m3-zeroshot serves natively via vLLM ``--task classify``
+    # (no plugin needed); the in-process MiniCheck/bge-m3-zs
+    # transformers fallbacks in ``latence_trace.providers.nli_transformers``
+    # mean the system runs SOTA today even when these servers are off
+    # — opt-in here is purely about latency, not quality.
+    #
+    # The reranker server replaces the in-process transformers
+    # cross-encoder with a vLLM ``--task score`` lane.
+    # ----------------------------------------------------------------
+    nli_en_enabled: bool = False
+    nli_en_model: str = "lytang/MiniCheck-Flan-T5-Large"
+    nli_en_port: int = 8005
+    nli_en_gpu_mem: float = 0.13
+    nli_en_max_model_len: int = 1024
+    nli_en_max_num_seqs: int = 128
+    nli_en_max_batched_tokens: int = 8192
+    nli_multi_enabled: bool = False
+    nli_multi_model: str = "MoritzLaurer/bge-m3-zeroshot-v2.0"
+    nli_multi_port: int = 8006
+    nli_multi_gpu_mem: float = 0.13
+    nli_multi_max_model_len: int = 512
+    nli_multi_max_num_seqs: int = 128
+    nli_multi_max_batched_tokens: int = 8192
+    reranker_enabled: bool = False
+    reranker_model: str = "BAAI/bge-reranker-v2-m3"
+    reranker_port: int = 8007
+    reranker_gpu_mem: float = 0.13
+    reranker_max_model_len: int = 512
+    reranker_max_num_seqs: int = 128
+    reranker_max_batched_tokens: int = 8192
 
 
 def create_config() -> WorkerConfig:
@@ -365,6 +405,52 @@ def create_config() -> WorkerConfig:
         not in {"0", "false", "no"},
         compression_fallback_mode=os.environ.get("LATENCE_TRACE_COMPRESSION_FALLBACK_MODE", "1").lower()
         not in {"0", "false", "no"},
+        # SOTA dual-NLI + reranker plumbing — opt-in. The plumbing
+        # registers env vars + WorkerConfig fields today so flipping
+        # ``*_ENABLED=1`` (and, for MiniCheck, landing the BYOP plugin)
+        # boots the server without any code change.
+        nli_en_enabled=bool(_env_bool("LATENCE_TRACE_NLI_EN_ENABLED")),
+        nli_en_model=os.environ.get(
+            "LATENCE_TRACE_NLI_EN_MODEL", "lytang/MiniCheck-Flan-T5-Large"
+        ),
+        nli_en_port=_env_int("LATENCE_TRACE_NLI_EN_PORT", 8005),
+        nli_en_gpu_mem=_env_float("LATENCE_TRACE_NLI_EN_GPU_MEM", 0.13),
+        nli_en_max_model_len=_env_int("LATENCE_TRACE_NLI_EN_MAX_MODEL_LEN", 1024),
+        nli_en_max_num_seqs=_env_int("LATENCE_TRACE_NLI_EN_MAX_NUM_SEQS", 128),
+        nli_en_max_batched_tokens=_env_int(
+            "LATENCE_TRACE_NLI_EN_MAX_BATCHED_TOKENS", 8192
+        ),
+        nli_multi_enabled=bool(_env_bool("LATENCE_TRACE_NLI_MULTI_ENABLED")),
+        nli_multi_model=os.environ.get(
+            "LATENCE_TRACE_NLI_MULTI_MODEL",
+            "MoritzLaurer/bge-m3-zeroshot-v2.0",
+        ),
+        nli_multi_port=_env_int("LATENCE_TRACE_NLI_MULTI_PORT", 8006),
+        nli_multi_gpu_mem=_env_float("LATENCE_TRACE_NLI_MULTI_GPU_MEM", 0.13),
+        nli_multi_max_model_len=_env_int(
+            "LATENCE_TRACE_NLI_MULTI_MAX_MODEL_LEN", 512
+        ),
+        nli_multi_max_num_seqs=_env_int(
+            "LATENCE_TRACE_NLI_MULTI_MAX_NUM_SEQS", 128
+        ),
+        nli_multi_max_batched_tokens=_env_int(
+            "LATENCE_TRACE_NLI_MULTI_MAX_BATCHED_TOKENS", 8192
+        ),
+        reranker_enabled=bool(_env_bool("LATENCE_TRACE_RERANKER_ENABLED")),
+        reranker_model=os.environ.get(
+            "LATENCE_TRACE_RERANKER_MODEL", "BAAI/bge-reranker-v2-m3"
+        ),
+        reranker_port=_env_int("LATENCE_TRACE_RERANKER_PORT", 8007),
+        reranker_gpu_mem=_env_float("LATENCE_TRACE_RERANKER_GPU_MEM", 0.13),
+        reranker_max_model_len=_env_int(
+            "LATENCE_TRACE_RERANKER_MAX_MODEL_LEN", 512
+        ),
+        reranker_max_num_seqs=_env_int(
+            "LATENCE_TRACE_RERANKER_MAX_NUM_SEQS", 128
+        ),
+        reranker_max_batched_tokens=_env_int(
+            "LATENCE_TRACE_RERANKER_MAX_BATCHED_TOKENS", 8192
+        ),
     )
 
 
@@ -630,6 +716,26 @@ def _prepare_compliance_model_for_vllm(config: WorkerConfig) -> WorkerConfig:
     return replace(config, compliance_model=prepared_model)
 
 
+def _minicheck_plugin_available() -> bool:
+    """Return True when the BYOP MiniCheck T5 plugin is importable.
+
+    The plugin lives at ``runpod/vllm_plugins/minicheck_t5/`` and is the
+    encoder-decoder + custom pooler that lets vLLM serve
+    ``lytang/MiniCheck-Flan-T5-Large`` with the same /pooling wire shape
+    as ``nli_mdeberta``. Until that module exists ``LATENCE_TRACE_NLI_EN_ENABLED=1``
+    cannot boot a server; we log a warning and the in-process
+    transformers fallback in
+    :class:`latence_trace.providers.nli_transformers.MiniCheckNLIProvider`
+    handles the requests instead. This keeps the env-var contract
+    forward-compatible: nothing changes when the plugin lands except a
+    server appears.
+    """
+
+    import importlib.util
+
+    return importlib.util.find_spec("minicheck_t5") is not None
+
+
 def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
     if not config.managed_vllm_enabled:
         return {}
@@ -686,6 +792,82 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
             plugins=["qwen3_compression"],
             enforce_eager=config.compression_enforce_eager,
         )
+
+    # ----------------------------------------------------------------
+    # SOTA dual-NLI + reranker servers (opt-in). When these flags flip
+    # on, the registry in
+    # :mod:`latence_trace.providers.nli_registry` will route per-language
+    # NLI traffic to the matching vLLM endpoint instead of the
+    # in-process transformers fallback. Until the BYOP MiniCheck plugin
+    # lands the English server stays disabled; the multilingual server
+    # and reranker server boot via vLLM-native ``--task classify`` /
+    # ``--task score`` (no plugin required).
+    # ----------------------------------------------------------------
+    if config.nli_en_enabled:
+        if _minicheck_plugin_available():
+            servers["nli_en"] = ManagedVllmServer(
+                name="nli_en",
+                model=config.nli_en_model,
+                port=config.nli_en_port,
+                io_processor_plugin="minicheck_t5_io",
+                gpu_memory_utilization=config.nli_en_gpu_mem,
+                max_model_len=config.nli_en_max_model_len,
+                max_num_seqs=config.nli_en_max_num_seqs,
+                max_num_batched_tokens=config.nli_en_max_batched_tokens,
+                plugins=["minicheck_t5", "minicheck_t5_io"],
+                enforce_eager=True,
+            )
+        else:
+            logger.warning(
+                "nli_en_server_skipped_plugin_missing",
+                extra={
+                    "model": config.nli_en_model,
+                    "hint": (
+                        "Set LATENCE_TRACE_NLI_EN_ENABLED=0 or land the "
+                        "minicheck_t5 BYOP plugin under runpod/vllm_plugins/. "
+                        "Until then per-request English NLI uses the "
+                        "in-process MiniCheckNLIProvider fallback."
+                    ),
+                },
+            )
+    if config.nli_multi_enabled:
+        servers["nli_multi"] = ManagedVllmServer(
+            name="nli_multi",
+            model=config.nli_multi_model,
+            port=config.nli_multi_port,
+            gpu_memory_utilization=config.nli_multi_gpu_mem,
+            max_model_len=config.nli_multi_max_model_len,
+            max_num_seqs=config.nli_multi_max_num_seqs,
+            max_num_batched_tokens=config.nli_multi_max_batched_tokens,
+            enforce_eager=True,
+            # vLLM-native classify head; the registry hits this server
+            # via the ``classify`` protocol in
+            # :class:`VllmClassifyNLIProvider`. ``--convert classify``
+            # is the 0.19.x spelling of the legacy ``--task classify``
+            # — vLLM uses it to wire the SequenceClassification head
+            # onto the encoder when no architectures alias is hit.
+            extra_args=["--convert", "classify"],
+        )
+    if config.reranker_enabled:
+        servers["reranker"] = ManagedVllmServer(
+            name="reranker",
+            model=config.reranker_model,
+            port=config.reranker_port,
+            gpu_memory_utilization=config.reranker_gpu_mem,
+            max_model_len=config.reranker_max_model_len,
+            max_num_seqs=config.reranker_max_num_seqs,
+            max_num_batched_tokens=config.reranker_max_batched_tokens,
+            enforce_eager=True,
+            # vLLM-native cross-encoder relevance scoring (single
+            # logit per pair). ``VllmRerankerProvider`` posts to
+            # ``/v1/score`` against this server. ``--convert classify``
+            # is correct here too: vLLM 0.19.x exposes ``/v1/score``
+            # automatically for any single-label classifier head, so
+            # we route the reranker through the same convert mode the
+            # NLI multi server uses. (The legacy ``--task score`` flag
+            # was removed in 0.19.)
+            extra_args=["--convert", "classify"],
+        )
     return servers
 
 
@@ -736,6 +918,38 @@ def initialize() -> None:
             os.environ["LATENCE_TRACE_NLI_VLLM_MODEL"] = config.nli_model
             os.environ["LATENCE_TRACE_NLI_VLLM_MAX_CONCURRENCY"] = str(config.max_concurrency)
             os.environ["VOYAGER_GROUNDEDNESS_NLI_MODEL"] = config.nli_model
+            # Per-language SOTA NLI servers (registry consumes these
+            # via LATENCE_TRACE_NLI_<LANG>_ENDPOINT). Whether or not
+            # the operator opted in, we publish the *MODEL* env var so
+            # the in-process transformers fallback uses the same model
+            # name surfaced in profile_diagnostics.
+            os.environ["LATENCE_TRACE_NLI_EN_TRANSFORMERS_MODEL"] = config.nli_en_model
+            os.environ["LATENCE_TRACE_NLI_MULTI_TRANSFORMERS_MODEL"] = (
+                config.nli_multi_model
+            )
+            nli_en_server = servers.get("nli_en")
+            if nli_en_server is not None:
+                os.environ["LATENCE_TRACE_NLI_EN_ENDPOINT"] = nli_en_server.base_url
+                os.environ["LATENCE_TRACE_NLI_EN_MODEL"] = config.nli_en_model
+                # MiniCheck rides the existing /pooling wire shape
+                # (BYOP plugin) so the registry uses
+                # ``VllmFactoryNLIProvider`` for it. Default protocol.
+                os.environ["LATENCE_TRACE_NLI_EN_PROTOCOL"] = "pooling"
+            nli_multi_server = servers.get("nli_multi")
+            if nli_multi_server is not None:
+                os.environ["LATENCE_TRACE_NLI_MULTI_ENDPOINT"] = (
+                    nli_multi_server.base_url
+                )
+                os.environ["LATENCE_TRACE_NLI_MULTI_MODEL"] = config.nli_multi_model
+                # vLLM-native classify; the registry routes this to
+                # ``VllmClassifyNLIProvider``.
+                os.environ["LATENCE_TRACE_NLI_MULTI_PROTOCOL"] = "classify"
+            reranker_server = servers.get("reranker")
+            if reranker_server is not None:
+                os.environ["LATENCE_TRACE_RERANKER_ENDPOINT"] = (
+                    reranker_server.base_url
+                )
+                os.environ["LATENCE_TRACE_RERANKER_MODEL"] = config.reranker_model
             compliance_server = servers.get("compliance_gliner")
             if compliance_server is not None:
                 os.environ["LATENCE_TRACE_COMPLIANCE_GLINER_ENDPOINT"] = compliance_server.base_url

@@ -85,6 +85,7 @@ RUN git clone --depth 1 --branch "${VLLM_FACTORY_REF}" https://github.com/latenc
 
 RUN python -m pip install --no-deps /workspace/latence-trace/runpod/vllm_plugins/moderncolbert_batched
 RUN python -m pip install --no-deps /workspace/latence-trace/runpod/vllm_plugins/nli_mdeberta
+RUN python -m pip install --no-deps /workspace/latence-trace/runpod/vllm_plugins/minicheck_t5
 RUN python -m pip install /workspace/latence-trace/runpod/compression_model/text_processing-0.1.0-cp38-abi3-manylinux_2_34_x86_64.whl
 RUN python -m pip install --no-deps /workspace/latence-trace/runpod/vllm_plugins/qwen3_compression_plugin
 
@@ -101,6 +102,7 @@ import vllm
 import vllm_factory  # noqa: F401
 import moderncolbert_batched  # noqa: F401
 import latence_trace_nli_plugin  # noqa: F401
+import minicheck_t5  # noqa: F401
 import qwen3_compression_plugin  # noqa: F401
 import text_processing  # noqa: F401
 import latence_trace  # noqa: F401
@@ -122,13 +124,18 @@ else:
     import vllm._C  # noqa: F401
 
 io_plugins = {ep.name for ep in entry_points(group="vllm.io_processor_plugins")}
-required = {"moderncolbert_batched_io", "nli_mdeberta", "deberta_gliner_io"}
+required = {
+    "moderncolbert_batched_io",
+    "nli_mdeberta",
+    "minicheck_t5_io",
+    "deberta_gliner_io",
+}
 missing = required - io_plugins
 if missing:
     raise SystemExit(f"missing vllm io_processor_plugins entry points: {sorted(missing)}")
 
 general_plugins = {ep.name for ep in entry_points(group="vllm.general_plugins")}
-missing_general = {"qwen3_compression"} - general_plugins
+missing_general = {"qwen3_compression", "minicheck_t5"} - general_plugins
 if missing_general:
     raise SystemExit(f"missing vllm general_plugins entry points: {sorted(missing_general)}")
 
