@@ -951,6 +951,51 @@ class GroundednessNLIDiagnostics(BaseModel):
         validation_alias=AliasChoices("aggregate_score", "aggregate"),
     )
     claims: List[GroundednessNLIClaim] = Field(default_factory=list)
+    # Coverage observability. Without these fields the heatmap frontend
+    # cannot tell "every sentence was fully scored" apart from "the
+    # latency budget deferred the tail of a long answer", so a
+    # 30-sentence response with 14 deferred claims would silently look
+    # the same as a 16-sentence response with full coverage. The
+    # runtime now reports the full sentence count (``claims_total``),
+    # how many got a real entailment verdict (``claims_scored``), and
+    # the per-reason breakdown of the rest. ``aggregate_score`` is
+    # still computed only over the scored claims.
+    claims_total: Optional[int] = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Total number of sentences/claims the splitter produced. "
+            "Equal to len(claims) for backwards compatibility."
+        ),
+    )
+    claims_scored: Optional[int] = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Subset of ``claims_total`` that received a real NLI "
+            "entailment verdict (i.e. not skipped). Used by the "
+            "demo coverage chip."
+        ),
+    )
+    claims_skipped_for_budget: Optional[int] = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Claims that were left unscored because the per-request "
+            "``nli_max_latency_ms`` budget would have been exceeded. "
+            "These appear in the heatmap with a neutral ``skipped`` "
+            "band so the response stays visually fully covered."
+        ),
+    )
+    claims_skipped_for_no_premises: Optional[int] = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Claims that had zero retrieved premises and so could not "
+            "be entailment-scored. Usually indicates an empty or "
+            "completely off-topic context."
+        ),
+    )
 
 
 class ContextTrustLabel(BaseModel):
