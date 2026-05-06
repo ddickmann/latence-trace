@@ -406,7 +406,14 @@ def create_config() -> WorkerConfig:
         # CPU-only stateless aggregation; sub-ms typical, 250ms
         # ceiling is plenty for 1000+ turn sessions.
         rollup_request_timeout_s=_env_float("LATENCE_TRACE_ROLLUP_REQUEST_TIMEOUT_S", 0.25),
-        max_concurrency=64,
+        # RunPod prod cap. Sized for the 1/8 GPU pod (24 GiB GPU + 24 GiB
+        # CPU) carrying the full 7-model topology: empirically 32 in-flight
+        # /runsync calls leaves enough CPU memory for transient PyTorch /
+        # tokenizer / Triton MaxSim allocations under load. Bumping past 32
+        # has crashed the worker in calibration runs, so 32 is the tested
+        # ceiling and the production default. Operators can override via
+        # ``LATENCE_TRACE_MAX_CONCURRENCY`` for larger GPU pods.
+        max_concurrency=_env_int("LATENCE_TRACE_MAX_CONCURRENCY", 32),
         collection_label=os.environ.get("LATENCE_TRACE_COLLECTION_LABEL", "latence-trace"),
         service_device=os.environ.get("LATENCE_TRACE_SERVICE_DEVICE", _detect_device()),
         docs_url=os.environ.get("LATENCE_TRACE_DOCS_URL", ""),

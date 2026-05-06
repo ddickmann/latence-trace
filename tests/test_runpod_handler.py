@@ -248,9 +248,17 @@ async def _burst(size: int) -> list[dict]:
 
 
 def test_create_config_uses_fixed_runpod_max_concurrency(monkeypatch) -> None:
+    """Production default is 32 (sized for the 1/8 GPU pod carrying the full
+    7-model topology). Foreign caps via ``MAX_CONCURRENCY`` are ignored — the
+    handler reads ``LATENCE_TRACE_MAX_CONCURRENCY`` only.
+    """
     monkeypatch.setenv("MAX_CONCURRENCY", "7")
     monkeypatch.setenv("LATENCE_TRACE_PROFILE", "quality")
-    assert runpod_handler.create_config().max_concurrency == 64
+    monkeypatch.delenv("LATENCE_TRACE_MAX_CONCURRENCY", raising=False)
+    assert runpod_handler.create_config().max_concurrency == 32
+
+    monkeypatch.setenv("LATENCE_TRACE_MAX_CONCURRENCY", "48")
+    assert runpod_handler.create_config().max_concurrency == 48
 
 
 def test_create_config_pins_vllm_runtime_defaults(monkeypatch) -> None:
@@ -580,10 +588,10 @@ def test_initialize_exports_handler_concurrency_to_internal_vllm_clients(monkeyp
     runpod_handler.initialize()
 
     try:
-        assert os.environ["VOYAGER_GROUNDEDNESS_VLLM_MAX_CONCURRENCY"] == "64"
-        assert os.environ["LATENCE_TRACE_NLI_VLLM_MAX_CONCURRENCY"] == "64"
+        assert os.environ["VOYAGER_GROUNDEDNESS_VLLM_MAX_CONCURRENCY"] == "32"
+        assert os.environ["LATENCE_TRACE_NLI_VLLM_MAX_CONCURRENCY"] == "32"
         assert os.environ["LATENCE_TRACE_COMPLIANCE_GLINER_ENDPOINT"] == "http://127.0.0.1:18003"
-        assert os.environ["LATENCE_TRACE_COMPLIANCE_MAX_CONCURRENCY"] == "64"
+        assert os.environ["LATENCE_TRACE_COMPLIANCE_MAX_CONCURRENCY"] == "32"
     finally:
         runpod_handler.shutdown()
 
