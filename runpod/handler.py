@@ -190,12 +190,28 @@ def _env_bool_with_default(name: str, default: bool) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# vLLM GPU memory budget — single knob for the whole 6-server topology.
+# GPU budget — single knob for the whole 7-model production topology.
 # ---------------------------------------------------------------------------
-# We co-host 6 vLLM servers (colbert + compliance_gliner + compression +
-# nli_en + nli_multi + reranker) on one 24 GiB GPU. Six × 0.145 = 0.87
-# total utilisation, leaving ~13% headroom for the MaxSim Triton kernel,
-# transient PyTorch allocations, and CUDA context overhead.
+# Production co-hosts 7 GPU-resident models on one 24 GiB worker:
+#
+#   1. colbert            (lightonai/LateOn)               vLLM server :8001
+#   2. compliance_gliner  (knowledgator/gliner-pii-v1.0)   vLLM server :8003
+#   3. compression        (LLMLingua-2 Qwen3)              vLLM server :8004
+#   4. nli_en             (lytang/MiniCheck-Flan-T5-Large) vLLM server :8005
+#   5. nli_multi          (MoritzLaurer/bge-m3-zs-v2.0)    vLLM server :8006
+#   6. reranker           (BAAI/bge-reranker-v2-m3)        vLLM server :8007
+#   7. prompt_guard       (meta-llama/Llama-Prompt-Guard-2-86M)
+#                         in-process PyTorch (loaded by warm_context_trust_runtime)
+#
+# Plus the in-process Triton MaxSim kernel
+# (``latence_trace.kernels.triton_triangular_maxsim``) which shares the
+# same CUDA context as the dev_app/handler Python process and uses the
+# headroom carved out below.
+#
+# 6 × ``_DEFAULT_VLLM_GPU_MEM=0.145`` = 0.87 vLLM utilisation → ~20.9 GiB.
+# The remaining ~3.1 GiB feeds the 86M Llama-Prompt-Guard checkpoint
+# (~0.2 GiB fp16), Triton MaxSim transient buffers (~0.5 GiB), the CUDA
+# context, and per-request workspace memory.
 #
 # Set ``LATENCE_TRACE_VLLM_GPU_MEM_DEFAULT=0.135`` (or lower) if vLLM
 # crashes with OOM at boot — that knob shifts every per-server default
@@ -314,6 +330,9 @@ class WorkerConfig:
     # ``_DEFAULT_VLLM_GPU_MEM=0.145`` each:
     #   colbert + compliance_gliner + compression + nli_en + nli_multi
     #   + reranker = 6 × 0.145 = 0.87 total utilisation, ~13% headroom.
+    # The 7th model — Llama-Prompt-Guard-2-86M — boots in-process via
+    # ``_warm_prompt_guard_at_boot`` (provider default = ``prompt_guard``)
+    # and lives in the same CUDA context as the Triton MaxSim kernels.
     #
     # Legacy single-NLI ``nli`` (mDeBERTa) server is dropped from the
     # topology — replaced by the dual SOTA path (MiniCheck for English,
@@ -681,6 +700,14 @@ def _ensure_kernel_warmup(profile: str) -> None:
 
 
 def _prompt_guard_startup_enabled() -> bool:
+    """Return True when Llama-Prompt-Guard-2 should be loaded at boot.
+
+    Production default is ``LATENCE_TRACE_CONTEXT_TRUST_PROVIDER=prompt_guard``
+    so the 86M Llama-Guard checkpoint is resident on the GPU when the worker
+    becomes ready. The per-request ``context_trust_enabled`` flag still gates
+    whether the lane is invoked, so opting out of the scan stays free
+    (~0 ms) — but opting in never pays the multi-second cold-start penalty.
+    """
     if os.environ.get("LATENCE_TRACE_CONTEXT_TRUST_ENABLED", "1").strip().lower() in {
         "0",
         "false",
@@ -688,7 +715,9 @@ def _prompt_guard_startup_enabled() -> bool:
         "off",
     }:
         return False
-    provider = os.environ.get("LATENCE_TRACE_CONTEXT_TRUST_PROVIDER", "heuristic").strip().lower()
+    provider = os.environ.get(
+        "LATENCE_TRACE_CONTEXT_TRUST_PROVIDER", "prompt_guard"
+    ).strip().lower()
     return provider in {"prompt_guard", "llama_prompt_guard", "llama_prompt_guard_2"}
 
 
@@ -1059,7 +1088,8 @@ def initialize() -> None:
             logger.info(
                 (
                     "latence-trace RunPod worker ready: profile=%s colbert=%s "
-                    "nli_en=%s nli_multi=%s reranker=%s compliance=%s compression=%s"
+                    "nli_en=%s nli_multi=%s reranker=%s compliance_gliner=%s "
+                    "compression=%s prompt_guard=%s triton_maxsim=%s"
                 ),
                 config.profile,
                 colbert_server.base_url if colbert_server is not None else "external",
@@ -1068,6 +1098,8 @@ def initialize() -> None:
                 reranker_server.base_url if reranker_server is not None else "fallback",
                 compliance_server.base_url if compliance_server is not None else "external",
                 compression_server.base_url if compression_server is not None else "fallback",
+                "in_process" if _prompt_guard_startup_enabled() else "off",
+                "in_process",
             )
         except Exception:
             for server in servers.values():
@@ -1262,7 +1294,9 @@ def _runtime_model_config(config: WorkerConfig | None) -> dict[str, Any]:
 
 
 def _context_trust_runtime_config() -> dict[str, Any]:
-    provider = os.environ.get("LATENCE_TRACE_CONTEXT_TRUST_PROVIDER", "heuristic").strip().lower()
+    provider = os.environ.get(
+        "LATENCE_TRACE_CONTEXT_TRUST_PROVIDER", "prompt_guard"
+    ).strip().lower()
     enabled = os.environ.get("LATENCE_TRACE_CONTEXT_TRUST_ENABLED", "1").strip().lower() not in {
         "0",
         "false",

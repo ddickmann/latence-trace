@@ -196,6 +196,7 @@ def _config(
     managed_vllm_enabled: bool = True,
     compression_model: str = "",
     compression_server_enabled: bool = False,
+    compliance_gliner_server_enabled: bool = True,
 ):
     return runpod_handler.WorkerConfig(
         profile=profile,
@@ -231,6 +232,7 @@ def _config(
         compliance_request_timeout_s=30.0,
         compression_model=compression_model,
         compression_server_enabled=compression_server_enabled,
+        compliance_gliner_server_enabled=compliance_gliner_server_enabled,
     )
 
 
@@ -273,8 +275,10 @@ def test_create_config_pins_vllm_runtime_defaults(monkeypatch) -> None:
     assert config.compliance_max_batched_tokens == 8192
     # Phase 1 / SOTA topology: per-server GPU memory now defaults to
     # ``LATENCE_TRACE_VLLM_GPU_MEM_DEFAULT`` (0.145) so 6 vLLM servers
-    # co-host on one 24 GiB GPU at 0.87 total utilisation. Per-server
-    # env overrides still trump the shared default.
+    # co-host on one 24 GiB GPU at 0.87 total utilisation, leaving the
+    # remaining ~3.1 GiB to the 7th model (in-process Llama-Prompt-
+    # Guard-2-86M) plus the Triton MaxSim kernels. Per-server env
+    # overrides still trump the shared default.
     assert config.colbert_gpu_mem == pytest.approx(0.145)
     assert config.nli_gpu_mem == pytest.approx(0.145)
     assert config.compliance_gpu_mem == pytest.approx(0.145)
@@ -400,6 +404,47 @@ def test_build_servers_only_adds_compression_when_enabled() -> None:
 
 def test_build_servers_can_use_external_vllm_mode() -> None:
     assert runpod_handler._build_servers(_config(managed_vllm_enabled=False)) == {}
+
+
+def test_build_servers_can_disable_compliance_gliner(monkeypatch) -> None:
+    """Memory-constrained calibration runs flip the GLiNER PII server off
+    via ``LATENCE_TRACE_ENABLE_COMPLIANCE_GLINER_SERVER=0``. The flag must
+    actually skip the server entry while leaving the rest of the topology
+    intact.
+    """
+    full = runpod_handler._build_servers(_config())
+    minimal = runpod_handler._build_servers(_config(compliance_gliner_server_enabled=False))
+
+    assert "compliance_gliner" in full
+    assert "compliance_gliner" not in minimal
+    for name in ("colbert", "nli_en", "nli_multi", "reranker"):
+        assert name in minimal, f"{name} must remain in the minimal topology"
+
+
+def test_prompt_guard_default_provider_loads_at_boot(monkeypatch) -> None:
+    """Llama-Prompt-Guard-2-86M is the 7th GPU model in the production
+    topology and must boot in-process by default so the first
+    ``context_trust_enabled=true`` request never pays the cold-start
+    penalty.
+    """
+    for var in (
+        "LATENCE_TRACE_CONTEXT_TRUST_ENABLED",
+        "LATENCE_TRACE_CONTEXT_TRUST_PROVIDER",
+    ):
+        monkeypatch.delenv(var, raising=False)
+
+    assert runpod_handler._prompt_guard_startup_enabled() is True
+
+    runtime = runpod_handler._context_trust_runtime_config()
+    assert runtime["enabled"] is True
+    assert runtime["provider"] == "prompt_guard"
+
+    monkeypatch.setenv("LATENCE_TRACE_CONTEXT_TRUST_PROVIDER", "heuristic")
+    assert runpod_handler._prompt_guard_startup_enabled() is False
+
+    monkeypatch.setenv("LATENCE_TRACE_CONTEXT_TRUST_PROVIDER", "prompt_guard")
+    monkeypatch.setenv("LATENCE_TRACE_CONTEXT_TRUST_ENABLED", "0")
+    assert runpod_handler._prompt_guard_startup_enabled() is False
 
 
 def test_health_payload_surfaces_selected_model_runtime_config(monkeypatch) -> None:

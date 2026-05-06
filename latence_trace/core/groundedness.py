@@ -66,7 +66,7 @@ logger = logging.getLogger(__name__)
 
 
 def _context_trust_worker_count() -> int:
-    """Sized for cross-request concurrency under the 6-server topology.
+    """Sized for cross-request concurrency under the 7-model topology.
 
     Bumped from 1 → 4 so the prompt-guard scan can run in parallel for
     independent in-flight requests without queuing on a single worker.
