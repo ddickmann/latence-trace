@@ -1728,7 +1728,22 @@ def test_split_claims_produces_sentence_level_claims_with_offsets() -> None:
 
 
 def test_split_claims_respects_max_claims_cap() -> None:
-    text = ". ".join("Sentence number {}".format(idx) for idx in range(20)) + "."
+    # Real, lexically distinct sentences -- the universal segmenter
+    # is conservative on trivial repeated patterns and would merge
+    # ``"Sentence number N."`` into one span.
+    sentences = [
+        "Cursor is an AI-first code editor.",
+        "It supports a built-in agent loop.",
+        "TRACE adds groundedness scoring on top.",
+        "Heatmaps render directly in the chat panel.",
+        "RunPod hosts the inference workers.",
+        "Fly.io serves the LibreChat frontend.",
+        "Cloudflare tunnels expose the local bridge.",
+        "Calibration bundles ship per corpus class.",
+        "WTPSplit handles multilingual segmentation.",
+        "PySBD acts as the deterministic fallback.",
+    ]
+    text = " ".join(sentences)
     capped = split_claims(text, max_claims=5)
     assert len(capped) == 5
 

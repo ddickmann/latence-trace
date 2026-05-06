@@ -50,7 +50,15 @@ _DEFAULT_PREMISE_CONCAT_BUDGET = 384  # tokens approximated as words
 
 _PREMISE_JOIN_SEPARATOR = " \u2022 "  # bullet keeps sentence boundaries visible
 
-_CLAIM_SPLIT_RE = re.compile(r"[^.!?\n]+(?:[.!?]+|$)", re.UNICODE)
+# Sentence segmentation for claim splitting now goes through the
+# universal splitter in ``latence_trace.core.text_segmentation`` (SaT
+# transformer + PySBD fallback). The previous regex
+# ``[^.!?\n]+(?:[.!?]+|$)`` mis-split German abbreviations like
+# ``z. B.`` mid-clause and produced grammatically broken claims that
+# NLI then correctly classified as contradictions even when the source
+# text matched verbatim. The neural splitter handles 85 languages
+# without per-abbreviation hand-tuning.
+#
 # Conjunction split fires on long sentences only. The alternation now
 # spans both English (but, however, whereas) and German (aber, jedoch,
 # w\u00e4hrend, sondern, doch) to keep claim refinement language-aware
@@ -192,14 +200,14 @@ def split_claims(response_text: str, *, max_claims: int = _DEFAULT_MAX_CLAIMS) -
     if not response_text or not response_text.strip():
         return []
 
+    from latence_trace.core.text_segmentation import split_sentences
+
     raw_spans: List[Tuple[int, int, str]] = []
-    for match in _CLAIM_SPLIT_RE.finditer(response_text):
-        sentence = match.group(0).strip()
+    for span in split_sentences(response_text):
+        sentence = span["text"]
         if not sentence:
             continue
-        sentence_start = match.start() + (len(match.group(0)) - len(match.group(0).lstrip()))
-        sentence_end = sentence_start + len(sentence)
-        raw_spans.append((sentence_start, sentence_end, sentence))
+        raw_spans.append((int(span["offset_start"]), int(span["offset_end"]), sentence))
     if not raw_spans:
         text = response_text.strip()
         offset = response_text.find(text)

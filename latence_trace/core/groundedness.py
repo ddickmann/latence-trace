@@ -82,7 +82,16 @@ def warm_context_trust_runtime() -> dict[str, Any]:
     return _CONTEXT_TRUST_EXECUTOR.submit(warm_prompt_guard_runtime).result()
 
 _TOKEN_FALLBACK_RE = re.compile(r"\w+|[^\w\s]", re.UNICODE)
-_SENTENCE_RE = re.compile(r"[^.!?\n]+(?:[.!?]+|$)", re.UNICODE)
+
+# Sentence segmentation is delegated to the universal splitter in
+# ``latence_trace.core.text_segmentation`` (WTPSplit + PySBD cascade).
+# We used to ship a hand-curated abbreviation guard regex here, but
+# that approach broke on every untracked abbreviation (``z. B.``,
+# ``Ph. D.``, decimal numbers, ...) and was explicitly rejected as
+# overfitting. The neural segmenter handles 85 languages without us
+# hand-coding patterns, the rule-based fallback covers offline /
+# model-free environments, and a single-span fallback guarantees we
+# never silently lose text.
 _SPECIAL_TOKENS = {
     "[CLS]",
     "[SEP]",
@@ -923,11 +932,19 @@ def _paragraph_spans(text: str) -> List[Dict[str, Any]]:
 
 
 def _sentence_spans(text: str) -> List[Dict[str, Any]]:
-    spans = []
-    for match in _SENTENCE_RE.finditer(text):
-        span = _trimmed_span(match.group(0), match.start(), match.end())
-        if span is not None:
-            spans.append(span)
+    """Segment ``text`` via the universal sentence splitter.
+
+    Delegates to ``latence_trace.core.text_segmentation.split_sentences``
+    which runs WTPSplit (SaT) first, then PySBD as a deterministic
+    fallback, then a single-span safety net. The splitter is language
+    aware: it reads the request-scoped corpus router decision so German
+    inputs get the German abbreviation patterns without callers having
+    to plumb the language through every site.
+    """
+
+    from latence_trace.core.text_segmentation import split_sentences
+
+    spans = split_sentences(text)
     return spans or _fallback_segment(text)
 
 

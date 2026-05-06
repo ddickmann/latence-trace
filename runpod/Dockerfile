@@ -47,6 +47,19 @@ RUN python -m pip install /workspace/latence-trace
 RUN python -m spacy download en_core_web_sm \
     && python -m spacy download de_core_news_sm
 
+# Pre-download the WTPSplit SaT segmentation model so the first
+# scoring request does not block on a HuggingFace round-trip. The
+# model is ~50 MB (sat-3l-sm), tokeniser-free, multilingual
+# (85 languages) and powers the universal sentence splitter in
+# ``latence_trace.core.text_segmentation``. PySBD is pure Python and
+# requires no model download. See:
+#   https://github.com/segment-any-text/wtpsplit
+RUN python - <<'PY'
+from wtpsplit import SaT
+SaT("sat-3l-sm")
+print("wtpsplit_sat_pretrained_ok model=sat-3l-sm")
+PY
+
 # Install vLLM LAST so its strict pin (torch==2.10.0, torchvision==0.25.0,
 # torchaudio==2.10.0) overrides anything the latence-trace dependency closure
 # resolved. This guarantees vllm/_C.abi3.so is ABI-compatible with the torch

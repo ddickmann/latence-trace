@@ -53,6 +53,16 @@ dependencies = [
   # (de vs en). Pure-Python n-gram, ~3 ms per 200-char probe, no
   # model download. Used by latence_trace.core.language_detector.
   "langdetect>=1.0.9",
+  # Sentence segmentation. WTPSplit (SaT) is a small transformer
+  # tokeniser-free segmenter that handles 85 languages with
+  # state-of-the-art accuracy on adversarial inputs (e.g. German
+  # ``z. B.``, ``d. h.``, English ``e. g.``, decimal numbers, mixed
+  # punctuation). PySBD is the deterministic, dependency-free fallback
+  # used when the SaT singleton is not yet warm or fails (we never
+  # silently degrade to a regex). Both are loaded lazily at first use
+  # and pre-warmed at RunPod boot.
+  "wtpsplit>=2.1",
+  "pysbd>=0.3.4",
 ]
 
 [project.optional-dependencies]

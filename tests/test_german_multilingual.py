@@ -832,7 +832,13 @@ def test_german_balanced_defaults_make_one_extra_nli_call_per_atom() -> None:
     latency dashboards.
     """
 
-    hypothesis = "Karl Roßmann ist der Held des Romanfragments Der Verschollene."
+    # Single unambiguous sentence — the segmenter cascade must pick
+    # this up as one claim, so the call-count delta below isolates the
+    # ``concat`` vs ``per-premise`` premise-selection difference and
+    # not any incidental segmentation behaviour.
+    hypothesis = (
+        "Karl Roßmann ist der Held des Romanfragments und kommt nach Amerika."
+    )
     units = _build_de_support_units()
 
     en_provider = _DilutionAwareNLI()
@@ -865,3 +871,37 @@ def test_german_balanced_defaults_make_one_extra_nli_call_per_atom() -> None:
     # German per-premise: top_k=2 calls per claim.
     assert len(en_provider.calls) == 1
     assert len(de_provider.calls) == 2
+
+
+# --------------------------------------------------------------------------- #
+# Sentence splitting on the original Kafka regression input.
+#
+# The full coverage of the segmentation behaviour (German + English
+# abbreviations, decimal numbers, mixed punctuation, URLs, fallback
+# semantics, offset property tests) lives in
+# ``tests/core/test_text_segmentation.py``. This file only retains a
+# single behavioural round-trip on the verbatim production turn that
+# triggered the rebuild, so a regression in the segmentation cascade
+# would surface here too: the goal is that the kafkaesk example is
+# never silently re-fragmented.
+# --------------------------------------------------------------------------- #
+
+
+def test_sentence_splitter_keeps_kafkaesk_z_b_clause_intact() -> None:
+    from latence_trace.core.groundedness import _sentence_spans
+
+    text = (
+        "Die direkte, eingängige Wortwahl und das sofortige Offenlegen "
+        "der zentralen Problematik (z. B. im ersten Satz von Die "
+        "Verwandlung, Der Verschollene oder Der Process) verstärken "
+        "die Wirkung."
+    )
+    spans = _sentence_spans(text)
+    assert len(spans) == 1, [s["text"] for s in spans]
+    assert "z. B." in spans[0]["text"]
+    assert "Der Process" in spans[0]["text"]
+    # Spans must round-trip cleanly against the *original* text.
+    assert (
+        text[spans[0]["offset_start"] : spans[0]["offset_end"]].strip()
+        == spans[0]["text"]
+    )

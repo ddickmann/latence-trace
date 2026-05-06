@@ -148,19 +148,25 @@ _APPROX_DE = re.compile(
 # ----------------------------------------------------------------------
 
 
-_SENT_SPLIT_RE = re.compile(r"(?<=[\.\!\?])\s+(?=[A-ZÄÖÜ])")
-
-
 def _split_sentences(text: str) -> List[str]:
+    """Sentence split for typed-claim extraction.
+
+    Delegates to the universal splitter
+    (``latence_trace.core.text_segmentation.split_sentences``) so we
+    pick up the same WTPSplit + PySBD cascade used by groundedness and
+    NLI claim extraction. The previous heuristic
+    ``(?<=[\.\!\?])\\s+(?=[A-ZÄÖÜ])`` failed on lower-case sentence
+    starts (German lists, captioned figures, ``2.5%`` decimal numbers)
+    and on every abbreviation it had not been hand-coded for.
+    """
+
     if not text or not text.strip():
         return []
     raw = text.strip()
-    chunks = _SENT_SPLIT_RE.split(raw)
-    out: List[str] = []
-    for chunk in chunks:
-        chunk = chunk.strip()
-        if chunk:
-            out.append(chunk)
+    from latence_trace.core.text_segmentation import split_sentences
+
+    spans = split_sentences(raw)
+    out: List[str] = [span["text"] for span in spans if span.get("text")]
     return out or [raw]
 
 

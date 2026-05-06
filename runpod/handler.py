@@ -76,6 +76,7 @@ from latence_trace.api.service import (
     apply_profile,
 )
 from latence_trace.core.groundedness import warm_context_trust_runtime
+from latence_trace.core.text_segmentation import warmup_segmenters
 from latence_trace.kernels.warmup import warm_all, warm_code_lane
 from latence_trace.memory.models import MemoryUpdateRequest
 from latence_trace.memory.service import update_memory
@@ -526,6 +527,21 @@ def _ensure_kernel_warmup(profile: str) -> None:
             f"Code-lane warmup failed on {code_result.device}: "
             f"{code_result.error} (details={code_result.details})"
         )
+    # Pre-load the WTPSplit SaT model + per-language PySBD segmenters
+    # so the first scoring request does not pay the model-load cost
+    # on the hot path. This is best-effort: a SaT load failure is
+    # logged but does not block traffic, since the segmenter cascade
+    # gracefully falls through to PySBD and a single-span safety net.
+    try:
+        seg_state = warmup_segmenters(languages=("en", "de"))
+        logger.info(
+            "text_segmentation_boot_warmup sat=%s pysbd=%s model=%s",
+            seg_state.get("sat_loaded"),
+            seg_state.get("pysbd_loaded"),
+            seg_state.get("sat_model"),
+        )
+    except Exception:  # pragma: no cover - segmentation warmup is non-fatal
+        logger.exception("text_segmentation_boot_warmup_failed")
 
 
 def _prompt_guard_startup_enabled() -> bool:
