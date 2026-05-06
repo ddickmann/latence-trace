@@ -1,0 +1,49 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.10, pytest-9.0.3, pluggy-1.6.0
+rootdir: /workspace/latence-trace
+configfile: pyproject.toml
+plugins: anyio-4.13.0, cov-7.1.0, respx-0.23.1, hypothesis-6.152.1, asyncio-1.3.0, langsmith-0.7.37
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 101 items
+
+tests/test_language_detector.py ....................                     [ 19%]
+tests/test_german_multilingual.py .....................................  [ 56%]
+tests/core/corpus_router/test_bundles.py ............                    [ 68%]
+tests/api/test_rag_lane_parity.py .                                      [ 69%]
+tests/middleware/test_amber_escalation.py ...........                    [ 80%]
+tests/middleware/test_amber_queue.py ...                                 [ 83%]
+tests/middleware/test_audit_log.py .....                                 [ 88%]
+tests/middleware/test_corpus_router_middleware.py ............           [100%]
+
+=============================== warnings summary ===============================
+tests/api/test_rag_lane_parity.py::test_rag_lane_parity_against_pre_sprint_snapshot
+  <frozen importlib._bootstrap>:241: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute
+
+tests/api/test_rag_lane_parity.py::test_rag_lane_parity_against_pre_sprint_snapshot
+  <frozen importlib._bootstrap>:241: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute
+
+tests/api/test_rag_lane_parity.py::test_rag_lane_parity_against_pre_sprint_snapshot
+  /usr/local/lib/python3.11/dist-packages/torchao/dtypes/uintx/__init__.py:1: DeprecationWarning: Importing from torchao.dtypes.uintx.dyn_int8_act_int4_wei_cpu_layout is deprecated. Please use 'from torchao.prototype.dtypes import Int8DynamicActInt4WeightCPULayout' instead. This import path will be removed in a future release of torchao. See https://github.com/pytorch/ao/issues/2752 for more details.
+    from .dyn_int8_act_int4_wei_cpu_layout import (
+
+tests/api/test_rag_lane_parity.py::test_rag_lane_parity_against_pre_sprint_snapshot
+  /usr/local/lib/python3.11/dist-packages/torchao/dtypes/uintx/__init__.py:22: DeprecationWarning: Importing from torchao.dtypes.uintx.uintx_layout is deprecated. Please use 'from torchao.prototype.dtypes import UintxLayout, UintxTensor' instead. This import path will be removed in a future release of torchao. See https://github.com/pytorch/ao/issues/2752 for more details.
+    from .uintx_layout import (
+
+tests/api/test_rag_lane_parity.py::test_rag_lane_parity_against_pre_sprint_snapshot
+  /usr/local/lib/python3.11/dist-packages/torchao/dtypes/__init__.py:23: DeprecationWarning: Importing BlockSparseLayout from torchao.dtypes is deprecated. Please use 'from torchao.prototype.dtypes import BlockSparseLayout' instead. This import path will be removed in a future torchao release. Please check issue: https://github.com/pytorch/ao/issues/2752 for more details. 
+    from .uintx.block_sparse_layout import BlockSparseLayout
+
+tests/api/test_rag_lane_parity.py::test_rag_lane_parity_against_pre_sprint_snapshot
+tests/api/test_rag_lane_parity.py::test_rag_lane_parity_against_pre_sprint_snapshot
+tests/api/test_rag_lane_parity.py::test_rag_lane_parity_against_pre_sprint_snapshot
+tests/api/test_rag_lane_parity.py::test_rag_lane_parity_against_pre_sprint_snapshot
+tests/api/test_rag_lane_parity.py::test_rag_lane_parity_against_pre_sprint_snapshot
+tests/api/test_rag_lane_parity.py::test_rag_lane_parity_against_pre_sprint_snapshot
+tests/api/test_rag_lane_parity.py::test_rag_lane_parity_against_pre_sprint_snapshot
+  /usr/local/lib/python3.11/dist-packages/torch/jit/_script.py:1480: DeprecationWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+====================== 101 passed, 12 warnings in 15.85s =======================
+sys:1: DeprecationWarning: builtin type swigvarlink has no __module__ attribute
