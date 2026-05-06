@@ -71,6 +71,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import threading
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -375,6 +376,72 @@ def _split_with_pysbd(text: str, language: str) -> Optional[List[SentenceSpan]]:
 # ---------------------------------------------------------------------------
 
 
+_MARKDOWN_INLINE_RE = re.compile(
+    # Inline emphasis / code fences that SaT otherwise treats as
+    # sentence-ending punctuation. Each pattern is *length-preserving*
+    # by construction (we substitute the same number of space characters
+    # the marker occupied), so the returned spans still index back into
+    # the original text without an offset shift.
+    r"(\*\*|__|`+|~~|\*|_(?=\w)|(?<=\w)_)"
+)
+_MARKDOWN_LIST_BULLET_RE = re.compile(
+    # Leading list bullets: ``- `` / ``* `` / ``+ `` / ``1. `` / ``a) ``.
+    # Same length-preserving substitution: replace the marker with
+    # spaces so SaT sees a clean sentence start instead of a
+    # punctuation-then-letter boundary that it sometimes treats as a
+    # mid-sentence aside.
+    r"(?m)^(\s*)([-*+]\s+|\d{1,3}[.)]\s+|[a-zA-Z][.)]\s+)"
+)
+_MARKDOWN_HEADER_RE = re.compile(r"(?m)^(#+\s+)")
+_MARKDOWN_BLOCKQUOTE_RE = re.compile(r"(?m)^(>+\s*)")
+_SOFT_LINEBREAK_RE = re.compile(
+    # Single newlines inside a paragraph are line-wrap, not paragraph
+    # breaks. SaT often treats them as sentence boundaries which fans
+    # a single sentence out into 2-3 phantom claims (e.g. ``It\nfalls
+    # squarely within Annex III(4)(a)`` becomes ["It", "falls squarely
+    # within ..."]). Replacing the lone newline with a space neutralises
+    # that without affecting double-newline paragraph breaks (which
+    # remain real sentence boundaries) and preserves character count.
+    r"(?<!\n)\n(?!\n)"
+)
+
+
+def _normalise_for_segmentation(text: str) -> str:
+    """Length-preserving normaliser for markdown-formatted answers.
+
+    LLM chat responses are almost always markdown (``**bold**``,
+    bullet lists, headers, inline ``code``). The SaT segmenter is
+    trained on natural prose and treats those markers like
+    punctuation, which fragments a single semantic sentence into
+    multiple junk claims:
+
+    >>> "**1. High-risk classification.** TalentScout AI is..."
+    # SaT -> ["**1. High-risk classification.", "**", "TalentScout", "AI is..."]
+
+    By substituting markers with the same number of space characters
+    *before* segmentation we neutralise the false sentence-boundary
+    cue while keeping every downstream character offset (NLI claim
+    spans, heatmap, attribution) byte-identical to the original. The
+    real text of every span is recovered from the ORIGINAL ``text``
+    via offsets, so the spaces never appear in the user-facing
+    output.
+    """
+
+    if not text:
+        return text
+    out = _MARKDOWN_INLINE_RE.sub(lambda m: " " * len(m.group(0)), text)
+    out = _MARKDOWN_LIST_BULLET_RE.sub(
+        lambda m: m.group(1) + " " * len(m.group(2)), out
+    )
+    out = _MARKDOWN_HEADER_RE.sub(lambda m: " " * len(m.group(1)), out)
+    out = _MARKDOWN_BLOCKQUOTE_RE.sub(lambda m: " " * len(m.group(1)), out)
+    out = _SOFT_LINEBREAK_RE.sub(" ", out)
+    assert len(out) == len(text), (
+        "markdown normaliser must preserve length so offsets remain valid"
+    )
+    return out
+
+
 def split_sentences(
     text: str,
     language: Optional[str] = None,
@@ -406,13 +473,61 @@ def split_sentences(
 
     lang = _resolve_active_language(language)
 
-    sat_spans = _split_with_sat(text, lang)
+    # Run the segmenters against a markdown-neutralised copy. The
+    # normaliser is length-preserving so spans recovered from the
+    # neutralised string are valid offsets into the *original* ``text``;
+    # we re-anchor the span text from the original input below to make
+    # sure no whitespace placeholders leak into user-visible claim text.
+    normalised = _normalise_for_segmentation(text)
+
+    sat_spans = _split_with_sat(normalised, lang)
     if sat_spans:
-        return sat_spans
-    pysbd_spans = _split_with_pysbd(text, lang)
+        return _rehydrate_spans(sat_spans, text)
+    pysbd_spans = _split_with_pysbd(normalised, lang)
     if pysbd_spans:
-        return pysbd_spans
+        return _rehydrate_spans(pysbd_spans, text)
     return _fallback_span(text)
+
+
+def _rehydrate_spans(
+    spans: List[SentenceSpan], original: str
+) -> List[SentenceSpan]:
+    """Replace the (possibly markdown-neutralised) span text with the
+    actual slice from the *original* ``text``.
+
+    The normaliser substitutes markdown markers with spaces so SaT's
+    boundaries land in the right places, but we don't want the
+    user-facing claim text to read ``"  1. High-risk classification.  "``
+    instead of ``"**1. High-risk classification.**"``. Offsets are
+    identical between the normalised and original strings (length is
+    preserved), so we just slice the original and re-strip whitespace.
+    Tiny spans that end up empty after re-stripping (rare; happens when
+    SaT picks a marker-only fragment) are dropped so they cannot become
+    phantom claims.
+    """
+
+    out: List[SentenceSpan] = []
+    for span in spans:
+        start = int(span.get("offset_start", 0))
+        end = int(span.get("offset_end", 0))
+        start = max(0, min(start, len(original)))
+        end = max(start, min(end, len(original)))
+        original_slice = original[start:end]
+        stripped = original_slice.strip()
+        if not stripped:
+            continue
+        # Tighten offsets onto the trimmed slice so heatmap / NLI
+        # see consistent boundaries.
+        leading = len(original_slice) - len(original_slice.lstrip())
+        trailing = len(original_slice) - len(original_slice.rstrip())
+        out.append(
+            {
+                "text": stripped,
+                "offset_start": start + leading,
+                "offset_end": end - trailing,
+            }
+        )
+    return out or _fallback_span(original)
 
 
 def warmup_segmenters(*, languages: Sequence[str] = ("en", "de")) -> Dict[str, Any]:
