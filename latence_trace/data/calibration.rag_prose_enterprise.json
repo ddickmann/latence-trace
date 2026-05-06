@@ -1,41 +1,42 @@
 {
   "fusion_weights": {
-    "calibrated": 0.3,
-    "literal": 0.2,
-    "nli": 0.5,
+    "calibrated": 0.28571428571428575,
+    "literal": 0.0,
+    "nli": 0.7142857142857143,
     "semantic_entropy": 0.0,
     "structured": 0.0
   },
   "fusion_weights_raw": {
-    "calibrated": 0.3,
-    "literal": 0.2,
+    "calibrated": 0.2,
+    "literal": 0.0,
     "nli": 0.5,
     "semantic_entropy": 0.0,
     "structured": 0.0
   },
+  "language": "en",
   "metric": "veracier_composite",
-  "metric_value": 0.8810024752475248,
+  "metric_value": 0.8675339626985956,
   "nli_model_hint": "en",
   "scoring_mode": "rag",
   "test_validation": {
-    "amber_rate": 0.34,
+    "amber_rate": 0.44,
     "green_precision": 1.0,
-    "green_recall": 1.0,
+    "green_recall": 0.8181818181818182,
     "n_rows": 50,
-    "objective": 0.8229090909090909,
-    "red_precision": 0.7272727272727273,
-    "red_recall": 0.6666666666666666
+    "objective": 0.7919999999999999,
+    "red_precision": 0.7,
+    "red_recall": 0.5833333333333334
   },
   "thresholds": {
-    "amber": 0.7200000000000004,
-    "green": 0.9400000000000004
+    "amber": 0.4000000000000001,
+    "green": 0.8100000000000003
   },
   "train_components": {
-    "amber_rate": 0.37623762376237624,
+    "amber_rate": 0.5693069306930693,
     "green_precision": 1.0,
-    "green_recall": 1.0,
-    "red_precision": 0.890625,
-    "red_recall": 0.7916666666666666
+    "green_recall": 0.7096774193548387,
+    "red_precision": 0.9534883720930233,
+    "red_recall": 0.5694444444444444
   },
   "trained_on": "db7242af8874a042351ce53dbaad659c96292075293af65ea7e7dee42575c225"
 }

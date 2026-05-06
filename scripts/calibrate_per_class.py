@@ -389,8 +389,11 @@ def calibrate_binary_class(
         r = tp / max(1, tp + fn)
         test_f1 = (2 * p * r / (p + r)) if (p + r) > 0 else 0.0
     # Derive an amber band around the green threshold: 5pp below.
-    green_th = float(best["threshold"])
-    amber_th = max(0.0, green_th - 0.05)
+    # Clamp to [0, 1] because the np.arange grid can land on values
+    # like ``1.000000001`` which trip the strict ``green <= 1.0``
+    # validator in :mod:`latence_trace.core.corpus_router.bundles`.
+    green_th = float(min(1.0, max(0.0, best["threshold"])))
+    amber_th = float(min(green_th, max(0.0, green_th - 0.05)))
 
     return {
         "scoring_mode": "rag",
@@ -451,11 +454,13 @@ def calibrate_veracier(language: str = DEFAULT_LANGUAGE) -> Dict[str, Any]:
                 if amber_th >= green_th - 0.005:
                     continue
                 obj, components = _veracier_objective(fused, gold_train, float(green_th), float(amber_th))
+                green_clamped = float(min(1.0, max(0.0, float(green_th))))
+                amber_clamped = float(min(green_clamped, max(0.0, float(amber_th))))
                 if obj > best["metric_value"]:
                     best = {
                         "metric_value": float(obj),
                         "fusion_weights_raw": raw_w.copy(),
-                        "thresholds": {"green": float(green_th), "amber": float(amber_th)},
+                        "thresholds": {"green": green_clamped, "amber": amber_clamped},
                         "components": components,
                     }
     if "fusion_weights_raw" not in best:
@@ -507,6 +512,11 @@ def calibrate_code_agentic(language: str = DEFAULT_LANGUAGE) -> Dict[str, Any]:
             amber_th = max(0.0, green_th - 0.05)
     else:
         green_th, amber_th = 0.70, 0.55
+    # Clamp to [0, 1] so the strict ``green <= 1.0`` validator in
+    # :mod:`latence_trace.core.corpus_router.bundles` accepts the
+    # bundle even when np.percentile / np.arange overshoot by ULP.
+    green_th = float(min(1.0, max(0.0, green_th)))
+    amber_th = float(min(green_th, max(0.0, amber_th)))
 
     return {
         "scoring_mode": "code",

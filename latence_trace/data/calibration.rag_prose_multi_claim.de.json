@@ -1,0 +1,35 @@
+{
+  "fusion_weights": {
+    "calibrated": 0.6666666666666667,
+    "literal": 0.16666666666666669,
+    "nli": 0.16666666666666669,
+    "semantic_entropy": 0.0,
+    "structured": 0.0
+  },
+  "fusion_weights_raw": {
+    "calibrated": 0.8,
+    "literal": 0.2,
+    "nli": 0.2,
+    "semantic_entropy": 0.0,
+    "structured": 0.0
+  },
+  "language": "de",
+  "metric": "f1_at_best_threshold",
+  "metric_value": 0.7214611872146118,
+  "nli_model_hint": "de",
+  "scoring_mode": "rag",
+  "test_validation": {
+    "f1": 0.5853658536585367,
+    "n_rows": 35
+  },
+  "thresholds": {
+    "amber": 0.9026804048427697,
+    "green": 0.9526804048427697
+  },
+  "train_support": {
+    "n_rows": 165,
+    "precision": 0.5939849624060151,
+    "recall": 0.9186046511627907
+  },
+  "trained_on": "db7242af8874a042351ce53dbaad659c96292075293af65ea7e7dee42575c225"
+}

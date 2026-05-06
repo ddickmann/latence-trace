@@ -285,6 +285,13 @@ class WorkerConfig:
     compliance_threshold: float
     compliance_dataset_path: str
     compliance_request_timeout_s: float
+    # PII / context_trust GLiNER server is on by default for production
+    # parity. Operators (or memory-constrained calibration runs) can
+    # flip ``LATENCE_TRACE_ENABLE_COMPLIANCE_GLINER_SERVER=0`` to skip
+    # spawning it; the request-level ``context_trust_enabled`` flag
+    # already gates whether the lane is invoked, so disabling the
+    # server is safe as long as no caller asks for the scan.
+    compliance_gliner_server_enabled: bool = True
     compression_model: str = ""
     compression_server_enabled: bool = False
     compression_port: int = 8004
@@ -414,6 +421,9 @@ def create_config() -> WorkerConfig:
             "doubledsbv/pii-replacement-dataset",
         ),
         compliance_request_timeout_s=_env_float("LATENCE_TRACE_COMPLIANCE_REQUEST_TIMEOUT_S", 30.0),
+        compliance_gliner_server_enabled=_env_bool_with_default(
+            "LATENCE_TRACE_ENABLE_COMPLIANCE_GLINER_SERVER", True
+        ),
         compression_model=compression_model,
         compression_server_enabled=compression_server_enabled,
         compression_port=_env_int("LATENCE_TRACE_COMPRESSION_PORT", 8004),
@@ -800,7 +810,9 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
         # and the in-process :class:`HuggingFaceNLIProvider` fallback
         # in :mod:`latence_trace.api.service` keeps the language=None
         # lane working defensively without a vLLM server slot.
-        "compliance_gliner": ManagedVllmServer(
+    }
+    if config.compliance_gliner_server_enabled:
+        servers["compliance_gliner"] = ManagedVllmServer(
             name="compliance_gliner",
             model=config.compliance_model,
             port=config.compliance_port,
@@ -811,8 +823,7 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
             max_num_batched_tokens=config.compliance_max_batched_tokens,
             plugins=["deberta_gliner", "deberta_gliner_io"],
             enforce_eager=True,
-        ),
-    }
+        )
     if config.compression_server_enabled:
         servers["compression"] = ManagedVllmServer(
             name="compression",
@@ -917,7 +928,7 @@ def initialize() -> None:
             return
 
         config = create_config()
-        if config.managed_vllm_enabled:
+        if config.managed_vllm_enabled and config.compliance_gliner_server_enabled:
             config = _prepare_compliance_model_for_vllm(config)
         _config = config
 
