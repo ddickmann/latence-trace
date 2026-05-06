@@ -44,11 +44,13 @@ runtime never imports openai.
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import json
 import logging
 import os
 import random
 import sys
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -497,6 +499,9 @@ def _load_existing(path: Path) -> set:
     return seen
 
 
+_WRITER_LOCK = threading.Lock()
+
+
 def _write_row(path: Path, row: SourceRow, translation: Dict[str, str]) -> None:
     rec = {
         "row_id": row.row_id,
@@ -514,8 +519,15 @@ def _write_row(path: Path, row: SourceRow, translation: Dict[str, str]) -> None:
         "source_raw_context_en": row.raw_context,
         "language": "de",
     }
-    with path.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    line = json.dumps(rec, ensure_ascii=False) + "\n"
+    # Concurrent workers share the per-class output file. The append-then-
+    # flush pattern under a global lock is fine here -- the writer is
+    # bounded by the OpenAI call rate, not by disk, and ordering inside
+    # the JSONL is irrelevant for the downstream cache + sweep steps.
+    with _WRITER_LOCK:
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write(line)
+            fh.flush()
 
 
 # --------------------------------------------------------------------------- #
@@ -562,6 +574,16 @@ def main() -> None:
         type=int,
         default=10,
         help="Abort the per-class loop after this many translation failures (network / API errors).",
+    )
+    parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=8,
+        help=(
+            "Parallel OpenAI calls per class. tier-5 accounts can safely go "
+            "to 64+; tier-1 should stay <=8. Each worker holds one open "
+            "GPT-4.1 request, so 64 workers = up to 64 in-flight calls."
+        ),
     )
     args = parser.parse_args()
 
@@ -622,47 +644,67 @@ def main() -> None:
             len(already),
             len(pending),
         )
+        failures_lock = threading.Lock()
         failures = 0
+        completed = 0
+        abort_event = threading.Event()
         t0 = time.perf_counter()
-        for idx, row in enumerate(pending, start=1):
+
+        def _task(row: SourceRow) -> Optional[Dict[str, Any]]:
+            if abort_event.is_set():
+                return None
             try:
                 translation = translator.translate(row)
             except Exception as exc:  # noqa: BLE001 - operator-visible
-                failures += 1
                 logger.warning("class=%s row=%s failed: %s", class_key, row.row_id, exc)
-                if failures >= args.max_failures_per_class:
-                    logger.error(
-                        "class=%s exceeded max failures (%d); aborting class",
-                        class_key,
-                        failures,
-                    )
-                    break
-                continue
-            # Defensive: drop rows where any required field came back
-            # empty. We never want a degraded translation to silently
-            # poison the calibration cache.
+                return {"row_id": row.row_id, "ok": False}
             if (
                 (row.query and not translation["query_de"])
                 or (row.response and not translation["response_de"])
                 or (row.raw_context and not translation["raw_context_de"])
             ):
-                failures += 1
                 logger.warning(
                     "class=%s row=%s incomplete translation; dropping",
                     class_key,
                     row.row_id,
                 )
-                continue
+                return {"row_id": row.row_id, "ok": False}
             _write_row(out_path, row, translation)
-            grand_total += 1
-            if idx % 25 == 0:
-                logger.info(
-                    "class=%s progress=%d/%d (failures=%d)",
-                    class_key,
-                    idx,
-                    len(pending),
-                    failures,
-                )
+            return {"row_id": row.row_id, "ok": True}
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=args.concurrency) as ex:
+            futures = {ex.submit(_task, row): row for row in pending}
+            for fut in concurrent.futures.as_completed(futures):
+                try:
+                    result = fut.result()
+                except Exception as exc:  # pragma: no cover - defensive
+                    logger.warning("class=%s task crashed: %s", class_key, exc)
+                    result = {"ok": False}
+                if not result:
+                    continue
+                with failures_lock:
+                    if result.get("ok"):
+                        completed += 1
+                        grand_total += 1
+                    else:
+                        failures += 1
+                    snap_completed = completed
+                    snap_failures = failures
+                if snap_completed % 25 == 0 and snap_completed > 0:
+                    logger.info(
+                        "class=%s progress=%d/%d (failures=%d)",
+                        class_key,
+                        snap_completed + snap_failures,
+                        len(pending),
+                        snap_failures,
+                    )
+                if snap_failures >= args.max_failures_per_class:
+                    abort_event.set()
+                    logger.error(
+                        "class=%s exceeded max failures (%d); cancelling remaining",
+                        class_key,
+                        snap_failures,
+                    )
         logger.info(
             "class=%s done in %.1fs (failures=%d, written total=%d)",
             class_key,
