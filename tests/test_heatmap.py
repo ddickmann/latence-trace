@@ -162,3 +162,53 @@ def test_render_heatmap_html_is_selfcontained_and_parses() -> None:
     # Band classes are emitted on chips and token spans.
     assert "lt-heatmap" in parser.classes
     assert any(cls.startswith("lt-band-") for cls in parser.classes)
+
+
+def test_build_heatmap_default_renders_every_token_with_no_cap() -> None:
+    """Heatmap must cover the entire response by default.
+
+    The previous default (``max_tokens=512``) silently truncated
+    long-response heatmaps. Production responses regularly exceed 512
+    tokens; the default is now ``0`` (unlimited) and the explicit
+    cap path is preserved for operators who really want one.
+    """
+    tokens = [
+        {"token": f"tok{idx}", "reverse_context": 0.7}
+        for idx in range(2000)
+    ]
+    payload = build_heatmap(
+        scores_dict={"groundedness_v2": 0.7, "risk_band": "green"},
+        file_attribution=None,
+        response_tokens=tokens,
+    )
+    assert len(payload.tokens) == 2000
+    assert payload.tokens[0].index == 0
+    assert payload.tokens[-1].index == 1999
+
+
+def test_build_heatmap_explicit_max_tokens_still_caps() -> None:
+    """A positive ``max_tokens`` argument keeps its hard-cap behaviour."""
+    tokens = [
+        {"token": f"tok{idx}", "reverse_context": 0.7}
+        for idx in range(1000)
+    ]
+    payload = build_heatmap(
+        scores_dict={"groundedness_v2": 0.7, "risk_band": "green"},
+        file_attribution=None,
+        response_tokens=tokens,
+        max_tokens=128,
+    )
+    assert len(payload.tokens) == 128
+
+
+def test_build_heatmap_default_renders_every_file_with_no_cap() -> None:
+    """File rollup must cover every owner file by default (no max_files)."""
+    fa = _fa(
+        [(f"src/file_{idx}.py", 0.5, 1, 0.05, []) for idx in range(75)]
+    )
+    payload = build_heatmap(
+        scores_dict={"groundedness_v2": 0.7, "risk_band": "green"},
+        file_attribution=fa,
+        response_tokens=[],
+    )
+    assert len(payload.files) == 75

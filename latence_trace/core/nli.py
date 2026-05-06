@@ -42,7 +42,18 @@ _DEFAULT_FUSION_WEIGHTS: Dict[str, float] = {
     "structured": 0.0,
 }
 
-_DEFAULT_MAX_CLAIMS = 16
+# ``0`` is the sentinel for "no cap" — the latency budget
+# (``_DEFAULT_NLI_MAX_LATENCY_MS``) is the real safety net for very long
+# answers and is enforced at the batch level: completed claims are kept
+# and any tail claims that would have exceeded the budget come back as
+# ``skipped=True, skip_reason="latency_budget"`` so the heatmap
+# preserves full response coverage instead of silently dropping the
+# tail. Operators can pin a hard cap via the
+# ``VOYAGER_GROUNDEDNESS_NLI_MAX_CLAIMS`` env var or the per-request
+# ``nli_max_claims`` field on ``GroundednessRequest``; both default
+# to "unlimited" so a 500-sentence enterprise RAG answer is fully
+# analysed rather than truncated to the first 16 sentences.
+_DEFAULT_MAX_CLAIMS = 0
 _DEFAULT_TOP_K_PREMISES = 3
 _DEFAULT_NLI_MAX_BATCH = 16
 _DEFAULT_NLI_MAX_LATENCY_MS = 2000.0
@@ -1454,7 +1465,16 @@ def default_premise_concat_word_budget() -> int:
 
 
 def default_max_claims() -> int:
-    return max(1, env_int("VOYAGER_GROUNDEDNESS_NLI_MAX_CLAIMS", _DEFAULT_MAX_CLAIMS))
+    """Default ``max_claims`` for ``split_claims`` / ``verify_claims``.
+
+    Returns ``0`` (unlimited) by default so a long response is fully
+    analysed end-to-end and the heatmap covers every sentence. Operators
+    who explicitly want a hard cap can set
+    ``VOYAGER_GROUNDEDNESS_NLI_MAX_CLAIMS`` to a positive integer; the
+    env var is the only way to force truncation now that the in-code
+    default no longer drops the tail of long answers.
+    """
+    return max(0, env_int("VOYAGER_GROUNDEDNESS_NLI_MAX_CLAIMS", _DEFAULT_MAX_CLAIMS))
 
 
 def default_top_k_premises() -> int:

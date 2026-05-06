@@ -1727,6 +1727,29 @@ def test_split_claims_produces_sentence_level_claims_with_offsets() -> None:
     assert "however" in joined or "UK" in joined
 
 
+def test_split_claims_default_returns_every_claim_no_silent_truncation() -> None:
+    """The default ``max_claims`` must be unlimited.
+
+    Production responses regularly exceed the previous default cap of
+    16 sentences. Silent truncation past sentence #16 leaves the
+    heatmap blank for the rest of the answer, which is unacceptable
+    for a production groundedness service. The latency budget is the
+    real safety net for very long answers (tail claims come back as
+    ``skipped=True, skip_reason="latency_budget"``); the up-front cap
+    is gone.
+    """
+    sentences = [
+        f"Sentence {idx} is unique because it mentions concept_{idx} explicitly."
+        for idx in range(40)
+    ]
+    text = " ".join(sentences)
+    claims = split_claims(text)
+    assert len(claims) >= 30, (
+        f"default split should return every sentence (got {len(claims)}); "
+        "if this regresses, the in-tree default has been re-capped."
+    )
+
+
 def test_split_claims_respects_max_claims_cap() -> None:
     # Real, lexically distinct sentences -- the universal segmenter
     # is conservative on trivial repeated patterns and would merge

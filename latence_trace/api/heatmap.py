@@ -155,8 +155,8 @@ def build_heatmap(
     response_tokens: Sequence[Any],
     session_signals: Optional[SessionSignals] = None,
     thresholds: HeatmapThresholds = DEFAULT_THRESHOLDS,
-    max_tokens: int = 512,
-    max_files: int = 20,
+    max_tokens: int = 0,
+    max_files: int = 0,
 ) -> HeatmapPayload:
     """Assemble the :class:`HeatmapPayload` for one response.
 
@@ -165,10 +165,18 @@ def build_heatmap(
     The code lane ships with an empty list — the heatmap is still
     useful there because the file/summary sections carry the main
     story.
+
+    ``max_tokens`` and ``max_files`` default to ``0`` (unlimited).
+    Heatmap coverage is a production correctness contract: a long
+    response or a many-file code change must be coloured end-to-end so
+    the user can see *every* unsupported token / dead-weight file. The
+    ``0`` sentinel preserves the historical hard-cap behaviour for
+    operators who explicitly need it (set to a positive integer to
+    cap), but the in-tree default never silently truncates.
     """
     tokens: List[HeatmapToken] = []
     for idx, row in enumerate(response_tokens or []):
-        if idx >= max_tokens:
+        if max_tokens > 0 and idx >= max_tokens:
             break
         score = _score_for_token(row)
         band = _band(score, thresholds.token_green_min, thresholds.token_amber_min)
@@ -186,7 +194,12 @@ def build_heatmap(
         # ``per_file`` comes already sorted by ascending owner_share
         # (worst first) from ``attribute_files`` — worst-first is the
         # most actionable order for dashboards.
-        for per_file in file_attribution.per_file[:max_files]:
+        per_file_list = (
+            file_attribution.per_file[:max_files]
+            if max_files > 0
+            else file_attribution.per_file
+        )
+        for per_file in per_file_list:
             owner_share = float(per_file.owner_share)
             band = _band(
                 owner_share,

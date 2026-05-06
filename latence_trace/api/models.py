@@ -468,6 +468,25 @@ class GroundednessRequest(BaseModel):
             "high-confidence German. Anything else collapses to ``en``."
         ),
     )
+    nli_max_claims: Optional[int] = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Optional per-request override for the maximum number of "
+            "claims (sentences in quality mode) that NLI verifies. "
+            "Defaults to ``0`` (unlimited) so a long enterprise RAG "
+            "answer is analysed end-to-end and the heatmap covers "
+            "every sentence. The ``nli_max_latency_ms`` budget is the "
+            "real safety net for very long answers: tail claims that "
+            "would exceed the budget come back as ``skipped=True, "
+            "skip_reason=\"latency_budget\"`` and the diagnostics "
+            "surface ``claims_total`` and ``claims_skipped_for_budget`` "
+            "so operators can see exactly how many sentences were "
+            "fully scored. Set a positive integer here to force a hard "
+            "cap (e.g. for cost-sensitive batch jobs); ``0`` means "
+            "no cap."
+        ),
+    )
     nli_top_k_premises: Optional[int] = Field(
         default=None,
         ge=1,

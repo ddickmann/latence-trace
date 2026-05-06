@@ -1060,6 +1060,13 @@ def _build_request(input_data: dict[str, Any]) -> tuple[GroundednessRequest, boo
         # a transport shim and does not interpret these; they flow
         # straight into ``GroundednessRequest``.
         "language",
+        # Per-request NLI knobs. ``nli_max_claims`` defaults to 0
+        # (unlimited) on the runtime so a long enterprise RAG answer
+        # is analysed end-to-end and the heatmap covers every
+        # sentence; the latency budget is the real safety net for
+        # very long answers. Pass an explicit positive integer here
+        # to force a hard cap (cost-sensitive batch jobs).
+        "nli_max_claims",
         "nli_top_k_premises",
         "nli_premise_concat",
         "nli_premise_aggregate",

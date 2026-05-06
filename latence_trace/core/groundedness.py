@@ -3825,6 +3825,21 @@ def score_groundedness(
             None if nli_payload is None else {
                 "claims": nli_payload["claim_records"],
                 "aggregate_score": nli_payload["aggregate_score"],
+                # Coverage observability. ``claims_total`` is how many
+                # sentences the splitter produced; ``claims_scored`` is
+                # how many got a real NLI verdict; the two ``skipped_*``
+                # counters surface the per-reason breakdown so the demo
+                # frontend can render an explicit "X of Y sentences
+                # fully scored (Z deferred for budget)" chip instead of
+                # silently colouring untouched claims red.
+                "claims_total": int(nli_payload.get("claims_total", 0)),
+                "claims_scored": int(nli_payload.get("claims_scored", 0)),
+                "claims_skipped_for_budget": int(
+                    nli_payload.get("claims_skipped_for_budget", 0)
+                ),
+                "claims_skipped_for_no_premises": int(
+                    nli_payload.get("claims_skipped_for_no_premises", 0)
+                ),
             }
         ),
         "context_trust_diagnostics": context_trust_diagnostics,
@@ -4068,7 +4083,12 @@ def _maybe_run_nli(
         response_text=text,
         support_units=support_units,
         nli_provider=nli_provider,
-        max_claims=nli_max_claims if nli_max_claims is not None else 16,
+        # ``0`` is the sentinel for "no cap" -- production responses
+        # must be analysed end-to-end. The latency budget below is the
+        # real safety net for very long answers; tail claims that would
+        # exceed it come back with ``skipped=True, skip_reason=
+        # "latency_budget"`` so the heatmap stays complete.
+        max_claims=nli_max_claims if nli_max_claims is not None else 0,
         top_k_premises=nli_top_k_premises if nli_top_k_premises is not None else 3,
         max_batch=nli_max_batch if nli_max_batch is not None else 16,
         max_latency_ms=nli_max_latency_ms if nli_max_latency_ms is not None else 2000.0,
@@ -4081,9 +4101,27 @@ def _maybe_run_nli(
     per_token = project_claim_scores_to_tokens(response_tokens, text, verifications)
     claim_records = [_claim_to_dict(v) for v in verifications]
     skipped = sum(1 for v in verifications if v.skipped)
+    # Per-reason skip counts make "why was this claim not fully scored?"
+    # observable end-to-end. ``latency_budget`` is the count that the
+    # frontend renders as "X of Y sentences fully scored" so a long
+    # response never silently drops the tail of the heatmap.
+    skipped_for_budget = sum(
+        1
+        for v in verifications
+        if v.skipped and (v.skip_reason or "") == "latency_budget"
+    )
+    skipped_for_no_premises = sum(
+        1
+        for v in verifications
+        if v.skipped and (v.skip_reason or "") == "no_premises"
+    )
     return {
         "claim_records": claim_records,
         "claim_count": len(verifications),
+        "claims_total": len(verifications),
+        "claims_scored": len(verifications) - int(skipped),
+        "claims_skipped_for_budget": int(skipped_for_budget),
+        "claims_skipped_for_no_premises": int(skipped_for_no_premises),
         "skipped_count": int(skipped),
         "aggregate_score": aggregate,
         "per_token": per_token,
@@ -4888,6 +4926,14 @@ def score_groundedness_chunked(
             None if nli_payload is None else {
                 "claims": nli_payload["claim_records"],
                 "aggregate_score": nli_payload["aggregate_score"],
+                "claims_total": int(nli_payload.get("claims_total", 0)),
+                "claims_scored": int(nli_payload.get("claims_scored", 0)),
+                "claims_skipped_for_budget": int(
+                    nli_payload.get("claims_skipped_for_budget", 0)
+                ),
+                "claims_skipped_for_no_premises": int(
+                    nli_payload.get("claims_skipped_for_no_premises", 0)
+                ),
             }
         ),
         "context_trust_diagnostics": context_trust_diagnostics,

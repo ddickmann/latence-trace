@@ -748,6 +748,7 @@ def _apply_language_defaults(
     request_top_k = request.nli_top_k_premises
     request_concat = request.nli_premise_concat
     request_aggregate = request.nli_premise_aggregate
+    request_max_claims = request.nli_max_claims
 
     if language == "de":
         # Apply German balanced defaults only when the caller did not
@@ -762,6 +763,13 @@ def _apply_language_defaults(
         nli_kwargs["nli_top_k_premises"] = int(request_top_k)
     if request_concat is not None and "nli_concat_premises" in nli_kwargs:
         nli_kwargs["nli_concat_premises"] = bool(request_concat)
+    # Per-request override on the claim cap. ``0`` is the explicit
+    # "unlimited" sentinel and is honoured (default behaviour now); a
+    # positive value force-caps the analysis at that many claims for
+    # cost-sensitive batch jobs. ``None`` (omitted) leaves the
+    # profile/env-var resolved value in place.
+    if request_max_claims is not None and "nli_max_claims" in nli_kwargs:
+        nli_kwargs["nli_max_claims"] = int(request_max_claims)
 
     top_k_used = (
         int(nli_kwargs["nli_top_k_premises"])
