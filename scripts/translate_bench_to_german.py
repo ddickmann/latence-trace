@@ -92,14 +92,25 @@ Hard rules (violations break the benchmark):
    - named entities (people, organisations, products, technical brand
      names) -- transliterate only when the German form is universally
      established (e.g. "United States" -> "Vereinigte Staaten").
-2. Preserve any factual mismatches between context and answer. Your job
+2. **Structured contexts are sacred.** If any field looks like a bare
+   JSON object/array (begins with ``{`` or ``[``), a YAML document
+   (``---`` / ``key: value`` pairs at column zero), an XML/HTML
+   fragment (``<tag>``), a CSV/TSV table, or a tabular markdown row
+   (``|...|...|``), keep the structural skeleton -- braces, brackets,
+   commas, quotes, keys, tag names, separators, indentation -- byte-
+   for-byte identical. Translate ONLY the human-readable string values
+   inside that structure. Do NOT flatten the structure into German
+   prose; do NOT re-serialise; do NOT reorder keys; do NOT add or
+   remove whitespace. A JSON context must remain a JSON context with
+   the same keys and the same value types after translation.
+3. Preserve any factual mismatches between context and answer. Your job
    is to render them in German, NOT to "correct" them. If the English
    answer says the wrong year or invents a fact, the German answer must
    say the same wrong year / invent the same fact.
-3. The translated answer must be the same length category as the
+4. The translated answer must be the same length category as the
    original (one sentence -> one sentence; multi-paragraph -> multi-
    paragraph). Do not add explanatory text, do not omit content.
-4. Output STRICTLY valid JSON with the keys ``query_de``, ``response_de``,
+5. Output STRICTLY valid JSON with the keys ``query_de``, ``response_de``,
    ``raw_context_de``. If a source field is empty, return an empty string
    for the matching ``_de`` field. NEVER return null.
 
@@ -231,12 +242,53 @@ def _stratified_sample(
 # --------------------------------------------------------------------------- #
 
 
+JSON_LEAF_SYSTEM = """You are a high-precision German-language translator
+working on a hallucination-detection benchmark. You will receive a JSON
+array of English string snippets. Translate each one into native,
+fluent German under the same rules that apply to prose: keep
+identifiers / numbers / dates / named entities / URLs / code verbatim;
+preserve any factual mismatches (do not "fix" hallucinations); idiomatic
+but accurate.
+
+Output STRICTLY a JSON object of the form
+``{"items": ["de_translation_0", "de_translation_1", ...]}`` with the
+SAME LENGTH and SAME ORDER as the input array. NEVER return null
+elements; for empty input strings return ``""``."""
+
+JSON_LEAF_USER_TEMPLATE = """Translate every English snippet in this \
+array to German under the rules above. Preserve order and length.
+
+INPUT (JSON array of English strings):
+{items_json}
+
+Return JSON ``{{"items": [...]}}`` with the same length."""
+
+
 class _Translator:
     """Thin wrapper around the OpenAI Chat Completions client.
 
     Kept generic so a future swap to Anthropic / Mistral is one method
     rewrite. The shape of ``translate(row) -> dict`` is what callers
     rely on.
+
+    Two translation paths:
+
+    * **Prose path** (default) -- send the whole context+query+answer
+      tuple in one GPT-4.1 call and return a strict JSON object with
+      ``query_de`` / ``response_de`` / ``raw_context_de``. Used for
+      every class except ``rag.structured``.
+    * **JSON-leaf path** -- triggered when ``raw_context`` is itself a
+      JSON document (``{`` or ``[`` at the start). The translator
+      parses the JSON, walks the tree, collects every string leaf,
+      sends the leaves as a JSON array to GPT-4.1, and splices the
+      translated leaves back into the original tree before
+      re-serialising. This guarantees the German context remains a
+      valid JSON document with byte-for-byte identical keys, types and
+      structure -- the failure mode where GPT introduces unescaped
+      inner quotes inside a JSON string and breaks the whole document
+      cannot occur. ``query`` and ``response`` still go through the
+      prose path so the translator sees the JSON keys + the natural-
+      language answer together (preserving hallucination context).
     """
 
     def __init__(self, *, model: str, api_key: Optional[str], timeout: float):
@@ -251,15 +303,55 @@ class _Translator:
             ) from exc
         self._client = OpenAI(api_key=api_key)
 
+    # ------------------------------------------------------------------ #
+    # Public entry
+    # ------------------------------------------------------------------ #
+
     def translate(self, row: SourceRow) -> Dict[str, str]:
-        prompt = USER_TEMPLATE.format(
-            query=row.query or "(none)",
-            context=row.raw_context or "(none)",
-            answer=row.response or "(none)",
+        if _looks_like_json(row.raw_context):
+            try:
+                ctx_de = self._translate_json_context(row.raw_context)
+            except Exception as exc:
+                # If JSON-leaf translation fails for any reason fall back
+                # to the prose path so the row is not silently dropped.
+                # The caller's incomplete-translation guard catches truly
+                # broken outputs.
+                logger.warning(
+                    "json_leaf_translate_failed row=%s err=%s; falling back to prose",
+                    row.row_id,
+                    exc,
+                )
+                ctx_de = None
+            if ctx_de is not None:
+                # Translate query + response separately via the prose
+                # call so we retain the "context + answer in one trip"
+                # property for hallucination preservation when context
+                # is JSON. Pass the *raw English* JSON context as-is so
+                # the model sees the full row when scoring the answer.
+                prose = self._translate_prose(
+                    query=row.query, response=row.response, context=row.raw_context
+                )
+                return {
+                    "query_de": prose["query_de"],
+                    "response_de": prose["response_de"],
+                    "raw_context_de": ctx_de,
+                }
+        return self._translate_prose(
+            query=row.query, response=row.response, context=row.raw_context
         )
-        # response_format=json_object forces strict JSON, so a
-        # single ``json.loads`` round-trips even when the model wants to
-        # add prose around the JSON.
+
+    # ------------------------------------------------------------------ #
+    # Prose path
+    # ------------------------------------------------------------------ #
+
+    def _translate_prose(
+        self, *, query: str, response: str, context: str
+    ) -> Dict[str, str]:
+        prompt = USER_TEMPLATE.format(
+            query=query or "(none)",
+            context=context or "(none)",
+            answer=response or "(none)",
+        )
         completion = self._client.chat.completions.create(
             model=self.model,
             messages=[
@@ -275,12 +367,112 @@ class _Translator:
             payload = json.loads(text)
         except json.JSONDecodeError as exc:
             raise RuntimeError(f"invalid JSON from translator: {exc}") from exc
-        # Defensive: only accept the three expected keys.
         return {
             "query_de": str(payload.get("query_de") or ""),
             "response_de": str(payload.get("response_de") or ""),
             "raw_context_de": str(payload.get("raw_context_de") or ""),
         }
+
+    # ------------------------------------------------------------------ #
+    # JSON-leaf path (rag.structured)
+    # ------------------------------------------------------------------ #
+
+    def _translate_json_context(self, context: str) -> Optional[str]:
+        """Translate every string leaf inside ``context`` (a JSON doc)
+        and return the rebuilt JSON document.
+
+        Returns ``None`` when the input does not parse as JSON or the
+        translated batch length does not match the leaf count. The
+        caller treats ``None`` as "fall back to the prose path".
+        """
+
+        try:
+            tree = json.loads(context)
+        except json.JSONDecodeError:
+            return None
+
+        leaves: List[str] = []
+        _collect_string_leaves(tree, leaves)
+        if not leaves:
+            # Pure-numeric / pure-bool JSON; no translation needed.
+            return json.dumps(tree, ensure_ascii=False)
+
+        translated = self._translate_leaf_batch(leaves)
+        if translated is None or len(translated) != len(leaves):
+            return None
+
+        # Walk the tree a second time, this time replacing leaves with
+        # the translated values in the same order they were collected.
+        idx = [0]
+        rebuilt = _replace_string_leaves(tree, translated, idx)
+        return json.dumps(rebuilt, ensure_ascii=False)
+
+    def _translate_leaf_batch(self, leaves: List[str]) -> Optional[List[str]]:
+        """Send the leaf list to GPT-4.1 and return the translated list.
+
+        Long-context contexts (RAGTruth ``data2text`` rows can hit ~3 KB
+        of leaves) fit comfortably in a single GPT-4.1 call (128 k token
+        context). We send the leaves as a JSON array and require the
+        model to return ``{"items": [...]}`` of the same length so the
+        splice is unambiguous.
+        """
+
+        items_json = json.dumps(leaves, ensure_ascii=False)
+        prompt = JSON_LEAF_USER_TEMPLATE.format(items_json=items_json)
+        completion = self._client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": JSON_LEAF_SYSTEM},
+                {"role": "user", "content": prompt},
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.0,
+            timeout=self.timeout,
+        )
+        text = completion.choices[0].message.content or "{}"
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            return None
+        items = payload.get("items")
+        if not isinstance(items, list):
+            return None
+        return [str(it) if it is not None else "" for it in items]
+
+
+def _looks_like_json(context: str) -> bool:
+    if not context:
+        return False
+    head = context.lstrip()[:1]
+    return head in ("{", "[")
+
+
+def _collect_string_leaves(node: Any, out: List[str]) -> None:
+    if isinstance(node, str):
+        out.append(node)
+    elif isinstance(node, list):
+        for item in node:
+            _collect_string_leaves(item, out)
+    elif isinstance(node, dict):
+        for value in node.values():
+            _collect_string_leaves(value, out)
+    # ints / bools / floats / None contribute nothing
+
+
+def _replace_string_leaves(node: Any, translated: List[str], idx: List[int]) -> Any:
+    """Mirror of ``_collect_string_leaves`` that rebuilds the tree with
+    translated string leaves spliced in. Order must match exactly --
+    we rely on the same depth-first traversal in both passes."""
+
+    if isinstance(node, str):
+        i = idx[0]
+        idx[0] += 1
+        return translated[i]
+    if isinstance(node, list):
+        return [_replace_string_leaves(item, translated, idx) for item in node]
+    if isinstance(node, dict):
+        return {key: _replace_string_leaves(value, translated, idx) for key, value in node.items()}
+    return node
 
 
 # --------------------------------------------------------------------------- #
