@@ -729,12 +729,55 @@ def _prompt_guard_startup_enabled() -> bool:
 
 
 def _warm_prompt_guard_at_boot() -> dict[str, Any]:
+    """Warm the Llama-Prompt-Guard-2 runtime, defensively.
+
+    The 7th model (``meta-llama/Llama-Prompt-Guard-2-86M``) is a Meta gated
+    repo on HuggingFace. Operators without a HF token bound to a Meta-Llama-
+    accepted account cannot fetch it. The lane is opt-in (only invoked when
+    a request sets ``context_trust_enabled=true``), so failing to warm it
+    must NEVER crash the worker — that would take the entire 6-server
+    topology offline because of one optional model.
+
+    On failure we:
+      1. Log a clear warning telling the operator how to enable the lane
+         (set ``HF_TOKEN`` / ``HUGGING_FACE_HUB_TOKEN`` and accept the
+         Meta-Llama license at the HuggingFace model page).
+      2. Force ``LATENCE_TRACE_CONTEXT_TRUST_PROVIDER=heuristic`` so any
+         future ``context_trust_enabled=true`` request degrades to the
+         CPU-only heuristic provider instead of repeatedly trying to load
+         the gated model and timing out.
+      3. Return a skipped-result envelope so ``initialize()`` continues.
+    """
     os.environ.setdefault("LATENCE_TRACE_CONTEXT_TRUST_PROMPT_GUARD_COMPILE", "1")
     os.environ.setdefault(
         "LATENCE_TRACE_CONTEXT_TRUST_PROMPT_GUARD_COMPILE_MODE",
         "reduce-overhead",
     )
-    result = warm_context_trust_runtime()
+    try:
+        result = warm_context_trust_runtime()
+    except Exception as exc:  # noqa: BLE001 — boot must not propagate
+        os.environ["LATENCE_TRACE_CONTEXT_TRUST_PROVIDER"] = "heuristic"
+        model_id = os.environ.get(
+            "LATENCE_TRACE_CONTEXT_TRUST_PROMPT_GUARD_MODEL",
+            "meta-llama/Llama-Prompt-Guard-2-86M",
+        )
+        logger.warning(
+            "prompt_guard_boot_warmup_failed: model=%s falling back to "
+            "provider=heuristic. Set HF_TOKEN (or HUGGING_FACE_HUB_TOKEN) "
+            "to a token with Meta-Llama license access at "
+            "https://huggingface.co/%s to enable the Llama-Guard lane. "
+            "error=%s",
+            model_id,
+            model_id,
+            exc,
+        )
+        return {
+            "status": "skipped",
+            "reason": "prompt_guard_load_failed",
+            "model_id": model_id,
+            "fallback_provider": "heuristic",
+            "error": str(exc),
+        }
     logger.info(
         "prompt_guard_boot_warmup_complete: model=%s device=%s compiled=%s mode=%s elapsed_ms=%.2f states=%s",
         result.get("model_id"),

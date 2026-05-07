@@ -455,6 +455,40 @@ def test_prompt_guard_default_provider_loads_at_boot(monkeypatch) -> None:
     assert runpod_handler._prompt_guard_startup_enabled() is False
 
 
+def test_warm_prompt_guard_at_boot_is_defensive_against_gated_repo(monkeypatch) -> None:
+    """Llama-Prompt-Guard-2-86M is a Meta gated repo. Operators without a
+    HF token bound to a Meta-Llama-accepted account hit a 401
+    ``GatedRepoError`` on first download. This must NEVER crash the worker
+    boot — the lane is opt-in and the rest of the topology has to stay up.
+
+    The defensive path must:
+      1. Swallow the exception so ``initialize()`` keeps booting.
+      2. Force the per-request provider env var to ``heuristic`` so the
+         per-request lookup degrades cleanly instead of repeatedly
+         retrying the same gated download.
+      3. Return a structured ``status=skipped`` envelope so health
+         endpoints can report the fallback to operators.
+    """
+    monkeypatch.delenv("LATENCE_TRACE_CONTEXT_TRUST_PROVIDER", raising=False)
+
+    def _explode() -> dict:
+        raise RuntimeError(
+            "LATENCE_TRACE_CONTEXT_TRUST_PROVIDER=prompt_guard could not load "
+            "'meta-llama/Llama-Prompt-Guard-2-86M'. The model may require "
+            "Hugging Face gated access and Meta Llama license acceptance"
+        )
+
+    monkeypatch.setattr(runpod_handler, "warm_context_trust_runtime", _explode)
+
+    result = runpod_handler._warm_prompt_guard_at_boot()
+
+    assert result["status"] == "skipped"
+    assert result["reason"] == "prompt_guard_load_failed"
+    assert result["fallback_provider"] == "heuristic"
+    assert "Llama-Prompt-Guard-2-86M" in result["model_id"]
+    assert os.environ["LATENCE_TRACE_CONTEXT_TRUST_PROVIDER"] == "heuristic"
+
+
 def test_health_payload_surfaces_selected_model_runtime_config(monkeypatch) -> None:
     config = _config(compression_model="/models/compression", compression_server_enabled=True)
     runpod_handler._config = config
