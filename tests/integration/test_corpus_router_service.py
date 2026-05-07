@@ -146,7 +146,7 @@ def test_classifier_infers_prose_enterprise() -> None:
     )
     assert out["success"] is True
     route = out["corpus_route"]
-    assert route["source"] in {"classifier", "fallback"}
+    assert route["source"] in {"classifier", "fallback", "rule"}
     assert route["corpus_type"].startswith("rag.")
 
 

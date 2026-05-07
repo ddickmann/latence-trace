@@ -37,6 +37,9 @@ class _GroundednessService:
     def groundedness(self, request):
         return _groundedness_response(session_id=request.session_id)
 
+    async def groundedness_async(self, request):
+        return self.groundedness(request)
+
     def rollup(self, request):
         return {"turns": len(request.turns), "session_id": request.session_id}
 
