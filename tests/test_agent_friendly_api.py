@@ -158,9 +158,17 @@ async def test_well_known_ai_plugin_descriptor_is_self_consistent():
 
 def _build_full_app() -> FastAPI:
     """Build the app via ``server.main.create_app`` so the global
-    RequestValidationError handler is registered."""
+    RequestValidationError handler is registered.
+
+    Disable license enforcement so the LicenseMiddleware does not pre-empt
+    this test by returning 402 (Payment Required) before
+    ``RequestValidationError`` ever fires. The ``_restore_env`` autouse
+    fixture wipes both env vars after the test, so prod defaults are
+    untouched.
+    """
 
     os.environ["VOYAGER_GROUNDEDNESS_NLI_ENABLED"] = "0"
+    os.environ["LATENCE_TRACE_LICENSE_REQUIRE"] = "false"
     from server.main import create_app  # noqa: PLC0415
 
     return create_app()
