@@ -16,6 +16,10 @@ Sub-modules:
 * :mod:`.nli_transformers` — in-process transformers fallbacks
   (:class:`MiniCheckNLIProvider`, :class:`BgeM3ZeroShotNLIProvider`)
   that the registry falls back to when no vLLM endpoint is configured.
+* :mod:`.granite_guardian` — :class:`GraniteGuardianNLIProvider`
+  (vLLM-served IBM Granite Guardian 4.1; multilingual groundedness
+  via token logprobs, supersedes per-language providers when
+  ``LATENCE_TRACE_GUARDIAN_ENDPOINT`` is set).
 * :mod:`.nli_registry` — :func:`resolve_nli_provider` (language-aware
   factory over the above).
 * :mod:`.reranker` — :class:`VllmRerankerProvider` and

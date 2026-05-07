@@ -9,6 +9,11 @@ one with no behaviour change.
 Selection priority per language ``L`` (where L is one of ``en``, ``de``,
 or ``None`` for the legacy single-NLI behaviour):
 
+0. **Granite Guardian** — ``LATENCE_TRACE_GUARDIAN_ENDPOINT`` set.
+   :class:`~latence_trace.providers.granite_guardian.GraniteGuardianNLIProvider`
+   is multilingual and supersedes all per-language providers. It talks
+   to a vLLM ``/v1/completions`` endpoint and extracts continuous
+   grounding scores from token logprobs.
 1. **Per-language vLLM endpoint** — ``LATENCE_TRACE_NLI_<L>_ENDPOINT``
    set. The provider class is picked from
    ``LATENCE_TRACE_NLI_<L>_PROTOCOL`` which defaults to ``pooling``
@@ -210,7 +215,56 @@ def _build_legacy_provider() -> Optional[Any]:
         return None
 
 
+def _build_guardian_provider() -> Optional[Any]:
+    """Try the Granite Guardian vLLM endpoint; return None if not configured.
+
+    When ``LATENCE_TRACE_GUARDIAN_ENDPOINT`` is set, Granite Guardian
+    replaces all per-language NLI providers — it is multilingual and
+    handles both English and German out of the box.
+    """
+    endpoint = os.environ.get("LATENCE_TRACE_GUARDIAN_ENDPOINT", "").strip()
+    if not endpoint:
+        return None
+    model = os.environ.get(
+        "LATENCE_TRACE_GUARDIAN_MODEL",
+        "latence/granite-4.1-guardian-W8A16",
+    )
+    timeout = _env_float("LATENCE_TRACE_GUARDIAN_TIMEOUT", 120.0)
+    tokenizer_id = os.environ.get(
+        "LATENCE_TRACE_GUARDIAN_TOKENIZER", ""
+    ).strip() or None
+    try:
+        from latence_trace.providers.granite_guardian import (
+            GraniteGuardianNLIProvider,
+        )
+
+        provider = GraniteGuardianNLIProvider(
+            endpoint=endpoint,
+            model=model,
+            timeout=timeout,
+            tokenizer_id=tokenizer_id,
+        )
+        provider.healthcheck()
+        return provider
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "granite_guardian_provider_init_failed",
+            extra={
+                "endpoint": endpoint,
+                "model": model,
+                "error": str(exc),
+            },
+        )
+        return None
+
+
 def _resolve_for_language(language: str) -> Optional[Any]:
+    # Granite Guardian takes priority — it is multilingual and
+    # supersedes the per-language MiniCheck / bge-m3-zs providers.
+    guardian = _build_guardian_provider()
+    if guardian is not None:
+        return guardian
+
     if language in _SUPPORTED_LANGUAGES:
         provider = _build_vllm_provider(language)
         if provider is not None:

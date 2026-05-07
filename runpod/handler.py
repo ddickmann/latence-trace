@@ -192,8 +192,19 @@ def _env_bool_with_default(name: str, default: bool) -> bool:
 # ---------------------------------------------------------------------------
 # GPU budget — single knob for the whole 7-model production topology.
 # ---------------------------------------------------------------------------
-# Production co-hosts 7 GPU-resident models on one 24 GiB worker:
+# Production co-hosts GPU-resident models on one 24 GiB worker.
 #
+# **Guardian topology** (``LATENCE_TRACE_GUARDIAN_ENABLED=1``):
+#   1. guardian            (Granite Guardian 4.1-8b W8A16)  vLLM server :8005  0.50
+#   2. colbert             (lightonai/LateOn)               vLLM server :8001  0.13
+#   3. compliance_gliner   (knowledgator/gliner-pii-v1.0)   vLLM server :8003  0.11
+#   4. compression         (LLMLingua-2 Qwen3)              vLLM server :8004  0.11
+#   5. prompt_guard        (meta-llama/Llama-Prompt-Guard-2-86M)
+#                          in-process PyTorch                                   ~0
+#   + Triton MaxSim kernel (in-process)                                        ~0
+#   → 0.85 total vLLM utilisation → ~20.9 GiB, ~3 GiB headroom.
+#
+# **Legacy topology** (Guardian disabled):
 #   1. colbert            (lightonai/LateOn)               vLLM server :8001
 #   2. compliance_gliner  (knowledgator/gliner-pii-v1.0)   vLLM server :8003
 #   3. compression        (LLMLingua-2 Qwen3)              vLLM server :8004
@@ -201,17 +212,8 @@ def _env_bool_with_default(name: str, default: bool) -> bool:
 #   5. nli_multi          (MoritzLaurer/bge-m3-zs-v2.0)    vLLM server :8006
 #   6. reranker           (BAAI/bge-reranker-v2-m3)        vLLM server :8007
 #   7. prompt_guard       (meta-llama/Llama-Prompt-Guard-2-86M)
-#                         in-process PyTorch (loaded by warm_context_trust_runtime)
-#
-# Plus the in-process Triton MaxSim kernel
-# (``latence_trace.kernels.triton_triangular_maxsim``) which shares the
-# same CUDA context as the dev_app/handler Python process and uses the
-# headroom carved out below.
-#
-# 6 × ``_DEFAULT_VLLM_GPU_MEM=0.145`` = 0.87 vLLM utilisation → ~20.9 GiB.
-# The remaining ~3.1 GiB feeds the 86M Llama-Prompt-Guard checkpoint
-# (~0.2 GiB fp16), Triton MaxSim transient buffers (~0.5 GiB), the CUDA
-# context, and per-request workspace memory.
+#   + Triton MaxSim kernel (in-process)
+#   → 6 × 0.145 = 0.87 vLLM utilisation → ~20.9 GiB.
 #
 # Set ``LATENCE_TRACE_VLLM_GPU_MEM_DEFAULT=0.135`` (or lower) if vLLM
 # crashes with OOM at boot — that knob shifts every per-server default
@@ -380,6 +382,23 @@ class WorkerConfig:
     reranker_max_model_len: int = 512
     reranker_max_num_seqs: int = 64
     reranker_max_batched_tokens: int = 8192
+    # ----------------------------------------------------------------
+    # Granite Guardian — single multilingual groundedness LLM that
+    # replaces nli_en + nli_multi + reranker when enabled.  Frees two
+    # vLLM server slots and their GPU memory.
+    #
+    # W8A16 GPTQ quantization cuts the model from ~16 GB (BF16) to
+    # ~8.5 GB, allowing 0.50 GPU utilization.  The remaining budget
+    # is redistributed to the other servers:
+    #   guardian  0.50 + colbert 0.13 + gliner 0.11 + compression 0.11
+    #   = 0.85 total → fits comfortably on a 24 GB GPU.
+    # ----------------------------------------------------------------
+    guardian_enabled: bool = False
+    guardian_model: str = "latence/granite-4.1-guardian-W8A16"
+    guardian_port: int = 8005
+    guardian_gpu_mem: float = 0.50
+    guardian_max_model_len: int = 1024
+    guardian_max_num_seqs: int = 64
 
 
 def create_config() -> WorkerConfig:
@@ -536,6 +555,14 @@ def create_config() -> WorkerConfig:
         reranker_max_batched_tokens=_env_int(
             "LATENCE_TRACE_RERANKER_MAX_BATCHED_TOKENS", 8192
         ),
+        guardian_enabled=_env_bool_with_default("LATENCE_TRACE_GUARDIAN_ENABLED", False),
+        guardian_model=os.environ.get(
+            "LATENCE_TRACE_GUARDIAN_MODEL", "latence/granite-4.1-guardian-W8A16"
+        ),
+        guardian_port=_env_int("LATENCE_TRACE_GUARDIAN_PORT", 8005),
+        guardian_gpu_mem=_env_float("LATENCE_TRACE_GUARDIAN_GPU_MEM", 0.67),
+        guardian_max_model_len=_env_int("LATENCE_TRACE_GUARDIAN_MAX_MODEL_LEN", 1024),
+        guardian_max_num_seqs=_env_int("LATENCE_TRACE_GUARDIAN_MAX_NUM_SEQS", 64),
     )
 
 
@@ -878,27 +905,43 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
     if not config.managed_vllm_enabled:
         return {}
 
-    servers = {
-        "colbert": ManagedVllmServer(
-            name="colbert",
-            model=config.colbert_model,
-            port=config.colbert_port,
-            io_processor_plugin="moderncolbert_batched_io",
-            gpu_memory_utilization=config.colbert_gpu_mem,
-            max_model_len=config.colbert_max_model_len,
-            max_num_seqs=config.colbert_max_num_seqs,
-            max_num_batched_tokens=config.colbert_max_batched_tokens,
-            plugins=["moderncolbert", "moderncolbert_batched_io"],
-            enforce_eager=True,
-        ),
-        # NOTE: legacy mDeBERTa ``nli`` server (single multilingual NLI
-        # backend) was dropped from the always-on topology. The dual
-        # SOTA path (``nli_en`` MiniCheck for English + ``nli_multi``
-        # bge-m3-zeroshot for German/multilingual) below replaces it,
-        # and the in-process :class:`HuggingFaceNLIProvider` fallback
-        # in :mod:`latence_trace.api.service` keeps the language=None
-        # lane working defensively without a vLLM server slot.
-    }
+    servers: dict[str, ManagedVllmServer] = {}
+
+    # ----------------------------------------------------------------
+    # Granite Guardian — single multilingual groundedness LLM.
+    # Booted FIRST because it uses CUDA graphs (enforce_eager=False)
+    # and chunked prefill, which need early GPU memory reservation.
+    # When enabled it supersedes nli_en + nli_multi + reranker,
+    # freeing two vLLM slots.  The W8A16 GPTQ model fits at 0.50
+    # utilization alongside colbert (0.13), gliner (0.11), and
+    # compression (0.11) = 0.85 total on 24 GB.
+    # ----------------------------------------------------------------
+    if config.guardian_enabled:
+        servers["guardian"] = ManagedVllmServer(
+            name="guardian",
+            model=config.guardian_model,
+            port=config.guardian_port,
+            runner="generate",
+            gpu_memory_utilization=config.guardian_gpu_mem,
+            max_model_len=config.guardian_max_model_len,
+            max_num_seqs=config.guardian_max_num_seqs,
+            dtype="auto",
+            enforce_eager=False,
+            enable_chunked_prefill=True,
+        )
+
+    servers["colbert"] = ManagedVllmServer(
+        name="colbert",
+        model=config.colbert_model,
+        port=config.colbert_port,
+        io_processor_plugin="moderncolbert_batched_io",
+        gpu_memory_utilization=config.colbert_gpu_mem,
+        max_model_len=config.colbert_max_model_len,
+        max_num_seqs=config.colbert_max_num_seqs,
+        max_num_batched_tokens=config.colbert_max_batched_tokens,
+        plugins=["moderncolbert", "moderncolbert_batched_io"],
+        enforce_eager=True,
+    )
     if config.compliance_gliner_server_enabled:
         servers["compliance_gliner"] = ManagedVllmServer(
             name="compliance_gliner",
@@ -927,15 +970,13 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
             enforce_eager=config.compression_enforce_eager,
         )
 
+    # When Guardian is enabled, skip legacy NLI/reranker servers.
+    if config.guardian_enabled:
+        return servers
+
     # ----------------------------------------------------------------
-    # SOTA dual-NLI + reranker servers (opt-in). When these flags flip
-    # on, the registry in
-    # :mod:`latence_trace.providers.nli_registry` will route per-language
-    # NLI traffic to the matching vLLM endpoint instead of the
-    # in-process transformers fallback. Until the BYOP MiniCheck plugin
-    # lands the English server stays disabled; the multilingual server
-    # and reranker server boot via vLLM-native ``--task classify`` /
-    # ``--task score`` (no plugin required).
+    # Legacy SOTA dual-NLI + reranker servers. Skipped when Guardian
+    # is enabled above.
     # ----------------------------------------------------------------
     if config.nli_en_enabled:
         if _minicheck_plugin_available():
@@ -974,12 +1015,6 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
             max_num_seqs=config.nli_multi_max_num_seqs,
             max_num_batched_tokens=config.nli_multi_max_batched_tokens,
             enforce_eager=True,
-            # vLLM-native classify head; the registry hits this server
-            # via the ``classify`` protocol in
-            # :class:`VllmClassifyNLIProvider`. ``--convert classify``
-            # is the 0.19.x spelling of the legacy ``--task classify``
-            # — vLLM uses it to wire the SequenceClassification head
-            # onto the encoder when no architectures alias is hit.
             extra_args=["--convert", "classify"],
         )
     if config.reranker_enabled:
@@ -992,14 +1027,6 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
             max_num_seqs=config.reranker_max_num_seqs,
             max_num_batched_tokens=config.reranker_max_batched_tokens,
             enforce_eager=True,
-            # vLLM-native cross-encoder relevance scoring (single
-            # logit per pair). ``VllmRerankerProvider`` posts to
-            # ``/v1/score`` against this server. ``--convert classify``
-            # is correct here too: vLLM 0.19.x exposes ``/v1/score``
-            # automatically for any single-label classifier head, so
-            # we route the reranker through the same convert mode the
-            # NLI multi server uses. (The legacy ``--task score`` flag
-            # was removed in 0.19.)
             extra_args=["--convert", "classify"],
         )
     return servers
@@ -1102,13 +1129,14 @@ def initialize() -> None:
             os.environ["LATENCE_TRACE_NLI_MULTI_TRANSFORMERS_MODEL"] = (
                 config.nli_multi_model
             )
+            guardian_server = servers.get("guardian")
+            if guardian_server is not None:
+                os.environ["LATENCE_TRACE_GUARDIAN_ENDPOINT"] = guardian_server.base_url
+                os.environ["LATENCE_TRACE_GUARDIAN_MODEL"] = config.guardian_model
             nli_en_server = servers.get("nli_en")
             if nli_en_server is not None:
                 os.environ["LATENCE_TRACE_NLI_EN_ENDPOINT"] = nli_en_server.base_url
                 os.environ["LATENCE_TRACE_NLI_EN_MODEL"] = config.nli_en_model
-                # MiniCheck rides the existing /pooling wire shape
-                # (BYOP plugin) so the registry uses
-                # ``VllmFactoryNLIProvider`` for it. Default protocol.
                 os.environ["LATENCE_TRACE_NLI_EN_PROTOCOL"] = "pooling"
             nli_multi_server = servers.get("nli_multi")
             if nli_multi_server is not None:
@@ -1116,8 +1144,6 @@ def initialize() -> None:
                     nli_multi_server.base_url
                 )
                 os.environ["LATENCE_TRACE_NLI_MULTI_MODEL"] = config.nli_multi_model
-                # vLLM-native classify; the registry routes this to
-                # ``VllmClassifyNLIProvider``.
                 os.environ["LATENCE_TRACE_NLI_MULTI_PROTOCOL"] = "classify"
             reranker_server = servers.get("reranker")
             if reranker_server is not None:
@@ -1182,11 +1208,12 @@ def initialize() -> None:
             logger.info(
                 (
                     "latence-trace RunPod worker ready: profile=%s colbert=%s "
-                    "nli_en=%s nli_multi=%s reranker=%s compliance_gliner=%s "
+                    "guardian=%s nli_en=%s nli_multi=%s reranker=%s compliance_gliner=%s "
                     "compression=%s prompt_guard=%s triton_maxsim=%s"
                 ),
                 config.profile,
                 colbert_server.base_url if colbert_server is not None else "external",
+                guardian_server.base_url if guardian_server is not None else "off",
                 nli_en_server.base_url if nli_en_server is not None else "fallback",
                 nli_multi_server.base_url if nli_multi_server is not None else "fallback",
                 reranker_server.base_url if reranker_server is not None else "fallback",
@@ -1343,6 +1370,18 @@ def _runtime_model_config(config: WorkerConfig | None) -> dict[str, Any]:
             "trust_remote_code": False,
             "enable_prefix_caching": False,
             "enable_chunked_prefill": False,
+        },
+        "guardian": {
+            "model": config.guardian_model,
+            "port": config.guardian_port,
+            "enabled": config.guardian_enabled,
+            "runner": "generate",
+            "gpu_memory_utilization": config.guardian_gpu_mem,
+            "max_model_len": config.guardian_max_model_len,
+            "max_num_seqs": config.guardian_max_num_seqs,
+            "dtype": "auto",
+            "enforce_eager": False,
+            "enable_chunked_prefill": True,
         },
         "compliance_gliner": {
             "model": config.compliance_model,
