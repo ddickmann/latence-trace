@@ -313,7 +313,7 @@ class WorkerConfig:
     compression_port: int = 8004
     compression_gpu_mem: float = _DEFAULT_VLLM_GPU_MEM
     compression_max_model_len: int = 8192
-    compression_max_num_seqs: int = 128
+    compression_max_num_seqs: int = 64
     compression_max_batched_tokens: int = 8192
     compression_dtype: str = "auto"
     compression_enforce_eager: bool = True
@@ -333,6 +333,15 @@ class WorkerConfig:
     # The 7th model — Llama-Prompt-Guard-2-86M — boots in-process via
     # ``_warm_prompt_guard_at_boot`` (provider default = ``prompt_guard``)
     # and lives in the same CUDA context as the Triton MaxSim kernels.
+    #
+    # ``max_num_seqs`` is held at 64 across every vLLM server. The
+    # generative-style compression server (Qwen3-0.6B with 8 K context)
+    # would otherwise burn its KV-cache budget at ``max_num_seqs=128``
+    # and crash the server with ``exited with code 1`` (KV cache cannot
+    # fit a single max-length sequence). 64 keeps every server inside
+    # 0.145 of a 24 GiB GPU while still saturating real production
+    # batch sizes — the previous 128 cap was never reached under any
+    # measured workload.
     #
     # Legacy single-NLI ``nli`` (mDeBERTa) server is dropped from the
     # topology — replaced by the dual SOTA path (MiniCheck for English,
@@ -355,21 +364,21 @@ class WorkerConfig:
     nli_en_port: int = 8005
     nli_en_gpu_mem: float = _DEFAULT_VLLM_GPU_MEM
     nli_en_max_model_len: int = 1024
-    nli_en_max_num_seqs: int = 128
+    nli_en_max_num_seqs: int = 64
     nli_en_max_batched_tokens: int = 8192
     nli_multi_enabled: bool = True
     nli_multi_model: str = "MoritzLaurer/bge-m3-zeroshot-v2.0"
     nli_multi_port: int = 8006
     nli_multi_gpu_mem: float = _DEFAULT_VLLM_GPU_MEM
     nli_multi_max_model_len: int = 512
-    nli_multi_max_num_seqs: int = 128
+    nli_multi_max_num_seqs: int = 64
     nli_multi_max_batched_tokens: int = 8192
     reranker_enabled: bool = True
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
     reranker_port: int = 8007
     reranker_gpu_mem: float = _DEFAULT_VLLM_GPU_MEM
     reranker_max_model_len: int = 512
-    reranker_max_num_seqs: int = 128
+    reranker_max_num_seqs: int = 64
     reranker_max_batched_tokens: int = 8192
 
 
@@ -423,7 +432,7 @@ def create_config() -> WorkerConfig:
         colbert_port=_env_int("LATENCE_TRACE_COLBERT_PORT", 8001),
         colbert_gpu_mem=_env_float("LATENCE_TRACE_COLBERT_GPU_MEM", _DEFAULT_VLLM_GPU_MEM),
         colbert_max_model_len=_env_int("LATENCE_TRACE_COLBERT_MAX_MODEL_LEN", 8192),
-        colbert_max_num_seqs=_env_int("LATENCE_TRACE_COLBERT_MAX_NUM_SEQS", 128),
+        colbert_max_num_seqs=_env_int("LATENCE_TRACE_COLBERT_MAX_NUM_SEQS", 64),
         colbert_max_batched_tokens=_env_int("LATENCE_TRACE_COLBERT_MAX_BATCHED_TOKENS", 8192),
         nli_model=nli_model,
         nli_port=_env_int("LATENCE_TRACE_NLI_PORT", 8002),
@@ -433,13 +442,13 @@ def create_config() -> WorkerConfig:
         # diagnostics) but ignored by ``_build_servers``.
         nli_gpu_mem=_env_float("LATENCE_TRACE_NLI_GPU_MEM", _DEFAULT_VLLM_GPU_MEM),
         nli_max_model_len=_env_int("LATENCE_TRACE_NLI_MAX_MODEL_LEN", 512),
-        nli_max_num_seqs=_env_int("LATENCE_TRACE_NLI_MAX_NUM_SEQS", 128),
+        nli_max_num_seqs=_env_int("LATENCE_TRACE_NLI_MAX_NUM_SEQS", 64),
         nli_max_batched_tokens=_env_int("LATENCE_TRACE_NLI_MAX_BATCHED_TOKENS", 8192),
         compliance_model=compliance_model,
         compliance_port=_env_int("LATENCE_TRACE_COMPLIANCE_GLINER_PORT", 8003),
         compliance_gpu_mem=_env_float("LATENCE_TRACE_COMPLIANCE_GLINER_GPU_MEM", _DEFAULT_VLLM_GPU_MEM),
         compliance_max_model_len=_env_int("LATENCE_TRACE_COMPLIANCE_MAX_MODEL_LEN", 768),
-        compliance_max_num_seqs=_env_int("LATENCE_TRACE_COMPLIANCE_MAX_NUM_SEQS", 128),
+        compliance_max_num_seqs=_env_int("LATENCE_TRACE_COMPLIANCE_MAX_NUM_SEQS", 64),
         compliance_max_batched_tokens=_env_int("LATENCE_TRACE_COMPLIANCE_MAX_BATCHED_TOKENS", 8192),
         compliance_threshold=_env_float("LATENCE_TRACE_COMPLIANCE_THRESHOLD", 0.5),
         compliance_dataset_path=os.environ.get(
@@ -455,7 +464,7 @@ def create_config() -> WorkerConfig:
         compression_port=_env_int("LATENCE_TRACE_COMPRESSION_PORT", 8004),
         compression_gpu_mem=_env_float("LATENCE_TRACE_COMPRESSION_GPU_MEM", _DEFAULT_VLLM_GPU_MEM),
         compression_max_model_len=_env_int("LATENCE_TRACE_COMPRESSION_MAX_MODEL_LEN", 8192),
-        compression_max_num_seqs=_env_int("LATENCE_TRACE_COMPRESSION_MAX_NUM_SEQS", 128),
+        compression_max_num_seqs=_env_int("LATENCE_TRACE_COMPRESSION_MAX_NUM_SEQS", 64),
         compression_max_batched_tokens=_env_int(
             "LATENCE_TRACE_COMPRESSION_MAX_BATCHED_TOKENS", 8192
         ),
@@ -492,7 +501,7 @@ def create_config() -> WorkerConfig:
         nli_en_port=_env_int("LATENCE_TRACE_NLI_EN_PORT", 8005),
         nli_en_gpu_mem=_env_float("LATENCE_TRACE_NLI_EN_GPU_MEM", _DEFAULT_VLLM_GPU_MEM),
         nli_en_max_model_len=_env_int("LATENCE_TRACE_NLI_EN_MAX_MODEL_LEN", 1024),
-        nli_en_max_num_seqs=_env_int("LATENCE_TRACE_NLI_EN_MAX_NUM_SEQS", 128),
+        nli_en_max_num_seqs=_env_int("LATENCE_TRACE_NLI_EN_MAX_NUM_SEQS", 64),
         nli_en_max_batched_tokens=_env_int(
             "LATENCE_TRACE_NLI_EN_MAX_BATCHED_TOKENS", 8192
         ),
@@ -507,7 +516,7 @@ def create_config() -> WorkerConfig:
             "LATENCE_TRACE_NLI_MULTI_MAX_MODEL_LEN", 512
         ),
         nli_multi_max_num_seqs=_env_int(
-            "LATENCE_TRACE_NLI_MULTI_MAX_NUM_SEQS", 128
+            "LATENCE_TRACE_NLI_MULTI_MAX_NUM_SEQS", 64
         ),
         nli_multi_max_batched_tokens=_env_int(
             "LATENCE_TRACE_NLI_MULTI_MAX_BATCHED_TOKENS", 8192
@@ -522,7 +531,7 @@ def create_config() -> WorkerConfig:
             "LATENCE_TRACE_RERANKER_MAX_MODEL_LEN", 512
         ),
         reranker_max_num_seqs=_env_int(
-            "LATENCE_TRACE_RERANKER_MAX_NUM_SEQS", 128
+            "LATENCE_TRACE_RERANKER_MAX_NUM_SEQS", 64
         ),
         reranker_max_batched_tokens=_env_int(
             "LATENCE_TRACE_RERANKER_MAX_BATCHED_TOKENS", 8192
@@ -1017,20 +1026,55 @@ def initialize() -> None:
         servers = _build_servers(config)
 
         try:
-            prompt_guard_future = None
             prompt_guard_boot_enabled = _prompt_guard_startup_enabled()
-            if servers:
-                worker_count = len(servers) + (1 if prompt_guard_boot_enabled else 0)
-                with ThreadPoolExecutor(max_workers=worker_count) as pool:
-                    if prompt_guard_boot_enabled:
-                        prompt_guard_future = pool.submit(_warm_prompt_guard_at_boot)
-                    futures = [pool.submit(server.start) for server in servers.values()]
-                    for future in futures:
-                        future.result()
-                    if prompt_guard_future is not None:
-                        prompt_guard_future.result()
-            elif prompt_guard_boot_enabled:
-                _warm_prompt_guard_at_boot()
+            # Boot vLLM servers SEQUENTIALLY to avoid GPU memory
+            # fragmentation. Parallel boot via ThreadPoolExecutor used to
+            # have all 6 vLLM workers race for HBM at the same instant —
+            # vLLM 0.19's KV-cache allocator can then carve up the
+            # remaining budget at non-aligned offsets and silently leave
+            # the last server with a fragmented free pool that can't fit
+            # one max-length sequence (observed as "exited with code 1"
+            # from the Qwen3-0.6B compression server). Sequential boot
+            # gives each server a clean, contiguous slice of HBM.
+            #
+            # The pod is always-on, so the ~2x cold-start cost (boot once
+            # on rebuild, then run forever) is irrelevant compared to the
+            # reliability win. Per-server enforce_eager=True is already
+            # set on every vLLM entry above to disable CUDA graphs (which
+            # also fragment HBM during warmup capture).
+            #
+            # Llama-Prompt-Guard-2 stays parallel-with-the-pool because it
+            # touches a separate CUDA stream and doesn't compete for the
+            # vLLM KV-cache pool. We launch it first so it can warm up
+            # alongside the sequential server starts.
+            prompt_guard_thread = None
+            prompt_guard_result_box: dict[str, Any] = {}
+            if prompt_guard_boot_enabled:
+                def _prompt_guard_worker() -> None:
+                    try:
+                        prompt_guard_result_box["result"] = _warm_prompt_guard_at_boot()
+                    except Exception as exc:  # noqa: BLE001 — defensive, mirrors warm helper
+                        prompt_guard_result_box["error"] = exc
+                prompt_guard_thread = threading.Thread(
+                    target=_prompt_guard_worker,
+                    name="prompt-guard-boot-warmup",
+                    daemon=True,
+                )
+                prompt_guard_thread.start()
+
+            for name, server in servers.items():
+                logger.info("vllm_boot_sequential_start: server=%s", name)
+                server.start()
+                logger.info("vllm_boot_sequential_ready: server=%s url=%s", name, server.base_url)
+
+            if prompt_guard_thread is not None:
+                prompt_guard_thread.join()
+                # _warm_prompt_guard_at_boot is itself defensive (catches
+                # GatedRepoError etc. and falls back to heuristic), so any
+                # exception that escapes here is a hard programmer bug —
+                # surface it.
+                if "error" in prompt_guard_result_box:
+                    raise prompt_guard_result_box["error"]
 
             colbert_server = servers.get("colbert")
             if colbert_server is not None:

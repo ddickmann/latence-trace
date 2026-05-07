@@ -273,13 +273,16 @@ def test_create_config_pins_vllm_runtime_defaults(monkeypatch) -> None:
 
     config = runpod_handler.create_config()
 
-    assert config.colbert_max_num_seqs == 128
+    # max_num_seqs is held at 64 across every vLLM server so the
+    # generative-style compression server (Qwen3-0.6B with 8 K context)
+    # fits inside its 0.145 GPU budget. See WorkerConfig topology block.
+    assert config.colbert_max_num_seqs == 64
     assert config.colbert_max_batched_tokens == 8192
-    assert config.nli_max_num_seqs == 128
+    assert config.nli_max_num_seqs == 64
     assert config.nli_max_batched_tokens == 8192
     assert config.compliance_model == "knowledgator/gliner-pii-large-v1.0"
     assert config.compliance_max_model_len == 768
-    assert config.compliance_max_num_seqs == 128
+    assert config.compliance_max_num_seqs == 64
     assert config.compliance_max_batched_tokens == 8192
     # Phase 1 / SOTA topology: per-server GPU memory now defaults to
     # ``LATENCE_TRACE_VLLM_GPU_MEM_DEFAULT`` (0.145) so 6 vLLM servers
