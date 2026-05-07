@@ -1698,6 +1698,21 @@ def _response_format(input_data: dict[str, Any]) -> str:
     return "compact"
 
 
+def _resolve_request_id(input_data: dict[str, Any]) -> str:
+    """Derive a stable request id from the RunPod input envelope.
+
+    Source priority: ``auth.request_id`` → ``input.request_id`` →
+    monotonic auto-id.  Every response must carry this so callers
+    can correlate scoring results, error payloads, and audit rows.
+    """
+    auth = input_data.get("auth") if isinstance(input_data, dict) else None
+    request_id = auth.get("request_id") if isinstance(auth, dict) else None
+    request_id = request_id or input_data.get("request_id")
+    if not request_id:
+        request_id = f"auto-{int(time.monotonic_ns())}"
+    return str(request_id)
+
+
 def _emit_audit_record(
     *,
     input_data: dict[str, Any],
@@ -2365,6 +2380,7 @@ async def handler(job: dict[str, Any]) -> dict[str, Any]:
                 verbose=verbose,
                 response_format=_response_format(input_data),
             )
+            score_response["request_id"] = _resolve_request_id(input_data)
             try:
                 _emit_audit_record(input_data=input_data, response=score_response, request=request)
             except Exception:  # pragma: no cover - audit log must never fail a turn
@@ -2377,27 +2393,33 @@ async def handler(job: dict[str, Any]) -> dict[str, Any]:
         else:
             timeout_value = _config.request_timeout_s if _config else 120
             hint = "Retry with a smaller request or increase LATENCE_TRACE_RUNPOD_REQUEST_TIMEOUT."
-        return _service_error_payload(
+        err = _service_error_payload(
             f"Job exceeded {timeout_value}s execution timeout",
             error_code="job_timeout",
             hint=hint,
             status_code=504,
         )
+        err["request_id"] = _resolve_request_id(input_data)
+        return err
     except ServiceError as exc:
-        return _service_error_payload(
+        err = _service_error_payload(
             str(exc),
             error_code=exc.error_code,
             hint=getattr(exc, "hint", None),
             status_code=getattr(exc, "status_code", None),
         )
+        err["request_id"] = _resolve_request_id(input_data)
+        return err
     except Exception as exc:  # pragma: no cover - runtime safeguard
         logger.exception("RunPod request failed")
-        return _service_error_payload(
+        err = _service_error_payload(
             str(exc),
             error_code="service_error",
             hint="Inspect worker logs; both vLLM lanes and the reranker are process-wide singletons.",
             status_code=500,
         )
+        err["request_id"] = _resolve_request_id(input_data)
+        return err
 
 
 __all__ = [
