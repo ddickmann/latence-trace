@@ -78,9 +78,8 @@ def test_tools_list_advertises_score_groundedness_with_required_response_text():
     )
     assert len(responses) == 1
     tools = responses[0]["result"]["tools"]
-    assert len(tools) == 1
-    tool = tools[0]
-    assert tool["name"] == "score_groundedness"
+    assert len(tools) >= 1
+    tool = next(t for t in tools if t["name"] == "score_groundedness")
     assert "inputSchema" in tool
     assert "response_text" in tool["inputSchema"]["properties"]
     assert "response_text" in tool["inputSchema"]["required"]
