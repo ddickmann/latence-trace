@@ -917,6 +917,17 @@ class GroundednessNLIAtom(BaseModel):
     neutral: float
     contradiction: float
     score: float
+    band: Optional[str] = Field(
+        default=None,
+        description=(
+            "Server-side band verdict for this atom: ``green`` / ``amber`` "
+            "/ ``red`` / ``skipped``. Computed by the NLI verifier from "
+            "the contradiction-aware ``score`` plus a contradiction-floor "
+            "gate so a 99% contradiction atom is never green even when "
+            "raw entailment is high. Optional only for backwards "
+            "compatibility with older runtimes."
+        ),
+    )
     skipped: bool
     skip_reason: Optional[str] = None
     premise_count: int
@@ -935,6 +946,17 @@ class GroundednessNLIClaim(BaseModel):
     neutral: float
     contradiction: float
     score: float
+    band: Optional[str] = Field(
+        default=None,
+        description=(
+            "Server-side band verdict for this claim: ``green`` / ``amber`` "
+            "/ ``red`` / ``skipped``. Computed by the NLI verifier from "
+            "the contradiction-aware ``score`` plus a contradiction-floor "
+            "gate so a 99% contradiction claim is never green even when "
+            "raw entailment is high. Frontend renderers should prefer this "
+            "field over recomputing the band from raw entailment."
+        ),
+    )
     skipped: bool
     skip_reason: Optional[str] = None
     premise_count: int

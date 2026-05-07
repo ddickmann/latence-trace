@@ -4226,6 +4226,12 @@ def _atom_to_dict(av: AtomicVerification) -> Dict[str, Any]:
         "neutral": float(av.neutral),
         "contradiction": float(av.contradiction),
         "score": float(av.score),
+        "band": _claim_band(
+            entailment=float(av.entailment),
+            contradiction=float(av.contradiction),
+            score=float(av.score),
+            skipped=bool(av.skipped),
+        ),
         "skipped": bool(av.skipped),
         "skip_reason": av.skip_reason,
         "premise_count": int(len(av.premises)),
@@ -4234,7 +4240,45 @@ def _atom_to_dict(av: AtomicVerification) -> Dict[str, Any]:
     }
 
 
+_CLAIM_BAND_GREEN_MIN = 0.30
+_CLAIM_BAND_AMBER_MIN = 0.05
+_CLAIM_BAND_CONTRADICTION_FLOOR = 0.50
+
+
+def _claim_band(
+    *,
+    entailment: float,
+    contradiction: float,
+    score: float,
+    skipped: bool,
+) -> str:
+    """Return ``green`` / ``amber`` / ``red`` / ``skipped`` for a single
+    NLI claim or atom.
+
+    ``score`` is the NLI margin ``clamp(entailment - contradiction)``.
+    The contradiction-floor gate ensures a claim with dominant
+    contradiction is never painted green even when raw entailment sits
+    at 0.7+ (which can happen with multilingual models on paraphrased
+    premises).
+    """
+    if skipped:
+        return "skipped"
+    if contradiction >= _CLAIM_BAND_CONTRADICTION_FLOOR:
+        return "red"
+    if score >= _CLAIM_BAND_GREEN_MIN:
+        return "green"
+    if score >= _CLAIM_BAND_AMBER_MIN:
+        return "amber"
+    return "red"
+
+
 def _claim_to_dict(verification: ClaimVerification) -> Dict[str, Any]:
+    band = _claim_band(
+        entailment=float(verification.entailment),
+        contradiction=float(verification.contradiction),
+        score=float(verification.score),
+        skipped=bool(verification.skipped),
+    )
     return {
         "index": int(verification.claim.index),
         "text": verification.claim.text,
@@ -4244,6 +4288,7 @@ def _claim_to_dict(verification: ClaimVerification) -> Dict[str, Any]:
         "neutral": float(verification.neutral),
         "contradiction": float(verification.contradiction),
         "score": float(verification.score),
+        "band": band,
         "skipped": bool(verification.skipped),
         "skip_reason": verification.skip_reason,
         "premise_count": int(len(verification.premises)),
