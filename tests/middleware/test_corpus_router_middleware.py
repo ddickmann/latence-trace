@@ -110,6 +110,42 @@ def test_build_diagnostics_shape_matches_pydantic_model() -> None:
     assert isinstance(model.classifier_top_classes, list)
 
 
+def test_build_diagnostics_surfaces_resolved_language_and_bundle_language() -> None:
+    """The corpus_route diagnostics payload must expose the resolved
+    ``language`` / ``language_source`` / ``bundle_language`` so SDK /
+    UI clients can render a calibration-language chip and so operators
+    can tell when the loader fell back to English at a glance.
+
+    Pre-fix the dict was missing all three keys → the demo UI rendered
+    a misleading "DE (UNCALIBRATED)" chip even when the German bundle
+    had been loaded correctly.
+    """
+    from latence_trace.api.models import CorpusRouteDiagnostics
+
+    req = _request(corpus_type="rag.prose.enterprise", language="de")
+    decision = _router.route(req)
+    payload = _router.build_diagnostics(decision)
+
+    # Sanity: the loader did pick the German bundle (the artefact ships
+    # in latence_trace/data/calibration.rag_prose_enterprise.de.json).
+    assert decision.bundle is not None
+    assert decision.bundle.language == "de"
+    assert decision.language == "de"
+
+    # The dict must carry the language tuple so frontend can read
+    # ``corpus_route.language`` directly.
+    assert payload["language"] == "de"
+    assert payload["language_source"] in {"request", "auto", "fallback_en", "forced_en_code"}
+    assert payload["bundle_language"] == "de"
+
+    # And the pydantic model must declare the fields so they survive
+    # serialization to JSON.
+    model = CorpusRouteDiagnostics.model_validate(payload)
+    assert model.language == "de"
+    assert model.bundle_language == "de"
+    assert model.language_source is not None
+
+
 def test_fallback_when_explicit_class_has_no_bundle() -> None:
     req = _request(corpus_type="rag.nonsense.class")
     decision = _router.route(req)

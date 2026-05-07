@@ -1113,6 +1113,37 @@ class CorpusRouteDiagnostics(BaseModel):
         default=None,
         description="Recorded value of that objective at calibration time (for transparency).",
     )
+    language: Optional[str] = Field(
+        default=None,
+        description=(
+            "Language the router resolved for this request (``en`` / ``de`` "
+            "/ ``...``). Mirrors the value the bundle loader was called "
+            "with — the resolved language after explicit > langdetect > "
+            "fallback_en. SDK / UI clients read this to render the "
+            '"Calibration: <lang>" chip without having to dig into '
+            "``profile_diagnostics``."
+        ),
+    )
+    language_source: Optional[str] = Field(
+        default=None,
+        description=(
+            "How the resolved ``language`` was obtained: ``request`` "
+            "(explicit caller hint), ``auto`` (langdetect on the response "
+            "/ query), ``fallback_en`` (no signal, default), or "
+            "``forced_en_code`` (code class, language is universal)."
+        ),
+    )
+    bundle_language: Optional[str] = Field(
+        default=None,
+        description=(
+            "Language attribute of the calibration bundle the loader "
+            "actually returned. When ``language`` and ``bundle_language`` "
+            "differ, the loader fell back to the English artefact because "
+            "no per-language bundle was shipped for that class — "
+            "operators use the gap to spot ``bundle_language_fallback`` "
+            "cases without scraping log lines."
+        ),
+    )
 
 
 class RuntimeUnsupportedSpan(BaseModel):

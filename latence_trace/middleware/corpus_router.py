@@ -255,6 +255,14 @@ def build_diagnostics(decision: CorpusRouteDecision) -> dict:
 
     Kept as a helper so service integration tests can assert on the exact
     dict shape without importing pydantic.
+
+    ``language`` / ``language_source`` are surfaced here so SDK and
+    frontend callers can read the per-class bundle language directly
+    off ``response.corpus_route.language`` instead of having to dig
+    into the alternate ``profile_diagnostics.bundle_language`` lane.
+    Without this, the demo UI cannot tell that a German request landed
+    on a German calibration bundle (it sees ``corpus_route.language ==
+    None`` and falls back to the "(uncalibrated)" hint).
     """
     bundle = decision.bundle
     return {
@@ -274,6 +282,16 @@ def build_diagnostics(decision: CorpusRouteDecision) -> dict:
         "scoring_mode_applied": bundle.scoring_mode if bundle else None,
         "bundle_metric": bundle.metric if bundle else None,
         "bundle_metric_value": bundle.metric_value if bundle else None,
+        # Resolved by ``_resolve_request_language`` + ``_effective_language``
+        # so the dict reflects what the loader actually used, not the
+        # raw caller-supplied language.
+        "language": decision.language,
+        "language_source": decision.language_source,
+        # Bundle's own language attribute — when the loader fell back
+        # to the English artefact for a non-English request this will
+        # differ from ``language`` and the operator can read the gap
+        # without scraping log lines.
+        "bundle_language": bundle.language if bundle else None,
     }
 
 
