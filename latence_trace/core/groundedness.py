@@ -3601,6 +3601,7 @@ def score_groundedness(
         nli_use_atomic_claims=nli_use_atomic_claims,
     )
     if nli_payload is not None:
+        _concordance_rescue_claims(nli_payload, response_token_rows, response_text or "")
         warnings.extend(nli_payload.pop("warnings", []))
     nli_aggregate = nli_payload["aggregate_score"] if nli_payload else None
     verbatim_floor = _verbatim_support_floor(response_text, support_units_payload)
@@ -4298,6 +4299,204 @@ def _claim_to_dict(verification: ClaimVerification) -> Dict[str, Any]:
     }
 
 
+_CONCORDANCE_RESCUE_HEATMAP_MIN = 0.90
+_CONCORDANCE_RESCUE_CONTRADICTION_CAP = 0.45
+
+
+def _concordance_rescue_claims(
+    nli_payload: Dict[str, Any],
+    response_token_rows: Sequence[Dict[str, Any]],
+    response_text: str,
+) -> None:
+    """Rescue NLI false-positive claims when embedding heatmap strongly disagrees.
+
+    Modifies ``nli_payload`` in place: for each claim record whose
+    ``contradiction >= _CLAIM_BAND_CONTRADICTION_FLOOR``, computes the
+    mean ``heatmap_score`` across the response tokens that fall within
+    the claim's character span. When the mean heatmap is above the
+    rescue threshold (0.90), the embedding model is highly confident
+    the span is grounded; the NLI contradiction is capped below the
+    red-band floor and the claim is re-banded to ``amber``.
+
+    After rescuing individual claims, recomputes ``aggregate_score``
+    from the (possibly updated) per-claim scores so the downstream
+    fusion channel reflects the correction.
+    """
+
+    claim_records = nli_payload.get("claim_records")
+    if not claim_records or not response_token_rows or not response_text:
+        return
+
+    token_char_offsets = _build_token_char_offsets(response_token_rows, response_text)
+    rescued_any = False
+
+    for record in claim_records:
+        if not isinstance(record, dict) or record.get("skipped"):
+            continue
+        contradiction = float(record.get("contradiction") or 0.0)
+        if contradiction < _CLAIM_BAND_CONTRADICTION_FLOOR:
+            continue
+
+        char_start = record.get("char_start")
+        char_end = record.get("char_end")
+        if char_start is None or char_end is None:
+            continue
+
+        mean_heatmap = _mean_heatmap_for_span(
+            token_char_offsets, response_token_rows, int(char_start), int(char_end),
+        )
+        if mean_heatmap is None or mean_heatmap < _CONCORDANCE_RESCUE_HEATMAP_MIN:
+            continue
+
+        _rescue_record(record, mean_heatmap)
+        for atom in record.get("atoms") or []:
+            if isinstance(atom, dict) and float(atom.get("contradiction") or 0.0) >= _CLAIM_BAND_CONTRADICTION_FLOOR:
+                _rescue_record(atom, mean_heatmap)
+        rescued_any = True
+
+    if rescued_any:
+        scored = [
+            r for r in claim_records
+            if isinstance(r, dict) and not r.get("skipped") and r.get("score") is not None
+        ]
+        if scored:
+            mean_signed = sum(float(r["score"]) for r in scored) / len(scored)
+            nli_payload["aggregate_score"] = 0.5 + 0.5 * mean_signed
+        nli_payload.setdefault("warnings", []).append("concordance_rescue_applied")
+
+
+def _rescue_record(record: Dict[str, Any], mean_heatmap: float) -> None:
+    """Cap contradiction below the red floor and force band to amber.
+
+    When the embedding heatmap strongly confirms grounding but NLI
+    reports contradiction, the entailment signal may also be unreliable
+    (low entailment does not mean ungrounded -- it means the NLI model
+    was confused by paraphrasing). We therefore force the band to
+    ``"amber"`` and floor the score at ``_CLAIM_BAND_AMBER_MIN`` so it
+    no longer drags the aggregate down as aggressively.
+    """
+
+    new_contradiction = min(
+        float(record.get("contradiction") or 0.0),
+        _CONCORDANCE_RESCUE_CONTRADICTION_CAP,
+    )
+    entailment = float(record.get("entailment") or 0.0)
+    raw_score = max(-1.0, min(1.0, entailment - new_contradiction))
+    new_score = max(raw_score, _CLAIM_BAND_AMBER_MIN)
+    record["contradiction"] = new_contradiction
+    record["score"] = new_score
+    record["band"] = "amber"
+    record["concordance_rescued"] = True
+    record["concordance_heatmap"] = float(mean_heatmap)
+
+
+def _build_token_char_offsets(
+    response_token_rows: Sequence[Dict[str, Any]],
+    response_text: str,
+) -> List[Tuple[int, int]]:
+    """Map each token row to its ``(char_start, char_end)`` in the response text.
+
+    Uses the same left-to-right cursor walk as
+    :func:`nli._project_spans_to_tokens` so the alignment is consistent.
+    """
+
+    offsets: List[Tuple[int, int]] = []
+    cursor = 0
+    text_len = len(response_text)
+    for row in response_token_rows:
+        token_raw = str(row.get("token", ""))
+        surface = token_raw.lstrip("\u0120\u2581 ").strip()
+        if not surface or cursor >= text_len:
+            offsets.append((-1, -1))
+            continue
+        match_at = response_text.find(surface, cursor, text_len)
+        if match_at < 0:
+            match_at = response_text.lower().find(surface.lower(), cursor, text_len)
+        if match_at < 0:
+            offsets.append((-1, -1))
+            continue
+        end = match_at + len(surface)
+        offsets.append((match_at, end))
+        cursor = end
+    return offsets
+
+
+def _mean_heatmap_for_span(
+    token_char_offsets: Sequence[Tuple[int, int]],
+    response_token_rows: Sequence[Dict[str, Any]],
+    char_start: int,
+    char_end: int,
+) -> Optional[float]:
+    """Compute mean ``heatmap_score`` for tokens whose character range overlaps ``[char_start, char_end)``."""
+
+    total = 0.0
+    count = 0
+    for (tok_start, tok_end), row in zip(token_char_offsets, response_token_rows):
+        if tok_start < 0:
+            continue
+        if tok_start >= char_end or tok_end <= char_start:
+            continue
+        score = row.get("heatmap_score")
+        if score is not None:
+            total += float(score)
+            count += 1
+    return (total / count) if count > 0 else None
+
+
+def _concordance_rescue_claim_records(
+    claim_records: Sequence[Dict[str, Any]],
+    response_token_rows: Sequence[Dict[str, Any]],
+    response_text: str,
+) -> Optional[float]:
+    """Standalone rescue for the merger path where ``nli_payload`` is unavailable.
+
+    Returns the recalculated ``nli_aggregate`` if any claim was rescued,
+    or ``None`` if no rescue was needed.
+    """
+
+    if not claim_records or not response_token_rows or not response_text:
+        return None
+
+    token_char_offsets = _build_token_char_offsets(response_token_rows, response_text)
+    rescued_any = False
+
+    for record in claim_records:
+        if not isinstance(record, dict) or record.get("skipped"):
+            continue
+        contradiction = float(record.get("contradiction") or 0.0)
+        if contradiction < _CLAIM_BAND_CONTRADICTION_FLOOR:
+            continue
+
+        char_start = record.get("char_start")
+        char_end = record.get("char_end")
+        if char_start is None or char_end is None:
+            continue
+
+        mean_heatmap = _mean_heatmap_for_span(
+            token_char_offsets, response_token_rows, int(char_start), int(char_end),
+        )
+        if mean_heatmap is None or mean_heatmap < _CONCORDANCE_RESCUE_HEATMAP_MIN:
+            continue
+
+        _rescue_record(record, mean_heatmap)
+        for atom in record.get("atoms") or []:
+            if isinstance(atom, dict) and float(atom.get("contradiction") or 0.0) >= _CLAIM_BAND_CONTRADICTION_FLOOR:
+                _rescue_record(atom, mean_heatmap)
+        rescued_any = True
+
+    if not rescued_any:
+        return None
+
+    scored = [
+        r for r in claim_records
+        if isinstance(r, dict) and not r.get("skipped") and r.get("score") is not None
+    ]
+    if scored:
+        mean_signed = sum(float(r["score"]) for r in scored) / len(scored)
+        return 0.5 + 0.5 * mean_signed
+    return None
+
+
 def score_groundedness_chunked(
     *,
     support_batches: Sequence[Sequence[SupportUnitInput]],
@@ -4788,6 +4987,7 @@ def score_groundedness_chunked(
         nli_use_atomic_claims=nli_use_atomic_claims,
     )
     if nli_payload is not None:
+        _concordance_rescue_claims(nli_payload, response_token_rows, response_text or "")
         warnings.extend(nli_payload.pop("warnings", []))
     nli_aggregate = nli_payload["aggregate_score"] if nli_payload else None
     verbatim_floor = _verbatim_support_floor(response_text, support_units_payload)
@@ -5543,6 +5743,9 @@ def score_groundedness_response_chunked(
     # just those in the first response chunk.
     nli_diag = base.get("nli_diagnostics")
     if nli_diag and nli_diag.get("claims"):
+        rescued_agg = _concordance_rescue_claim_records(
+            nli_diag["claims"], response_token_rows, response_text,
+        )
         global_token_strings = [str(row["token"]) for row in response_token_rows]
         global_nli_per_token = project_claim_records_to_tokens(
             global_token_strings,
@@ -5551,6 +5754,8 @@ def score_groundedness_response_chunked(
         )
         for row, value in zip(response_token_rows, global_nli_per_token):
             row["nli_score"] = value
+        if rescued_agg is not None:
+            base["scores"]["nli_aggregate"] = rescued_agg
 
     base_scores = base["scores"]
     base_groundedness_v2 = base_scores.get("groundedness_v2")
