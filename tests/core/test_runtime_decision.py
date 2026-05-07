@@ -42,24 +42,60 @@ def _response(score: float, class_key: str = "rag.prose.enterprise") -> SimpleNa
     )
 
 
-def _trajectory_response(features: dict[str, float]) -> SimpleNamespace:
+def _trajectory_response(
+    features: dict[str, float],
+    *,
+    risk_band: str | None = None,
+) -> SimpleNamespace:
+    """Build a fixture for the head-driven trajectory ranker.
+
+    Production responses always carry a calibration ``risk_band`` aligned
+    with the underlying score. Test stubs that exercise the head path in
+    isolation must therefore stamp a calibration band consistent with
+    the head's intended outcome (grounded -> green, ungrounded -> red);
+    otherwise the runtime decision's band-coercion stage will quite
+    correctly override the head's verdict to match calibration.
+    """
+
     response = _response(0.5, class_key="code.agentic_trace")
     response.runtime_head_features = features
+    if risk_band is not None:
+        response.scores.risk_band = risk_band
     return response
 
 
-def _head_feature_response(class_key: str, features: dict[str, float]) -> SimpleNamespace:
+def _head_feature_response(
+    class_key: str,
+    features: dict[str, float],
+    *,
+    risk_band: str | None = None,
+) -> SimpleNamespace:
     response = _response(0.5, class_key=class_key)
     response.runtime_head_features = features
     response.response_text = (
         "The answer cites the exact supported atom, matching schema cell, "
         "and verified symbol from the evidence."
     )
+    if risk_band is not None:
+        response.scores.risk_band = risk_band
     return response
 
 
 def _structured_response_with_warning(warning: str | None = None) -> SimpleNamespace:
-    response = _head_feature_response("rag.structured", _structured_allow_features())
+    # The clean (no-warning) case has a fully-grounded response so
+    # calibration is green; the warning cases carry a specific literal
+    # mismatch which calibration would correctly mark as amber. Setting
+    # the band on the fixture matches the production (calibration ≡
+    # head verdict severity) contract — without the band stamp the test
+    # would simultaneously claim "no risk" via calibration and "must
+    # auto-repair" via the structured guard, which never happens in
+    # production.
+    risk_band = "green" if warning is None else "amber"
+    response = _head_feature_response(
+        "rag.structured",
+        _structured_allow_features(),
+        risk_band=risk_band,
+    )
     response.warnings = [] if warning is None else [warning]
     return response
 
@@ -206,9 +242,25 @@ def test_agentic_trace_policy_uses_promoted_head(monkeypatch) -> None:
     ungrounded_features["context_token_log"] = 5.0
     ungrounded_features["missing_command_evidence"] = 0.0
 
-    allowed = runtime_decision.build_runtime_decision(_trajectory_response(grounded_features))
-    blocked = runtime_decision.build_runtime_decision(_trajectory_response(ungrounded_features))
-    missing_features = runtime_decision.build_runtime_decision(_response(0.99, class_key="code.agentic_trace"))
+    # In production the calibration band would also be green for a
+    # grounded response (and red for an ungrounded one); stamp the
+    # consistent band on the fixture so the head's verdict is not
+    # later coerced by the band-coercion stage.
+    allowed = runtime_decision.build_runtime_decision(
+        _trajectory_response(grounded_features, risk_band="green")
+    )
+    blocked = runtime_decision.build_runtime_decision(
+        _trajectory_response(ungrounded_features, risk_band="red")
+    )
+    # Missing features path: head is disabled. We stamp an amber
+    # calibration band to match the production "we don't have enough
+    # signal to make a confident allow/block call" semantics; without
+    # that explicit amber the band-coercion stage would (correctly)
+    # promote auto_repair to allow when calibration claims the response
+    # is fully grounded.
+    missing_features_fixture = _response(0.99, class_key="code.agentic_trace")
+    missing_features_fixture.scores.risk_band = "amber"
+    missing_features = runtime_decision.build_runtime_decision(missing_features_fixture)
 
     assert allowed is not None
     assert allowed["action"] == "allow"
@@ -244,8 +296,9 @@ def test_all_promoted_heads_are_executable_or_feature_gated(monkeypatch) -> None
         "rag.structured",
     }
     for class_key in feature_classes:
+        # Calibration band on a fully-grounded fixture is green.
         record = runtime_decision.build_runtime_decision(
-            _head_feature_response(class_key, _good_root_cause_features())
+            _head_feature_response(class_key, _good_root_cause_features(), risk_band="green")
         )
         assert record is not None
         assert record["head_enabled"] is True
@@ -254,17 +307,26 @@ def test_all_promoted_heads_are_executable_or_feature_gated(monkeypatch) -> None
         assert record["allow_disabled"] is False
         assert record["block_disabled"] is False
 
+        # Bad features → calibration band is red; both head and
+        # calibration converge on block.
         blocked = runtime_decision.build_runtime_decision(
             _head_feature_response(
                 class_key,
                 _bad_root_cause_features(),
+                risk_band="red",
             )
         )
         assert blocked is not None
         assert blocked["action"] == "block"
         assert blocked["head_enabled"] is True
 
-        missing = runtime_decision.build_runtime_decision(_response(0.99, class_key=class_key))
+        # Missing-feature path: stamp an explicit amber calibration band
+        # so the repair-only verdict survives the band-coercion stage
+        # (without it, calibration's green from the placeholder score
+        # would correctly promote auto_repair to allow).
+        missing_fixture = _response(0.99, class_key=class_key)
+        missing_fixture.scores.risk_band = "amber"
+        missing = runtime_decision.build_runtime_decision(missing_fixture)
         assert missing is not None
         assert missing["action"] == "auto_repair"
         assert missing["head_enabled"] is False
@@ -377,3 +439,98 @@ def test_corrupt_head_artifact_falls_back(monkeypatch, tmp_path) -> None:
     assert record["action"] == "allow"
     assert record["head_enabled"] is False
     assert any("load_failed" in code for code in record["head_reason_codes"])
+
+
+def test_red_calibration_band_overrides_head_driven_auto_repair(monkeypatch) -> None:
+    """Regression for the German Kafka case.
+
+    The runtime head can return a borderline ``head_score`` that maps
+    to ``auto_repair`` even when the per-class calibration bundle
+    correctly bands the response as ``red``. Before the band-coercion
+    stage shipped, the live overlay would show ``Amber`` while the
+    event log showed ``Red`` for the same response. Pin the new
+    one-way coercion: red calibration band → ``block`` action even
+    when heads would otherwise repair.
+    """
+
+    monkeypatch.setenv("LATENCE_TRACE_RUNTIME_DECISION_ENABLED", "1")
+    runtime_decision.reset_policy_cache_for_tests()
+
+    # Simulate the Kafka case: groundedness_v2 mid-range, calibration
+    # band red (per the rag.prose.multi_claim DE bundle, amber=0.90).
+    response = _response(0.5, class_key="rag.prose.multi_claim")
+    response.scores.risk_band = "red"
+    response.runtime_head_features = _good_root_cause_features()
+
+    record = runtime_decision.build_runtime_decision(response)
+
+    assert record is not None
+    assert record["band"] == "red", "band must reflect the calibration verdict"
+    assert record["action"] == "block", "red calibration must block, not auto_repair"
+    assert any(
+        code.startswith("calibration_band_coercion:red") for code in record["reason_codes"]
+    ), "expected reason_codes to record the coercion event"
+
+
+def test_red_calibration_falls_back_to_auto_repair_when_block_disabled(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    """When operators disable block on a class, red calibration must
+    drop to ``auto_repair`` rather than ignoring the disable flag."""
+
+    policy = {
+        "channel": "test_block_disabled",
+        "default": {
+            "allow_threshold": 1.0,
+            "block_threshold": 0.0,
+            "allow_disabled": False,
+            "block_disabled": True,
+        },
+        "classes": {
+            "rag.prose.enterprise": {
+                "allow_threshold": 0.9,
+                "block_threshold": 0.1,
+                "allow_disabled": False,
+                "block_disabled": True,
+            }
+        },
+    }
+    policy_path = tmp_path / "policy.json"
+    policy_path.write_text(json.dumps(policy), encoding="utf-8")
+    monkeypatch.setenv("LATENCE_TRACE_RUNTIME_DECISION_ENABLED", "1")
+    monkeypatch.setenv("LATENCE_TRACE_RUNTIME_POLICY_PATH", str(policy_path))
+    runtime_decision.reset_policy_cache_for_tests()
+
+    response = _response(0.5, class_key="rag.prose.enterprise")
+    response.scores.risk_band = "red"
+    record = runtime_decision.build_runtime_decision(response)
+
+    assert record is not None
+    assert record["band"] == "red"
+    assert record["action"] == "auto_repair", "block_disabled must downgrade block to auto_repair"
+
+
+def test_amber_calibration_does_not_disturb_head_driven_allow(monkeypatch) -> None:
+    """Amber calibration leaves head/policy verdicts untouched.
+
+    The coercion is intentionally one-way: only red overrides. Amber
+    calibration must NOT downgrade a head-driven ``allow`` to
+    ``auto_repair`` because the head's structured guards are precisely
+    the lane that catches finer-grained issues calibration may have
+    missed; a blanket amber→auto_repair would erase that signal.
+    """
+
+    monkeypatch.setenv("LATENCE_TRACE_RUNTIME_DECISION_ENABLED", "1")
+    runtime_decision.reset_policy_cache_for_tests()
+
+    response = _head_feature_response(
+        "rag.structured",
+        _structured_allow_features(),
+        risk_band="amber",
+    )
+    record = runtime_decision.build_runtime_decision(response)
+
+    assert record is not None
+    assert record["band"] == "amber", "band reflects calibration"
+    assert record["action"] == "allow", "amber must not coerce head-driven allow"

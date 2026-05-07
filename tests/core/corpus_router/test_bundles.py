@@ -104,13 +104,11 @@ def test_load_bundle_with_explicit_en_matches_default() -> None:
 def test_load_bundle_de_falls_back_to_en_with_warning(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    # ``rag.prose.short_factoid`` is one of the two classes Phase C held
-    # back from German shipping (its German train metric trailed English
-    # by more than the 0.05 gate). The loader must fall back to the
-    # English bundle and emit ``bundle_language_fallback`` exactly once
-    # per (class, lang) pair so a steady stream of German requests does
-    # not flood the log.
-    held_back_class = "rag.prose.short_factoid"
+    # ``rag.code_in_context`` is a code-class that intentionally never
+    # ships a German bundle (per project policy "code is always
+    # English"). Pick it for the fallback test so a future German prose
+    # bundle ship doesn't flake this test out of nowhere.
+    held_back_class = "rag.code_in_context"
     assert not _bundles._calibration_path(held_back_class, "de").exists(), (
         f"{held_back_class} now ships a German bundle - pick another "
         "held-back class for this fallback test."
@@ -170,6 +168,9 @@ def test_load_bundle_picks_up_de_artefact_when_present(
         "trained_on": "data/corpus_classifier/german_translation/rag_prose_multi_claim.jsonl",
     }
     target = _bundles._DATA_DIR / "calibration.rag_prose_multi_claim.de.json"
+    # Back up an existing real bundle (if shipped) so the test does not
+    # destroy production data when the cleanup ``unlink`` fires.
+    original = target.read_bytes() if target.exists() else None
     target.write_text(json.dumps(fake_de), encoding="utf-8")
     try:
         _bundles.reset_singleton_for_tests()
@@ -180,7 +181,10 @@ def test_load_bundle_picks_up_de_artefact_when_present(
         assert bundle.amber_threshold == pytest.approx(0.55)
         assert bundle.nli_model_hint == "de"
     finally:
-        target.unlink(missing_ok=True)
+        if original is not None:
+            target.write_bytes(original)
+        else:
+            target.unlink(missing_ok=True)
         _bundles.reset_singleton_for_tests()
 
 

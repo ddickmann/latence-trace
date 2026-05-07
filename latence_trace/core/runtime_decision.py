@@ -183,6 +183,63 @@ def _band_for_action(action: str) -> str:
     return "amber"
 
 
+_CALIBRATION_BANDS = frozenset({"green", "amber", "red"})
+
+
+def _calibration_band(response: Any) -> Optional[str]:
+    """Return the user-visible calibration band attached to ``response``.
+
+    The calibration band is the band the per-class calibration bundle
+    assigned to the fused groundedness signal (``groundedness_v2`` /
+    ``primary_score``). It is the verdict every consumer surface
+    (heatmap header, event log, SDK callers) reads as the canonical
+    risk band, so the runtime decision MUST agree with it whenever it
+    is set; otherwise the same response carries two contradictory band
+    labels (e.g. amber on the live overlay, red in the event log).
+    """
+
+    raw_band = getattr(getattr(response, "scores", None), "risk_band", None)
+    if raw_band is None:
+        return None
+    band = str(raw_band).strip().lower()
+    return band if band in _CALIBRATION_BANDS else None
+
+
+def _coerce_action_to_calibration(
+    action: str,
+    calibration_band: Optional[str],
+    class_policy: Mapping[str, Any],
+) -> str:
+    """Force ``action`` to ``block`` when calibration says ``red``.
+
+    Calibration is the user-visible verdict that drives the heatmap
+    header, the event log row, the SDK ``risk_band`` field, and the
+    in-product red/amber/green pill. When calibration says ``red`` for
+    a response, we never let a head-driven ``allow`` or ``auto_repair``
+    survive — the live overlay would otherwise show a benign action on
+    a response the user already sees as red, which is the exact
+    contradiction the German Kafka case surfaced.
+
+    The coercion is intentionally **one-way**: head/policy verdicts are
+    untouched on green and amber so the existing safety overrides
+    (structured literal-mismatch repair, head feature gating, etc.)
+    keep firing as-designed. Green is left to the head precisely
+    because head-driven logic — the structured guard, the missing-
+    feature gate — exists to demote allow to auto_repair when the
+    head detects risks calibration may have missed.
+
+    When ``block_disabled=true`` for the class we fall back to
+    ``auto_repair`` to honour the operator's explicit "do not block"
+    contract rather than forcing an action they turned off.
+    """
+
+    if calibration_band != "red":
+        return action
+    if bool(class_policy.get("block_disabled", False)):
+        return "auto_repair"
+    return "block"
+
+
 def _support_evidence(response: Any, *, limit: int = 3) -> list[dict[str, Any]]:
     units = list(getattr(response, "support_units", []) or [])
     units.sort(
@@ -342,13 +399,19 @@ def build_runtime_decision(response: Any) -> Optional[dict[str, Any]]:
             response,
             block_disabled=False,
         )
+        # Even on the rollback-safe fallback path the band is the
+        # canonical calibration band; coerce action so the live UI and
+        # event log never disagree when the policy file is missing in
+        # rare ops scenarios.
+        calibration_band = _calibration_band(response)
+        action = _coerce_action_to_calibration(action, calibration_band, {})
         return {
             "policy_version": "unavailable",
             "policy_sha256": None,
             "class_key": _class_key(response),
             "score": score,
             "score_channel": score_channel,
-            "band": str(response.scores.risk_band or "unknown"),
+            "band": calibration_band if calibration_band is not None else str(response.scores.risk_band or "unknown"),
             "action": action,
             "evidence": _support_evidence(response),
             "unsupported_spans": _unsupported_spans(response),
@@ -383,7 +446,20 @@ def build_runtime_decision(response: Any) -> Optional[dict[str, Any]]:
         response,
         block_disabled=bool(class_policy.get("block_disabled", False)),
     )
-    decision_band = _band_for_action(action)
+    # Final stage: align action+band with the per-class calibration band
+    # so the user-visible verdict (event log, heatmap, SDK callers) and
+    # the runtime decision (live overlay, action label) never disagree
+    # on the same response. The head score and head decision still drive
+    # the final verdict for green/amber, but a red calibration band is
+    # treated as authoritative — calibration was trained on the
+    # per-(class, language) ground-truth distribution and is the
+    # canonical "is this answer ungrounded?" signal.
+    calibration_band = _calibration_band(response)
+    pre_calibration_action = action
+    action = _coerce_action_to_calibration(action, calibration_band, class_policy)
+    if calibration_band is not None and action != pre_calibration_action:
+        reason_codes.append(f"calibration_band_coercion:{calibration_band}")
+    decision_band = calibration_band if calibration_band is not None else _band_for_action(action)
     return {
         "policy_version": str(policy.get("channel") or "runtime_decision"),
         "policy_sha256": policy_sha,
