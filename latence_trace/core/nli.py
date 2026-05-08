@@ -38,6 +38,7 @@ _DEFAULT_FUSION_WEIGHTS: Dict[str, float] = {
     "calibrated": 0.5,
     "literal": 0.2,
     "nli": 0.3,
+    "guardian": 0.0,
     "semantic_entropy": 0.0,
     "structured": 0.0,
 }
@@ -1038,6 +1039,7 @@ def fuse_groundedness_v2(
     reverse_context_calibrated: Optional[float],
     literal_guarded: Optional[float],
     nli_aggregate: Optional[float],
+    guardian_aggregate: Optional[float] = None,
     semantic_entropy: Optional[float] = None,
     structured_source_guarded: Optional[float] = None,
     typed_structured: Optional[float] = None,
@@ -1112,6 +1114,7 @@ def fuse_groundedness_v2(
             ("calibrated", reverse_context_calibrated, weights.get("calibrated", 0.0)),
             ("literal", literal_guarded, weights.get("literal", 0.0)),
             ("nli", nli_aggregate, weights.get("nli", 0.0)),
+            ("guardian", guardian_aggregate, weights.get("guardian", 0.0)),
             ("semantic_entropy", semantic_entropy, weights.get("semantic_entropy", 0.0)),
         ]
         contributing_narrative = [
@@ -1153,6 +1156,7 @@ def fuse_groundedness_v2(
         ("calibrated", reverse_context_calibrated, weights.get("calibrated", 0.0)),
         ("literal", literal_guarded, weights.get("literal", 0.0)),
         ("nli", nli_aggregate, weights.get("nli", 0.0)),
+        ("guardian", guardian_aggregate, weights.get("guardian", 0.0)),
         ("semantic_entropy", semantic_entropy, weights.get("semantic_entropy", 0.0)),
         ("structured", structured_channel_value, weights.get("structured", 0.0)),
     ]
@@ -1550,6 +1554,7 @@ def fusion_weights_from_env() -> Dict[str, float]:
         "calibrated": env_float("VOYAGER_GROUNDEDNESS_FUSION_W_CALIBRATED", _DEFAULT_FUSION_WEIGHTS["calibrated"]),
         "literal": env_float("VOYAGER_GROUNDEDNESS_FUSION_W_LITERAL", _DEFAULT_FUSION_WEIGHTS["literal"]),
         "nli": env_float("VOYAGER_GROUNDEDNESS_FUSION_W_NLI", _DEFAULT_FUSION_WEIGHTS["nli"]),
+        "guardian": env_float("VOYAGER_GROUNDEDNESS_FUSION_W_GUARDIAN", _DEFAULT_FUSION_WEIGHTS["guardian"]),
         "semantic_entropy": env_float(
             "VOYAGER_GROUNDEDNESS_FUSION_W_SEMANTIC_ENTROPY",
             _DEFAULT_FUSION_WEIGHTS["semantic_entropy"],

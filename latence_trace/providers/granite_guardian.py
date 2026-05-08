@@ -259,6 +259,53 @@ class GraniteGuardianNLIProvider:
 
         return [r for r in results if r is not None]  # type: ignore[misc]
 
+    # ------------------------------------------------------------------
+    # Holistic groundedness scoring
+    # ------------------------------------------------------------------
+
+    def score_holistic(
+        self,
+        context_windows: Sequence[str],
+        response_segments: Sequence[str],
+    ) -> List[float]:
+        """Score response segments against context windows holistically.
+
+        For each response segment, evaluates it against **every** context
+        window, then takes the max P(grounded) across windows.  This gives
+        Guardian larger, more coherent text spans to reason about compared
+        to the 1-sentence NLI pathway, producing a stronger signal.
+
+        Returns one ``P(grounded)`` float per response segment in [0, 1].
+        """
+        if not context_windows or not response_segments:
+            return [0.5] * len(response_segments)
+
+        prompts: List[str] = []
+        pair_map: List[Tuple[int, int]] = []
+        for seg_idx, segment in enumerate(response_segments):
+            for win_idx, window in enumerate(context_windows):
+                prompts.append(self._build_prompt(window, segment))
+                pair_map.append((seg_idx, win_idx))
+
+        if not prompts:
+            return [0.5] * len(response_segments)
+
+        choices = self._call_vllm(prompts)
+
+        per_segment: Dict[int, float] = {}
+        for choice_idx, (seg_idx, _win_idx) in enumerate(pair_map):
+            if choice_idx < len(choices):
+                lp_obj = choices[choice_idx].get("logprobs") or {}
+                p_grounded, _p_ungrounded = _extract_score(lp_obj)
+            else:
+                p_grounded = 0.5
+            prev = per_segment.get(seg_idx, 0.0)
+            per_segment[seg_idx] = max(prev, p_grounded)
+
+        return [
+            per_segment.get(i, 0.5) for i in range(len(response_segments))
+        ]
+
     def healthcheck(self) -> None:
         """Verify the vLLM endpoint is reachable."""
         url = f"{self.endpoint}/v1/models"

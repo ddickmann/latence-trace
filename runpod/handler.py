@@ -1557,22 +1557,33 @@ def _build_request(input_data: dict[str, Any]) -> tuple[GroundednessRequest, boo
 
 def _compact_response(response: GroundednessResponse, *, verbose: bool) -> dict[str, Any]:
     scores = response.scores
+    guardian_active = scores.guardian_aggregate is not None
     primary_metric = (
         "groundedness_v2" if scores.groundedness_v2 is not None else scores.primary_name
     )
     score = scores.groundedness_v2 if scores.groundedness_v2 is not None else scores.primary_score
-    score_channels = {
-        "primary": scores.primary_score,
-        "reverse_context": scores.reverse_context,
-        "reverse_context_calibrated": scores.reverse_context_calibrated,
-        "literal_guarded": scores.literal_guarded,
-        "nli_aggregate": scores.nli_aggregate,
-        "semantic_entropy_aggregate": scores.semantic_entropy_aggregate,
-        "structured_source": scores.structured_source,
-        "structured_source_guarded": scores.structured_source_guarded,
-        "groundedness_v2": scores.groundedness_v2,
-        "consensus_hardened": scores.consensus_hardened,
-    }
+
+    if guardian_active:
+        band = "green" if scores.grounded else "red"
+        score_channels = {
+            "guardian_aggregate": scores.guardian_aggregate,
+            "groundedness_v2": scores.groundedness_v2,
+        }
+    else:
+        band = scores.risk_band
+        score_channels = {
+            "primary": scores.primary_score,
+            "reverse_context": scores.reverse_context,
+            "reverse_context_calibrated": scores.reverse_context_calibrated,
+            "literal_guarded": scores.literal_guarded,
+            "nli_aggregate": scores.nli_aggregate,
+            "guardian_aggregate": scores.guardian_aggregate,
+            "semantic_entropy_aggregate": scores.semantic_entropy_aggregate,
+            "structured_source": scores.structured_source,
+            "structured_source_guarded": scores.structured_source_guarded,
+            "groundedness_v2": scores.groundedness_v2,
+            "consensus_hardened": scores.consensus_hardened,
+        }
     if scores.context_trust_score is not None:
         score_channels["context_trust"] = scores.context_trust_score
     if scores.context_trust_max_risk is not None:
@@ -1581,22 +1592,34 @@ def _compact_response(response: GroundednessResponse, *, verbose: bool) -> dict[
         "success": True,
         "score": float(score),
         "primary_metric": primary_metric,
-        "band": scores.risk_band,
+        "band": band,
+        "grounded": scores.grounded,
         "groundedness_v2": scores.groundedness_v2,
-        "reverse_context_calibrated": scores.reverse_context_calibrated,
-        "literal_guarded": scores.literal_guarded,
-        "structured_score": scores.structured_source,
-        "structured_source_guarded": scores.structured_source_guarded,
-        "structured_source_detected": scores.structured_source_detected,
-        "nli_aggregate": scores.nli_aggregate,
-        "semantic_entropy_aggregate": scores.semantic_entropy_aggregate,
-        "semantic_entropy_raw": scores.semantic_entropy_raw,
-        "semantic_entropy_sample_count": scores.semantic_entropy_sample_count,
+        "guardian_aggregate": scores.guardian_aggregate,
+        "score_channels": score_channels,
+    }
+    if guardian_active and scores.guardian_segments is not None:
+        result["guardian_segments"] = [
+            {"text": seg.text, "score": seg.score, "grounded": seg.grounded}
+            for seg in scores.guardian_segments
+        ]
+    if not guardian_active:
+        result.update({
+            "reverse_context_calibrated": scores.reverse_context_calibrated,
+            "literal_guarded": scores.literal_guarded,
+            "structured_score": scores.structured_source,
+            "structured_source_guarded": scores.structured_source_guarded,
+            "structured_source_detected": scores.structured_source_detected,
+            "nli_aggregate": scores.nli_aggregate,
+            "semantic_entropy_aggregate": scores.semantic_entropy_aggregate,
+            "semantic_entropy_raw": scores.semantic_entropy_raw,
+            "semantic_entropy_sample_count": scores.semantic_entropy_sample_count,
+        })
+    result.update({
         "context_trust_score": scores.context_trust_score,
         "context_trust_suspicious_count": scores.context_trust_suspicious_count,
         "context_trust_blocked_count": scores.context_trust_blocked_count,
         "context_trust_max_risk": scores.context_trust_max_risk,
-        "score_channels": score_channels,
         "context_coverage_ratio": scores.context_coverage_ratio,
         "context_coverage_threshold": scores.context_coverage_threshold,
         "context_unused_ratio": scores.context_unused_ratio,
@@ -1634,7 +1657,7 @@ def _compact_response(response: GroundednessResponse, *, verbose: bool) -> dict[
             response.effective_profile.value if response.effective_profile else None
         ),
         "session_id": response.session_id,
-    }
+    })
     if response.profile_diagnostics:
         result["profile_diagnostics"] = dict(response.profile_diagnostics)
     if response.context_trust_diagnostics is not None:

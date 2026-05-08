@@ -747,6 +747,20 @@ def _resolve_active_language(
     )
 
 
+def _guardian_holistic_fusion_weights(
+    base_weights: Optional[Dict[str, float]],
+) -> Dict[str, float]:
+    """Guardian-only fusion: headline = guardian_aggregate."""
+    return {
+        "calibrated": 0.0,
+        "literal": 0.0,
+        "nli": 0.0,
+        "guardian": 1.0,
+        "semantic_entropy": 0.0,
+        "structured": 0.0,
+    }
+
+
 def _apply_language_defaults(
     *,
     request: GroundednessRequest,
@@ -1972,18 +1986,23 @@ class GroundednessService:
             language=request_language,
             force_enabled=runtime_profile.nli_enabled,
         )
+        guardian_holistic_active = (
+            nli_provider is not None and hasattr(nli_provider, "score_holistic")
+        )
         nli_reranker = (
             self._get_nli_reranker(
                 model_id=runtime_profile.nli_reranker_model,
                 force_enabled=runtime_profile.nli_enabled,
             )
-            if nli_provider is not None and runtime_profile.nli_enabled
+            if nli_provider is not None
+            and runtime_profile.nli_enabled
+            and not guardian_holistic_active
             else None
         )
         nli_kwargs: Dict[str, Any] = {}
         if nli_provider is not None:
             nli_kwargs = {
-                "nli_provider": nli_provider,
+                "nli_provider": None if guardian_holistic_active else nli_provider,
                 "nli_max_claims": _profile_int(
                     runtime_profile,
                     "VOYAGER_GROUNDEDNESS_NLI_MAX_CLAIMS",
@@ -2012,7 +2031,9 @@ class GroundednessService:
                     nli_default_premise_concat_word_budget(),
                 ),
                 "nli_use_atomic_claims": runtime_profile.nli_use_atomic_claims,
-                "fusion_weights": runtime_profile.fusion_weights,
+                "fusion_weights": _guardian_holistic_fusion_weights(
+                    runtime_profile.fusion_weights
+                ) if guardian_holistic_active else runtime_profile.fusion_weights,
                 "fusion_substitute_missing_channels_threshold": (
                     runtime_profile.fusion_substitute_missing_channels_threshold
                 ),

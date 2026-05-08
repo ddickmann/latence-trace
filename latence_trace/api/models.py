@@ -623,6 +623,14 @@ class GroundednessRequest(BaseModel):
         return self
 
 
+class GuardianSegment(BaseModel):
+    """Per-segment Guardian groundedness result."""
+
+    text: str
+    score: float
+    grounded: bool
+
+
 class GroundednessScores(BaseModel):
     """Aggregate groundedness scores returned by the /groundedness endpoint."""
 
@@ -635,6 +643,9 @@ class GroundednessScores(BaseModel):
     literal_match_count: Optional[int] = None
     literal_total_count: Optional[int] = None
     nli_aggregate: Optional[float] = None
+    guardian_aggregate: Optional[float] = None
+    guardian_segments: Optional[List[GuardianSegment]] = None
+    grounded: Optional[bool] = None
     nli_claim_count: Optional[int] = None
     nli_skipped_count: Optional[int] = None
     groundedness_v2: Optional[float] = None

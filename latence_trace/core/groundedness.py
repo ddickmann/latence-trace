@@ -3693,12 +3693,21 @@ def score_groundedness(
         )
     )
 
+    guardian_result = _maybe_run_guardian_holistic(
+        response_text=response_text,
+        support_units=support_units,
+    )
+    guardian_aggregate: Optional[float] = (
+        guardian_result["aggregate"] if guardian_result is not None else None
+    )
+
     groundedness_v2 = fuse_groundedness_v2(
         reverse_context_calibrated=(
             float(reverse_context_calibrated_score) if null_bank_size > 0 else float(reverse_context_score)
         ),
         literal_guarded=float(literal_guarded_value),
         nli_aggregate=nli_aggregate,
+        guardian_aggregate=guardian_aggregate,
         semantic_entropy=semantic_entropy_aggregate,
         structured_source_guarded=structured_aggregate,
         typed_structured=typed_structured_score,
@@ -3752,6 +3761,9 @@ def score_groundedness(
         "literal_match_count": int(len(literal_matches)),
         "literal_total_count": int(len(response_literals)),
         "nli_aggregate": float(nli_aggregate) if nli_aggregate is not None else None,
+        "guardian_aggregate": float(guardian_aggregate) if guardian_aggregate is not None else None,
+        "guardian_segments": guardian_result["segments"] if guardian_result is not None else None,
+        "grounded": guardian_result["grounded"] if guardian_result is not None else None,
         "verbatim_support_floor": (
             float(verbatim_floor) if verbatim_floor is not None else None
         ),
@@ -4166,6 +4178,195 @@ def _maybe_run_nli(
         "aggregate_score": aggregate,
         "per_token": per_token,
         "warnings": warnings,
+    }
+
+
+# ------------------------------------------------------------------
+# Guardian holistic pathway — configurable env vars
+# ------------------------------------------------------------------
+
+_GUARDIAN_CTX_WINDOW_TOKENS_MIN = 128
+_GUARDIAN_RESP_SEGMENT_TOKENS_MIN = 32
+
+
+def _guardian_ctx_window_tokens() -> int:
+    raw = os.environ.get("LATENCE_TRACE_GUARDIAN_CTX_WINDOW_TOKENS", "")
+    try:
+        val = int(raw)
+    except (ValueError, TypeError):
+        val = _GUARDIAN_CTX_WINDOW_TOKENS_MIN
+    return max(val, _GUARDIAN_CTX_WINDOW_TOKENS_MIN)
+
+
+def _guardian_resp_segment_tokens() -> int:
+    raw = os.environ.get("LATENCE_TRACE_GUARDIAN_RESP_SEGMENT_TOKENS", "")
+    try:
+        val = int(raw)
+    except (ValueError, TypeError):
+        val = _GUARDIAN_RESP_SEGMENT_TOKENS_MIN
+    return max(val, _GUARDIAN_RESP_SEGMENT_TOKENS_MIN)
+
+
+def _merge_sentences_to_segments(
+    spans: Sequence[Dict[str, Any]],
+    full_text: str,
+    min_tokens: int,
+) -> List[str]:
+    """Merge consecutive sentence spans into segments of >= *min_tokens* words.
+
+    Uses whitespace word count as a cheap token proxy (same convention as
+    ``_concat_premises_for_nli``).  Each segment is a contiguous substring
+    of *full_text* covering one or more sentence spans.
+    """
+    if not spans:
+        return []
+    segments: List[str] = []
+    buf_start: Optional[int] = None
+    buf_end: int = 0
+    buf_words: int = 0
+    for span in spans:
+        s = int(span.get("offset_start", 0))
+        e = int(span.get("offset_end", len(full_text)))
+        words = len(span.get("text", "").split())
+        if buf_start is None:
+            buf_start = s
+            buf_end = e
+            buf_words = words
+        else:
+            buf_end = e
+            buf_words += words
+        if buf_words >= min_tokens:
+            segments.append(full_text[buf_start:buf_end].strip())
+            buf_start = None
+            buf_end = 0
+            buf_words = 0
+    if buf_start is not None:
+        tail = full_text[buf_start:buf_end].strip()
+        if segments and buf_words < min_tokens:
+            segments[-1] = segments[-1] + " " + tail
+        else:
+            segments.append(tail)
+    return [s for s in segments if s]
+
+
+def _resolve_guardian_holistic_provider() -> Optional[Any]:
+    """Return the Guardian provider if it supports holistic scoring."""
+    try:
+        from latence_trace.providers.nli_registry import resolve_nli_provider
+
+        provider = resolve_nli_provider()
+        if provider is not None and hasattr(provider, "score_holistic"):
+            return provider
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
+_GUARDIAN_GROUNDED_THRESHOLD = 0.5
+_GUARDIAN_GROUNDED_THRESHOLD_DE = 0.35
+
+
+def _guardian_grounded_threshold(response_text: str) -> float:
+    """Return the grounded threshold, lowered for German to compensate
+    for Granite Guardian not being trained on German data."""
+    import os
+
+    env = os.environ.get("LATENCE_TRACE_GUARDIAN_GROUNDED_THRESHOLD", "").strip()
+    if env:
+        return float(env)
+
+    from latence_trace.core.language_detector import is_german
+
+    if is_german(response_text):
+        env_de = os.environ.get(
+            "LATENCE_TRACE_GUARDIAN_GROUNDED_THRESHOLD_DE", ""
+        ).strip()
+        return float(env_de) if env_de else _GUARDIAN_GROUNDED_THRESHOLD_DE
+    return _GUARDIAN_GROUNDED_THRESHOLD
+
+
+def _maybe_run_guardian_holistic(
+    *,
+    response_text: Optional[str],
+    support_units: Sequence[Any],
+) -> Optional[Dict[str, Any]]:
+    """Run holistic Guardian groundedness scoring.
+
+    Returns a dict with ``aggregate`` (float), ``grounded`` (bool), and
+    ``segments`` (list of per-segment dicts), or ``None`` when Guardian
+    is unavailable.
+    """
+    provider = _resolve_guardian_holistic_provider()
+    if provider is None:
+        return None
+    text = response_text or ""
+    if not text.strip() or not list(support_units):
+        return None
+
+    ctx_budget = _guardian_ctx_window_tokens()
+    resp_min = _guardian_resp_segment_tokens()
+
+    unit_texts = [
+        getattr(u, "text", "") or "" for u in support_units
+    ]
+    full_context = "\n".join(t for t in unit_texts if t.strip())
+    if not full_context.strip():
+        return None
+
+    from latence_trace.core.text_segmentation import split_sentences
+
+    ctx_spans = split_sentences(full_context)
+    if not ctx_spans:
+        context_windows = [full_context]
+    else:
+        context_windows = _merge_sentences_to_segments(
+            ctx_spans, full_context, min_tokens=ctx_budget,
+        )
+    if not context_windows:
+        context_windows = [full_context]
+
+    resp_spans = split_sentences(text)
+    if not resp_spans:
+        response_segments = [text]
+    else:
+        response_segments = _merge_sentences_to_segments(
+            resp_spans, text, min_tokens=resp_min,
+        )
+    if not response_segments:
+        response_segments = [text]
+
+    try:
+        per_segment = provider.score_holistic(context_windows, response_segments)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "guardian_holistic_failed",
+            extra={"error": str(exc)},
+        )
+        return None
+
+    if not per_segment:
+        return None
+
+    threshold = _guardian_grounded_threshold(text)
+    logger.info(
+        "guardian_holistic_threshold",
+        extra={"threshold": threshold, "n_segments": len(per_segment)},
+    )
+    segments = [
+        {
+            "text": response_segments[i] if i < len(response_segments) else "",
+            "score": float(per_segment[i]),
+            "grounded": float(per_segment[i]) >= threshold,
+        }
+        for i in range(len(per_segment))
+    ]
+    aggregate = float(sum(per_segment)) / float(len(per_segment))
+    all_grounded = all(s["grounded"] for s in segments)
+
+    return {
+        "aggregate": aggregate,
+        "grounded": all_grounded,
+        "segments": segments,
     }
 
 
@@ -5080,12 +5281,21 @@ def score_groundedness_chunked(
         )
     )
 
+    guardian_result = _maybe_run_guardian_holistic(
+        response_text=response_text,
+        support_units=flat_support_units,
+    )
+    guardian_aggregate: Optional[float] = (
+        guardian_result["aggregate"] if guardian_result is not None else None
+    )
+
     groundedness_v2 = fuse_groundedness_v2(
         reverse_context_calibrated=(
             float(reverse_context_calibrated_score) if null_bank_size > 0 else float(reverse_context_score)
         ),
         literal_guarded=float(literal_guarded_value),
         nli_aggregate=nli_aggregate,
+        guardian_aggregate=guardian_aggregate,
         semantic_entropy=semantic_entropy_aggregate,
         structured_source_guarded=structured_aggregate,
         typed_structured=typed_structured_score,
@@ -5145,6 +5355,9 @@ def score_groundedness_chunked(
         "literal_match_count": int(len(literal_matches)),
         "literal_total_count": int(len(response_literals)),
         "nli_aggregate": float(nli_aggregate) if nli_aggregate is not None else None,
+        "guardian_aggregate": float(guardian_aggregate) if guardian_aggregate is not None else None,
+        "guardian_segments": guardian_result["segments"] if guardian_result is not None else None,
+        "grounded": guardian_result["grounded"] if guardian_result is not None else None,
         "verbatim_support_floor": (
             float(verbatim_floor) if verbatim_floor is not None else None
         ),
@@ -5761,6 +5974,7 @@ def score_groundedness_response_chunked(
     base_groundedness_v2 = base_scores.get("groundedness_v2")
     base_literal_guarded = base_scores.get("literal_guarded")
     nli_aggregate = base_scores.get("nli_aggregate")
+    guardian_aggregate_score = base_scores.get("guardian_aggregate")
     semantic_entropy_aggregate = base_scores.get("semantic_entropy_aggregate")
     structured_aggregate = base_scores.get("structured_source_guarded")
     typed_structured_score = base_scores.get("structured_source")
@@ -5775,6 +5989,7 @@ def score_groundedness_response_chunked(
         ),
         literal_guarded=float(base_literal_guarded) if base_literal_guarded is not None else float(reverse_context_score),
         nli_aggregate=nli_aggregate,
+        guardian_aggregate=guardian_aggregate_score,
         semantic_entropy=semantic_entropy_aggregate,
         structured_source_guarded=structured_aggregate,
         typed_structured=typed_structured_score,
