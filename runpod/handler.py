@@ -934,7 +934,7 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
     # servers so the total stays ≤0.88 on a 24 GB GPU.
     _guardian_colbert_gpu = 0.12
     _guardian_gliner_gpu = 0.14
-    _guardian_compression_gpu = 0.12
+    _guardian_compression_gpu = 0.15
 
     servers["colbert"] = ManagedVllmServer(
         name="colbert",
