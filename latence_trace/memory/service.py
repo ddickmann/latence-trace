@@ -73,10 +73,28 @@ def update_memory(request: MemoryUpdateRequest) -> MemoryUpdateResponse:
         exact_critical_spans=selection_diag.exact_critical_spans,
         top_survival_causes=selection_diag.top_survival_causes,
     )
+    cold_provenance = list(prior.cold_provenance)
+    span_index = {span.id: span for span in selected}
+    all_actions = [*dedup_actions, *survival_actions, *selection_diag.actions]
+    for action in all_actions:
+        if action.action != "superseded":
+            continue
+        tombstoned = span_index.get(action.span_id)
+        if tombstoned is None:
+            continue
+        cold_provenance.append({
+            "span_id": tombstoned.id,
+            "span_type": tombstoned.span_type,
+            "typed_key": tombstoned.signature.typed_key,
+            "token_count": tombstoned.token_count,
+            "created_turn": tombstoned.created_turn,
+            "tombstoned_turn": turn_index,
+            "reason": action.reason,
+        })
     state = MemoryState(
         turn_index=turn_index,
         spans=selected,
-        cold_provenance=list(prior.cold_provenance),
+        cold_provenance=cold_provenance,
         metadata=dict(prior.metadata),
     )
     return MemoryUpdateResponse(

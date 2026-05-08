@@ -75,8 +75,8 @@ class MemoryState(BaseModel):
 
 
 class MemoryPolicy(BaseModel):
-    hot_token_budget: int = Field(default=800, ge=1)
-    warm_token_budget: int = Field(default=4000, ge=1)
+    hot_token_budget: int = Field(default=8_000, ge=1)
+    warm_token_budget: int = Field(default=32_000, ge=1)
     memory_budget_mode: MemoryBudgetMode = Field(
         default="adaptive",
         description=(
@@ -88,14 +88,18 @@ class MemoryPolicy(BaseModel):
     context_window_tokens: int | None = Field(
         default=None,
         ge=1,
-        description="Optional model context window used to derive ratio-based memory budgets.",
+        description=(
+            "Model context window in tokens. Used to derive ratio-based memory "
+            "budgets (hot = context_window_tokens * memory_context_ratio)."
+        ),
     )
     memory_context_ratio: float | None = Field(
-        default=None,
+        default=0.25,
         gt=0.0,
         lt=1.0,
         description=(
-            "Optional soft fraction of the model context window that hot memory may use. "
+            "Soft fraction of the model context window that hot memory may use. "
+            "For a 128k model: hot = 32k, warm = max(warm_budget, hot * 2) = 64k. "
             "The explicit hot_token_budget remains a floor, so small ratios do not force "
             "destructive compression."
         ),
@@ -131,7 +135,7 @@ class MemoryPolicy(BaseModel):
         le=1.0,
         description="Minimum survival or exact-critical score for first-turn genesis anchoring.",
     )
-    max_spans: int = Field(default=256, ge=1)
+    max_spans: int = Field(default=1024, ge=1)
     exact_critical_floor: float = Field(default=0.72, ge=0.0, le=1.0)
     rho: float = Field(default=0.7, ge=0.1, le=2.0)
     search_horizon_turns: int = Field(default=2, ge=1)

@@ -1487,6 +1487,42 @@ class GroundednessService:
 
         return await asyncio.to_thread(self.groundedness, request)
 
+    @staticmethod
+    def _augment_context_from_memory(
+        request: GroundednessRequest,
+    ) -> GroundednessRequest:
+        """Prepend InfiniMem hot-layer context to ``raw_context``.
+
+        When the caller supplies ``memory_state`` and
+        ``apply_memory_context`` is True, the hot spans from the
+        carried memory blob are prepended as a ``# file:`` section so
+        the existing segmentation / encoding / scoring pipeline handles
+        memory context identically to retrieval context.
+
+        Returns a (possibly copied) request with the augmented
+        ``raw_context``.  The original request is not mutated.
+        """
+        if not request.apply_memory_context:
+            return request
+        mem = request.memory_state
+        if mem is None or not mem.spans:
+            return request
+
+        from latence_trace.memory.select import hot_context
+
+        hot = hot_context(mem.spans)
+        if not hot.strip():
+            return request
+
+        hot_block = f"# file: memory-hot-context\n{hot}"
+        existing = (request.raw_context or "").strip()
+        if existing:
+            merged = f"{hot_block}\n\n{existing}"
+        else:
+            merged = hot_block
+
+        return request.model_copy(update={"raw_context": merged})
+
     def groundedness(self, request: GroundednessRequest) -> GroundednessResponse:
         """Score one groundedness request.
 
@@ -1506,6 +1542,7 @@ class GroundednessService:
         via a request-scoped ``contextvars.ContextVar`` so every
         downstream scorer sees a single, coherent runtime profile.
         """
+        request = self._augment_context_from_memory(request)
         decision = _corpus_router_middleware.route(request)
         # Router may override the scoring mode (e.g. agentic-coding
         # classifier chose code.agentic_trace even though the caller

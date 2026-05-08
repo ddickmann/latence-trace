@@ -125,7 +125,11 @@ def _attribution(span: SpanRecord, signals: dict[str, Any]) -> float:
         return 0.65
     scores = signals.get("scores") or {}
     if isinstance(scores, dict):
-        return float(scores.get("context_attribution_ratio", scores.get("context_usage_ratio", 0.4)) or 0.4)
+        base = float(scores.get("context_attribution_ratio", scores.get("context_usage_ratio", 0.4)) or 0.4)
+        verdict = scores.get("grounded")
+        if verdict is False and span.source.startswith(("raw_context", "exact_index_raw")):
+            base *= 0.5
+        return base
     return 0.4
 
 
@@ -133,6 +137,9 @@ def _dead_weight(span: SpanRecord, signals: dict[str, Any]) -> float:
     scores = signals.get("scores") or {}
     if isinstance(scores, dict):
         base = float(scores.get("dead_weight_ratio", scores.get("context_unused_ratio", 0.0)) or 0.0)
+        verdict = scores.get("grounded")
+        if verdict is False and span.source.startswith(("raw_context", "exact_index_raw")):
+            base = max(base, 0.35)
     else:
         base = 0.0
     if span.span_type in _IMPORTANT_TYPES:

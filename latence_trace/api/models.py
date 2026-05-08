@@ -585,16 +585,18 @@ class GroundednessRequest(BaseModel):
     enable_memory_shadow: bool = Field(
         default=False,
         description=(
-            "When true, update InfiniMem in shadow mode and return "
+            "When true, update InfiniMem after scoring and return "
             "next_memory_state, hot_context_preview, and diagnostics. "
-            "Default scoring inputs remain unchanged."
+            "Also activates automatically when memory_state is provided."
         ),
     )
     apply_memory_context: bool = Field(
-        default=False,
+        default=True,
         description=(
-            "Reserved opt-in for future production coupling. V1 does not rewrite "
-            "raw_context during scoring even when this is true."
+            "When true and memory_state is provided, prepend InfiniMem "
+            "hot-layer spans to raw_context before scoring so groundedness "
+            "evaluates against accumulated memory context. No-op when "
+            "memory_state is absent."
         ),
     )
 
