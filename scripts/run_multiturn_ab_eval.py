@@ -25,6 +25,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import copy
 import hashlib
 import json
@@ -357,14 +358,20 @@ def run_case(
             "Be precise and cite exact identifiers, paths, and values when relevant."
         )
 
-        full_answer, full_secs = call_llm(
-            client, args, system=system, context=full_ctx, query=query
-        )
-        compressed_answer, comp_secs = call_llm(
-            client, args, system=system, context=hot_ctx or "(no context available)", query=query
-        )
+        print(f"  T{turn['turn_index']} [{turn['context_pattern']}] full={full_tokens}tok compressed={compressed_tokens}tok (Δ{reduction:+.1%})", flush=True)
+
+        print(f"    → LLM full+compressed (parallel) ...", end="", flush=True)
+        llm_start = time.perf_counter()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+            fut_full = pool.submit(call_llm, client, args, system=system, context=full_ctx, query=query)
+            fut_comp = pool.submit(call_llm, client, args, system=system, context=hot_ctx or "(no context available)", query=query)
+            full_answer, full_secs = fut_full.result()
+            compressed_answer, comp_secs = fut_comp.result()
+        print(f" {time.perf_counter()-llm_start:.1f}s (full={full_secs:.1f}s comp={comp_secs:.1f}s)", flush=True)
 
         required_terms = _extract_required_terms(query + "\n" + response, domain)
+        print(f"    → Judge ...", end="", flush=True)
+        judge_start = time.perf_counter()
         judge_result = judge_pair(
             client, args,
             query=query,
@@ -374,8 +381,10 @@ def run_case(
             required_terms=required_terms,
             rng=rng,
         )
+        print(f" {time.perf_counter()-judge_start:.1f}s", flush=True)
         side = _side_checks(required_terms, full_answer, compressed_answer)
         classification = _classify(judge_result, side)
+        print(f"    => {classification} | terms: full={side.get('full_recall',0):.0%} comp={side.get('compressed_recall',0):.0%}", flush=True)
 
         turn_results.append(TurnResult(
             turn_index=turn["turn_index"],
@@ -399,6 +408,10 @@ def run_case(
     reductions = [tr.token_reduction for tr in turn_results]
     regressions = sum(1 for tr in turn_results if tr.classification == "regression")
     equivalents = sum(1 for tr in turn_results if tr.classification == "equivalent")
+    mean_red = sum(reductions) / max(1, len(reductions))
+
+    if turn_results and turn_results[0].classification != "(dry-run)":
+        print(f"  ══ {overall} | eq={equivalents} reg={regressions} | mean_reduction={mean_red:.1%} | slope={degradation}", flush=True)
 
     return CaseResult(
         case_id=case["case_id"],
@@ -496,15 +509,19 @@ def _responses_create(client: Any, args: argparse.Namespace, prompt: str) -> Any
         "model": args.model,
         "input": [{"role": "user", "content": prompt}],
         "text": {"format": {"type": "text"}},
-        "reasoning": {"effort": args.reasoning_effort},
+        "reasoning": {},
         "tools": [],
-        "store": False,
+        "temperature": 1,
         "max_output_tokens": args.max_output_tokens,
+        "top_p": 1,
+        "store": False,
     }
     try:
         return client.responses.create(**kwargs)
     except Exception:
         kwargs.pop("reasoning", None)
+        kwargs.pop("temperature", None)
+        kwargs.pop("top_p", None)
         return client.responses.create(**kwargs)
 
 
@@ -729,8 +746,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--case-type", choices=["code", "rag"], default=None)
     parser.add_argument("--language", choices=["en", "de"], default=None)
     parser.add_argument("--max-cases", type=int, default=None)
-    parser.add_argument("--model", default="gpt-5.5")
-    parser.add_argument("--reasoning-effort", default="medium")
+    parser.add_argument("--model", default="gpt-4.1")
     parser.add_argument("--max-output-tokens", type=int, default=1600)
     parser.add_argument("--max-judge-tokens", type=int, default=60_000)
     parser.add_argument("--seed", type=int, default=20260508)

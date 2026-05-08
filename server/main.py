@@ -34,7 +34,8 @@ from latence_trace.api.compliance_routes import create_compliance_router
 from latence_trace.api.compliance_service import ComplianceRedactionService
 from latence_trace.api.compression_routes import create_compression_router
 from latence_trace.api.compression_service import CompressionService
-from latence_trace.api.memory_routes import create_memory_router
+# TRACE Retrieval-Only Pivot: memory router removed from user-facing paths.
+# from latence_trace.api.memory_routes import create_memory_router
 from latence_trace.api.routes import create_router
 from latence_trace.api.service import (
     DEFAULT_PROFILE,
@@ -53,8 +54,9 @@ from latence_trace.observability import (
     register_default_collectors,
 )
 from latence_trace.observability.metrics import update_license_gauge
-from latence_trace.sessions.routes import create_trace_session_router
-from latence_trace.sessions.service import TraceSessionService
+# TRACE Retrieval-Only Pivot: session routes removed from user-facing paths.
+# from latence_trace.sessions.routes import create_trace_session_router
+# from latence_trace.sessions.service import TraceSessionService
 
 logger = logging.getLogger(__name__)
 
@@ -103,8 +105,9 @@ _compliance_service: ComplianceRedactionService | None = None
 _compliance_service_lock = threading.Lock()
 _compression_service: CompressionService | None = None
 _compression_service_lock = threading.Lock()
-_trace_session_service: TraceSessionService | None = None
-_trace_session_service_lock = threading.Lock()
+# TRACE Retrieval-Only Pivot: session service removed.
+# _trace_session_service: TraceSessionService | None = None
+# _trace_session_service_lock = threading.Lock()
 
 
 def _get_service() -> GroundednessService:
@@ -151,17 +154,17 @@ def _get_compression_service() -> CompressionService:
     return _compression_service
 
 
-def _get_trace_session_service() -> TraceSessionService:
-    """Lazily build the stateful TRACE session service."""
-
-    global _trace_session_service
-    if _trace_session_service is None:
-        with _trace_session_service_lock:
-            if _trace_session_service is None:
-                _trace_session_service = TraceSessionService(
-                    groundedness_service=_get_service(),
-                )
-    return _trace_session_service
+# TRACE Retrieval-Only Pivot: session service removed.
+# def _get_trace_session_service() -> TraceSessionService:
+#     """Lazily build the stateful TRACE session service."""
+#     global _trace_session_service
+#     if _trace_session_service is None:
+#         with _trace_session_service_lock:
+#             if _trace_session_service is None:
+#                 _trace_session_service = TraceSessionService(
+#                     groundedness_service=_get_service(),
+#                 )
+#     return _trace_session_service
 
 
 def _resolve_profile_from_env() -> str | None:
@@ -204,32 +207,8 @@ def create_app(profile: str | None = None) -> FastAPI:
     app = FastAPI(
         title="latence-trace Groundedness Tracker",
         version="1.0.0",
-        description=(
-            "Calibrated, auditable groundedness scoring with **two lanes**:\n\n"
-            "- **RAG lane** (`scoring_mode=rag`, default) — enterprise "
-            "retrieval-augmented LLM apps. MaxSim + NLI + atomic claims + "
-            "structured-evidence AND-gate, calibrated thresholds, per-claim "
-            "evidence, `context_coverage_ratio` retrieval observability.\n"
-            "- **Code lane** (`scoring_mode=code`) — coding agents "
-            "(Claude Code, Cursor, Codex, OpenCode, …). AST-grounded "
-            "literal matching, ambiguity-triggered NLI cascade, logistic "
-            "composite, multi-turn per-file ownership with reason codes.\n\n"
-            "Part of the latence.ai product family. Closed-book by default; "
-            "supports `chunk_ids`, `raw_context`, and structured "
-            "`support_units[]` premise lanes plus the bilingual EN + DE "
-            "pipeline.\n\n"
-            "**Discovery:**\n"
-            "- `GET /agent-help` returns a compact agent-friendly contract "
-            "(premise lanes, attribution modes, error envelope).\n"
-            "- `GET /.well-known/ai-plugin.json` returns a standard tool "
-            "descriptor for ChatGPT, Claude and other AI agent runtimes.\n"
-            "- `GET /openapi.json` returns the full OpenAPI 3.1 schema "
-            "(includes the code-lane diagnostics block)."
-        ),
-        summary=(
-            "Dual-lane groundedness scoring: RAG for enterprises, "
-            "Code lane for coding agents."
-        ),
+        description="TRACE — real-time safety for knowledge agents",
+        summary="Calibrated, auditable groundedness scoring for RAG retrieval.",
         openapi_url="/openapi.json",
         docs_url="/docs",
         redoc_url="/redoc",
@@ -307,8 +286,9 @@ def create_app(profile: str | None = None) -> FastAPI:
         )
     )
     app.include_router(create_compression_router(_get_compression_service))
-    app.include_router(create_memory_router())
-    app.include_router(create_trace_session_router(_get_trace_session_service))
+    # TRACE Retrieval-Only Pivot: memory + session routers removed.
+    # app.include_router(create_memory_router())
+    # app.include_router(create_trace_session_router(_get_trace_session_service))
 
     if os.environ.get("LATENCE_TRACE_ENABLE_MCP_HTTP", "0") in {"1", "true", "yes"}:
         try:

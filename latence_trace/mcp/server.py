@@ -137,41 +137,28 @@ def _session_tool_descriptors() -> list[dict[str, Any]]:
     return [
         {
             "name": "trace_session_create",
-            "description": "Create a stateful TRACE + InfiniMem session.",
+            "description": "Create a stateful TRACE session.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "kind": {"type": "string", "enum": ["code", "rag", "general"]},
+                    "kind": {"type": "string", "enum": ["rag", "general"]},
                     "metadata": {"type": "object"},
-                    "memory_policy": {"type": "object"},
                 },
             },
         },
         {
             "name": "trace_session_event",
-            "description": "Append an event and continuously update InfiniMem.",
+            "description": "Append an event to a TRACE session.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     **common_session,
                     "event": {"type": "object"},
-                    "memory_domain": {"type": "string"},
                 },
                 "required": ["session_id", "event"],
             },
         },
-        {
-            "name": "trace_session_score_code",
-            "description": "Score a coding-agent turn in a stateful TRACE session.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    **common_session,
-                    "trace_request": {"type": "object"},
-                },
-                "required": ["session_id", "trace_request"],
-            },
-        },
+        # TRACE Retrieval-Only Pivot: trace_session_score_code removed.
         {
             "name": "trace_session_score_rag",
             "description": "Score a RAG-agent turn in a stateful TRACE session.",
@@ -346,10 +333,7 @@ def _handle_session_tool_call(
                 session_id,
                 TraceSessionEventRequest.model_validate(arguments),
             )
-        elif name == "trace_session_score_code":
-            payload = dict(arguments)
-            payload["lane"] = "code"
-            response = holder.score(session_id, TraceSessionScoreRequest.model_validate(payload))
+        # TRACE Retrieval-Only Pivot: trace_session_score_code removed.
         elif name == "trace_session_score_rag":
             payload = dict(arguments)
             payload["lane"] = "rag"

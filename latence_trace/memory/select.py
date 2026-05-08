@@ -262,18 +262,13 @@ def _decision(
 
 
 def _max_allowed_hot_budget(total_tokens: int, policy: MemoryPolicy) -> int:
-    if policy.context_window_tokens:
-        available_context = max(1, policy.context_window_tokens - policy.recent_tail_token_budget)
-        if policy.memory_context_ratio:
-            available_context = min(available_context, _ratio_hot_budget(policy))
-        ceiling = max(1, max(policy.hot_token_budget, available_context))
-        return min(ceiling, total_tokens) if total_tokens > 0 else ceiling
-    if policy.memory_context_ratio:
-        ceiling = max(policy.hot_token_budget, _ratio_hot_budget(policy))
-        return min(ceiling, total_tokens) if total_tokens > 0 else ceiling
     if policy.target_token_reduction is not None:
         return max(policy.hot_token_budget, total_tokens)
-    return policy.hot_token_budget
+    budget = policy.hot_token_budget
+    if policy.memory_context_ratio:
+        ratio_budget = _ratio_hot_budget(policy)
+        budget = max(budget, ratio_budget)
+    return budget
 
 
 def _ratio_hot_budget(policy: MemoryPolicy) -> int:
@@ -375,8 +370,7 @@ def _budget_quality(
     underbudgeted = (
         exact_recall < policy.min_exact_critical_recall
         or survival_mass < policy.min_survival_mass
-        or stranded_high
-        or genesis_recall < 1.0
+        or genesis_recall < policy.min_genesis_recall
     )
     return exact_recall, survival_mass, underbudgeted, genesis_count, genesis_recall
 
@@ -400,13 +394,14 @@ def _recommended_hot_budget(
 
 def _is_quality_gate_span(span: SpanRecord, *, policy: MemoryPolicy | None) -> bool:
     floor = policy.exact_critical_floor if policy is not None else 0.72
-    return (
-        span.scores.exact_critical >= floor
-        or span.scores.survival_value >= floor
-        or span.span_type in {"code_symbol", "code_fragment", "error", "tool_result"}
-        or span.text.split(maxsplit=1)[0].endswith("_exact_index")
-        or (policy is not None and _is_genesis_anchor(span, policy))
-    )
+    prefix = span.text.split(maxsplit=1)[0] if span.text else ""
+    if prefix.endswith("_exact_index"):
+        return True
+    if span.span_type in {"error", "tool_result"}:
+        return True
+    if span.scores.exact_critical >= floor and span.scores.survival_value >= floor:
+        return True
+    return False
 
 
 def _selection_score(span: SpanRecord, policy: MemoryPolicy) -> float:
@@ -435,7 +430,7 @@ def _selection_score(span: SpanRecord, policy: MemoryPolicy) -> float:
 def _is_genesis_anchor(span: SpanRecord, policy: MemoryPolicy) -> bool:
     if policy.genesis_anchor_turns <= 0 or span.created_turn > policy.genesis_anchor_turns:
         return False
-    if span.span_type not in {"goal", "constraint", "decision", "error", "code_symbol", "code_fragment", "tool_result"}:
+    if span.span_type not in {"goal", "constraint", "decision", "error", "code_symbol", "tool_result"}:
         return False
     if span.scores.exact_critical >= policy.genesis_anchor_score_floor:
         return True

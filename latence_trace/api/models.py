@@ -35,19 +35,9 @@ class ScoringMode(str, Enum):
     groundedness behaviour used by enterprise RAG pipelines — every
     existing client continues to work untouched when ``scoring_mode``
     is omitted.
-
-    ``code`` routes through the code-lane orchestrator
-    (:mod:`latence_trace.core.code_lane.orchestrator`) which layers
-    AST drift detection, per-identifier novelty, an ambiguity-gated
-    NLI cascade, optional semantic entropy, a calibrated composite
-    score, and per-file / per-unit attribution with reason codes on
-    top of the shared ColBERT MaxSim backbone. Pick this lane when
-    scoring agentic coding turns (Cursor, Claude Code, OpenAI Codex,
-    OpenCode, aider, ...).
     """
 
     RAG = "rag"
-    CODE = "code"
 
 
 class CorpusType(str, Enum):
@@ -181,19 +171,6 @@ class GroundednessRequest(BaseModel):
                         "raw_context_chunk_tokens": 256,
                     },
                 },
-                {
-                    "summary": "Code lane — agentic coding turn",
-                    "value": {
-                        "scoring_mode": "code",
-                        "session_id": "hashed-session-abc123",
-                        "response_language_hint": "python",
-                        "query_text": "Add retry logic to fetch_user",
-                        "response_text": "```python\nfrom httpx import AsyncClient\n\nasync def fetch_user(id: int):\n    client = AsyncClient()\n    return await client.get(f'/users/{id}')\n```",
-                        "raw_context": "# fetch_user.py\nasync def fetch_user(id: int):\n    async with httpx.AsyncClient() as client:\n        return await client.get(f'/users/{id}')\n",
-                        "emit_chunk_ownership": True,
-                        "evidence_limit": 5,
-                    },
-                },
             ]
         }
     )
@@ -301,14 +278,10 @@ class GroundednessRequest(BaseModel):
         description="When query_text is provided, include optional query-conditioned diagnostics such as triangular groundedness, echo, and grounded coverage.",
     )
     context_trust_enabled: bool = Field(
-        default=True,
+        default=False,
+        exclude=True,
         validation_alias=AliasChoices("context_trust_enabled", "guard_check_enabled"),
-        description=(
-            "Enable the context-trust / prompt-guard scan for retrieved support "
-            "context. Defaults to true. Set false only for trusted internal "
-            "benchmarks or latency isolation tests; operator-level deployment "
-            "configuration still controls which provider is used."
-        ),
+        description="Reserved. Not exposed in the public API.",
     )
     model: Optional[str] = Field(
         default=None,
@@ -382,16 +355,8 @@ class GroundednessRequest(BaseModel):
     )
     scoring_mode: ScoringMode = Field(
         default=ScoringMode.RAG,
-        description=(
-            "Lane selector. ``rag`` (default) keeps the existing enterprise "
-            "RAG groundedness pipeline untouched. ``code`` routes through the "
-            "code lane — AST drift, literal novelty, ambiguity-gated NLI, "
-            "semantic entropy, calibrated composite score, and per-file / "
-            "per-unit attribution with reason codes — designed for agentic "
-            "coding harnesses like Cursor, Claude Code, OpenAI Codex, and "
-            "OpenCode. Backwards compatible: clients that do not set this "
-            "field stay on the RAG lane."
-        ),
+        exclude=True,
+        description="Reserved. Always RAG.",
     )
     profile: Optional[TraceRuntimeProfile] = Field(
         default=None,
@@ -567,37 +532,23 @@ class GroundednessRequest(BaseModel):
     )
     memory_state: Optional[MemoryState] = Field(
         default=None,
-        description=(
-            "Optional caller-portable InfiniMem span state. Echo the previous "
-            "response's next_memory_state here to update memory in shadow mode."
-        ),
+        exclude=True,
+        description="Reserved. Not exposed in the public API.",
     )
     memory_policy: Optional[MemoryPolicy] = Field(
         default=None,
-        description=(
-            "Optional hot/warm/cold memory budgets and survival policy. "
-            "For large-context models, set context_window_tokens, "
-            "memory_context_ratio, and target_token_reduction so adaptive "
-            "memory can choose the smallest quality-gated budget instead of "
-            "using only fixed token caps."
-        ),
+        exclude=True,
+        description="Reserved. Not exposed in the public API.",
     )
     enable_memory_shadow: bool = Field(
         default=False,
-        description=(
-            "When true, update InfiniMem after scoring and return "
-            "next_memory_state, hot_context_preview, and diagnostics. "
-            "Also activates automatically when memory_state is provided."
-        ),
+        exclude=True,
+        description="Reserved. Not exposed in the public API.",
     )
     apply_memory_context: bool = Field(
-        default=True,
-        description=(
-            "When true and memory_state is provided, prepend InfiniMem "
-            "hot-layer spans to raw_context before scoring so groundedness "
-            "evaluates against accumulated memory context. No-op when "
-            "memory_state is absent."
-        ),
+        default=False,
+        exclude=True,
+        description="Reserved. Not exposed in the public API.",
     )
 
     @model_validator(mode="after")
@@ -1939,17 +1890,17 @@ class GroundednessResponse(BaseModel):
     warnings: List[str] = Field(default_factory=list)
     literal_diagnostics: Optional[GroundednessLiteralDiagnostics] = None
     nli_diagnostics: Optional[GroundednessNLIDiagnostics] = None
-    context_trust_diagnostics: Optional[ContextTrustDiagnostics] = None
+    context_trust_diagnostics: Optional[ContextTrustDiagnostics] = Field(
+        default=None,
+        exclude=True,
+        description="Reserved. Not exposed in the public API.",
+    )
     semantic_entropy_diagnostics: Optional[GroundednessSemanticEntropyDiagnostics] = None
     structured_diagnostics: Optional[GroundednessStructuredDiagnostics] = None
     code_lane_diagnostics: Optional[CodeLaneDiagnostics] = Field(
         default=None,
-        description=(
-            "Populated when ``scoring_mode == 'code'``. Carries every "
-            "code-lane signal: composite score, AST drift, literal novelty, "
-            "NLI cascade, and per-file / per-unit attribution with reason "
-            "codes. RAG-lane responses leave this field ``None``."
-        ),
+        exclude=True,
+        description="Reserved. Not exposed in the public API.",
     )
     file_attribution: Optional[FileAttributionDiagnostics] = Field(
         default=None,
@@ -2081,15 +2032,18 @@ class GroundednessResponse(BaseModel):
     )
     next_memory_state: Optional[MemoryState] = Field(
         default=None,
-        description="Updated caller-carried InfiniMem state when memory shadow mode is enabled.",
+        exclude=True,
+        description="Reserved. Not exposed in the public API.",
     )
     hot_context_preview: Optional[str] = Field(
         default=None,
-        description="Budgeted hot memory context preview. Never applied to scoring by default.",
+        exclude=True,
+        description="Reserved. Not exposed in the public API.",
     )
     memory_diagnostics: Optional[MemoryDiagnostics] = Field(
         default=None,
-        description="Explainable span survival, dedup, demotion, and budget diagnostics.",
+        exclude=True,
+        description="Reserved. Not exposed in the public API.",
     )
 
 

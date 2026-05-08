@@ -1542,7 +1542,14 @@ class GroundednessService:
         via a request-scoped ``contextvars.ContextVar`` so every
         downstream scorer sees a single, coherent runtime profile.
         """
+        # --- Retrieval-Only Pivot guards ---
+        request.apply_memory_context = False
+        request.enable_memory_shadow = False
+        request.context_trust_enabled = False
+        request.scoring_mode = ScoringMode.RAG
+
         original_raw_context = request.raw_context
+        # Memory augmentation disabled by pivot (apply_memory_context=False makes this a no-op)
         request = self._augment_context_from_memory(request)
         decision = _corpus_router_middleware.route(request)
         # Router may override the scoring mode (e.g. agentic-coding
@@ -1550,24 +1557,11 @@ class GroundednessService:
         # left scoring_mode unset on default). Respect explicit caller
         # values (CODE was passed explicitly) unless the explicit
         # corpus_type path told us otherwise.
-        effective_scoring_mode = request.scoring_mode
-        if decision.bundle is not None:
-            bundle_mode = decision.bundle.scoring_mode
-            if bundle_mode == "code":
-                effective_scoring_mode = ScoringMode.CODE
-            elif bundle_mode == "rag":
-                # Only downgrade CODE->RAG if the router (not the caller)
-                # picked the class. Explicit caller-set CODE always wins.
-                if decision.source != "explicit" and request.scoring_mode == ScoringMode.RAG:
-                    effective_scoring_mode = ScoringMode.RAG
-        if effective_scoring_mode != request.scoring_mode:
-            request = request.model_copy(update={"scoring_mode": effective_scoring_mode})
+        # Retrieval-only pivot: always RAG, ignore corpus router code overrides
+        effective_scoring_mode = ScoringMode.RAG
         token = _ACTIVE_ROUTE_DECISION.set(decision)
         try:
-            if request.scoring_mode == ScoringMode.CODE:
-                response = self._score_code(request)
-            else:
-                response = self._score_rag(request)
+            response = self._score_rag(request)
         finally:
             _ACTIVE_ROUTE_DECISION.reset(token)
         # Attach router diagnostics for audit / dashboards. Kept as a
@@ -1597,7 +1591,8 @@ class GroundednessService:
                 response.runtime_decision = RuntimeDecisionRecord.model_validate(decision_record)
         except Exception as exc:  # pragma: no cover - decision layer must not fail scoring
             logger.warning("runtime_decision: failed to attach decision record: %r", exc)
-        self._maybe_attach_memory_shadow(request, response, original_raw_context)
+        # Memory shadow disabled by retrieval-only pivot
+        # self._maybe_attach_memory_shadow(request, response, original_raw_context)
         return response
 
     def _maybe_attach_memory_shadow(

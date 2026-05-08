@@ -60,41 +60,11 @@ def _resolve_inflight_limit() -> int:
     return max(1, value)
 
 
+# TRACE Retrieval-Only Pivot: Prompt Guard discovery config removed.
+# _context_trust_discovery_config() used to expose Prompt Guard model/
+# compile metadata here; the capability is no longer user-facing.
 def _context_trust_discovery_config() -> dict[str, object]:
-    enabled = os.environ.get("LATENCE_TRACE_CONTEXT_TRUST_ENABLED", "1").strip().lower() not in {
-        "0",
-        "false",
-        "no",
-        "off",
-    }
-    provider = os.environ.get("LATENCE_TRACE_CONTEXT_TRUST_PROVIDER", "heuristic").strip().lower()
-    compile_enabled = os.environ.get(
-        "LATENCE_TRACE_CONTEXT_TRUST_PROMPT_GUARD_COMPILE",
-        "1",
-    ).strip().lower() not in {"0", "false", "no", "off"}
-    return {
-        "enabled": enabled,
-        "request_default_enabled": True,
-        "request_field": "context_trust_enabled",
-        "request_aliases": ["guard_check_enabled"],
-        "provider": provider if enabled else "off",
-        "model": os.environ.get(
-            "LATENCE_TRACE_CONTEXT_TRUST_PROMPT_GUARD_MODEL",
-            "meta-llama/Llama-Prompt-Guard-2-86M",
-        ),
-        "compile_enabled": compile_enabled,
-        "compile_mode": os.environ.get(
-            "LATENCE_TRACE_CONTEXT_TRUST_PROMPT_GUARD_COMPILE_MODE",
-            "reduce-overhead",
-        ),
-        "response_fields": [
-            "context_trust_diagnostics",
-            "scores.context_trust_score",
-            "scores.context_trust_blocked_count",
-            "scores.context_trust_max_risk",
-            "support_units[*].context_trust_state",
-        ],
-    }
+    return {}
 
 
 def _raise_service_error(exc: ServiceError) -> None:
@@ -325,66 +295,8 @@ def create_router(service_provider: Callable[[], GroundednessService]) -> APIRou
                         "path": "/v1/compression",
                         "operation_id": "compression_compress",
                     },
-                    "memory_update": {
-                        "method": "POST",
-                        "path": "/v1/memory/update",
-                        "operation_id": "memory_update",
-                    },
-                    "trace_session_create": {
-                        "method": "POST",
-                        "path": "/v1/trace/sessions",
-                        "operation_id": "trace_session_create",
-                    },
-                    "trace_session_get": {
-                        "method": "GET",
-                        "path": "/v1/trace/sessions/{session_id}",
-                        "operation_id": "trace_session_get",
-                    },
-                    "trace_session_event": {
-                        "method": "POST",
-                        "path": "/v1/trace/sessions/{session_id}/events",
-                        "operation_id": "trace_session_event",
-                    },
-                    "trace_session_memory_update": {
-                        "method": "POST",
-                        "path": "/v1/trace/sessions/{session_id}/memory/update",
-                        "operation_id": "trace_session_memory_update",
-                    },
-                    "trace_session_score": {
-                        "method": "POST",
-                        "path": "/v1/trace/sessions/{session_id}/score",
-                        "operation_id": "trace_session_score",
-                    },
-                    "trace_session_context": {
-                        "method": "GET",
-                        "path": "/v1/trace/sessions/{session_id}/context",
-                        "operation_id": "trace_session_context",
-                    },
-                    "trace_session_source": {
-                        "method": "GET",
-                        "path": "/v1/trace/sessions/{session_id}/sources/{source_id}",
-                        "operation_id": "trace_session_source",
-                    },
-                    "trace_session_source_post": {
-                        "method": "POST",
-                        "path": "/v1/trace/sessions/{session_id}/sources/{source_id}",
-                        "operation_id": "trace_session_source_post",
-                    },
-                    "trace_session_repair": {
-                        "method": "POST",
-                        "path": "/v1/trace/sessions/{session_id}/repair",
-                        "operation_id": "trace_session_repair",
-                    },
-                    "trace_session_rollup": {
-                        "method": "POST",
-                        "path": "/v1/trace/sessions/{session_id}/rollup",
-                        "operation_id": "trace_session_rollup",
-                    },
-                    "trace_session_close": {
-                        "method": "DELETE",
-                        "path": "/v1/trace/sessions/{session_id}",
-                        "operation_id": "trace_session_close",
-                    },
+                    # TRACE Retrieval-Only Pivot: memory_update and
+                    # trace_session_* endpoints removed from discovery.
                     "agent_help": {"method": "GET", "path": "/agent-help"},
                     "ai_plugin": {
                         "method": "GET",
@@ -402,23 +314,9 @@ def create_router(service_provider: Callable[[], GroundednessService]) -> APIRou
                         "compliance_redact",
                         "compression",
                     ],
-                    "caller_carried_state": ["memory_update"],
-                    "server_stateful": [
-                        "trace_session_create",
-                        "trace_session_get",
-                        "trace_session_event",
-                        "trace_session_memory_update",
-                        "trace_session_score",
-                        "trace_session_context",
-                        "trace_session_source",
-                        "trace_session_repair",
-                        "trace_session_rollup",
-                        "trace_session_close",
-                    ],
                     "note": (
-                        "Default TRACE sessions use process-local state. Production "
-                        "RunPod workflows should use caller-carried memory state or "
-                        "a deployment with durable SessionStore persistence."
+                        "TRACE is a stateless retrieval-quality product. "
+                        "All endpoints are pure compute with no server-side state."
                     ),
                 },
                 "premise_lanes": [
@@ -463,9 +361,7 @@ def create_router(service_provider: Callable[[], GroundednessService]) -> APIRou
                         "`latence-trace serve` / `latence-trace score`."
                     ),
                 },
-                "capabilities": {
-                    "context_trust": _context_trust_discovery_config(),
-                },
+                "capabilities": {},
                 "error_envelope": {
                     "code": "machine-readable error code (e.g. 'validation_error')",
                     "message": "human-readable description of what went wrong",
@@ -525,7 +421,6 @@ def create_router(service_provider: Callable[[], GroundednessService]) -> APIRou
                             "surfaced as ``uncertain`` instead."
                         ),
                     },
-                    "context_trust": _context_trust_discovery_config(),
                 },
                 "docs_url": "https://latence.ai/trace/docs",
             },

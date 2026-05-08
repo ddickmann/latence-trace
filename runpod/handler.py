@@ -1,38 +1,18 @@
 """RunPod serverless entrypoint for latence-trace.
 
-The worker exposes two scoring lanes on one endpoint:
-
-- ``scoring_mode="rag"`` (default) — the long-standing enterprise RAG
-  groundedness pipeline. Unchanged semantics, unchanged response shape.
-- ``scoring_mode="code"`` — a code-aware lane built on top of the same
-  ColBERT MaxSim backbone with AST drift, literal novelty, an
-  ambiguity-gated NLI cascade, semantic entropy, a calibrated composite
-  phantom score, and per-file / per-unit attribution. Designed for IDE
-  plugins (Cursor, Claude Code, OpenAI Codex, OpenCode, aider) that
-  want a real-time dashboard tracing the quality of their agent.
-
-Concurrency model
------------------
-Each lane gets its own inflight semaphore so a burst of code-lane calls
-never starves in-flight RAG calls (and vice versa). The total worker
-concurrency is still bounded by ``max_concurrency``; the per-lane
-budget defaults to ``ceil(max_concurrency / 2)`` each so one lane can
-burst through the shared ceiling when the other is idle.
+Retrieval-only product: real-time safety for knowledge agents.
+Exposes stateless RAG groundedness scoring with compression, privacy,
+and context utilization analytics.
 
 Warmup
 ------
-Two warmup requests run at boot: one RAG request through the full
-pipeline (primes ColBERT + NLI vLLM + null bank) and one code-lane
-request (primes ``GPUScorer`` streams + pre-loads tree-sitter grammars
-+ exercises the composite model). Boot is a no-op once the singletons
-are primed.
+One warmup request runs at boot through the full RAG pipeline
+(primes ColBERT + NLI vLLM + null bank).
 
 Observability
 -------------
-One structured log line per request (``groundedness_turn``) captures
-``{lane, session_id, cascade_fired, phantom_verdict, nli_ms, ast_ms,
-composite_ms, total_ms}``. No PII is logged — only hashed session
-labels.
+One structured log line per request (``groundedness_turn``).
+No PII is logged — only hashed session labels.
 """
 
 from __future__ import annotations
@@ -151,8 +131,9 @@ SUPPORTED_RUNPOD_ACTIONS = frozenset(
         "compliance_redaction",
         "compress",
         "compression",
-        "memory.update",
-        "memory_update",
+        # TRACE Retrieval-Only Pivot: memory actions removed.
+        # "memory.update",
+        # "memory_update",
         "session.create",
         "session.get",
         "session.event",
@@ -627,7 +608,6 @@ def _get_lane_semaphore(config: WorkerConfig, lane: ScoringMode) -> asyncio.Sema
     if _lane_semaphores_loop is not loop:
         _lane_semaphores = {
             ScoringMode.RAG: asyncio.Semaphore(_lane_budget(config, ScoringMode.RAG)),
-            ScoringMode.CODE: asyncio.Semaphore(_lane_budget(config, ScoringMode.CODE)),
         }
         _lane_semaphores_loop = loop
     return _lane_semaphores[lane]
@@ -691,20 +671,6 @@ def _build_startup_warmup_requests() -> list[GroundednessRequest]:
                 evidence_limit=4,
             )
         )
-    # One code-lane warmup turn primes GPUScorer streams, pre-loads the
-    # tree-sitter grammars, and touches the composite model.
-    requests.append(
-        GroundednessRequest(
-            scoring_mode=ScoringMode.CODE,
-            session_id="warmup-code-lane",
-            response_language_hint="python",
-            query_text="Add retry logic to fetch_user",
-            raw_context=_CODE_LANE_WARMUP_CONTEXT,
-            response_text=_CODE_LANE_WARMUP_RESPONSE,
-            emit_chunk_ownership=False,
-            evidence_limit=4,
-        )
-    )
     return requests
 
 
@@ -715,16 +681,7 @@ def _ensure_kernel_warmup(profile: str) -> None:
             f"Triton kernel warmup failed for profile '{result.profile}' "
             f"on {result.device}: {result.error or 'unknown error'}"
         )
-    # Code lane warmup is now a hard gate: tree-sitter grammars are a
-    # first-class production dependency and a missing grammar would
-    # silently degrade the AST phantom / drift signals to a regex
-    # fallback. We refuse to serve traffic in that state.
-    code_result = warm_code_lane()
-    if not code_result.ok:
-        raise RuntimeError(
-            f"Code-lane warmup failed on {code_result.device}: "
-            f"{code_result.error} (details={code_result.details})"
-        )
+    # Retrieval-only pivot: code-lane warmup skipped
     # Pre-load the WTPSplit SaT model + per-language PySBD segmenters
     # so the first scoring request does not pay the model-load cost
     # on the hot path. This is best-effort: a SaT load failure is
@@ -742,88 +699,15 @@ def _ensure_kernel_warmup(profile: str) -> None:
         logger.exception("text_segmentation_boot_warmup_failed")
 
 
+# TRACE Retrieval-Only Pivot: Prompt Guard startup warmup removed.
+# _prompt_guard_startup_enabled() and _warm_prompt_guard_at_boot() are
+# no longer invoked. The capability is not user-facing.
 def _prompt_guard_startup_enabled() -> bool:
-    """Return True when Llama-Prompt-Guard-2 should be loaded at boot.
-
-    Production default is ``LATENCE_TRACE_CONTEXT_TRUST_PROVIDER=prompt_guard``
-    so the 86M Llama-Guard checkpoint is resident on the GPU when the worker
-    becomes ready. The per-request ``context_trust_enabled`` flag still gates
-    whether the lane is invoked, so opting out of the scan stays free
-    (~0 ms) — but opting in never pays the multi-second cold-start penalty.
-    """
-    if os.environ.get("LATENCE_TRACE_CONTEXT_TRUST_ENABLED", "1").strip().lower() in {
-        "0",
-        "false",
-        "no",
-        "off",
-    }:
-        return False
-    provider = os.environ.get(
-        "LATENCE_TRACE_CONTEXT_TRUST_PROVIDER", "prompt_guard"
-    ).strip().lower()
-    return provider in {"prompt_guard", "llama_prompt_guard", "llama_prompt_guard_2"}
+    return False
 
 
 def _warm_prompt_guard_at_boot() -> dict[str, Any]:
-    """Warm the Llama-Prompt-Guard-2 runtime, defensively.
-
-    The 7th model (``meta-llama/Llama-Prompt-Guard-2-86M``) is a Meta gated
-    repo on HuggingFace. Operators without a HF token bound to a Meta-Llama-
-    accepted account cannot fetch it. The lane is opt-in (only invoked when
-    a request sets ``context_trust_enabled=true``), so failing to warm it
-    must NEVER crash the worker — that would take the entire 6-server
-    topology offline because of one optional model.
-
-    On failure we:
-      1. Log a clear warning telling the operator how to enable the lane
-         (set ``HF_TOKEN`` / ``HUGGING_FACE_HUB_TOKEN`` and accept the
-         Meta-Llama license at the HuggingFace model page).
-      2. Force ``LATENCE_TRACE_CONTEXT_TRUST_PROVIDER=heuristic`` so any
-         future ``context_trust_enabled=true`` request degrades to the
-         CPU-only heuristic provider instead of repeatedly trying to load
-         the gated model and timing out.
-      3. Return a skipped-result envelope so ``initialize()`` continues.
-    """
-    os.environ.setdefault("LATENCE_TRACE_CONTEXT_TRUST_PROMPT_GUARD_COMPILE", "1")
-    os.environ.setdefault(
-        "LATENCE_TRACE_CONTEXT_TRUST_PROMPT_GUARD_COMPILE_MODE",
-        "reduce-overhead",
-    )
-    try:
-        result = warm_context_trust_runtime()
-    except Exception as exc:  # noqa: BLE001 — boot must not propagate
-        os.environ["LATENCE_TRACE_CONTEXT_TRUST_PROVIDER"] = "heuristic"
-        model_id = os.environ.get(
-            "LATENCE_TRACE_CONTEXT_TRUST_PROMPT_GUARD_MODEL",
-            "meta-llama/Llama-Prompt-Guard-2-86M",
-        )
-        logger.warning(
-            "prompt_guard_boot_warmup_failed: model=%s falling back to "
-            "provider=heuristic. Set HF_TOKEN (or HUGGING_FACE_HUB_TOKEN) "
-            "to a token with Meta-Llama license access at "
-            "https://huggingface.co/%s to enable the Llama-Guard lane. "
-            "error=%s",
-            model_id,
-            model_id,
-            exc,
-        )
-        return {
-            "status": "skipped",
-            "reason": "prompt_guard_load_failed",
-            "model_id": model_id,
-            "fallback_provider": "heuristic",
-            "error": str(exc),
-        }
-    logger.info(
-        "prompt_guard_boot_warmup_complete: model=%s device=%s compiled=%s mode=%s elapsed_ms=%.2f states=%s",
-        result.get("model_id"),
-        result.get("device"),
-        result.get("compiled"),
-        result.get("compile_mode"),
-        float(result.get("elapsed_ms") or 0.0),
-        result.get("states"),
-    )
-    return result
+    return {"status": "disabled", "reason": "retrieval_only_pivot"}
 
 
 def _prime_service_runtime(service: GroundednessService) -> None:
@@ -1068,55 +952,13 @@ def initialize() -> None:
         servers = _build_servers(config)
 
         try:
-            prompt_guard_boot_enabled = _prompt_guard_startup_enabled()
-            # Boot vLLM servers SEQUENTIALLY to avoid GPU memory
-            # fragmentation. Parallel boot via ThreadPoolExecutor used to
-            # have all 6 vLLM workers race for HBM at the same instant —
-            # vLLM 0.19's KV-cache allocator can then carve up the
-            # remaining budget at non-aligned offsets and silently leave
-            # the last server with a fragmented free pool that can't fit
-            # one max-length sequence (observed as "exited with code 1"
-            # from the Qwen3-0.6B compression server). Sequential boot
-            # gives each server a clean, contiguous slice of HBM.
-            #
-            # The pod is always-on, so the ~2x cold-start cost (boot once
-            # on rebuild, then run forever) is irrelevant compared to the
-            # reliability win. Per-server enforce_eager=True is already
-            # set on every vLLM entry above to disable CUDA graphs (which
-            # also fragment HBM during warmup capture).
-            #
-            # Llama-Prompt-Guard-2 stays parallel-with-the-pool because it
-            # touches a separate CUDA stream and doesn't compete for the
-            # vLLM KV-cache pool. We launch it first so it can warm up
-            # alongside the sequential server starts.
-            prompt_guard_thread = None
-            prompt_guard_result_box: dict[str, Any] = {}
-            if prompt_guard_boot_enabled:
-                def _prompt_guard_worker() -> None:
-                    try:
-                        prompt_guard_result_box["result"] = _warm_prompt_guard_at_boot()
-                    except Exception as exc:  # noqa: BLE001 — defensive, mirrors warm helper
-                        prompt_guard_result_box["error"] = exc
-                prompt_guard_thread = threading.Thread(
-                    target=_prompt_guard_worker,
-                    name="prompt-guard-boot-warmup",
-                    daemon=True,
-                )
-                prompt_guard_thread.start()
+            # TRACE Retrieval-Only Pivot: Prompt Guard boot warmup removed.
+            # prompt_guard_boot_enabled = _prompt_guard_startup_enabled()
 
             for name, server in servers.items():
                 logger.info("vllm_boot_sequential_start: server=%s", name)
                 server.start()
                 logger.info("vllm_boot_sequential_ready: server=%s url=%s", name, server.base_url)
-
-            if prompt_guard_thread is not None:
-                prompt_guard_thread.join()
-                # _warm_prompt_guard_at_boot is itself defensive (catches
-                # GatedRepoError etc. and falls back to heuristic), so any
-                # exception that escapes here is a hard programmer bug —
-                # surface it.
-                if "error" in prompt_guard_result_box:
-                    raise prompt_guard_result_box["error"]
 
             colbert_server = servers.get("colbert")
             if colbert_server is not None:
@@ -1224,7 +1066,7 @@ def initialize() -> None:
                 (
                     "latence-trace RunPod worker ready: profile=%s colbert=%s "
                     "guardian=%s nli_en=%s nli_multi=%s reranker=%s compliance_gliner=%s "
-                    "compression=%s prompt_guard=%s triton_maxsim=%s"
+                    "compression=%s triton_maxsim=%s"
                 ),
                 config.profile,
                 colbert_server.base_url if colbert_server is not None else "external",
@@ -1234,7 +1076,6 @@ def initialize() -> None:
                 reranker_server.base_url if reranker_server is not None else "fallback",
                 compliance_server.base_url if compliance_server is not None else "external",
                 compression_server.base_url if compression_server is not None else "fallback",
-                "in_process" if _prompt_guard_startup_enabled() else "off",
                 "in_process",
             )
         except Exception:
@@ -1537,10 +1378,11 @@ def _build_request(input_data: dict[str, Any]) -> tuple[GroundednessRequest, boo
         "auto_decide",
         "runtime_head_features",
         "trajectory_features",
-        "memory_state",
-        "memory_policy",
-        "enable_memory_shadow",
-        "apply_memory_context",
+        # TRACE Retrieval-Only Pivot: memory fields removed.
+        # "memory_state",
+        # "memory_policy",
+        # "enable_memory_shadow",
+        # "apply_memory_context",
         # Corpus router: tenant-declared override for the per-class
         # calibration bundle. Ignored when absent (classifier infers).
         "corpus_type",
@@ -1677,44 +1519,7 @@ def _compact_response(response: GroundednessResponse, *, verbose: bool) -> dict[
         result["profile_diagnostics"] = dict(response.profile_diagnostics)
     if response.context_trust_diagnostics is not None:
         result["context_trust_diagnostics"] = response.context_trust_diagnostics.model_dump(mode="json")
-    if response.scoring_mode == ScoringMode.CODE:
-        result["code_lane"] = {
-            "composite_score": scores.composite_phantom_score,
-            "phantom_probability": scores.composite_phantom_probability,
-            "phantom_verdict": scores.composite_phantom_verdict,
-            "literal_novelty_min": scores.literal_novelty_min,
-            "literal_novelty_missing_count": scores.literal_novelty_missing_count,
-            "ast_phantom_symbol_count": scores.ast_phantom_symbol_count,
-            "ast_literal_drift_count": scores.ast_literal_drift_count,
-            "ast_phantom_verdict": scores.ast_phantom_verdict,
-            "nli_contradiction_prob_max": scores.nli_contradiction_prob_max,
-            "nli_cascade_triggered": scores.nli_cascade_triggered,
-            "dead_weight_ratio": scores.dead_weight_ratio,
-            "dead_weight_file_count": scores.dead_weight_file_count,
-        }
-        if response.code_lane_diagnostics is not None:
-            diag = response.code_lane_diagnostics
-            result["code_lane"]["diagnostics"] = {
-                "config": diag.config,
-                "total_latency_ms": diag.total_latency_ms,
-                "component_latency_ms": diag.component_latency_ms,
-                "file_attribution": (
-                    diag.file_attribution.model_dump() if diag.file_attribution else None
-                ),
-                "ast": diag.ast.model_dump() if diag.ast else None,
-                "literal_novelty": (
-                    diag.literal_novelty.model_dump() if diag.literal_novelty else None
-                ),
-                "nli_cascade": (diag.nli_cascade.model_dump() if diag.nli_cascade else None),
-                "composite": diag.composite.model_dump() if diag.composite else None,
-            }
-        # Opt-in caller-portable session blob + derived signals. The
-        # client is expected to round-trip ``next_session_state`` verbatim
-        # on the next turn; ``session_signals`` is advisory.
-        if response.next_session_state is not None:
-            result["next_session_state"] = response.next_session_state.model_dump(mode="json")
-        if response.session_signals is not None:
-            result["session_signals"] = response.session_signals.model_dump(mode="json")
+    # Code lane and session state removed in retrieval-only pivot
     # Lane-neutral file attribution — populated for both RAG and code
     # lanes so downstream dashboards have one canonical field to read
     # from regardless of ``scoring_mode``.
@@ -2149,34 +1954,9 @@ async def _handle_compression(input_data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-async def _handle_memory_update(input_data: dict[str, Any]) -> dict[str, Any]:
-    try:
-        payload = dict(input_data)
-        payload.pop("action", None)
-        payload.pop("endpoint_id", None)
-        payload = await _maybe_compress_memory_payload(payload)
-        request = MemoryUpdateRequest.model_validate(payload)
-        response = update_memory(request)
-    except PydanticValidationError as exc:
-        return _service_error_payload(
-            str(exc),
-            error_code="validation_error",
-            hint="Send action='memory.update' with turn_text and optional prior_memory_state.",
-            status_code=400,
-        )
-    except Exception as exc:  # pragma: no cover - runtime safeguard
-        logger.exception("memory_update_failed")
-        return _service_error_payload(
-            str(exc),
-            error_code="service_error",
-            status_code=500,
-        )
-    return {
-        "success": True,
-        "action": "memory.update",
-        "result": response.model_dump(mode="json"),
-        "version": _config.version if _config else __version__,
-    }
+# TRACE Retrieval-Only Pivot: _handle_memory_update removed.
+# async def _handle_memory_update(input_data: dict[str, Any]) -> dict[str, Any]:
+#     ...  (memory action no longer user-facing)
 
 
 async def _handle_session_action(input_data: dict[str, Any], action: str) -> dict[str, Any]:
@@ -2377,8 +2157,9 @@ async def handler(job: dict[str, Any]) -> dict[str, Any]:
         return await _handle_compliance_redaction(input_data)
     if action in {"compress", "compression"} or endpoint_id == "compression":
         return await _handle_compression(input_data)
-    if action in {"memory.update", "memory_update"} or endpoint_id == "memory":
-        return await _handle_memory_update(input_data)
+    # TRACE Retrieval-Only Pivot: memory.update action removed.
+    # if action in {"memory.update", "memory_update"} or endpoint_id == "memory":
+    #     return await _handle_memory_update(input_data)
     if action in {
         "session.create",
         "session.get",
@@ -2395,7 +2176,7 @@ async def handler(job: dict[str, Any]) -> dict[str, Any]:
         return _service_error_payload(
             f"Unknown action: {action}",
             error_code="invalid_action",
-            hint="Set action to 'score' (default), 'rollup', 'redact', 'compress', 'memory.update', or a session.* action.",
+            hint="Set action to 'score' (default), 'rollup', 'redact', 'compress', or a session.* action.",
             status_code=400,
         )
 
@@ -2435,12 +2216,7 @@ async def handler(job: dict[str, Any]) -> dict[str, Any]:
                 BUDGET_EXCEEDED_COUNT.labels(lane=lane.value).inc()
             except Exception:  # pragma: no cover
                 logger.exception("budget_exceeded_metric_failed")
-        # Code-lane calls get a much tighter ceiling (150ms p95 SLO);
-        # RAG stays on the long-running timeout so document-heavy
-        # requests still fit.
-        effective_timeout = (
-            config.code_request_timeout_s if lane == ScoringMode.CODE else config.request_timeout_s
-        )
+        effective_timeout = config.request_timeout_s
         async with semaphore:
             loop = asyncio.get_running_loop()
             response = await asyncio.wait_for(
@@ -2464,12 +2240,8 @@ async def handler(job: dict[str, Any]) -> dict[str, Any]:
                 logger.exception("audit_log_emit_failed")
             return score_response
     except asyncio.TimeoutError:
-        if lane == ScoringMode.CODE:
-            timeout_value = _config.code_request_timeout_s if _config else 2.0
-            hint = "Retry with a smaller request or increase LATENCE_TRACE_CODE_REQUEST_TIMEOUT_S."
-        else:
-            timeout_value = _config.request_timeout_s if _config else 120
-            hint = "Retry with a smaller request or increase LATENCE_TRACE_RUNPOD_REQUEST_TIMEOUT."
+        timeout_value = _config.request_timeout_s if _config else 120
+        hint = "Retry with a smaller request or increase LATENCE_TRACE_RUNPOD_REQUEST_TIMEOUT."
         err = _service_error_payload(
             f"Job exceeded {timeout_value}s execution timeout",
             error_code="job_timeout",

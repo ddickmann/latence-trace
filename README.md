@@ -1,25 +1,24 @@
 # latence-trace
 
-> Enterprise AI compliance runtime for **real-time PII redaction** and
-> calibrated groundedness verification across **RAG** and **coding agents**.
-> **Multilingual: English + German out of the box.** Part of the
-> latence.ai product family.
+> **TRACE — real-time safety for knowledge agents.** Stateless retrieval
+> quality runtime: groundedness verification, context compression, privacy
+> redaction, and context utilization scoring. **Multilingual: English +
+> German out of the box.** Part of the latence.ai product family.
 
 `latence-trace` is the Latence TRACE runtime. It scores how well an LLM
 response is grounded in supplied context, returns auditable per-claim evidence,
-classifies outputs into calibrated `green` / `amber` / `red` risk bands, and
-redacts PII in real time before prompts or responses leave a trust boundary.
+classifies outputs into calibrated `green` / `amber` / `red` risk bands,
+compresses context, scores context utilization, and redacts PII in real time
+before prompts or responses leave a trust boundary.
 
 ## Verification + Compliance, One Service
 
-Pick the lane per request via `scoring_mode` in the `/groundedness` body.
-Shared encoder, shared kernels, shared observability — the domain-specific
-signals fan out on the scoring path:
+The groundedness lane verifies RAG answers against retrieved context. Shared
+encoder, shared kernels, shared observability:
 
 | Lane | `scoring_mode` | Who it's for | What it answers |
 | --- | --- | --- | --- |
 | **RAG** | `"rag"` (default) | Enterprises running retrieval-augmented LLM apps | *"Is this answer anchored in the retrieved context? Which chunks are dead weight?"* |
-| **Code** | `"code"` | Teams shipping coding agents (Claude Code, Cursor, Codex, OpenCode …) | *"Is the generated code grounded in the opened files? Did the agent drift? Which files in the context window are genuinely unused?"* |
 
 The compliance lane is exposed at `POST /v1/compliance/redact`. It uses
 GLiNER PII detection, token-aware chunking, deterministic validators, custom
@@ -38,22 +37,13 @@ Address handling supports both full-address redaction (`address`) and focused
 components (`street_address`, `postal_code`, `city`, `country`) so customers can
 choose broad removal or more precise masking.
 
-The RAG lane remains untouched — same models, same thresholds, bitwise
-parity guaranteed by
-[`tests/api/test_rag_lane_parity.py`](tests/api/test_rag_lane_parity.py).
-The code lane adds AST-grounded literal matching, an ambiguity-triggered
-NLI cascade, a logistic composite, and per-session multi-turn signals on
-top of the shared MaxSim scorer. See the
-[coding-agent guide](docs/coding_agent_guide.md) and
-[docs/code_lane_v3.md](docs/code_lane_v3.md).
 
 > **Scope.** `latence-trace` answers **"is this response anchored in the
-> supplied context?"** (RAG-grounding / faithfulness / code-grounding).
-> It does **not** answer **"is this response factually correct against
-> world knowledge?"** (open-domain factuality). For the latter, pair
-> with a knowledge-base fact-checker. See
-> [`docs/algorithm-audit.md`](docs/algorithm-audit.md) §"Scope and
-> Known Mismatches" for the empirical evidence.
+> supplied context?"** (RAG-grounding / faithfulness). It does **not**
+> answer **"is this response factually correct against world knowledge?"**
+> (open-domain factuality). For the latter, pair with a knowledge-base
+> fact-checker. See [`docs/algorithm-audit.md`](docs/algorithm-audit.md)
+> §"Scope and Known Mismatches" for the empirical evidence.
 
 > **New here?** Start with the end-to-end tutorial:
 > [`docs/guides/tutorial.md`](docs/guides/tutorial.md) — covers boot,
@@ -362,31 +352,6 @@ The service returns `scores`, `risk_band`, per-token heatmaps,
 `literal_diagnostics`, `structured_diagnostics`, and per-claim NLI evidence
 for both languages with the same response schema.
 
-Code-lane request (same endpoint, `scoring_mode` discriminator):
-
-```bash
-curl -X POST http://127.0.0.1:8090/groundedness \
-  -H "Content-Type: application/json" \
-  -d '{
-    "scoring_mode": "code",
-    "session_id": "ide-session-abc123",
-    "response_language_hint": "python",
-    "query_text": "Rename `calibrate` to `calibrate_threshold` across the tracer.",
-    "raw_context": "# file: tracer.py\nclass Tracer:\n    def calibrate_threshold(self, x): ...\n",
-    "response_text": "```python\ntracer.calibrate(x)\n```"
-  }'
-```
-
-The response adds a `code_lane_diagnostics` block with AST-level drift
-counters, literal novelty, the NLI cascade verdict (when it fires), and
-per-file ownership with reason codes. Temporal signals (drift, EMA
-groundedness, eviction recommendations) ride on an optional
-caller-portable `session_state` blob — the API stays stateless, the
-caller carries memory. See
-[`docs/coding_agent_guide.md`](docs/coding_agent_guide.md) and
-[`docs/session_semantics.md`](docs/session_semantics.md) for
-copy-paste integration recipes for Claude Code, Cursor, OpenAI Codex,
-and OpenCode.
 
 Agents and humans can self-discover the request shape, active profile, and
 all sibling endpoints in a single GET:

@@ -114,8 +114,8 @@ class MemoryPolicy(BaseModel):
             "gates would otherwise fail."
         ),
     )
-    min_exact_critical_recall: float = Field(default=0.98, ge=0.0, le=1.0)
-    min_survival_mass: float = Field(default=0.95, ge=0.0, le=1.0)
+    min_exact_critical_recall: float = Field(default=0.85, ge=0.0, le=1.0)
+    min_survival_mass: float = Field(default=0.55, ge=0.0, le=1.0)
     recent_tail_token_budget: int = Field(
         default=0,
         ge=0,
@@ -129,8 +129,14 @@ class MemoryPolicy(BaseModel):
             "spans from these turns are protected by adaptive budget gates."
         ),
     )
+    min_genesis_recall: float = Field(
+        default=0.8,
+        ge=0.0,
+        le=1.0,
+        description="Minimum fraction of genesis anchors that must fit in the hot budget.",
+    )
     genesis_anchor_score_floor: float = Field(
-        default=0.55,
+        default=0.72,
         ge=0.0,
         le=1.0,
         description="Minimum survival or exact-critical score for first-turn genesis anchoring.",

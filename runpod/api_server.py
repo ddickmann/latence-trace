@@ -16,7 +16,8 @@ from fastapi import FastAPI, Request
 
 from latence_trace.api.compliance_routes import create_compliance_router
 from latence_trace.api.compression_routes import create_compression_router
-from latence_trace.api.memory_routes import create_memory_router
+# TRACE Retrieval-Only Pivot: memory router removed from user-facing paths.
+# from latence_trace.api.memory_routes import create_memory_router
 from latence_trace.api.routes import create_router
 
 
@@ -66,7 +67,8 @@ def create_app() -> FastAPI:
         )
     )
     app.include_router(create_compression_router(_compression_service))
-    app.include_router(create_memory_router())
+    # TRACE Retrieval-Only Pivot: memory router removed.
+    # app.include_router(create_memory_router())
 
     @app.get("/healthz/runpod-runtime", include_in_schema=False)
     async def runpod_runtime_health() -> dict[str, Any]:
