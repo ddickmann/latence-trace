@@ -1542,6 +1542,7 @@ class GroundednessService:
         via a request-scoped ``contextvars.ContextVar`` so every
         downstream scorer sees a single, coherent runtime profile.
         """
+        original_raw_context = request.raw_context
         request = self._augment_context_from_memory(request)
         decision = _corpus_router_middleware.route(request)
         # Router may override the scoring mode (e.g. agentic-coding
@@ -1596,13 +1597,14 @@ class GroundednessService:
                 response.runtime_decision = RuntimeDecisionRecord.model_validate(decision_record)
         except Exception as exc:  # pragma: no cover - decision layer must not fail scoring
             logger.warning("runtime_decision: failed to attach decision record: %r", exc)
-        self._maybe_attach_memory_shadow(request, response)
+        self._maybe_attach_memory_shadow(request, response, original_raw_context)
         return response
 
     def _maybe_attach_memory_shadow(
         self,
         request: GroundednessRequest,
         response: GroundednessResponse,
+        original_raw_context: str | None = None,
     ) -> None:
         if not (
             request.enable_memory_shadow
@@ -1624,7 +1626,12 @@ class GroundednessService:
                 },
             )
             memory_domain = self._memory_domain_for_request(request)
-            raw_context = self._memory_raw_context(request, memory_domain)
+            memory_request = (
+                request.model_copy(update={"raw_context": original_raw_context})
+                if original_raw_context != request.raw_context
+                else request
+            )
+            raw_context = self._memory_raw_context(memory_request, memory_domain)
             result = update_memory(
                 MemoryUpdateRequest(
                     turn_text="\n".join(
