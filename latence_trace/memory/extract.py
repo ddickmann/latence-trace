@@ -51,9 +51,10 @@ def extract_spans(
 ) -> list[SpanRecord]:
     records: list[SpanRecord] = []
     domain = (memory_domain or "").strip().lower()
-    sources = [
+    have_separate = bool(query_text) and bool(response_text)
+    sources: list[tuple[str, str]] = [
         ("query", query_text or ""),
-        ("turn", turn_text or ""),
+        *([] if have_separate else [("turn", turn_text or "")]),
         ("response", response_text or ""),
         ("raw_context", raw_context or ""),
     ]

@@ -266,9 +266,11 @@ def _max_allowed_hot_budget(total_tokens: int, policy: MemoryPolicy) -> int:
         available_context = max(1, policy.context_window_tokens - policy.recent_tail_token_budget)
         if policy.memory_context_ratio:
             available_context = min(available_context, _ratio_hot_budget(policy))
-        return max(1, max(policy.hot_token_budget, available_context))
+        ceiling = max(1, max(policy.hot_token_budget, available_context))
+        return min(ceiling, total_tokens) if total_tokens > 0 else ceiling
     if policy.memory_context_ratio:
-        return max(policy.hot_token_budget, _ratio_hot_budget(policy))
+        ceiling = max(policy.hot_token_budget, _ratio_hot_budget(policy))
+        return min(ceiling, total_tokens) if total_tokens > 0 else ceiling
     if policy.target_token_reduction is not None:
         return max(policy.hot_token_budget, total_tokens)
     return policy.hot_token_budget
