@@ -317,7 +317,7 @@ class WorkerConfig:
     compression_max_model_len: int = 8192
     compression_max_num_seqs: int = 64
     compression_max_batched_tokens: int = 8192
-    compression_dtype: str = "auto"
+    compression_dtype: str = "bfloat16"
     compression_enforce_eager: bool = True
     compression_trust_remote_code: bool = False
     compression_request_timeout_s: float = 30.0
