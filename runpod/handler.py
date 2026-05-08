@@ -931,10 +931,10 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
         )
 
     # When Guardian is active it takes 0.50; shrink the co-hosted
-    # servers so the total stays ≤0.85 on a 24 GB GPU.
-    _guardian_colbert_gpu = 0.13
-    _guardian_gliner_gpu = 0.11
-    _guardian_compression_gpu = 0.11
+    # servers so the total stays ≤0.88 on a 24 GB GPU.
+    _guardian_colbert_gpu = 0.12
+    _guardian_gliner_gpu = 0.14
+    _guardian_compression_gpu = 0.12
 
     servers["colbert"] = ManagedVllmServer(
         name="colbert",
