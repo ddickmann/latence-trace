@@ -930,12 +930,20 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
             enable_chunked_prefill=True,
         )
 
+    # When Guardian is active it takes 0.50; shrink the co-hosted
+    # servers so the total stays ≤0.85 on a 24 GB GPU.
+    _guardian_colbert_gpu = 0.13
+    _guardian_gliner_gpu = 0.11
+    _guardian_compression_gpu = 0.11
+
     servers["colbert"] = ManagedVllmServer(
         name="colbert",
         model=config.colbert_model,
         port=config.colbert_port,
         io_processor_plugin="moderncolbert_batched_io",
-        gpu_memory_utilization=config.colbert_gpu_mem,
+        gpu_memory_utilization=(
+            _guardian_colbert_gpu if config.guardian_enabled else config.colbert_gpu_mem
+        ),
         max_model_len=config.colbert_max_model_len,
         max_num_seqs=config.colbert_max_num_seqs,
         max_num_batched_tokens=config.colbert_max_batched_tokens,
@@ -948,7 +956,9 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
             model=config.compliance_model,
             port=config.compliance_port,
             io_processor_plugin="deberta_gliner_io",
-            gpu_memory_utilization=config.compliance_gpu_mem,
+            gpu_memory_utilization=(
+                _guardian_gliner_gpu if config.guardian_enabled else config.compliance_gpu_mem
+            ),
             max_model_len=config.compliance_max_model_len,
             max_num_seqs=config.compliance_max_num_seqs,
             max_num_batched_tokens=config.compliance_max_batched_tokens,
@@ -960,7 +970,9 @@ def _build_servers(config: WorkerConfig) -> dict[str, ManagedVllmServer]:
             name="compression",
             model=config.compression_model,
             port=config.compression_port,
-            gpu_memory_utilization=config.compression_gpu_mem,
+            gpu_memory_utilization=(
+                _guardian_compression_gpu if config.guardian_enabled else config.compression_gpu_mem
+            ),
             max_model_len=config.compression_max_model_len,
             max_num_seqs=config.compression_max_num_seqs,
             max_num_batched_tokens=config.compression_max_batched_tokens,
