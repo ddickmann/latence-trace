@@ -393,7 +393,7 @@ class WorkerConfig:
     #   guardian  0.50 + colbert 0.13 + gliner 0.11 + compression 0.11
     #   = 0.85 total → fits comfortably on a 24 GB GPU.
     # ----------------------------------------------------------------
-    guardian_enabled: bool = False
+    guardian_enabled: bool = True
     guardian_model: str = "latence/granite-4.1-guardian-W8A16"
     guardian_port: int = 8005
     guardian_gpu_mem: float = 0.50
@@ -555,7 +555,7 @@ def create_config() -> WorkerConfig:
         reranker_max_batched_tokens=_env_int(
             "LATENCE_TRACE_RERANKER_MAX_BATCHED_TOKENS", 8192
         ),
-        guardian_enabled=_env_bool_with_default("LATENCE_TRACE_GUARDIAN_ENABLED", False),
+        guardian_enabled=_env_bool_with_default("LATENCE_TRACE_GUARDIAN_ENABLED", True),
         guardian_model=os.environ.get(
             "LATENCE_TRACE_GUARDIAN_MODEL", "latence/granite-4.1-guardian-W8A16"
         ),
