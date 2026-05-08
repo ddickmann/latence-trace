@@ -100,7 +100,9 @@ def _extract_score(logprobs_obj: dict) -> Tuple[float, float]:
         if chosen not in ("yes", "no"):
             continue
 
-        # Best case: both yes and no appear in top_logprobs at this position
+        # Best case: both yes and no appear in top_logprobs at this position.
+        # Multiple casing variants (e.g. " no" and " No") can appear —
+        # keep the highest logprob (= most probable) for each label.
         if idx < len(top_logprobs) and top_logprobs[idx]:
             top_dict = top_logprobs[idx]
             yes_lp = None
@@ -108,9 +110,9 @@ def _extract_score(logprobs_obj: dict) -> Tuple[float, float]:
             for k, v in top_dict.items():
                 kn = k.strip().lower()
                 if kn == "yes":
-                    yes_lp = v
+                    yes_lp = v if yes_lp is None else max(yes_lp, v)
                 elif kn == "no":
-                    no_lp = v
+                    no_lp = v if no_lp is None else max(no_lp, v)
             if yes_lp is not None and no_lp is not None:
                 p_yes = math.exp(yes_lp)
                 p_no = math.exp(no_lp)
