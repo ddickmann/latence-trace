@@ -45,4 +45,4 @@ if missing_general:
 print(f"runtime smoke ok: torch={torch.__version__} cuda={torch.version.cuda} vllm={vllm.__version__}")
 PY
 
-exec python -m uvicorn runpod.api_server:app --host 0.0.0.0 --port 8000 --workers 1
+exec python -u runpod/handler.py
