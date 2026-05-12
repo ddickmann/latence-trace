@@ -25,6 +25,7 @@ from latence_trace.api.models import (
     GroundednessScores,
     GroundednessSupportUnit,
     GroundednessUsageState,
+    GuardianSegment,
     RuntimeDecisionRecord,
     TraceRuntimeProfile,
 )
@@ -1141,6 +1142,87 @@ def test_compact_response_surfaces_unused_context_contract() -> None:
     assert "full" in verbose
     assert verbose["full"]["scores"]["support_units_unused"] == 1
     assert verbose["full"]["support_units"][0]["usage_state"] == "used"
+
+
+def test_compact_response_uses_capped_risk_band_when_guardian_active() -> None:
+    runpod_handler._config = runpod_handler.WorkerConfig(
+        version="test",
+        profile="fast",
+        request_timeout_s=5,
+        code_request_timeout_s=2.0,
+        rollup_request_timeout_s=0.25,
+        max_concurrency=1,
+        collection_label="latence-trace",
+        service_device="cpu",
+        docs_url="",
+        managed_vllm_enabled=False,
+        colbert_model="test-model",
+        colbert_port=18001,
+        colbert_gpu_mem=0.1,
+        colbert_max_model_len=512,
+        colbert_max_num_seqs=1,
+        colbert_max_batched_tokens=1024,
+        nli_model="test-nli",
+        nli_port=18002,
+        nli_gpu_mem=0.1,
+        nli_max_model_len=512,
+        nli_max_num_seqs=1,
+        nli_max_batched_tokens=1024,
+        compliance_model="test-compliance",
+        compliance_port=18003,
+        compliance_gpu_mem=0.1,
+        compliance_max_model_len=512,
+        compliance_max_num_seqs=1,
+        compliance_max_batched_tokens=1024,
+        compliance_threshold=0.5,
+        compliance_dataset_path="test",
+        compliance_request_timeout_s=30.0,
+    )
+    response = GroundednessResponse(
+        collection="latence-trace",
+        mode="raw_context",
+        model="test-model",
+        scores=GroundednessScores(
+            primary_name="reverse_context",
+            primary_score=0.92,
+            reverse_context=0.92,
+            reverse_context_calibrated=0.91,
+            literal_guarded=0.61,
+            guardian_aggregate=0.42,
+            guardian_segments=[
+                GuardianSegment(text="Grounded sentence.", score=0.82, grounded=True),
+                GuardianSegment(text="Weak sentence.", score=0.18, grounded=False),
+            ],
+            guardian_base_score=0.89,
+            guardian_cap=0.74,
+            guardian_cap_reason="guardian_partial_support_cap",
+            grounded=False,
+            groundedness_v2=0.74,
+            risk_band="amber",
+        ),
+        response_tokens=[],
+        support_units=[],
+        top_evidence=[],
+        eligibility=GroundednessEligibility(
+            collection_kind=CollectionKind.LATE_INTERACTION,
+            vector_source="encoded_raw_context",
+            storage_compression=None,
+            quantization_mode=None,
+            dequantized=True,
+            user_facing_supported=True,
+            warnings=[],
+        ),
+        time_ms=12.0,
+        attribution_mode=AttributionMode.CLOSED_BOOK,
+    )
+
+    compact = runpod_handler._compact_response(response, verbose=False)
+
+    assert compact["band"] == "amber"
+    assert compact["score"] == pytest.approx(0.74)
+    assert compact["guardian_cap"] == pytest.approx(0.74)
+    assert compact["guardian_cap_reason"] == "guardian_partial_support_cap"
+    assert compact["score_channels"]["guardian_base_score"] == pytest.approx(0.89)
 
 
 def test_score_response_can_return_canonical_model_dump() -> None:

@@ -11,8 +11,12 @@ import pytest
 import torch
 from fastapi.testclient import TestClient
 
+from latence_trace.api.models import GroundednessRequest, TraceRuntimeProfile
+from latence_trace.api.service import _guardian_holistic_fusion_weights
 from latence_trace.core.groundedness import (
     SupportUnitInput,
+    _guardian_score_cap,
+    _verbatim_support_floor,
     calibrate_per_token_scores,
     collect_support_literal_set,
     compute_null_distribution,
@@ -29,9 +33,7 @@ from latence_trace.core.groundedness import (
     support_content_mask,
     support_unit_signature,
     tokenize_text,
-    _verbatim_support_floor,
 )
-from latence_trace.api.models import GroundednessRequest, TraceRuntimeProfile
 from latence_trace.providers.encoders import VllmFactoryModernColBERTProvider
 
 # The voyager-index collection-based service tests were ported from the
@@ -1829,6 +1831,64 @@ def test_fuse_groundedness_v2_returns_none_when_no_channel_available() -> None:
         literal_guarded=None,
         nli_aggregate=None,
     ) is None
+
+
+def test_guardian_hot_path_weights_remove_nli_and_guardian_channels() -> None:
+    weights = _guardian_holistic_fusion_weights(
+        {
+            "calibrated": 0.4,
+            "literal": 0.2,
+            "nli": 0.4,
+            "guardian": 1.0,
+            "semantic_entropy": 0.1,
+            "structured": 0.0,
+        }
+    )
+
+    assert weights["calibrated"] == pytest.approx(0.9)
+    assert weights["literal"] == pytest.approx(0.2)
+    assert weights["semantic_entropy"] == pytest.approx(0.1)
+    assert weights["nli"] == 0.0
+    assert weights["guardian"] == 0.0
+
+
+def test_guardian_score_cap_keeps_base_score_but_prevents_green_on_mixed_segments() -> None:
+    capped, diagnostics = _guardian_score_cap(
+        base_score=0.91,
+        literal_guarded=0.61,
+        guardian_result={
+            "aggregate": 0.42,
+            "segments": [
+                {"score": 0.74, "grounded": True},
+                {"score": 0.18, "grounded": False},
+            ],
+        },
+    )
+
+    assert capped is not None
+    assert capped < 0.91
+    assert capped > 0.60
+    assert diagnostics is not None
+    assert diagnostics["base_score"] == pytest.approx(0.91)
+    assert diagnostics["reason"] == "guardian_partial_support_cap"
+
+
+def test_guardian_score_cap_all_grounded_does_not_lower_base_score() -> None:
+    capped, diagnostics = _guardian_score_cap(
+        base_score=0.88,
+        literal_guarded=0.80,
+        guardian_result={
+            "aggregate": 0.76,
+            "segments": [
+                {"score": 0.73, "grounded": True},
+                {"score": 0.79, "grounded": True},
+            ],
+        },
+    )
+
+    assert capped == pytest.approx(0.88)
+    assert diagnostics is not None
+    assert diagnostics["cap"] == pytest.approx(1.0)
 
 
 def test_project_claim_scores_to_tokens_assigns_scores_inside_spans() -> None:

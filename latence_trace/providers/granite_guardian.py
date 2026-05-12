@@ -34,8 +34,8 @@ import logging
 import math
 import re
 import threading
-import urllib.request
 import urllib.error
+import urllib.request
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 logger = logging.getLogger(__name__)
@@ -184,6 +184,11 @@ class GraniteGuardianNLIProvider:
             documents=documents,
         )
 
+    def count_tokens(self, text: str) -> int:
+        """Count text tokens with Guardian's tokenizer for holistic chunking."""
+        self._ensure_tokenizer()
+        return len(self._tokenizer.encode(text, add_special_tokens=False))
+
     def _call_vllm(self, prompts: List[str]) -> List[dict]:
         """Send a batch of raw prompts to vLLM's /v1/completions endpoint."""
         url = f"{self.endpoint}/v1/completions"
@@ -277,8 +282,23 @@ class GraniteGuardianNLIProvider:
 
         Returns one ``P(grounded)`` float per response segment in [0, 1].
         """
+        scores, _debug = self.score_holistic_with_debug(
+            context_windows,
+            response_segments,
+        )
+        return scores
+
+    def score_holistic_with_debug(
+        self,
+        context_windows: Sequence[str],
+        response_segments: Sequence[str],
+    ) -> Tuple[List[float], Dict[str, Any]]:
+        """Score holistic pairs and return per-window scores for observability."""
         if not context_windows or not response_segments:
-            return [0.5] * len(response_segments)
+            return [0.5] * len(response_segments), {
+                "pair_scores": [],
+                "best_context_window_index_by_segment": [],
+            }
 
         prompts: List[str] = []
         pair_map: List[Tuple[int, int]] = []
@@ -288,23 +308,43 @@ class GraniteGuardianNLIProvider:
                 pair_map.append((seg_idx, win_idx))
 
         if not prompts:
-            return [0.5] * len(response_segments)
+            return [0.5] * len(response_segments), {
+                "pair_scores": [],
+                "best_context_window_index_by_segment": [],
+            }
 
         choices = self._call_vllm(prompts)
 
         per_segment: Dict[int, float] = {}
-        for choice_idx, (seg_idx, _win_idx) in enumerate(pair_map):
+        best_window_by_segment: Dict[int, int] = {}
+        pair_scores: List[Dict[str, Any]] = []
+        for choice_idx, (seg_idx, win_idx) in enumerate(pair_map):
             if choice_idx < len(choices):
                 lp_obj = choices[choice_idx].get("logprobs") or {}
                 p_grounded, _p_ungrounded = _extract_score(lp_obj)
             else:
                 p_grounded = 0.5
             prev = per_segment.get(seg_idx, 0.0)
-            per_segment[seg_idx] = max(prev, p_grounded)
+            if p_grounded >= prev:
+                per_segment[seg_idx] = p_grounded
+                best_window_by_segment[seg_idx] = win_idx
+            pair_scores.append(
+                {
+                    "response_segment_index": seg_idx,
+                    "context_window_index": win_idx,
+                    "score": float(p_grounded),
+                }
+            )
 
-        return [
+        scores = [
             per_segment.get(i, 0.5) for i in range(len(response_segments))
         ]
+        return scores, {
+            "pair_scores": pair_scores,
+            "best_context_window_index_by_segment": [
+                best_window_by_segment.get(i) for i in range(len(response_segments))
+            ],
+        }
 
     def healthcheck(self) -> None:
         """Verify the vLLM endpoint is reachable."""

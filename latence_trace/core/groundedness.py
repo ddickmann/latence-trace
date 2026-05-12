@@ -3701,7 +3701,7 @@ def score_groundedness(
         guardian_result["aggregate"] if guardian_result is not None else None
     )
 
-    groundedness_v2 = fuse_groundedness_v2(
+    base_groundedness_v2 = fuse_groundedness_v2(
         reverse_context_calibrated=(
             float(reverse_context_calibrated_score) if null_bank_size > 0 else float(reverse_context_score)
         ),
@@ -3715,6 +3715,13 @@ def score_groundedness(
         typed_claims_matched=typed_claims_matched,
         weights=fusion_weights,
         substitute_missing_channels_threshold=fusion_substitute_missing_channels_threshold,
+    )
+    groundedness_v2, guardian_cap_diagnostics = _guardian_score_cap(
+        base_score=base_groundedness_v2,
+        literal_guarded=float(literal_guarded_value),
+        guardian_result=guardian_result,
+        risk_band_policy=risk_band_policy,
+        effective_stratum=risk_band_stratum,
     )
     if business_policy_rescue is not None:
         groundedness_v2 = max(float(groundedness_v2), float(business_policy_rescue))
@@ -3763,6 +3770,15 @@ def score_groundedness(
         "nli_aggregate": float(nli_aggregate) if nli_aggregate is not None else None,
         "guardian_aggregate": float(guardian_aggregate) if guardian_aggregate is not None else None,
         "guardian_segments": guardian_result["segments"] if guardian_result is not None else None,
+        "guardian_base_score": (
+            float(base_groundedness_v2) if base_groundedness_v2 is not None else None
+        ),
+        "guardian_cap": (
+            float(guardian_cap_diagnostics["cap"]) if guardian_cap_diagnostics else None
+        ),
+        "guardian_cap_reason": (
+            guardian_cap_diagnostics["reason"] if guardian_cap_diagnostics else None
+        ),
         "grounded": guardian_result["grounded"] if guardian_result is not None else None,
         "verbatim_support_floor": (
             float(verbatim_floor) if verbatim_floor is not None else None
@@ -3897,6 +3913,14 @@ def score_groundedness(
         "context_trust_diagnostics": context_trust_diagnostics,
         "semantic_entropy_diagnostics": semantic_entropy_payload,
         "structured_diagnostics": structured_payload,
+        "guardian_diagnostics": (
+            None
+            if guardian_result is None
+            else {
+                "cap": guardian_cap_diagnostics,
+                "debug": guardian_result.get("debug"),
+            }
+        ),
         "_internals": {
             "reverse_context_unit_values": reverse_context_unit_values,
             "null_mean": null_mean,
@@ -4185,8 +4209,8 @@ def _maybe_run_nli(
 # Guardian holistic pathway — configurable env vars
 # ------------------------------------------------------------------
 
-_GUARDIAN_CTX_WINDOW_TOKENS_MIN = 128
-_GUARDIAN_RESP_SEGMENT_TOKENS_MIN = 32
+_GUARDIAN_CTX_WINDOW_TOKENS_MIN = 512
+_GUARDIAN_RESP_SEGMENT_TOKENS_MIN = 64
 
 
 def _guardian_ctx_window_tokens() -> int:
@@ -4211,13 +4235,23 @@ def _merge_sentences_to_segments(
     spans: Sequence[Dict[str, Any]],
     full_text: str,
     min_tokens: int,
+    token_counter: Optional[Any] = None,
 ) -> List[str]:
-    """Merge consecutive sentence spans into segments of >= *min_tokens* words.
+    """Merge consecutive sentence spans into segments of >= *min_tokens* tokens.
 
-    Uses whitespace word count as a cheap token proxy (same convention as
-    ``_concat_premises_for_nli``).  Each segment is a contiguous substring
-    of *full_text* covering one or more sentence spans.
+    Uses the Guardian tokenizer when available and falls back to whitespace
+    word count otherwise.  Each segment is a contiguous substring of
+    *full_text* covering one or more sentence spans.
     """
+
+    def count(text: str) -> int:
+        if token_counter is None:
+            return len(text.split())
+        try:
+            return int(token_counter(text))
+        except Exception:  # noqa: BLE001 - debug/observability must not break scoring
+            return len(text.split())
+
     if not spans:
         return []
     segments: List[str] = []
@@ -4227,7 +4261,7 @@ def _merge_sentences_to_segments(
     for span in spans:
         s = int(span.get("offset_start", 0))
         e = int(span.get("offset_end", len(full_text)))
-        words = len(span.get("text", "").split())
+        words = count(str(span.get("text", "")))
         if buf_start is None:
             buf_start = s
             buf_end = e
@@ -4247,6 +4281,24 @@ def _merge_sentences_to_segments(
         else:
             segments.append(tail)
     return [s for s in segments if s]
+
+
+def _guardian_token_counter(provider: Any) -> Optional[Any]:
+    """Return a tokenizer-backed counter for Guardian chunking when available."""
+    count_tokens = getattr(provider, "count_tokens", None)
+    if callable(count_tokens):
+        return count_tokens
+    tokenizer = getattr(provider, "tokenizer", None)
+    if tokenizer is None:
+        return None
+    encode = getattr(tokenizer, "encode", None)
+    if not callable(encode):
+        return None
+
+    def count(text: str) -> int:
+        return len(encode(text, add_special_tokens=False))
+
+    return count
 
 
 def _resolve_guardian_holistic_provider() -> Optional[Any]:
@@ -4305,6 +4357,7 @@ def _maybe_run_guardian_holistic(
 
     ctx_budget = _guardian_ctx_window_tokens()
     resp_min = _guardian_resp_segment_tokens()
+    token_counter = _guardian_token_counter(provider)
 
     unit_texts = [
         getattr(u, "text", "") or "" for u in support_units
@@ -4320,7 +4373,10 @@ def _maybe_run_guardian_holistic(
         context_windows = [full_context]
     else:
         context_windows = _merge_sentences_to_segments(
-            ctx_spans, full_context, min_tokens=ctx_budget,
+            ctx_spans,
+            full_context,
+            min_tokens=ctx_budget,
+            token_counter=token_counter,
         )
     if not context_windows:
         context_windows = [full_context]
@@ -4330,13 +4386,26 @@ def _maybe_run_guardian_holistic(
         response_segments = [text]
     else:
         response_segments = _merge_sentences_to_segments(
-            resp_spans, text, min_tokens=resp_min,
+            resp_spans,
+            text,
+            min_tokens=resp_min,
+            token_counter=token_counter,
         )
     if not response_segments:
         response_segments = [text]
 
     try:
-        per_segment = provider.score_holistic(context_windows, response_segments)
+        score_with_debug = getattr(provider, "score_holistic_with_debug", None)
+        if callable(score_with_debug):
+            scored = score_with_debug(context_windows, response_segments)
+            if isinstance(scored, tuple):
+                per_segment, debug = scored
+            else:
+                per_segment = scored.get("scores", []) if isinstance(scored, dict) else scored
+                debug = scored.get("debug", {}) if isinstance(scored, dict) else {}
+        else:
+            per_segment = provider.score_holistic(context_windows, response_segments)
+            debug = {}
     except Exception as exc:  # noqa: BLE001
         logger.warning(
             "guardian_holistic_failed",
@@ -4367,6 +4436,97 @@ def _maybe_run_guardian_holistic(
         "aggregate": aggregate,
         "grounded": all_grounded,
         "segments": segments,
+        "debug": {
+            "context_window_tokens": ctx_budget,
+            "response_segment_tokens": resp_min,
+            "tokenizer_backed_chunking": token_counter is not None,
+            "grounded_threshold": threshold,
+            "context_windows": context_windows,
+            "response_segments": response_segments,
+            **(debug if isinstance(debug, dict) else {}),
+        },
+    }
+
+
+def _guardian_score_cap(
+    *,
+    base_score: Optional[float],
+    literal_guarded: Optional[float],
+    guardian_result: Optional[Dict[str, Any]],
+    risk_band_policy: Optional[RiskBandPolicy] = None,
+    effective_stratum: Optional[str] = None,
+) -> Tuple[Optional[float], Optional[Dict[str, Any]]]:
+    """Use Guardian as a cap/veto channel rather than as the only headline.
+
+    The hot path no longer runs classic NLI, so Guardian should constrain
+    high-recall lexical/embedding evidence without replacing it. Any
+    unsupported Guardian segment prevents a green headline; severe segment
+    disagreement caps the score into the red/low-amber range.
+    """
+    if base_score is None or guardian_result is None:
+        return base_score, None
+
+    segments = guardian_result.get("segments") or []
+    if not segments:
+        return base_score, None
+
+    segment_scores = [
+        float(segment.get("score", 0.5))
+        for segment in segments
+        if segment.get("score") is not None
+    ]
+    if not segment_scores:
+        return base_score, None
+
+    unsupported_count = sum(1 for segment in segments if not bool(segment.get("grounded")))
+    total_count = len(segments)
+    unsupported_ratio = unsupported_count / max(1, total_count)
+    aggregate = float(guardian_result.get("aggregate", sum(segment_scores) / len(segment_scores)))
+    min_segment_score = min(segment_scores)
+    literal_value = float(literal_guarded) if literal_guarded is not None else None
+    thresholds = (risk_band_policy or get_risk_band_policy()).threshold_for(effective_stratum)
+    green_min = float(thresholds["green_min"])
+    amber_min = float(thresholds["amber_min"])
+    amber_cap = max(amber_min, green_min - 0.01)
+    amber_floor = amber_min + max(0.0, green_min - amber_min) * 0.10
+    score_floor: Optional[float] = None
+
+    if unsupported_count == 0:
+        cap = 1.0
+        reason = "guardian_all_segments_grounded"
+    elif (
+        aggregate >= 0.35
+        and float(base_score) >= max(0.0, amber_min - 0.10)
+    ):
+        cap = amber_cap
+        score_floor = amber_min
+        reason = "guardian_partial_support_cap"
+    elif (
+        unsupported_ratio <= 0.5
+        and float(base_score) >= max(0.0, amber_min - 0.10)
+    ):
+        cap = amber_floor
+        score_floor = amber_min
+        reason = "guardian_mixed_support_cap"
+    else:
+        cap = max(0.0, amber_min - 0.05)
+        reason = "guardian_severe_disagreement_cap"
+
+    capped_score = min(float(base_score), cap)
+    if score_floor is not None:
+        capped_score = max(capped_score, score_floor)
+    return capped_score, {
+        "base_score": float(base_score),
+        "capped_score": capped_score,
+        "cap": cap,
+        "floor": score_floor,
+        "reason": reason,
+        "guardian_aggregate": aggregate,
+        "guardian_min_segment_score": min_segment_score,
+        "literal_guarded": literal_value,
+        "guardian_unsupported_count": unsupported_count,
+        "guardian_segment_count": total_count,
+        "guardian_unsupported_ratio": unsupported_ratio,
     }
 
 
@@ -5289,7 +5449,7 @@ def score_groundedness_chunked(
         guardian_result["aggregate"] if guardian_result is not None else None
     )
 
-    groundedness_v2 = fuse_groundedness_v2(
+    base_groundedness_v2 = fuse_groundedness_v2(
         reverse_context_calibrated=(
             float(reverse_context_calibrated_score) if null_bank_size > 0 else float(reverse_context_score)
         ),
@@ -5303,6 +5463,13 @@ def score_groundedness_chunked(
         typed_claims_matched=typed_claims_matched,
         weights=fusion_weights,
         substitute_missing_channels_threshold=fusion_substitute_missing_channels_threshold,
+    )
+    groundedness_v2, guardian_cap_diagnostics = _guardian_score_cap(
+        base_score=base_groundedness_v2,
+        literal_guarded=float(literal_guarded_value),
+        guardian_result=guardian_result,
+        risk_band_policy=risk_band_policy,
+        effective_stratum=risk_band_stratum,
     )
     if business_policy_rescue is not None:
         groundedness_v2 = max(float(groundedness_v2), float(business_policy_rescue))
@@ -5357,6 +5524,15 @@ def score_groundedness_chunked(
         "nli_aggregate": float(nli_aggregate) if nli_aggregate is not None else None,
         "guardian_aggregate": float(guardian_aggregate) if guardian_aggregate is not None else None,
         "guardian_segments": guardian_result["segments"] if guardian_result is not None else None,
+        "guardian_base_score": (
+            float(base_groundedness_v2) if base_groundedness_v2 is not None else None
+        ),
+        "guardian_cap": (
+            float(guardian_cap_diagnostics["cap"]) if guardian_cap_diagnostics else None
+        ),
+        "guardian_cap_reason": (
+            guardian_cap_diagnostics["reason"] if guardian_cap_diagnostics else None
+        ),
         "grounded": guardian_result["grounded"] if guardian_result is not None else None,
         "verbatim_support_floor": (
             float(verbatim_floor) if verbatim_floor is not None else None
@@ -5484,6 +5660,14 @@ def score_groundedness_chunked(
         "context_trust_diagnostics": context_trust_diagnostics,
         "semantic_entropy_diagnostics": semantic_entropy_payload,
         "structured_diagnostics": structured_payload,
+        "guardian_diagnostics": (
+            None
+            if guardian_result is None
+            else {
+                "cap": guardian_cap_diagnostics,
+                "debug": guardian_result.get("debug"),
+            }
+        ),
         "_internals": {
             "reverse_context_unit_values": reverse_context_unit_values,
             "null_mean": null_mean_tensor,
@@ -5996,8 +6180,13 @@ def score_groundedness_response_chunked(
         weights=fusion_weights,
         substitute_missing_channels_threshold=fusion_substitute_missing_channels_threshold,
     )
-    groundedness_v2 = fused if fused is not None else base_groundedness_v2
-
+    global_base_groundedness_v2 = fused if fused is not None else base_groundedness_v2
+    guardian_result_for_cap = None
+    if base_scores.get("guardian_segments") is not None:
+        guardian_result_for_cap = {
+            "aggregate": guardian_aggregate_score,
+            "segments": base_scores.get("guardian_segments") or [],
+        }
     # The merger reuses the base chunk's structured detection to decide
     # whether the rag_prose stratum is the right band for the gate.
     _merger_structured_format: Optional[str] = None
@@ -6007,6 +6196,15 @@ def score_groundedness_response_chunked(
         risk_band_stratum=risk_band_stratum,
         structured_source_format=_merger_structured_format,
         structured_verification=structured_verification,
+    )
+    groundedness_v2, guardian_cap_diagnostics = _guardian_score_cap(
+        base_score=global_base_groundedness_v2,
+        literal_guarded=(
+            float(base_literal_guarded) if base_literal_guarded is not None else None
+        ),
+        guardian_result=guardian_result_for_cap,
+        risk_band_policy=risk_band_policy,
+        effective_stratum=merger_effective_stratum or risk_band_stratum,
     )
     merger_claim_records = (
         nli_diag.get("claims") if isinstance(nli_diag, dict) else None
@@ -6289,6 +6487,17 @@ def score_groundedness_response_chunked(
     scores["grounded_coverage"] = grounded_coverage_score
     scores["null_bank_size"] = null_bank_size
     scores["groundedness_v2"] = float(groundedness_v2) if groundedness_v2 is not None else None
+    scores["guardian_base_score"] = (
+        float(global_base_groundedness_v2)
+        if global_base_groundedness_v2 is not None
+        else None
+    )
+    scores["guardian_cap"] = (
+        float(guardian_cap_diagnostics["cap"]) if guardian_cap_diagnostics else None
+    )
+    scores["guardian_cap_reason"] = (
+        guardian_cap_diagnostics["reason"] if guardian_cap_diagnostics else None
+    )
     scores["epistemic_hedge_gate"] = epistemic_hedge
     scores["risk_band"] = risk_band
     scores["context_coverage_ratio"] = (
@@ -6328,6 +6537,7 @@ def score_groundedness_response_chunked(
         "context_trust_diagnostics": context_trust_diagnostics,
         "semantic_entropy_diagnostics": base.get("semantic_entropy_diagnostics"),
         "structured_diagnostics": base.get("structured_diagnostics"),
+        "guardian_diagnostics": base.get("guardian_diagnostics"),
         "_internals": base.get("_internals"),
         "_response_chunk_count": len(response_chunks),
     }

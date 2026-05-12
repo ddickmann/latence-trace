@@ -1421,9 +1421,13 @@ def _compact_response(response: GroundednessResponse, *, verbose: bool) -> dict[
     score = scores.groundedness_v2 if scores.groundedness_v2 is not None else scores.primary_score
 
     if guardian_active:
-        band = "green" if scores.grounded else "red"
+        band = scores.risk_band
         score_channels = {
+            "reverse_context_calibrated": scores.reverse_context_calibrated,
+            "literal_guarded": scores.literal_guarded,
             "guardian_aggregate": scores.guardian_aggregate,
+            "guardian_base_score": scores.guardian_base_score,
+            "guardian_cap": scores.guardian_cap,
             "groundedness_v2": scores.groundedness_v2,
         }
     else:
@@ -1434,13 +1438,14 @@ def _compact_response(response: GroundednessResponse, *, verbose: bool) -> dict[
             "reverse_context_calibrated": scores.reverse_context_calibrated,
             "literal_guarded": scores.literal_guarded,
             "nli_aggregate": scores.nli_aggregate,
-            "guardian_aggregate": scores.guardian_aggregate,
             "semantic_entropy_aggregate": scores.semantic_entropy_aggregate,
             "structured_source": scores.structured_source,
             "structured_source_guarded": scores.structured_source_guarded,
             "groundedness_v2": scores.groundedness_v2,
             "consensus_hardened": scores.consensus_hardened,
         }
+        if scores.guardian_aggregate is not None:
+            score_channels["guardian_aggregate"] = scores.guardian_aggregate
     if scores.context_trust_score is not None:
         score_channels["context_trust"] = scores.context_trust_score
     if scores.context_trust_max_risk is not None:
@@ -1453,6 +1458,9 @@ def _compact_response(response: GroundednessResponse, *, verbose: bool) -> dict[
         "grounded": scores.grounded,
         "groundedness_v2": scores.groundedness_v2,
         "guardian_aggregate": scores.guardian_aggregate,
+        "guardian_base_score": scores.guardian_base_score,
+        "guardian_cap": scores.guardian_cap,
+        "guardian_cap_reason": scores.guardian_cap_reason,
         "score_channels": score_channels,
     }
     if guardian_active and scores.guardian_segments is not None:

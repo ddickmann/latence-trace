@@ -7,7 +7,7 @@ latence-trace without touching their request/response shapes.
 """
 
 from enum import Enum
-from typing import Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
@@ -598,6 +598,9 @@ class GroundednessScores(BaseModel):
     nli_aggregate: Optional[float] = None
     guardian_aggregate: Optional[float] = None
     guardian_segments: Optional[List[GuardianSegment]] = None
+    guardian_base_score: Optional[float] = None
+    guardian_cap: Optional[float] = None
+    guardian_cap_reason: Optional[str] = None
     grounded: Optional[bool] = None
     nli_claim_count: Optional[int] = None
     nli_skipped_count: Optional[int] = None
@@ -1897,6 +1900,13 @@ class GroundednessResponse(BaseModel):
     )
     semantic_entropy_diagnostics: Optional[GroundednessSemanticEntropyDiagnostics] = None
     structured_diagnostics: Optional[GroundednessStructuredDiagnostics] = None
+    guardian_diagnostics: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description=(
+            "Guardian holistic observability: context windows, response "
+            "segments, pair scores when available, and cap diagnostics."
+        ),
+    )
     code_lane_diagnostics: Optional[CodeLaneDiagnostics] = Field(
         default=None,
         exclude=True,

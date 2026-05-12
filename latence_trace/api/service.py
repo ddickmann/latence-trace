@@ -750,15 +750,29 @@ def _resolve_active_language(
 def _guardian_holistic_fusion_weights(
     base_weights: Optional[Dict[str, float]],
 ) -> Dict[str, float]:
-    """Guardian-only fusion: headline = guardian_aggregate."""
-    return {
-        "calibrated": 0.0,
-        "literal": 0.0,
-        "nli": 0.0,
-        "guardian": 1.0,
-        "semantic_entropy": 0.0,
-        "structured": 0.0,
-    }
+    """Base fusion for the Guardian hot path.
+
+    Guardian replaces classic NLI in the hot path, but it is applied inside
+    ``score_groundedness`` as a cap over the base score.  The weighted base
+    therefore keeps high-recall calibrated/literal/structured evidence and
+    removes both the absent classic-NLI channel and Guardian-as-a-weighted
+    channel from the mean.
+    """
+    weights = dict(base_weights or {})
+    if not weights:
+        weights = {
+            "calibrated": 0.5,
+            "literal": 0.2,
+            "nli": 0.0,
+            "guardian": 0.0,
+            "semantic_entropy": 0.0,
+            "structured": 0.0,
+        }
+    weights["calibrated"] = max(float(weights.get("calibrated", 0.0)), 0.9)
+    weights["literal"] = max(float(weights.get("literal", 0.0)), 0.1)
+    weights["nli"] = 0.0
+    weights["guardian"] = 0.0
+    return weights
 
 
 def _apply_language_defaults(
@@ -2211,6 +2225,7 @@ class GroundednessService:
                 )
             ),
             structured_diagnostics=scored.get("structured_diagnostics"),
+            guardian_diagnostics=scored.get("guardian_diagnostics"),
             file_attribution=file_attribution_wire,
             heatmap=heatmap_payload,
             heatmap_html=heatmap_html_str,
