@@ -240,6 +240,48 @@ def _coerce_action_to_calibration(
     return "block"
 
 
+def _guardian_hot_path_active(response: Any) -> bool:
+    scores = getattr(response, "scores", None)
+    if scores is None:
+        return False
+    return (
+        getattr(scores, "guardian_aggregate", None) is not None
+        and getattr(scores, "nli_aggregate", None) is None
+    )
+
+
+def _coerce_guardian_green_action(
+    action: str,
+    *,
+    calibration_band: Optional[str],
+    response: Any,
+    reason_codes: list[str],
+) -> str:
+    """Do not let stale NLI-era runtime heads repair Guardian-green prose.
+
+    Guardian is now the hot-path verifier for RAG prose. The old
+    multi-claim/factoid heads were calibrated against classic NLI
+    features and can abstain on otherwise green Guardian responses.
+    Keep explicit safety repairs, but align ordinary green Guardian
+    results with the user-visible groundedness verdict.
+    """
+    if action != "auto_repair" or calibration_band != "green":
+        return action
+    if not _guardian_hot_path_active(response):
+        return action
+    guarded_reasons = {
+        "context_trust_blocked",
+        "context_trust_suspicious",
+        "structured_measurement_literal_mismatch_repair_only",
+        "structured_currency_literal_mismatch_repair_only",
+        "structured_numeric_literal_mismatch_repair_only",
+    }
+    if any(reason in guarded_reasons for reason in reason_codes):
+        return action
+    reason_codes.append("guardian_green_calibration_allow")
+    return "allow"
+
+
 def _support_evidence(response: Any, *, limit: int = 3) -> list[dict[str, Any]]:
     units = list(getattr(response, "support_units", []) or [])
     units.sort(
@@ -405,6 +447,15 @@ def build_runtime_decision(response: Any) -> Optional[dict[str, Any]]:
         # rare ops scenarios.
         calibration_band = _calibration_band(response)
         action = _coerce_action_to_calibration(action, calibration_band, {})
+        reason_codes = sorted(
+            {error or "policy_unavailable", *_context_trust_reason_codes(response)}
+        )
+        action = _coerce_guardian_green_action(
+            action,
+            calibration_band=calibration_band,
+            response=response,
+            reason_codes=reason_codes,
+        )
         return {
             "policy_version": "unavailable",
             "policy_sha256": None,
@@ -415,9 +466,7 @@ def build_runtime_decision(response: Any) -> Optional[dict[str, Any]]:
             "action": action,
             "evidence": _support_evidence(response),
             "unsupported_spans": _unsupported_spans(response),
-            "reason_codes": sorted(
-                {error or "policy_unavailable", *_context_trust_reason_codes(response)}
-            ),
+            "reason_codes": sorted(set(reason_codes)),
             "rollback_safe": True,
         }
 
@@ -459,6 +508,12 @@ def build_runtime_decision(response: Any) -> Optional[dict[str, Any]]:
     action = _coerce_action_to_calibration(action, calibration_band, class_policy)
     if calibration_band is not None and action != pre_calibration_action:
         reason_codes.append(f"calibration_band_coercion:{calibration_band}")
+    action = _coerce_guardian_green_action(
+        action,
+        calibration_band=calibration_band,
+        response=response,
+        reason_codes=reason_codes,
+    )
     decision_band = calibration_band if calibration_band is not None else _band_for_action(action)
     return {
         "policy_version": str(policy.get("channel") or "runtime_decision"),

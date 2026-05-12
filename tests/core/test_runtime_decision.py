@@ -333,6 +333,25 @@ def test_all_promoted_heads_are_executable_or_feature_gated(monkeypatch) -> None
         assert "head_features_missing_repair_only" in missing["head_reason_codes"]
 
 
+def test_guardian_green_hot_path_is_not_demoted_by_nli_era_head(monkeypatch) -> None:
+    monkeypatch.setenv("LATENCE_TRACE_RUNTIME_DECISION_ENABLED", "1")
+    runtime_decision.reset_policy_cache_for_tests()
+
+    response = _response(0.99, class_key="rag.prose.multi_claim")
+    response.scores.risk_band = "green"
+    response.scores.guardian_aggregate = 0.99
+    response.scores.nli_aggregate = None
+
+    record = runtime_decision.build_runtime_decision(response)
+
+    assert record is not None
+    assert record["action"] == "allow"
+    assert record["band"] == "green"
+    assert record["head_enabled"] is False
+    assert "head_features_missing_repair_only" in record["head_reason_codes"]
+    assert "guardian_green_calibration_allow" in record["reason_codes"]
+
+
 def test_structured_measurement_literal_mismatch_forces_repair_without_blocking_clean_allow(
     monkeypatch,
 ) -> None:
